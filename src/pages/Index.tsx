@@ -1,12 +1,27 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { usePortfolio } from '@/contexts/PortfolioContext';
+import { FileUpload } from '@/components/dashboard/FileUpload';
+import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
+import { FilterBar } from '@/components/dashboard/FilterBar';
+import { KPICards } from '@/components/dashboard/KPICards';
+import { NetWorthChart } from '@/components/dashboard/NetWorthChart';
+import { AllocationCharts } from '@/components/dashboard/AllocationCharts';
+import { ForecastChart } from '@/components/dashboard/ForecastChart';
 
 const Index = () => {
+  const { data } = usePortfolio();
+
+  if (!data) return <FileUpload />;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <DashboardHeader />
+      <FilterBar />
+      <main className="mx-auto max-w-[1400px] animate-fade-in space-y-6 p-6">
+        <KPICards />
+        <NetWorthChart />
+        <AllocationCharts />
+        <ForecastChart />
+      </main>
     </div>
   );
 };
