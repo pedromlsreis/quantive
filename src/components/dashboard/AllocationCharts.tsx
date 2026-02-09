@@ -7,7 +7,7 @@ import {
   Cell,
   Tooltip,
 } from 'recharts';
-import { CHART_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } from '@/lib/chartColors';
+import { CHART_COLORS, TREEMAP_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } from '@/lib/chartColors';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { SourceDetail } from '@/lib/types';
 
@@ -63,20 +63,21 @@ const TreemapContent = (props: any) => {
   const { x, y, width, height, name, value, index } = props;
   if (width < 4 || height < 4) return null;
 
-  const color = CHART_COLORS[index % CHART_COLORS.length];
+  const color = TREEMAP_COLORS[index % TREEMAP_COLORS.length];
   const showLabel = width > 60 && height > 35;
   const showValue = width > 80 && height > 50;
+  const pad = 8;
 
   return (
     <g>
-      <rect x={x} y={y} width={width} height={height} rx={4} fill={color} fillOpacity={0.85} stroke="hsl(222, 25%, 10%)" strokeWidth={2} />
+      <rect x={x} y={y} width={width} height={height} rx={4} fill={color} fillOpacity={0.9} stroke="hsl(222, 25%, 10%)" strokeWidth={2} />
       {showLabel && (
-        <text x={x + width / 2} y={y + height / 2 - (showValue ? 8 : 0)} textAnchor="middle" dominantBaseline="central" fill="#e8ecf0" fontSize={11} fontWeight={600}>
+        <text x={x + pad} y={y + pad + 12} textAnchor="start" fill="#e8ecf0" fontSize={11} fontWeight={600}>
           {name}
         </text>
       )}
       {showValue && (
-        <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" dominantBaseline="central" fill="hsl(220, 12%, 60%)" fontSize={10}>
+        <text x={x + pad} y={y + pad + 26} textAnchor="start" fill="#e8ecf0" fontSize={10}>
           {formatCurrency(value)}
         </text>
       )}
@@ -107,7 +108,7 @@ export function AllocationCharts() {
     .map((s, i) => ({
       name: s.name,
       value: Math.round(s.value),
-      fill: CHART_COLORS[i % CHART_COLORS.length],
+      fill: TREEMAP_COLORS[i % TREEMAP_COLORS.length],
     }));
 
   const volatData = aggregateByKey(latest.sources, s => s.volatType);

@@ -42,6 +42,12 @@ export function StackedAreaChart() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload?.length) return null;
     const total = payload.reduce((sum: number, p: any) => sum + (p.value || 0), 0);
+
+    // Top 5 by value, rest grouped as "Others"
+    const sorted = [...payload].filter((p: any) => p.value > 0).sort((a: any, b: any) => b.value - a.value);
+    const top5 = sorted.slice(0, 5);
+    const othersVal = sorted.slice(5).reduce((sum: number, p: any) => sum + (p.value || 0), 0);
+
     return (
       <div
         style={{
@@ -50,24 +56,29 @@ export function StackedAreaChart() {
           borderRadius: 8,
           padding: '12px 16px',
           boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-          maxHeight: 300,
-          overflowY: 'auto',
         }}
       >
         <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 8 }}>{label}</p>
         <p style={{ color: '#e8ecf0', fontSize: 14, fontWeight: 700, marginBottom: 6 }}>
           Total: {formatFullCurrency(total)}
         </p>
-        {[...payload].reverse().map((p: any) =>
-          p.value > 0 ? (
-            <div key={p.dataKey} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-              <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: p.fill || p.color }} />
-              <span style={{ color: AXIS_COLOR, fontSize: 11 }}>{p.dataKey}</span>
-              <span style={{ color: '#e8ecf0', fontSize: 11, fontWeight: 600, marginLeft: 'auto' }}>
-                {formatFullCurrency(p.value)}
-              </span>
-            </div>
-          ) : null
+        {top5.map((p: any) => (
+          <div key={p.dataKey} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: p.fill || p.color }} />
+            <span style={{ color: AXIS_COLOR, fontSize: 11 }}>{p.dataKey}</span>
+            <span style={{ color: '#e8ecf0', fontSize: 11, fontWeight: 600, marginLeft: 'auto' }}>
+              {formatFullCurrency(p.value)}
+            </span>
+          </div>
+        ))}
+        {othersVal > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+            <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: AXIS_COLOR }} />
+            <span style={{ color: AXIS_COLOR, fontSize: 11 }}>Others</span>
+            <span style={{ color: '#e8ecf0', fontSize: 11, fontWeight: 600, marginLeft: 'auto' }}>
+              {formatFullCurrency(othersVal)}
+            </span>
+          </div>
         )}
       </div>
     );
