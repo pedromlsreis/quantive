@@ -8,6 +8,7 @@ import { StackedAreaChart } from '@/components/dashboard/StackedAreaChart';
 import { AllocationCharts } from '@/components/dashboard/AllocationCharts';
 import { ForecastChart } from '@/components/dashboard/ForecastChart';
 import { YearlyEarnings } from '@/components/dashboard/YearlyEarnings';
+import { MotivationalKPIs } from '@/components/dashboard/MotivationalKPIs';
 
 const Index = () => {
   const { data } = usePortfolio();
@@ -20,6 +21,7 @@ const Index = () => {
       <FilterBar />
       <main className="mx-auto max-w-[1400px] animate-fade-in space-y-6 p-6">
         <KPICards />
+        <MotivationalKPIs />
         <NetWorthChart />
         <StackedAreaChart />
         <AllocationCharts />
