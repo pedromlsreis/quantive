@@ -44,7 +44,7 @@ export function FileUpload() {
             </div>
             <h2 className="mb-2 text-2xl font-bold text-foreground">Upload Portfolio Data</h2>
             <p className="mb-6 text-center text-muted-foreground">
-              Drop your <code className="rounded bg-secondary px-1.5 py-0.5 text-sm text-primary">portfolio.xlsx</code> file here
+              Drop your Excel file here (any <code className="rounded bg-secondary px-1.5 py-0.5 text-sm text-primary">.xlsx</code> following the portfolio structure)
             </p>
             <label className="cursor-pointer rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/90">
               Browse Files

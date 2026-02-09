@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { ChevronDown, X, Calendar } from 'lucide-react';
+import { FilterState } from '@/lib/types';
 
 function MultiSelect({
   label,
@@ -146,11 +147,13 @@ export function FilterBar() {
         selected={filters.sources}
         onChange={(v) => updateFilters({ sources: v })}
       />
-      <MultiSelect
-        label="Volatility"
-        options={allVolatTypes}
-        selected={filters.volatTypes}
-        onChange={(v) => updateFilters({ volatTypes: v })}
+      <ToggleFilter
+        value={filters.volatTypes.length === 1 ? filters.volatTypes[0] : 'all'}
+        options={[
+          { value: 'all', label: 'All' },
+          ...allVolatTypes.map(v => ({ value: v, label: v })),
+        ]}
+        onChange={(v) => updateFilters({ volatTypes: v === 'all' ? [] : [v] })}
       />
 
       <div className="h-6 w-px bg-border" />

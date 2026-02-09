@@ -1,17 +1,13 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
+  Treemap,
   PieChart,
   Pie,
   Cell,
-  CartesianGrid,
+  Tooltip,
 } from 'recharts';
-import { CHART_COLORS, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
+import { CHART_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } from '@/lib/chartColors';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { SourceDetail } from '@/lib/types';
 
@@ -29,26 +25,6 @@ function aggregateByKey(
     .sort((a, b) => b.value - a.value);
 }
 
-const BarTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      style={{
-        backgroundColor: TOOLTIP_BG,
-        border: `1px solid ${TOOLTIP_BORDER}`,
-        borderRadius: 8,
-        padding: '12px 16px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-      }}
-    >
-      <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{payload[0]?.payload?.name}</p>
-      <p style={{ color: '#e8ecf0', fontSize: 14, fontWeight: 700 }}>
-        {formatFullCurrency(payload[0].value)}
-      </p>
-    </div>
-  );
-};
-
 function DonutChart({ title, data }: { title: string; data: { name: string; value: number }[] }) {
   const total = data.reduce((sum, d) => sum + d.value, 0);
   if (total === 0) return null;
@@ -59,16 +35,7 @@ function DonutChart({ title, data }: { title: string; data: { name: string; valu
       <div className="h-[160px]">
         <ResponsiveContainer>
           <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="50%"
-              innerRadius={45}
-              outerRadius={65}
-              paddingAngle={3}
-              dataKey="value"
-              stroke="none"
-            >
+            <Pie data={data} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={3} dataKey="value" stroke="none">
               {data.map((_, i) => (
                 <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
               ))}
@@ -80,21 +47,53 @@ function DonutChart({ title, data }: { title: string; data: { name: string; valu
         {data.map((d, i) => (
           <div key={d.name} className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
-              <div
-                className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
-              />
+              <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
               <span className="text-muted-foreground">{d.name}</span>
             </div>
-            <span className="font-medium text-foreground">
-              {((d.value / total) * 100).toFixed(0)}%
-            </span>
+            <span className="font-medium text-foreground">{((d.value / total) * 100).toFixed(0)}%</span>
           </div>
         ))}
       </div>
     </div>
   );
 }
+
+// Custom treemap content renderer
+const TreemapContent = (props: any) => {
+  const { x, y, width, height, name, value, index } = props;
+  if (width < 4 || height < 4) return null;
+
+  const color = CHART_COLORS[index % CHART_COLORS.length];
+  const showLabel = width > 60 && height > 35;
+  const showValue = width > 80 && height > 50;
+
+  return (
+    <g>
+      <rect x={x} y={y} width={width} height={height} rx={4} fill={color} fillOpacity={0.85} stroke="hsl(222, 25%, 10%)" strokeWidth={2} />
+      {showLabel && (
+        <text x={x + width / 2} y={y + height / 2 - (showValue ? 8 : 0)} textAnchor="middle" dominantBaseline="central" fill="#e8ecf0" fontSize={11} fontWeight={600}>
+          {name}
+        </text>
+      )}
+      {showValue && (
+        <text x={x + width / 2} y={y + height / 2 + 10} textAnchor="middle" dominantBaseline="central" fill="hsl(220, 12%, 60%)" fontSize={10}>
+          {formatCurrency(value)}
+        </text>
+      )}
+    </g>
+  );
+};
+
+const TreemapTooltip = ({ active, payload }: any) => {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+      <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{d.name}</p>
+      <p style={{ color: '#e8ecf0', fontSize: 14, fontWeight: 700 }}>{formatFullCurrency(d.value)}</p>
+    </div>
+  );
+};
 
 export function AllocationCharts() {
   const { snapshots } = usePortfolio();
@@ -103,7 +102,7 @@ export function AllocationCharts() {
 
   const latest = snapshots[snapshots.length - 1];
 
-  const sourceData = latest.sources
+  const treemapData = latest.sources
     .sort((a, b) => b.value - a.value)
     .map((s, i) => ({
       name: s.name,
@@ -119,27 +118,16 @@ export function AllocationCharts() {
     <div className="space-y-6">
       <div className="rounded-xl border border-border bg-card p-6">
         <h3 className="mb-4 text-sm font-medium text-muted-foreground">Allocation by Source</h3>
-        <div style={{ height: Math.max(200, sourceData.length * 40) }}>
+        <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sourceData} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} horizontal={false} />
-              <XAxis
-                type="number"
-                stroke={AXIS_COLOR}
-                fontSize={11}
-                tickFormatter={(v) => formatCurrency(v)}
-              />
-              <YAxis type="category" dataKey="name" stroke={AXIS_COLOR} fontSize={11} width={100} />
-              <Tooltip
-                content={<BarTooltip />}
-                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-              />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20}>
-                {sourceData.map((entry, i) => (
-                  <Cell key={i} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
+            <Treemap
+              data={treemapData}
+              dataKey="value"
+              stroke="none"
+              content={<TreemapContent />}
+            >
+              <Tooltip content={<TreemapTooltip />} />
+            </Treemap>
           </ResponsiveContainer>
         </div>
       </div>
