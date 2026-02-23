@@ -29,21 +29,27 @@ export function YearlyEarnings() {
     }
   }
 
-  const rows: YearRow[] = Array.from(byYear.entries())
-    .sort(([a], [b]) => b - a)
-    .map(([year, { first, last }]) => {
-      const gain = last.total - first.total;
+  const sortedYears = Array.from(byYear.entries()).sort(([a], [b]) => a - b);
+
+  const rows: YearRow[] = sortedYears
+    .map(([year, { first, last }], idx) => {
+      // Use previous year's end value as this year's start (continuous chain)
+      const prevEnd = idx > 0 ? sortedYears[idx - 1][1].last.total : first.total;
+      const startValue = prevEnd;
+      const endValue = last.total;
+      const gain = endValue - startValue;
       const days = Math.max(1, Math.round((last.date.getTime() - first.date.getTime()) / (1000 * 60 * 60 * 24)));
       return {
         year,
-        startValue: first.total,
-        endValue: last.total,
+        startValue,
+        endValue,
         gain,
-        gainPct: first.total > 0 ? (gain / first.total) * 100 : 0,
+        gainPct: startValue > 0 ? (gain / startValue) * 100 : 0,
         days,
         eurPerDay: gain / days,
       };
-    });
+    })
+    .reverse();
 
   return (
     <div className="rounded-xl border border-border bg-card p-6">
