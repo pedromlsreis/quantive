@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
 import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData } from '@/lib/types';
 import { parsePortfolioExcel } from '@/lib/dataProcessor';
+import { generateMockData } from '@/lib/mockData';
 import { toast } from 'sonner';
 
 const STORAGE_KEY = 'portfolio-data';
@@ -16,6 +17,7 @@ interface PortfolioContextType {
   allVolatTypes: string[];
   dateRange: [Date, Date] | null;
   loadFile: (file: File) => Promise<void>;
+  loadMockData: () => void;
   clearData: () => void;
   isLoading: boolean;
 }
@@ -111,6 +113,13 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     }
   }, []);
+
+  const loadMockData = useCallback(() => {
+    const mock = generateMockData();
+    setData(mock);
+    setDefaultDateRange(mock);
+    toast.success('Loaded demo data');
+  }, [setDefaultDateRange]);
 
   const clearData = useCallback(() => {
     setData(null);
@@ -232,6 +241,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     allVolatTypes,
     dateRange,
     loadFile,
+    loadMockData,
     clearData,
     isLoading,
   };
