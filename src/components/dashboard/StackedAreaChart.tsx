@@ -8,7 +8,7 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts';
-import { CHART_COLORS, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
+import { TREEMAP_COLORS, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 
 export function StackedAreaChart() {
@@ -100,8 +100,8 @@ export function StackedAreaChart() {
                 type="monotone"
                 dataKey={name}
                 stackId="1"
-                fill={CHART_COLORS[i % CHART_COLORS.length]}
-                stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                fill={TREEMAP_COLORS[i % TREEMAP_COLORS.length]}
+                stroke={TREEMAP_COLORS[i % TREEMAP_COLORS.length]}
                 fillOpacity={0.8}
               />
             ))}

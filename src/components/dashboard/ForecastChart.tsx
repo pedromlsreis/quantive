@@ -16,6 +16,8 @@ const ForecastTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
   const actual = payload.find((p: any) => p.dataKey === 'actual');
   const forecast = payload.find((p: any) => p.dataKey === 'forecast');
+  const upper = payload.find((p: any) => p.dataKey === 'upper');
+  const lower = payload.find((p: any) => p.dataKey === 'lower');
   return (
     <div
       style={{
@@ -37,6 +39,11 @@ const ForecastTooltip = ({ active, payload, label }: any) => {
           Forecast: {formatFullCurrency(forecast.value)}
         </p>
       )}
+      {upper?.value != null && lower?.value != null && (
+        <p style={{ color: AXIS_COLOR, fontSize: 11, marginTop: 2 }}>
+          Range: {formatFullCurrency(lower.value)} – {formatFullCurrency(upper.value)}
+        </p>
+      )}
     </div>
   );
 };
@@ -46,18 +53,28 @@ export function ForecastChart() {
 
   if (snapshots.length < 3) return null;
 
-  const forecastPoints = generateForecast(snapshots, 6);
+  const forecastPoints = generateForecast(snapshots, 12);
 
-  const chartData: { date: string; actual: number | null; forecast: number | null }[] =
-    snapshots.map(s => ({
-      date: format(s.date, 'MMM yy'),
-      actual: Math.round(s.total),
-      forecast: null,
-    }));
+  const chartData: {
+    date: string;
+    actual: number | null;
+    forecast: number | null;
+    upper: number | null;
+    lower: number | null;
+  }[] = snapshots.map(s => ({
+    date: format(s.date, 'MMM yy'),
+    actual: Math.round(s.total),
+    forecast: null,
+    upper: null,
+    lower: null,
+  }));
 
   // Transition point
   if (chartData.length > 0) {
-    chartData[chartData.length - 1].forecast = chartData[chartData.length - 1].actual;
+    const last = chartData[chartData.length - 1];
+    last.forecast = last.actual;
+    last.upper = last.actual;
+    last.lower = last.actual;
   }
 
   forecastPoints.forEach(f => {
@@ -65,6 +82,8 @@ export function ForecastChart() {
       date: format(f.date, 'MMM yy'),
       actual: null,
       forecast: Math.round(f.forecast),
+      upper: Math.round(f.upper),
+      lower: Math.round(f.lower),
     });
   });
 
@@ -75,7 +94,7 @@ export function ForecastChart() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
-          <p className="text-xs text-muted-foreground/70">6-month linear projection</p>
+          <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
         </div>
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1.5">
@@ -88,6 +107,13 @@ export function ForecastChart() {
               style={{ backgroundColor: POSITIVE_COLOR, opacity: 0.7 }}
             />
             <span className="text-muted-foreground">Forecast</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div
+              className="h-2.5 w-5 rounded"
+              style={{ backgroundColor: POSITIVE_COLOR, opacity: 0.12 }}
+            />
+            <span className="text-muted-foreground">95% CI</span>
           </div>
         </div>
       </div>
@@ -119,6 +145,28 @@ export function ForecastChart() {
               width={70}
             />
             <Tooltip content={<ForecastTooltip />} />
+            {/* Confidence band - upper */}
+            <Area
+              type="monotone"
+              dataKey="upper"
+              stroke="none"
+              fill={POSITIVE_COLOR}
+              fillOpacity={0.08}
+              dot={false}
+              connectNulls={false}
+              activeDot={false}
+            />
+            {/* Confidence band - lower (cuts out the bottom) */}
+            <Area
+              type="monotone"
+              dataKey="lower"
+              stroke="none"
+              fill="hsl(222, 25%, 10%)"
+              fillOpacity={1}
+              dot={false}
+              connectNulls={false}
+              activeDot={false}
+            />
             <Area
               type="monotone"
               dataKey="actual"

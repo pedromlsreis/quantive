@@ -68,6 +68,19 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [isLoading, setIsLoading] = useState(false);
 
+  const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
+    const dates = parsed.facts.map(f => f.date.getTime());
+    if (dates.length === 0) return;
+    const maxDate = new Date(Math.max(...dates));
+    const twoYearsAgo = new Date(maxDate);
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    const minDate = new Date(Math.min(...dates));
+    setFilters(prev => ({
+      ...prev,
+      dateRange: [twoYearsAgo < minDate ? minDate : twoYearsAgo, maxDate],
+    }));
+  }, []);
+
   useEffect(() => {
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
@@ -75,11 +88,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const parsed = JSON.parse(cached);
         parsed.facts = parsed.facts.map((f: any) => ({ ...f, date: new Date(f.date) }));
         setData(parsed);
+        setDefaultDateRange(parsed);
       }
     } catch (e) {
       console.error('Failed to load cached data:', e);
     }
-  }, []);
+  }, [setDefaultDateRange]);
 
   const loadFile = useCallback(async (file: File) => {
     setIsLoading(true);
@@ -88,7 +102,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       const parsed = parsePortfolioExcel(buffer);
       setData(parsed);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      setFilters(defaultFilters);
+      setDefaultDateRange(parsed);
       toast.success(`Loaded ${parsed.facts.length} records from ${file.name}`);
     } catch (e: any) {
       console.error('Failed to parse file:', e);
@@ -110,11 +124,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   const enrichedFacts = useMemo<EnrichedFact[]>(() => {
     if (!data) return [];
-    const sourceMap = new Map(data.refSources.map(s => [s.idSource, s]));
+    const sourceMap = new Map(data.refSources.map(s => [s.idSource.trim(), s]));
     const volatMap = new Map(data.refVolatTypes.map(v => [v.idVolatType, v.volatTypeDsc]));
 
     return data.facts.map(f => {
-      const source = sourceMap.get(f.idSource);
+      const source = sourceMap.get(f.idSource.trim());
       return {
         ...f,
         volatType: source ? (volatMap.get(source.idVolatType) || 'Unknown') : 'Unknown',
