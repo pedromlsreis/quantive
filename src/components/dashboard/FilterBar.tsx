@@ -1,7 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { ChevronDown, X, Calendar } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import { FilterState } from '@/lib/types';
+import { Slider } from '@/components/ui/slider';
+import { format } from 'date-fns';
 
 function MultiSelect({
   label,
@@ -105,39 +107,71 @@ function ToggleFilter({
   );
 }
 
+function DateRangeSlider() {
+  const { filters, updateFilters, dateRange } = usePortfolio();
+
+  // Build monthly ticks from the full data range
+  const months = useMemo(() => {
+    if (!dateRange) return [];
+    const result: Date[] = [];
+    const current = new Date(dateRange[0].getFullYear(), dateRange[0].getMonth(), 1);
+    const end = new Date(dateRange[1].getFullYear(), dateRange[1].getMonth(), 1);
+    while (current <= end) {
+      result.push(new Date(current));
+      current.setMonth(current.getMonth() + 1);
+    }
+    return result;
+  }, [dateRange]);
+
+  if (months.length < 2) return null;
+
+  // Map current filter dates to slider indices
+  const startIdx = filters.dateRange[0]
+    ? months.findIndex(m => m.getFullYear() === filters.dateRange[0]!.getFullYear() && m.getMonth() === filters.dateRange[0]!.getMonth())
+    : 0;
+  const endIdx = filters.dateRange[1]
+    ? months.findIndex(m => m.getFullYear() === filters.dateRange[1]!.getFullYear() && m.getMonth() === filters.dateRange[1]!.getMonth())
+    : months.length - 1;
+
+  const safeStart = Math.max(0, startIdx === -1 ? 0 : startIdx);
+  const safeEnd = Math.max(safeStart, endIdx === -1 ? months.length - 1 : endIdx);
+
+  const handleChange = (values: number[]) => {
+    const startMonth = months[values[0]];
+    const endMonth = months[values[1]];
+    updateFilters({
+      dateRange: [
+        new Date(startMonth.getFullYear(), startMonth.getMonth(), 1),
+        new Date(endMonth.getFullYear(), endMonth.getMonth() + 1, 0, 23, 59, 59),
+      ],
+    });
+  };
+
+  const startLabel = format(months[safeStart], 'MMM yyyy');
+  const endLabel = format(months[safeEnd], 'MMM yyyy');
+
+  return (
+    <div className="flex items-center gap-3 min-w-[280px]">
+      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{startLabel}</span>
+      <Slider
+        min={0}
+        max={months.length - 1}
+        step={1}
+        value={[safeStart, safeEnd]}
+        onValueChange={handleChange}
+        className="flex-1"
+      />
+      <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{endLabel}</span>
+    </div>
+  );
+}
+
 export function FilterBar() {
-  const { filters, updateFilters, allSources, allVolatTypes, dateRange } = usePortfolio();
+  const { filters, updateFilters, allSources, allVolatTypes } = usePortfolio();
 
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-3">
-      <div className="flex items-center gap-2">
-        <Calendar className="h-4 w-4 text-muted-foreground" />
-        <input
-          type="date"
-          value={filters.dateRange[0]?.toISOString().slice(0, 10) || ''}
-          min={dateRange?.[0]?.toISOString().slice(0, 10)}
-          max={dateRange?.[1]?.toISOString().slice(0, 10)}
-          onChange={(e) =>
-            updateFilters({
-              dateRange: [e.target.value ? new Date(e.target.value + 'T00:00:00') : null, filters.dateRange[1]],
-            })
-          }
-          className="rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground"
-        />
-        <span className="text-muted-foreground">→</span>
-        <input
-          type="date"
-          value={filters.dateRange[1]?.toISOString().slice(0, 10) || ''}
-          min={dateRange?.[0]?.toISOString().slice(0, 10)}
-          max={dateRange?.[1]?.toISOString().slice(0, 10)}
-          onChange={(e) =>
-            updateFilters({
-              dateRange: [filters.dateRange[0], e.target.value ? new Date(e.target.value + 'T23:59:59') : null],
-            })
-          }
-          className="rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground"
-        />
-      </div>
+      <DateRangeSlider />
 
       <div className="h-6 w-px bg-border" />
 

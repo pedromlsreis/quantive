@@ -1,7 +1,6 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { formatFullCurrency } from '@/lib/formatters';
-import { TrendingUp, TrendingDown } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface YearRow {
   year: number;
@@ -18,7 +17,6 @@ export function YearlyEarnings() {
 
   if (snapshots.length < 2) return null;
 
-  // Group snapshots by year
   const byYear = new Map<number, { first: typeof snapshots[0]; last: typeof snapshots[0] }>();
   for (const snap of snapshots) {
     const y = snap.date.getFullYear();
@@ -47,60 +45,52 @@ export function YearlyEarnings() {
       };
     });
 
-  const maxAbsGain = Math.max(...rows.map(r => Math.abs(r.gain)), 1);
-
   return (
-    <TooltipProvider>
-      <div className="rounded-xl border border-border bg-card p-6">
-        <h3 className="mb-4 text-sm font-medium text-muted-foreground">
-          Earnings Per Year
-        </h3>
-        <div className="space-y-3">
-          {rows.map(row => {
-            const isPositive = row.gain >= 0;
-            const barWidth = Math.abs(row.gain) / maxAbsGain * 100;
-            return (
-              <Tooltip key={row.year}>
-                <TooltipTrigger asChild>
-                  <div className="group cursor-default rounded-lg border border-border/50 bg-secondary/30 p-4 transition-colors hover:bg-secondary/60">
-                    <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold text-foreground">{row.year}</span>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <div className={`flex items-center gap-1 text-sm font-semibold ${isPositive ? 'text-accent' : 'text-destructive'}`}>
-                            {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-                            {isPositive ? '+' : ''}{formatFullCurrency(row.gain)}
-                          </div>
-                          <span className={`text-xs ${isPositive ? 'text-accent/70' : 'text-destructive/70'}`}>
-                            {isPositive ? '+' : ''}{row.gainPct.toFixed(1)}%
-                          </span>
-                        </div>
-                        <div className="w-px h-8 bg-border" />
-                        <div className="text-right min-w-[100px]">
-                          <div className={`text-sm font-semibold ${isPositive ? 'text-accent' : 'text-destructive'}`}>
-                            {isPositive ? '+' : ''}{formatFullCurrency(row.eurPerDay)}
-                          </div>
-                          <span className="text-xs text-muted-foreground">per day avg</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-3 h-1.5 w-full rounded-full bg-secondary">
-                      <div
-                        className={`h-1.5 rounded-full transition-all ${isPositive ? 'bg-accent' : 'bg-destructive'}`}
-                        style={{ width: `${barWidth}%` }}
-                      />
-                    </div>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="max-w-[300px] text-xs leading-relaxed">
-                  Start: {formatFullCurrency(row.startValue)} → End: {formatFullCurrency(row.endValue)}.
-                  Gain = End − Start. €/day = Gain ÷ {row.days} days measured.
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-        </div>
+    <div className="rounded-xl border border-border bg-card p-6">
+      <h3 className="mb-4 text-sm font-medium text-muted-foreground">Earnings Per Year</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-xs text-muted-foreground">
+              <th className="pb-2 text-left font-medium">Year</th>
+              <th className="pb-2 text-right font-medium">Start</th>
+              <th className="pb-2 text-right font-medium">End</th>
+              <th className="pb-2 text-right font-medium">Gain</th>
+              <th className="pb-2 text-right font-medium">%</th>
+              <th className="pb-2 text-right font-medium">€/day</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(row => {
+              const isPositive = row.gain >= 0;
+              const Icon = row.gain === 0 ? Minus : isPositive ? TrendingUp : TrendingDown;
+              const colorClass = row.gain === 0
+                ? 'text-muted-foreground'
+                : isPositive ? 'text-accent' : 'text-destructive';
+
+              return (
+                <tr key={row.year} className="border-b border-border/50 last:border-0">
+                  <td className="py-2.5 font-semibold text-foreground">{row.year}</td>
+                  <td className="py-2.5 text-right text-muted-foreground">{formatFullCurrency(row.startValue)}</td>
+                  <td className="py-2.5 text-right text-foreground">{formatFullCurrency(row.endValue)}</td>
+                  <td className={`py-2.5 text-right font-semibold ${colorClass}`}>
+                    <span className="inline-flex items-center gap-1">
+                      <Icon className="h-3 w-3" />
+                      {isPositive ? '+' : ''}{formatFullCurrency(row.gain)}
+                    </span>
+                  </td>
+                  <td className={`py-2.5 text-right font-medium ${colorClass}`}>
+                    {isPositive ? '+' : ''}{row.gainPct.toFixed(1)}%
+                  </td>
+                  <td className={`py-2.5 text-right font-medium ${colorClass}`}>
+                    {isPositive ? '+' : ''}{formatFullCurrency(row.eurPerDay)}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-    </TooltipProvider>
+    </div>
   );
 }
