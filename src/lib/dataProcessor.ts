@@ -16,18 +16,32 @@ function parseBoolean(val: any): boolean {
   return str === 'true' || str === '1' || str === 'yes';
 }
 
+function normalizeHeader(val: any): string {
+  return String(val || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s_]+/g, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
 function findTableData(
   rows: any[][],
   requiredHeaders: string[]
 ): { headerRow: number; colIndices: Record<string, number> } | null {
+  const normalizedRequired = requiredHeaders.map(h => ({ original: h, norm: normalizeHeader(h) }));
+
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
     if (!row) continue;
     const colIndices: Record<string, number> = {};
     for (let c = 0; c < row.length; c++) {
-      const cell = String(row[c] || '').trim().toUpperCase();
-      const match = requiredHeaders.find(h => h.toUpperCase() === cell);
-      if (match) colIndices[match] = c;
+      const cellNorm = normalizeHeader(row[c]);
+      if (!cellNorm) continue;
+      const match = normalizedRequired.find(h => h.norm === cellNorm);
+      if (match && !(match.original in colIndices)) {
+        colIndices[match.original] = c;
+      }
     }
     if (Object.keys(colIndices).length === requiredHeaders.length) {
       return { headerRow: r, colIndices };
@@ -85,7 +99,7 @@ export function parsePortfolioExcel(buffer: ArrayBuffer): PortfolioData {
   const sourcesTable = findTableData(refRows, ['ID_SOURCE', 'ID_VOLAT_TYPE', 'IS_CRYPTO', 'TRANSFERABLE_IN_DAYS']);
   const refSources: RefSource[] = sourcesTable
     ? extractTableRows(refRows, sourcesTable.headerRow, sourcesTable.colIndices).map(r => ({
-        idSource: String(r['ID_SOURCE']),
+        idSource: String(r['ID_SOURCE']).trim(),
         idVolatType: Number(r['ID_VOLAT_TYPE']),
         isCrypto: parseBoolean(r['IS_CRYPTO']),
         transferableInDays: parseBoolean(r['TRANSFERABLE_IN_DAYS']),
