@@ -10,6 +10,8 @@ import {
 import { CHART_COLORS, TREEMAP_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } from '@/lib/chartColors';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { SourceDetail } from '@/lib/types';
+import { Info } from 'lucide-react';
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 function aggregateByKey(
   sources: SourceDetail[],
@@ -25,13 +27,25 @@ function aggregateByKey(
     .sort((a, b) => b.value - a.value);
 }
 
-function DonutChart({ title, data }: { title: string; data: { name: string; value: number }[] }) {
+function DonutChart({ title, data, description }: { title: string; data: { name: string; value: number }[]; description: string }) {
   const total = data.reduce((sum, d) => sum + d.value, 0);
   if (total === 0) return null;
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <h4 className="mb-2 text-sm font-medium text-muted-foreground">{title}</h4>
+      <div className="mb-2 flex items-center gap-1.5">
+        <h4 className="text-sm font-medium text-muted-foreground">{title}</h4>
+        <TooltipProvider>
+          <UITooltip>
+            <TooltipTrigger asChild>
+              <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground/50" />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
+              {description}
+            </TooltipContent>
+          </UITooltip>
+        </TooltipProvider>
+      </div>
       <div className="h-[160px]">
         <ResponsiveContainer>
           <PieChart>
@@ -134,9 +148,21 @@ export function AllocationCharts() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <DonutChart title="Volatility" data={volatData} />
-        <DonutChart title="Asset Type" data={cryptoData} />
-        <DonutChart title="Liquidity" data={liquidData} />
+        <DonutChart
+          title="Volatility"
+          data={volatData}
+          description="How stable each asset's value is over time. Volatile assets (stocks, crypto) swing more in price, while non-volatile assets (savings, bonds) remain steadier."
+        />
+        <DonutChart
+          title="Asset Type"
+          data={cryptoData}
+          description="Splits your portfolio between cryptocurrency-based assets (Bitcoin, Ethereum, etc.) and traditional assets (bank accounts, stocks, real estate)."
+        />
+        <DonutChart
+          title="Liquidity"
+          data={liquidData}
+          description="How quickly you can convert each asset to cash. Liquid assets (savings, stocks) can be accessed within days, while non-liquid assets (real estate, locked funds) take longer."
+        />
       </div>
     </div>
   );
