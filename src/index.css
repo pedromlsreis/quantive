@@ -62,4 +62,8 @@
   input[type="date"] {
     color-scheme: dark;
   }
+
+  #lovable-badge {
+    display: none !important;
+  }
 }
