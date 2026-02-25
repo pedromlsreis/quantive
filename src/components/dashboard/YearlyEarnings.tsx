@@ -38,7 +38,8 @@ export function YearlyEarnings() {
       const startValue = prevEnd;
       const endValue = last.total;
       const gain = endValue - startValue;
-      const days = Math.max(1, Math.round((last.date.getTime() - first.date.getTime()) / (1000 * 60 * 60 * 24)));
+      const yearStart = new Date(year, 0, 1);
+      const days = Math.max(1, Math.round((last.date.getTime() - yearStart.getTime()) / (1000 * 60 * 60 * 24)));
       return {
         year,
         startValue,
