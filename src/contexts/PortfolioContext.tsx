@@ -48,12 +48,13 @@ export function usePortfolio() {
   return ctx;
 }
 
-function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date): Snapshot | null {
+function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: Snapshot): Snapshot | null {
   if (snapshots.length === 0) return null;
-  let closest = snapshots[0];
-  let minDiff = Math.abs(snapshots[0].date.getTime() - targetDate.getTime());
+  let closest: Snapshot | null = null;
+  let minDiff = Infinity;
 
   for (const s of snapshots) {
+    if (exclude && s.date.getTime() === exclude.date.getTime()) continue;
     const diff = Math.abs(s.date.getTime() - targetDate.getTime());
     if (diff < minDiff) {
       minDiff = diff;
@@ -61,7 +62,7 @@ function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date): Snapshot 
     }
   }
 
-  if (minDiff > 45 * 24 * 60 * 60 * 1000) return null;
+  if (!closest || minDiff > 45 * 24 * 60 * 60 * 1000) return null;
   return closest;
 }
 
@@ -206,12 +207,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     const oneMonthAgo = new Date(latest.date);
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
-    const momSnapshot = findClosestSnapshot(snapshots, oneMonthAgo);
+    const momSnapshot = findClosestSnapshot(snapshots, oneMonthAgo, latest);
     const momChange = momSnapshot ? ((currentNetWorth - momSnapshot.total) / momSnapshot.total) * 100 : 0;
 
     const oneYearAgo = new Date(latest.date);
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    const yoySnapshot = findClosestSnapshot(snapshots, oneYearAgo);
+    const yoySnapshot = findClosestSnapshot(snapshots, oneYearAgo, latest);
     const yoyChange = yoySnapshot ? ((currentNetWorth - yoySnapshot.total) / yoySnapshot.total) * 100 : 0;
 
     const sourceCount = latest.sources.length;
