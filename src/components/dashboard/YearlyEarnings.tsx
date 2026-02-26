@@ -1,5 +1,5 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { formatFullCurrency } from '@/lib/formatters';
+import { formatFullCurrency, formatCurrency } from '@/lib/formatters';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface YearRow {
@@ -60,8 +60,8 @@ export function YearlyEarnings() {
           <thead>
             <tr className="border-b border-border text-xs text-muted-foreground">
               <th className="pb-2 text-left font-medium">Year</th>
-              <th className="pb-2 text-right font-medium">Start</th>
-              <th className="pb-2 text-right font-medium">End</th>
+              <th className="hidden pb-2 text-right font-medium sm:table-cell">Start</th>
+              <th className="hidden pb-2 text-right font-medium sm:table-cell">End</th>
               <th className="pb-2 text-right font-medium">Gain</th>
               <th className="pb-2 text-right font-medium">%</th>
               <th className="pb-2 text-right font-medium">€/day</th>
@@ -78,19 +78,19 @@ export function YearlyEarnings() {
               return (
                 <tr key={row.year} className="border-b border-border/50 last:border-0">
                   <td className="py-2.5 font-semibold text-foreground">{row.year}</td>
-                  <td className="py-2.5 text-right text-muted-foreground">{formatFullCurrency(row.startValue)}</td>
-                  <td className="py-2.5 text-right text-foreground">{formatFullCurrency(row.endValue)}</td>
+                  <td className="hidden py-2.5 text-right text-muted-foreground sm:table-cell">{formatFullCurrency(row.startValue)}</td>
+                  <td className="hidden py-2.5 text-right text-foreground sm:table-cell">{formatFullCurrency(row.endValue)}</td>
                   <td className={`py-2.5 text-right font-semibold ${colorClass}`}>
                     <span className="inline-flex items-center gap-1">
                       <Icon className="h-3 w-3" />
-                      {isPositive ? '+' : ''}{formatFullCurrency(row.gain)}
+                      {isPositive ? '+' : ''}{formatCurrency(row.gain)}
                     </span>
                   </td>
                   <td className={`py-2.5 text-right font-medium ${colorClass}`}>
                     {isPositive ? '+' : ''}{row.gainPct.toFixed(1)}%
                   </td>
                   <td className={`py-2.5 text-right font-medium ${colorClass}`}>
-                    {isPositive ? '+' : ''}{formatFullCurrency(row.eurPerDay)}
+                    {isPositive ? '+' : ''}{formatCurrency(row.eurPerDay)}
                   </td>
                 </tr>
               );

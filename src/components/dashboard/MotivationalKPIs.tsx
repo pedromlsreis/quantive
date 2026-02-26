@@ -26,24 +26,25 @@ export function MotivationalKPIs() {
   const isAtATH = athProximity > 0.999;
 
   // ── Best Month Ever ──
-  // Group by year-month, compare first to last snapshot in each month
-  const byMonth = new Map<string, { first: typeof snapshots[0]; last: typeof snapshots[0] }>();
-  for (const snap of snapshots) {
+  // Compare each month's end value to the previous month's end value
+  const sortedSnapshots = [...snapshots].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const monthlyEnd = new Map<string, { date: Date; total: number }>();
+  for (const snap of sortedSnapshots) {
     const key = `${snap.date.getFullYear()}-${String(snap.date.getMonth() + 1).padStart(2, '0')}`;
-    const entry = byMonth.get(key);
-    if (!entry) {
-      byMonth.set(key, { first: snap, last: snap });
-    } else {
-      if (snap.date < entry.first.date) entry.first = snap;
-      if (snap.date > entry.last.date) entry.last = snap;
+    const existing = monthlyEnd.get(key);
+    if (!existing || snap.date > existing.date) {
+      monthlyEnd.set(key, { date: snap.date, total: snap.total });
     }
   }
 
+  const monthKeys = Array.from(monthlyEnd.keys()).sort();
   let bestMonth = { key: '', gain: -Infinity };
-  byMonth.forEach(({ first: f, last: l }, key) => {
-    const gain = l.total - f.total;
-    if (gain > bestMonth.gain) bestMonth = { key, gain };
-  });
+  for (let i = 1; i < monthKeys.length; i++) {
+    const prev = monthlyEnd.get(monthKeys[i - 1])!;
+    const curr = monthlyEnd.get(monthKeys[i])!;
+    const gain = curr.total - prev.total;
+    if (gain > bestMonth.gain) bestMonth = { key: monthKeys[i], gain };
+  }
 
   const bestMonthLabel = bestMonth.key
     ? new Date(bestMonth.key + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })

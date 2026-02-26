@@ -54,22 +54,23 @@ export function KPICards() {
         value={formatCurrency(kpis.currentNetWorth)}
         change={kpis.momChange}
         icon={<Wallet className="h-4 w-4 text-primary" />}
-        subtitle="Month-over-month"
+        subtitle="vs. last month"
         formula="Sum of all source values at the latest snapshot. MoM % = (current − 1 month ago) ÷ 1 month ago × 100."
       />
       <KPICard
         label="Year-over-Year"
-        value={formatPercent(kpis.yoyChange)}
+        value={formatCurrency(kpis.yoyNetWorth)}
         change={kpis.yoyChange}
         icon={<BarChart3 className="h-4 w-4 text-primary" />}
+        subtitle="Net worth 12 months ago"
         formula="(Current net worth − net worth 12 months ago) ÷ net worth 12 months ago × 100. Closest snapshot within 45 days is used."
       />
       <KPICard
         label="Sources"
         value={String(kpis.sourceCount)}
         icon={<Coins className="h-4 w-4 text-primary" />}
-        subtitle={`${kpis.cryptoPercent.toFixed(0)}% crypto`}
-        formula="Count of distinct sources in the latest snapshot. Crypto % = total value of crypto sources ÷ net worth × 100."
+        subtitle="Distinct sources tracked"
+        formula="Count of distinct sources in the latest snapshot."
       />
       <KPICard
         label="Liquid Assets"
