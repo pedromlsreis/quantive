@@ -42,13 +42,19 @@ const growthRates: Record<string, number> = {
 
 export function generateMockData(): PortfolioData {
   const facts: FactRow[] = [];
-  const startYear = 2022;
-  const endYear = 2025;
+  const now = new Date();
+  const endYear = now.getFullYear();
+  const endMonth = now.getMonth() + 1; // 1-indexed
+  const startDate = new Date(endYear, endMonth - 1, 1);
+  startDate.setMonth(startDate.getMonth() - 42); // 3.5 years back
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth() + 1;
 
+  let monthsElapsed = 0;
   for (let y = startYear; y <= endYear; y++) {
-    const maxMonth = y === endYear ? 2 : 12;
-    for (let m = 1; m <= maxMonth; m++) {
-      const monthsElapsed = (y - startYear) * 12 + (m - 1);
+    const mStart = y === startYear ? startMonth : 1;
+    const mEnd = y === endYear ? endMonth : 12;
+    for (let m = mStart; m <= mEnd; m++) {
       for (const src of sources) {
         const base = baseValues[src];
         const rate = growthRates[src];
@@ -60,6 +66,7 @@ export function generateMockData(): PortfolioData {
           sourceVl: Math.round(value * 100) / 100,
         });
       }
+      monthsElapsed++;
     }
   }
 
