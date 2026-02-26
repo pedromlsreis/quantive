@@ -82,17 +82,6 @@ export function FileUpload() {
           </div>
         )}
       </div>
-      <footer className="absolute bottom-6 text-xs text-muted-foreground/50 tracking-wide">
-        <a
-          href="https://www.linkedin.com/in/pedrom-reis/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="transition-colors hover:text-primary"
-        >
-          pedromlsreis
-        </a>{' '}
-        © {new Date().getFullYear()}
-      </footer>
     </main>
   );
 }

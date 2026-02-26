@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 const Index = lazy(() => import("./pages/Index"));
 import NotFound from "./pages/NotFound";
+import { Footer } from "./components/Footer";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          <Footer />
         </BrowserRouter>
       </PortfolioProvider>
     </TooltipProvider>
