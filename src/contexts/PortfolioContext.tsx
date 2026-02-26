@@ -34,6 +34,7 @@ const defaultKpis: KPIData = {
   currentNetWorth: 0,
   momChange: 0,
   yoyChange: 0,
+  yoyNetWorth: 0,
   sourceCount: 0,
   volatilePercent: 0,
   cryptoPercent: 0,
@@ -214,6 +215,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     const yoySnapshot = findClosestSnapshot(snapshots, oneYearAgo, latest);
     const yoyChange = yoySnapshot ? ((currentNetWorth - yoySnapshot.total) / yoySnapshot.total) * 100 : 0;
+    const yoyNetWorth = yoySnapshot ? yoySnapshot.total : 0;
 
     const sourceCount = latest.sources.length;
     const volatileTotal = latest.sources.filter(s => s.volatType.toLowerCase().includes('volatile') && !s.volatType.toLowerCase().includes('non')).reduce((sum, s) => sum + s.value, 0);
@@ -224,6 +226,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       currentNetWorth,
       momChange,
       yoyChange,
+      yoyNetWorth,
       sourceCount,
       volatilePercent: currentNetWorth > 0 ? (volatileTotal / currentNetWorth) * 100 : 0,
       cryptoPercent: currentNetWorth > 0 ? (cryptoTotal / currentNetWorth) * 100 : 0,

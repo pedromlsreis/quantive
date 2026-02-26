@@ -54,6 +54,7 @@ export interface KPIData {
   currentNetWorth: number;
   momChange: number;
   yoyChange: number;
+  yoyNetWorth: number;
   sourceCount: number;
   volatilePercent: number;
   cryptoPercent: number;
