@@ -82,6 +82,9 @@ export function FileUpload() {
           </div>
         )}
       </div>
+      <footer className="absolute bottom-6 text-xs text-muted-foreground/50 tracking-wide">
+        pedromlsreis © {new Date().getFullYear()}
+      </footer>
     </main>
   );
 }
