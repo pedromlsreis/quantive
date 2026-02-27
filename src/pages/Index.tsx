@@ -9,6 +9,7 @@ import { AllocationCharts } from '@/components/dashboard/AllocationCharts';
 import { ForecastChart } from '@/components/dashboard/ForecastChart';
 import { YearlyEarnings } from '@/components/dashboard/YearlyEarnings';
 import { MotivationalKPIs } from '@/components/dashboard/MotivationalKPIs';
+import { DashboardSection } from '@/components/dashboard/DashboardSection';
 
 const Index = () => {
   const { data } = usePortfolio();
@@ -19,14 +20,25 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <DashboardHeader />
       <FilterBar />
-      <main className="mx-auto max-w-[1400px] animate-fade-in space-y-6 p-6">
-        <KPICards />
-        <MotivationalKPIs />
-        <NetWorthChart />
-        <StackedAreaChart />
-        <AllocationCharts />
-        <YearlyEarnings />
-        <ForecastChart />
+      <main className="mx-auto max-w-[1400px] animate-fade-in space-y-8 p-6">
+        <DashboardSection id="performance" title="Performance">
+          <KPICards />
+          <NetWorthChart />
+          <StackedAreaChart />
+          <YearlyEarnings />
+        </DashboardSection>
+
+        <DashboardSection id="allocation" title="Risk & Allocation">
+          <AllocationCharts />
+        </DashboardSection>
+
+        <DashboardSection id="forecast" title="Forecast">
+          <ForecastChart />
+        </DashboardSection>
+
+        <DashboardSection id="milestones" title="Milestones">
+          <MotivationalKPIs />
+        </DashboardSection>
       </main>
     </div>
   );
