@@ -1,8 +1,8 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot, Label } from 'recharts';
 import { format } from 'date-fns';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
-import { PRIMARY_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
+import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (!active || !payload?.length) return null;
@@ -29,10 +29,30 @@ export function NetWorthChart() {
 
   if (snapshots.length === 0) return null;
 
-  const chartData = snapshots.map(s => ({
-    date: format(s.date, 'MMM yyyy'),
-    total: Math.round(s.total),
-  }));
+  // Find ATH and best month
+  const athSnap = snapshots.reduce((best, s) => s.total > best.total ? s : best, snapshots[0]);
+  
+  let bestMonthIdx = -1;
+  let bestMonthGain = -Infinity;
+  for (let i = 1; i < snapshots.length; i++) {
+    const gain = snapshots[i].total - snapshots[i - 1].total;
+    if (gain > bestMonthGain) {
+      bestMonthGain = gain;
+      bestMonthIdx = i;
+    }
+  }
+
+  const chartData = snapshots.map((s, i) => {
+    const label =
+      s === athSnap ? '⭐ ATH'
+      : i === bestMonthIdx ? '🚀 Best'
+      : undefined;
+    return {
+      date: format(s.date, 'MMM yyyy'),
+      total: Math.round(s.total),
+      label,
+    };
+  });
 
   const interval = Math.max(1, Math.floor(chartData.length / 12));
 
@@ -72,6 +92,26 @@ export function NetWorthChart() {
               dot={false}
               activeDot={{ r: 4, fill: PRIMARY_COLOR }}
             />
+            {chartData.map((d, i) =>
+              d.label ? (
+                <ReferenceDot
+                  key={i}
+                  x={d.date}
+                  y={d.total}
+                  r={5}
+                  fill={d.label.includes('ATH') ? PRIMARY_COLOR : POSITIVE_COLOR}
+                  stroke="hsl(222, 25%, 10%)"
+                  strokeWidth={2}
+                >
+                  <Label
+                    value={d.label}
+                    position="top"
+                    offset={12}
+                    style={{ fontSize: 11, fontWeight: 600, fill: AXIS_COLOR }}
+                  />
+                </ReferenceDot>
+              ) : null
+            )}
           </AreaChart>
         </ResponsiveContainer>
       </div>
