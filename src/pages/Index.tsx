@@ -17,10 +17,10 @@ const Index = () => {
   if (!data) return <FileUpload />;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col bg-background">
       <DashboardHeader />
       <FilterBar />
-      <main className="mx-auto max-w-[1400px] animate-fade-in space-y-8 p-6">
+      <main className="mx-auto w-full max-w-[1400px] flex-1 animate-fade-in space-y-8 p-6">
         <DashboardSection id="performance" title="Performance">
           <KPICards />
           <NetWorthChart />

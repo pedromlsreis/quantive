@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { FileSpreadsheet, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
+import { HowToUse } from './HowToUse';
 
 export function DashboardHeader() {
   const { clearData, loadFile, snapshots } = usePortfolio();
@@ -27,6 +28,7 @@ export function DashboardHeader() {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <HowToUse />
         <button
           onClick={() => inputRef.current?.click()}
           className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
