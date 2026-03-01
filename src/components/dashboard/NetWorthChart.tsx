@@ -29,9 +29,13 @@ export function NetWorthChart() {
 
   if (snapshots.length === 0) return null;
 
-  // Find ATH and best month
-  const athSnap = snapshots.reduce((best, s) => s.total > best.total ? s : best, snapshots[0]);
-  
+  // Find ATH index
+  let athIdx = 0;
+  for (let i = 1; i < snapshots.length; i++) {
+    if (snapshots[i].total > snapshots[athIdx].total) athIdx = i;
+  }
+
+  // Find best month increase index
   let bestMonthIdx = -1;
   let bestMonthGain = -Infinity;
   for (let i = 1; i < snapshots.length; i++) {
@@ -42,17 +46,21 @@ export function NetWorthChart() {
     }
   }
 
-  const chartData = snapshots.map((s, i) => {
-    const label =
-      s === athSnap ? '⭐ ATH'
-      : i === bestMonthIdx ? '🚀 Best'
-      : undefined;
-    return {
-      date: format(s.date, 'MMM yyyy'),
-      total: Math.round(s.total),
-      label,
-    };
-  });
+  // Build annotations list (deduplicate if ATH === best month)
+  const annotations: { idx: number; label: string; color: string }[] = [];
+  if (athIdx === bestMonthIdx) {
+    annotations.push({ idx: athIdx, label: 'All-time high & Best month', color: PRIMARY_COLOR });
+  } else {
+    annotations.push({ idx: athIdx, label: 'All-time high', color: PRIMARY_COLOR });
+    if (bestMonthIdx >= 0) {
+      annotations.push({ idx: bestMonthIdx, label: 'Best month increase', color: POSITIVE_COLOR });
+    }
+  }
+
+  const chartData = snapshots.map((s) => ({
+    date: format(s.date, 'MMM yyyy'),
+    total: Math.round(s.total),
+  }));
 
   const interval = Math.max(1, Math.floor(chartData.length / 12));
 
@@ -92,26 +100,25 @@ export function NetWorthChart() {
               dot={false}
               activeDot={{ r: 4, fill: PRIMARY_COLOR }}
             />
-            {chartData.map((d, i) =>
-              d.label ? (
-                <ReferenceDot
-                  key={i}
-                  x={d.date}
-                  y={d.total}
-                  r={5}
-                  fill={d.label.includes('ATH') ? PRIMARY_COLOR : POSITIVE_COLOR}
-                  stroke="hsl(222, 25%, 10%)"
-                  strokeWidth={2}
-                >
-                  <Label
-                    value={d.label}
-                    position="top"
-                    offset={12}
-                    style={{ fontSize: 11, fontWeight: 600, fill: AXIS_COLOR }}
-                  />
-                </ReferenceDot>
-              ) : null
-            )}
+            {annotations.map((a) => (
+              <ReferenceDot
+                key={`annotation-${a.idx}`}
+                x={chartData[a.idx].date}
+                y={chartData[a.idx].total}
+                r={5}
+                fill={a.color}
+                stroke="hsl(222, 25%, 10%)"
+                strokeWidth={2}
+                isFront
+              >
+                <Label
+                  value={a.label}
+                  position="top"
+                  offset={12}
+                  style={{ fontSize: 10, fontWeight: 600, fill: AXIS_COLOR }}
+                />
+              </ReferenceDot>
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       </div>
