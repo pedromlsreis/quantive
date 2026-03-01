@@ -17,7 +17,7 @@ const Index = () => {
   if (!data) return <FileUpload />;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex flex-1 flex-col bg-background">
       <DashboardHeader />
       <FilterBar />
       <main className="mx-auto w-full max-w-[1400px] flex-1 animate-fade-in space-y-8 p-6">

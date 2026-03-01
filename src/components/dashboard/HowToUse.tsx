@@ -1,11 +1,16 @@
 import { useState } from 'react';
-import { HelpCircle, X, FileSpreadsheet, Filter, BarChart3, TrendingUp } from 'lucide-react';
+import { HelpCircle, X, FileSpreadsheet, Filter, BarChart3, TrendingUp, CalendarCheck } from 'lucide-react';
 
 const steps = [
   {
     icon: <FileSpreadsheet className="h-4 w-4 text-primary" />,
     title: 'Upload your data',
     description: 'Drop an .xlsx file with your portfolio snapshots, or try the demo data first.',
+  },
+  {
+    icon: <CalendarCheck className="h-4 w-4 text-primary" />,
+    title: 'Add monthly snapshots',
+    description: 'For best results, add at least one measurement per month to the same Excel file. Cumulative tracking lets you see trends, forecasts, and milestones over time.',
   },
   {
     icon: <Filter className="h-4 w-4 text-primary" />,

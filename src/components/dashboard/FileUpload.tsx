@@ -22,7 +22,7 @@ export function FileUpload() {
   }, [loadFile]);
 
   return (
-    <main className="flex min-h-[calc(100vh-52px)] items-center justify-center bg-background p-8">
+    <main className="flex flex-1 items-center justify-center bg-background p-8">
       <div className="flex w-full max-w-[520px] flex-col items-center">
         {/* Drop zone */}
         <div
