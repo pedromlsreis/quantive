@@ -1,7 +1,7 @@
 export function Footer() {
   return (
     <footer className="py-4 text-center text-xs text-muted-foreground/50 tracking-wide">
-      © {new Date().getFullYear()}{" "}
+      © {new Date().getFullYear()} Networth Analysis &{" "}
       <a
         href="https://www.linkedin.com/in/pedrom-reis/"
         target="_blank"
@@ -10,7 +10,7 @@ export function Footer() {
       >
         pedromlsreis
       </a>
-      {" "}– Source-available. All rights reserved.
+      {" "}– All rights reserved.
     </footer>
   );
 }
