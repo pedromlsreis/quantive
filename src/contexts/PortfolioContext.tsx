@@ -138,11 +138,24 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const sourceMap = new Map(data.refSources.map(s => [s.idSource.trim(), s]));
     const volatMap = new Map(data.refVolatTypes.map(v => [v.idVolatType, v.volatTypeDsc]));
 
+    // Normalize volatility type descriptions to deduplicate (e.g. "Volatile" and "Volatile" with different IDs)
+    const normalizedVolatMap = new Map<number, string>();
+    const seenVolatLabels = new Map<string, string>();
+    for (const [id, dsc] of volatMap.entries()) {
+      const normalized = dsc.trim();
+      if (seenVolatLabels.has(normalized.toLowerCase())) {
+        normalizedVolatMap.set(id, seenVolatLabels.get(normalized.toLowerCase())!);
+      } else {
+        seenVolatLabels.set(normalized.toLowerCase(), normalized);
+        normalizedVolatMap.set(id, normalized);
+      }
+    }
+
     return data.facts.map(f => {
       const source = sourceMap.get(f.idSource.trim());
       return {
         ...f,
-        volatType: source ? (volatMap.get(source.idVolatType) || 'Unknown') : 'Unknown',
+        volatType: source ? (normalizedVolatMap.get(source.idVolatType) || 'Unknown') : 'Unknown',
         isCrypto: source?.isCrypto ?? false,
         isLiquid: source?.transferableInDays ?? false,
       };

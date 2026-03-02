@@ -10,6 +10,7 @@ import { ForecastChart } from '@/components/dashboard/ForecastChart';
 import { YearlyEarnings } from '@/components/dashboard/YearlyEarnings';
 import { MotivationalKPIs } from '@/components/dashboard/MotivationalKPIs';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
+import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 
 const Index = () => {
   const { data } = usePortfolio();
@@ -39,6 +40,10 @@ const Index = () => {
         <DashboardSection id="milestones" title="Milestones">
           <MotivationalKPIs />
         </DashboardSection>
+
+        <div className="flex justify-center pb-2">
+          <FeedbackButton />
+        </div>
       </main>
     </div>
   );
