@@ -13,9 +13,9 @@ export function DashboardHeader() {
     : null;
 
   return (
-    <header className="flex items-center justify-between border-b border-border px-6 py-4">
+    <header className="flex flex-col gap-3 border-b border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
           <FileSpreadsheet className="h-5 w-5 text-primary" />
         </div>
         <div>
@@ -27,18 +27,19 @@ export function DashboardHeader() {
           )}
         </div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
         <HowToUse />
         <button
           onClick={() => inputRef.current?.click()}
-          className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
+          className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
         >
           <Upload className="h-4 w-4" />
-          Change File
+          <span className="hidden sm:inline">Change File</span>
+          <span className="sm:hidden">File</span>
         </button>
         <button
           onClick={clearData}
-          className="flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-destructive transition-colors hover:bg-secondary/80"
+          className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-destructive transition-colors hover:bg-secondary/80"
         >
           <X className="h-4 w-4" />
           Clear
