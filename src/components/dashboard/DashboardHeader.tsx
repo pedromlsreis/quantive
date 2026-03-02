@@ -3,6 +3,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { FileSpreadsheet, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { HowToUse } from './HowToUse';
+import { AuthButton } from './AuthButton';
 
 export function DashboardHeader() {
   const { clearData, loadFile, snapshots } = usePortfolio();
@@ -27,7 +28,8 @@ export function DashboardHeader() {
           )}
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
+      <div className="grid grid-cols-4 gap-2 sm:flex sm:items-center">
+        <AuthButton />
         <HowToUse />
         <button
           onClick={() => inputRef.current?.click()}

@@ -3,6 +3,8 @@ import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData } from '@/l
 import { parsePortfolioExcel } from '@/lib/dataProcessor';
 import { generateMockData } from '@/lib/mockData';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from './AuthContext';
 
 const STORAGE_KEY = 'portfolio-data';
 
@@ -71,6 +73,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<PortfolioData | null>(null);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [isLoading, setIsLoading] = useState(false);
+  const { user } = useAuth();
 
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
     const dates = parsed.facts.map(f => f.date.getTime());
@@ -85,7 +88,60 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // Save data to cloud when user is authenticated
+  const saveToCloud = useCallback(async (portfolioData: PortfolioData) => {
+    if (!user) return;
+    try {
+      const { data: existing } = await supabase
+        .from('portfolio_snapshots')
+        .select('id')
+        .eq('user_id', user.id)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        await supabase
+          .from('portfolio_snapshots')
+          .update({ data: portfolioData as any })
+          .eq('user_id', user.id);
+      } else {
+        await supabase
+          .from('portfolio_snapshots')
+          .insert({ user_id: user.id, data: portfolioData as any });
+      }
+    } catch (e) {
+      console.error('Failed to sync to cloud:', e);
+    }
+  }, [user]);
+
+  // Load from cloud when user signs in
   useEffect(() => {
+    if (!user) return;
+    const loadFromCloud = async () => {
+      try {
+        const { data: rows } = await supabase
+          .from('portfolio_snapshots')
+          .select('data')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1);
+
+        if (rows && rows.length > 0) {
+          const cloudData = rows[0].data as any;
+          cloudData.facts = cloudData.facts.map((f: any) => ({ ...f, date: new Date(f.date) }));
+          setData(cloudData);
+          setDefaultDateRange(cloudData);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+        }
+      } catch (e) {
+        console.error('Failed to load from cloud:', e);
+      }
+    };
+    loadFromCloud();
+  }, [user, setDefaultDateRange]);
+
+  // Load from localStorage for guests
+  useEffect(() => {
+    if (user) return; // cloud load handles authenticated users
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
@@ -97,7 +153,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('Failed to load cached data:', e);
     }
-  }, [setDefaultDateRange]);
+  }, [setDefaultDateRange, user]);
 
   const loadFile = useCallback(async (file: File) => {
     setIsLoading(true);
@@ -107,6 +163,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       setData(parsed);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
       setDefaultDateRange(parsed);
+      saveToCloud(parsed);
       toast.success(`Loaded ${parsed.facts.length} records from ${file.name}`);
     } catch (e: any) {
       console.error('Failed to parse file:', e);
@@ -114,7 +171,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [saveToCloud, setDefaultDateRange]);
 
   const loadMockData = useCallback(() => {
     const mock = generateMockData();

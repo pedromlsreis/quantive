@@ -8,6 +8,7 @@ const Index = lazy(() => import("./pages/Index"));
 import NotFound from "./pages/NotFound";
 import { Footer } from "./components/Footer";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const queryClient = new QueryClient();
 
@@ -16,19 +17,21 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <PortfolioProvider>
-        <BrowserRouter>
-          <div className="flex min-h-screen flex-col">
-            <Suspense fallback={<div className="flex flex-1 items-center justify-center bg-background"><div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
-            <Footer />
-          </div>
-        </BrowserRouter>
-      </PortfolioProvider>
+      <AuthProvider>
+        <PortfolioProvider>
+          <BrowserRouter>
+            <div className="flex min-h-screen flex-col">
+              <Suspense fallback={<div className="flex flex-1 items-center justify-center bg-background"><div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+              <Footer />
+            </div>
+          </BrowserRouter>
+        </PortfolioProvider>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );
