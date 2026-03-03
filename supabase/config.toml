@@ -1,1 +1,4 @@
 project_id = "vidbhiixvvsayuymwtll"
+
+[functions.submit-feedback]
+verify_jwt = false

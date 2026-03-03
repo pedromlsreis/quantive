@@ -4,6 +4,7 @@ import { FileSpreadsheet, Upload, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { HowToUse } from './HowToUse';
 import { AuthButton } from './AuthButton';
+import { CurrencySelector } from './CurrencySelector';
 
 export function DashboardHeader() {
   const { clearData, loadFile, snapshots } = usePortfolio();
@@ -28,8 +29,9 @@ export function DashboardHeader() {
           )}
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-2 sm:flex sm:items-center">
+      <div className="flex flex-wrap items-center gap-2">
         <AuthButton />
+        <CurrencySelector />
         <HowToUse />
         <button
           onClick={() => inputRef.current?.click()}

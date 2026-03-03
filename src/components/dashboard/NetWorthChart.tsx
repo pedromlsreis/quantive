@@ -1,5 +1,7 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot, Label } from 'recharts';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { setActiveCurrency } from '@/lib/formatters';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot } from 'recharts';
 import { format } from 'date-fns';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
@@ -24,12 +26,48 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   );
 };
 
+// Custom label with background box for readability
+const AnnotationLabel = ({ viewBox, value, color }: any) => {
+  if (!viewBox) return null;
+  const { x, y } = viewBox;
+  const textLen = value.length * 5.2 + 12;
+  const boxH = 18;
+  const offsetY = -16;
+
+  return (
+    <g>
+      <rect
+        x={x - textLen / 2}
+        y={y + offsetY - boxH / 2 - 1}
+        width={textLen}
+        height={boxH}
+        rx={4}
+        fill="hsl(222, 25%, 10%)"
+        fillOpacity={0.85}
+        stroke={color}
+        strokeWidth={0.5}
+        strokeOpacity={0.4}
+      />
+      <text
+        x={x}
+        y={y + offsetY + 1}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        style={{ fontSize: 10, fontWeight: 600, fill: color }}
+      >
+        {value}
+      </text>
+    </g>
+  );
+};
+
 export function NetWorthChart() {
   const { snapshots } = usePortfolio();
+  const { currency } = useCurrency();
+  setActiveCurrency(currency.code, currency.symbol, currency.locale);
 
   if (snapshots.length === 0) return null;
 
-  // Build chart data with unique keys (index-based to avoid duplicate MMM yyyy)
   const chartData = snapshots.map((s, i) => ({
     key: i,
     date: format(s.date, 'MMM yyyy'),
@@ -53,32 +91,25 @@ export function NetWorthChart() {
     }
   }
 
-  // Build annotations list (deduplicate if ATH === best month)
+  // Build annotations
   const annotations: { idx: number; label: string; color: string }[] = [];
   if (athIdx === bestMonthIdx) {
-    annotations.push({ idx: athIdx, label: 'All-time high & Best month', color: PRIMARY_COLOR });
+    annotations.push({ idx: athIdx, label: 'ATH & Best month', color: PRIMARY_COLOR });
   } else {
     annotations.push({ idx: athIdx, label: 'All-time high', color: PRIMARY_COLOR });
     if (bestMonthIdx >= 0) {
-      annotations.push({ idx: bestMonthIdx, label: 'Best month increase', color: POSITIVE_COLOR });
+      annotations.push({ idx: bestMonthIdx, label: 'Best month', color: POSITIVE_COLOR });
     }
   }
 
   const interval = Math.max(1, Math.floor(chartData.length / 12));
-
-  // Determine if annotations are near chart edges and need adjusted label position
-  const getAnnotationPosition = (idx: number): 'top' | 'left' | 'right' => {
-    if (idx >= chartData.length - 2) return 'left';
-    if (idx <= 1) return 'right';
-    return 'top';
-  };
 
   return (
     <div className="rounded-xl border border-border bg-card p-6" style={{ overflow: 'visible' }}>
       <h3 className="mb-4 text-sm font-medium text-muted-foreground">Net Worth Over Time</h3>
       <div className="h-[320px]" style={{ overflow: 'visible' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 30, right: 30, left: 10, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 35, right: 30, left: 10, bottom: 0 }}>
             <defs>
               <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={PRIMARY_COLOR} stopOpacity={0.25} />
@@ -109,28 +140,20 @@ export function NetWorthChart() {
               dot={false}
               activeDot={{ r: 4, fill: PRIMARY_COLOR }}
             />
-            {annotations.map((a) => {
-              const pos = getAnnotationPosition(a.idx);
-              return (
-                <ReferenceDot
-                  key={`annotation-${a.idx}`}
-                  x={chartData[a.idx].date}
-                  y={chartData[a.idx].total}
-                  r={5}
-                  fill={a.color}
-                  stroke="hsl(222, 25%, 10%)"
-                  strokeWidth={2}
-                  isFront
-                >
-                  <Label
-                    value={a.label}
-                    position={pos}
-                    offset={12}
-                    style={{ fontSize: 10, fontWeight: 600, fill: AXIS_COLOR }}
-                  />
-                </ReferenceDot>
-              );
-            })}
+            {annotations.map((a) => (
+              <ReferenceDot
+                key={`annotation-${a.idx}`}
+                x={chartData[a.idx].date}
+                y={chartData[a.idx].total}
+                r={5}
+                fill={a.color}
+                stroke="hsl(222, 25%, 10%)"
+                strokeWidth={2}
+                isFront
+              >
+                <AnnotationLabel value={a.label} color={a.color} />
+              </ReferenceDot>
+            ))}
           </AreaChart>
         </ResponsiveContainer>
       </div>

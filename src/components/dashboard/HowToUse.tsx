@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HelpCircle, X, FileSpreadsheet, Filter, BarChart3, TrendingUp, CalendarCheck } from 'lucide-react';
+import { HelpCircle, X, FileSpreadsheet, Filter, BarChart3, TrendingUp, CalendarCheck, CloudUpload, Coins } from 'lucide-react';
 
 const steps = [
   {
@@ -11,6 +11,11 @@ const steps = [
     icon: <CalendarCheck className="h-4 w-4 text-primary" />,
     title: 'Add monthly snapshots',
     description: 'For best results, add at least one measurement per month to the same Excel file. Cumulative tracking lets you see trends, forecasts, and milestones over time.',
+  },
+  {
+    icon: <Coins className="h-4 w-4 text-primary" />,
+    title: 'Same currency required',
+    description: 'All values in your Excel must use the same currency. Pick your display currency in the header — no conversions are performed, it only changes the symbol shown.',
   },
   {
     icon: <Filter className="h-4 w-4 text-primary" />,
@@ -26,6 +31,11 @@ const steps = [
     icon: <TrendingUp className="h-4 w-4 text-primary" />,
     title: 'Track milestones',
     description: 'See your all-time high, best month, and milestone badges as your portfolio grows.',
+  },
+  {
+    icon: <CloudUpload className="h-4 w-4 text-primary" />,
+    title: 'Create an account to sync',
+    description: 'Sign up and confirm your email to save your data in the cloud. Your portfolio will sync across devices and persist between sessions.',
   },
 ];
 
@@ -46,7 +56,7 @@ export function HowToUse() {
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative mx-4 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+          <div className="relative mx-4 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
             <button
               onClick={() => setOpen(false)}
               className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"

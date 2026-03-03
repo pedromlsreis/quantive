@@ -88,9 +88,13 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  // Save data to cloud when user is authenticated
+  // Save data to cloud when user is authenticated AND email confirmed
   const saveToCloud = useCallback(async (portfolioData: PortfolioData) => {
     if (!user) return;
+    if (!user.email_confirmed_at) {
+      toast.info('Please confirm your email to enable cloud sync.', { id: 'email-confirm' });
+      return;
+    }
     try {
       const { data: existing } = await supabase
         .from('portfolio_snapshots')
