@@ -1,18 +1,22 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { formatFullCurrency, formatPercent } from '@/lib/formatters';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { setActiveCurrency, formatFullCurrency, formatPercent } from '@/lib/formatters';
 import { Trophy, CalendarHeart, Rocket, Flag } from 'lucide-react';
 import { POSITIVE_COLOR } from '@/lib/chartColors';
 
 const MILESTONES = [10_000, 25_000, 50_000, 75_000, 100_000, 150_000, 200_000, 300_000, 500_000, 750_000, 1_000_000, 2_000_000, 5_000_000];
 
-function formatMilestone(v: number) {
-  if (v >= 1_000_000) return `€${v / 1_000_000}M`;
-  if (v >= 1_000) return `€${v / 1_000}k`;
-  return `€${v}`;
+function formatMilestone(v: number, symbol: string) {
+  const s = symbol === 'NOK' ? 'kr' : symbol;
+  if (v >= 1_000_000) return `${s}${v / 1_000_000}M`;
+  if (v >= 1_000) return `${s}${v / 1_000}k`;
+  return `${s}${v}`;
 }
 
 export function MotivationalKPIs() {
   const { snapshots } = usePortfolio();
+  const { currency } = useCurrency();
+  setActiveCurrency(currency.code, currency.symbol, currency.locale);
 
   if (snapshots.length < 2) return null;
 
@@ -26,7 +30,6 @@ export function MotivationalKPIs() {
   const isAtATH = athProximity > 0.999;
 
   // ── Best Month Ever ──
-  // Compare each month's end value to the previous month's end value
   const sortedSnapshots = [...snapshots].sort((a, b) => a.date.getTime() - b.date.getTime());
   const monthlyEnd = new Map<string, { date: Date; total: number }>();
   for (const snap of sortedSnapshots) {
@@ -140,13 +143,13 @@ export function MotivationalKPIs() {
                 className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent"
               >
                 <Flag className="h-3 w-3" />
-                {formatMilestone(m)}
+                {formatMilestone(m, currency.symbol)}
               </div>
             ))}
             {nextMilestone && (
               <div className="flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1.5 text-xs text-muted-foreground">
                 <Flag className="h-3 w-3" />
-                <span>{formatMilestone(nextMilestone)}</span>
+                <span>{formatMilestone(nextMilestone, currency.symbol)}</span>
                 <div className="h-1 w-12 rounded-full bg-secondary">
                   <div
                     className="h-1 rounded-full bg-primary/60 transition-all"

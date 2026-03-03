@@ -1,24 +1,32 @@
 import { useState } from 'react';
 import { MessageSquarePlus, X, Send } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function FeedbackButton() {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<'feature' | 'improvement' | 'bug'>('feature');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const { user } = useAuth();
 
   const handleSubmit = async () => {
-    if (!message.trim()) {
+    const trimmed = message.trim();
+    if (!trimmed) {
       toast.error('Please enter your feedback.');
       return;
     }
+    if (trimmed.length > 2000) {
+      toast.error('Feedback must be under 2000 characters.');
+      return;
+    }
     setSending(true);
-    // For now, store in localStorage as a simple feedback log
     try {
-      const existing = JSON.parse(localStorage.getItem('feedback-log') || '[]');
-      existing.push({ type, message: message.trim(), date: new Date().toISOString() });
-      localStorage.setItem('feedback-log', JSON.stringify(existing));
+      const { error } = await supabase.functions.invoke('submit-feedback', {
+        body: { type, message: trimmed },
+      });
+      if (error) throw error;
       toast.success('Thanks for your feedback! We appreciate it.');
       setMessage('');
       setOpen(false);
@@ -56,6 +64,7 @@ export function FeedbackButton() {
             </div>
             <p className="mb-5 text-sm text-muted-foreground">
               Help us improve Finance Cockpit with your ideas.
+              {!user && <span className="block mt-1 text-xs text-muted-foreground/70">No account needed to submit feedback.</span>}
             </p>
 
             {/* Type selector */}
@@ -81,7 +90,7 @@ export function FeedbackButton() {
               placeholder="Describe your idea or issue..."
               className="mb-4 w-full resize-none rounded-lg border border-border bg-secondary/50 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
               rows={4}
-              maxLength={1000}
+              maxLength={2000}
             />
 
             <button

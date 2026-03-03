@@ -1,5 +1,6 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { formatFullCurrency, formatCurrency } from '@/lib/formatters';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { setActiveCurrency, formatFullCurrency, formatCurrency } from '@/lib/formatters';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface YearRow {
@@ -9,11 +10,13 @@ interface YearRow {
   gain: number;
   gainPct: number;
   days: number;
-  eurPerDay: number;
+  perDay: number;
 }
 
 export function YearlyEarnings() {
   const { snapshots } = usePortfolio();
+  const { currency } = useCurrency();
+  setActiveCurrency(currency.code, currency.symbol, currency.locale);
 
   if (snapshots.length < 2) return null;
 
@@ -33,7 +36,6 @@ export function YearlyEarnings() {
 
   const rows: YearRow[] = sortedYears
     .map(([year, { first, last }], idx) => {
-      // Use previous year's end value as this year's start (continuous chain)
       const prevEnd = idx > 0 ? sortedYears[idx - 1][1].last.total : first.total;
       const startValue = prevEnd;
       const endValue = last.total;
@@ -47,10 +49,12 @@ export function YearlyEarnings() {
         gain,
         gainPct: startValue > 0 ? (gain / startValue) * 100 : 0,
         days,
-        eurPerDay: gain / days,
+        perDay: gain / days,
       };
     })
     .reverse();
+
+  const perDayLabel = currency.symbol === 'NOK' ? 'kr/day' : `${currency.symbol}/day`;
 
   return (
     <div className="rounded-xl border border-border bg-card p-6">
@@ -64,7 +68,7 @@ export function YearlyEarnings() {
               <th className="hidden pb-2 text-right font-medium sm:table-cell">End</th>
               <th className="pb-2 text-right font-medium">Gain</th>
               <th className="pb-2 text-right font-medium">%</th>
-              <th className="pb-2 text-right font-medium">€/day</th>
+              <th className="pb-2 text-right font-medium">{perDayLabel}</th>
             </tr>
           </thead>
           <tbody>
@@ -90,7 +94,7 @@ export function YearlyEarnings() {
                     {isPositive ? '+' : ''}{row.gainPct.toFixed(1)}%
                   </td>
                   <td className={`py-2.5 text-right font-medium ${colorClass}`}>
-                    {isPositive ? '+' : ''}{formatCurrency(row.eurPerDay)}
+                    {isPositive ? '+' : ''}{formatCurrency(row.perDay)}
                   </td>
                 </tr>
               );
