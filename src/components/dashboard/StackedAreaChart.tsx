@@ -1,4 +1,6 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { setActiveCurrency } from '@/lib/formatters';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -13,6 +15,8 @@ import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 
 export function StackedAreaChart() {
   const { snapshots } = usePortfolio();
+  const { currency } = useCurrency();
+  setActiveCurrency(currency.code, currency.symbol, currency.locale);
 
   if (snapshots.length < 2) return null;
 

@@ -14,7 +14,6 @@ Deno.serve(async (req) => {
   try {
     const { type, message } = await req.json();
 
-    // Validate input
     if (!type || !message) {
       return new Response(JSON.stringify({ error: "Missing type or message" }), {
         status: 400,
@@ -37,9 +36,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const adminEmail = Deno.env.get("ADMIN_EMAIL");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("Missing env vars", { hasUrl: !!supabaseUrl, hasKey: !!serviceRoleKey });
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Extract user if authenticated
     const authHeader = req.headers.get("authorization");
@@ -47,18 +53,22 @@ Deno.serve(async (req) => {
     let userEmail: string | null = null;
 
     if (authHeader) {
-      const anonKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!;
-      const userClient = createClient(supabaseUrl, anonKey, {
-        global: { headers: { authorization: authHeader } },
-      });
-      const { data: { user } } = await userClient.auth.getUser();
-      if (user) {
-        userId = user.id;
-        userEmail = user.email ?? null;
+      try {
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
+        const userClient = createClient(supabaseUrl, anonKey, {
+          global: { headers: { authorization: authHeader } },
+        });
+        const { data: { user } } = await userClient.auth.getUser();
+        if (user) {
+          userId = user.id;
+          userEmail = user.email ?? null;
+        }
+      } catch (e) {
+        console.warn("Could not extract user from auth header:", e);
       }
     }
 
-    // Store feedback using service role (bypasses RLS for anon insert)
+    // Store feedback using service role (bypasses RLS)
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { error: insertError } = await adminClient
       .from("feedback")
@@ -76,7 +86,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Notify admin via Lovable AI gateway (simple email-like notification logged)
+    const adminEmail = Deno.env.get("ADMIN_EMAIL");
     if (adminEmail) {
       console.log(
         `[FEEDBACK] To: ${adminEmail} | Type: ${type} | From: ${userEmail ?? "anonymous"} | Message: ${message.trim()}`

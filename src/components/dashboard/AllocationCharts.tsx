@@ -1,4 +1,6 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { setActiveCurrency } from '@/lib/formatters';
 import {
   ResponsiveContainer,
   Treemap,
@@ -112,6 +114,8 @@ const TreemapTooltip = ({ active, payload }: any) => {
 
 export function AllocationCharts() {
   const { snapshots } = usePortfolio();
+  const { currency } = useCurrency();
+  setActiveCurrency(currency.code, currency.symbol, currency.locale);
 
   if (snapshots.length === 0) return null;
 

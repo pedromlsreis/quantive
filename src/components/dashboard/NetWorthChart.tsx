@@ -30,9 +30,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 const AnnotationLabel = ({ viewBox, value, color }: any) => {
   if (!viewBox) return null;
   const { x, y } = viewBox;
-  const textLen = value.length * 5.2 + 12;
-  const boxH = 18;
-  const offsetY = -16;
+  const textLen = value.length * 6 + 16;
+  const boxH = 22;
+  const offsetY = -20;
 
   return (
     <g>
@@ -41,19 +41,19 @@ const AnnotationLabel = ({ viewBox, value, color }: any) => {
         y={y + offsetY - boxH / 2 - 1}
         width={textLen}
         height={boxH}
-        rx={4}
-        fill="hsl(222, 25%, 10%)"
-        fillOpacity={0.85}
+        rx={5}
+        fill={color}
+        fillOpacity={0.15}
         stroke={color}
-        strokeWidth={0.5}
-        strokeOpacity={0.4}
+        strokeWidth={1}
+        strokeOpacity={0.8}
       />
       <text
         x={x}
         y={y + offsetY + 1}
         textAnchor="middle"
         dominantBaseline="middle"
-        style={{ fontSize: 10, fontWeight: 600, fill: color }}
+        style={{ fontSize: 10, fontWeight: 700, fill: color }}
       >
         {value}
       </text>
