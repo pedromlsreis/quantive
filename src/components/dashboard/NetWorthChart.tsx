@@ -1,7 +1,7 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { setActiveCurrency } from '@/lib/formatters';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot, Label } from 'recharts';
 import { format } from 'date-fns';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
@@ -145,13 +145,18 @@ export function NetWorthChart() {
                 key={`annotation-${a.idx}`}
                 x={chartData[a.idx].date}
                 y={chartData[a.idx].total}
-                r={5}
+                r={6}
                 fill={a.color}
                 stroke="hsl(222, 25%, 10%)"
                 strokeWidth={2}
                 isFront
               >
-                <AnnotationLabel value={a.label} color={a.color} />
+                <Label
+                  value={a.label}
+                  position="top"
+                  offset={12}
+                  style={{ fontSize: 11, fontWeight: 700, fill: a.color }}
+                />
               </ReferenceDot>
             ))}
           </AreaChart>
