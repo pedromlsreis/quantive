@@ -1,4 +1,6 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { setActiveCurrency } from '@/lib/formatters';
 import { TrendingUp, TrendingDown, Wallet, BarChart3, Coins, Droplets } from 'lucide-react';
 import { formatCurrency, formatPercent, formatFullCurrency } from '@/lib/formatters';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -46,6 +48,8 @@ function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps
 
 export function KPICards() {
   const { kpis } = usePortfolio();
+  const { currency } = useCurrency();
+  setActiveCurrency(currency.code, currency.symbol, currency.locale);
 
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

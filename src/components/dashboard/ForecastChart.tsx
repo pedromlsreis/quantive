@@ -1,4 +1,6 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
+import { setActiveCurrency } from '@/lib/formatters';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { format } from 'date-fns';
 import { generateForecast } from '@/lib/forecast';
@@ -50,6 +52,8 @@ const ForecastTooltip = ({ active, payload, label }: any) => {
 
 export function ForecastChart() {
   const { snapshots } = usePortfolio();
+  const { currency } = useCurrency();
+  setActiveCurrency(currency.code, currency.symbol, currency.locale);
 
   if (snapshots.length < 3) return null;
 

@@ -1,41 +1,26 @@
 import { useState } from 'react';
-import { HelpCircle, X, FileSpreadsheet, Filter, BarChart3, TrendingUp, CalendarCheck, CloudUpload, Coins } from 'lucide-react';
+import { HelpCircle, X, FileSpreadsheet, Filter, TrendingUp, CloudUpload } from 'lucide-react';
 
 const steps = [
   {
     icon: <FileSpreadsheet className="h-4 w-4 text-primary" />,
-    title: 'Upload your data',
-    description: 'Drop an .xlsx file with your portfolio snapshots, or try the demo data first.',
-  },
-  {
-    icon: <CalendarCheck className="h-4 w-4 text-primary" />,
-    title: 'Add monthly snapshots',
-    description: 'For best results, add at least one measurement per month to the same Excel file. Cumulative tracking lets you see trends, forecasts, and milestones over time.',
-  },
-  {
-    icon: <Coins className="h-4 w-4 text-primary" />,
-    title: 'Same currency required',
-    description: 'All values in your Excel must use the same currency. Pick your display currency in the header — no conversions are performed, it only changes the symbol shown.',
+    title: 'Upload your Excel file',
+    description: 'Drop an .xlsx with your portfolio snapshots (or try the demo). Add monthly measurements for trends and forecasts. All values must use the same currency.',
   },
   {
     icon: <Filter className="h-4 w-4 text-primary" />,
     title: 'Filter & explore',
-    description: 'Use the filter bar to narrow by date range, sources, volatility type, or liquidity.',
-  },
-  {
-    icon: <BarChart3 className="h-4 w-4 text-primary" />,
-    title: 'Analyse performance',
-    description: 'Collapse or expand sections to focus on what matters — net worth, allocation, or forecasts.',
+    description: 'Narrow by date range, sources, volatility, or liquidity. Collapse sections to focus on what matters.',
   },
   {
     icon: <TrendingUp className="h-4 w-4 text-primary" />,
-    title: 'Track milestones',
-    description: 'See your all-time high, best month, and milestone badges as your portfolio grows.',
+    title: 'Track your progress',
+    description: 'Monitor net worth, allocation, forecasts, and milestone badges as your portfolio grows.',
   },
   {
     icon: <CloudUpload className="h-4 w-4 text-primary" />,
-    title: 'Create an account to sync',
-    description: 'Sign up and confirm your email to save your data in the cloud. Your portfolio will sync across devices and persist between sessions.',
+    title: 'Sign up to sync across devices',
+    description: 'Create an account and confirm your email to persist your data in the cloud.',
   },
 ];
 
