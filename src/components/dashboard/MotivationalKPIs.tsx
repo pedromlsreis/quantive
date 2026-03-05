@@ -1,35 +1,27 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrency } from '@/contexts/CurrencyContext';
-import { setActiveCurrency, formatFullCurrency, formatPercent } from '@/lib/formatters';
+import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
+import { formatPercent } from '@/lib/formatters';
 import { Trophy, CalendarHeart, Rocket, Flag } from 'lucide-react';
 import { POSITIVE_COLOR } from '@/lib/chartColors';
 
 const MILESTONES = [10_000, 25_000, 50_000, 75_000, 100_000, 150_000, 200_000, 300_000, 500_000, 750_000, 1_000_000, 2_000_000, 5_000_000];
 
-function formatMilestone(v: number, symbol: string) {
-  const s = symbol === 'NOK' ? 'kr' : symbol;
-  if (v >= 1_000_000) return `${s}${v / 1_000_000}M`;
-  if (v >= 1_000) return `${s}${v / 1_000}k`;
-  return `${s}${v}`;
-}
-
 export function MotivationalKPIs() {
   const { snapshots } = usePortfolio();
-  const { currency } = useCurrency();
-  setActiveCurrency(currency.code, currency.symbol, currency.locale);
+  const { fmtFull, fmtMilestone } = useCurrencyFormatter();
 
   if (snapshots.length < 2) return null;
 
   const latest = snapshots[snapshots.length - 1];
   const first = snapshots[0];
 
-  // ── ATH Tracker ──
+  // ATH Tracker
   const ath = Math.max(...snapshots.map(s => s.total));
   const athDate = snapshots.find(s => s.total === ath)!.date;
   const athProximity = latest.total / ath;
   const isAtATH = athProximity > 0.999;
 
-  // ── Best Month Ever ──
+  // Best Month Ever
   const sortedSnapshots = [...snapshots].sort((a, b) => a.date.getTime() - b.date.getTime());
   const monthlyEnd = new Map<string, { date: Date; total: number }>();
   for (const snap of sortedSnapshots) {
@@ -53,12 +45,12 @@ export function MotivationalKPIs() {
     ? new Date(bestMonth.key + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
     : '';
 
-  // ── Total Wealth Created ──
+  // Total Wealth Created
   const totalCreated = latest.total - first.total;
   const totalPct = first.total > 0 ? (totalCreated / first.total) * 100 : 0;
   const daysSinceStart = Math.max(1, Math.round((latest.date.getTime() - first.date.getTime()) / (1000 * 60 * 60 * 24)));
 
-  // ── Milestone Badges ──
+  // Milestone Badges
   const reached = MILESTONES.filter(m => ath >= m);
   const nextMilestone = MILESTONES.find(m => m > ath);
   const progressToNext = nextMilestone ? latest.total / nextMilestone : 1;
@@ -76,7 +68,7 @@ export function MotivationalKPIs() {
             </div>
             <span className="text-sm font-medium text-muted-foreground">All-Time High</span>
           </div>
-          <p className="text-xl font-bold text-foreground">{formatFullCurrency(ath)}</p>
+          <p className="text-xl font-bold text-foreground">{fmtFull(ath)}</p>
           <p className="mt-1 text-xs text-muted-foreground">
             {athDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
@@ -89,13 +81,10 @@ export function MotivationalKPIs() {
             <div className="mt-3">
               <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                 <span>{(athProximity * 100).toFixed(1)}% of ATH</span>
-                <span>{formatFullCurrency(ath - latest.total)} to go</span>
+                <span>{fmtFull(ath - latest.total)} to go</span>
               </div>
               <div className="h-1.5 w-full rounded-full bg-secondary">
-                <div
-                  className="h-1.5 rounded-full bg-primary transition-all"
-                  style={{ width: `${athProximity * 100}%` }}
-                />
+                <div className="h-1.5 rounded-full bg-primary transition-all" style={{ width: `${athProximity * 100}%` }} />
               </div>
             </div>
           )}
@@ -109,9 +98,7 @@ export function MotivationalKPIs() {
             </div>
             <span className="text-sm font-medium text-muted-foreground">Best Month Ever</span>
           </div>
-          <p className="text-xl font-bold" style={{ color: POSITIVE_COLOR }}>
-            +{formatFullCurrency(bestMonth.gain)}
-          </p>
+          <p className="text-xl font-bold" style={{ color: POSITIVE_COLOR }}>+{fmtFull(bestMonth.gain)}</p>
           <p className="mt-1 text-xs text-muted-foreground">{bestMonthLabel}</p>
         </div>
 
@@ -124,7 +111,7 @@ export function MotivationalKPIs() {
             <span className="text-sm font-medium text-muted-foreground">Total Wealth Created</span>
           </div>
           <p className="text-xl font-bold" style={{ color: totalCreated >= 0 ? POSITIVE_COLOR : undefined }}>
-            {totalCreated >= 0 ? '+' : ''}{formatFullCurrency(totalCreated)}
+            {totalCreated >= 0 ? '+' : ''}{fmtFull(totalCreated)}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
             {formatPercent(totalPct)} since first measurement · {daysSinceStart} days
@@ -138,23 +125,17 @@ export function MotivationalKPIs() {
           <p className="mb-3 text-xs font-medium text-muted-foreground">Milestones</p>
           <div className="flex flex-wrap gap-2">
             {reached.map(m => (
-              <div
-                key={m}
-                className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent"
-              >
+              <div key={m} className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent">
                 <Flag className="h-3 w-3" />
-                {formatMilestone(m, currency.symbol)}
+                {fmtMilestone(m)}
               </div>
             ))}
             {nextMilestone && (
               <div className="flex items-center gap-2 rounded-full border border-border bg-secondary/50 px-3 py-1.5 text-xs text-muted-foreground">
                 <Flag className="h-3 w-3" />
-                <span>{formatMilestone(nextMilestone, currency.symbol)}</span>
+                <span>{fmtMilestone(nextMilestone)}</span>
                 <div className="h-1 w-12 rounded-full bg-secondary">
-                  <div
-                    className="h-1 rounded-full bg-primary/60 transition-all"
-                    style={{ width: `${Math.min(progressToNext * 100, 100)}%` }}
-                  />
+                  <div className="h-1 rounded-full bg-primary/60 transition-all" style={{ width: `${Math.min(progressToNext * 100, 100)}%` }} />
                 </div>
               </div>
             )}

@@ -4,37 +4,47 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-const Index = lazy(() => import("./pages/Index"));
-import NotFound from "./pages/NotFound";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Footer } from "./components/Footer";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 
+const Index = lazy(() => import("./pages/Index"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
 const queryClient = new QueryClient();
+
+const LoadingSpinner = () => (
+  <div className="flex flex-1 items-center justify-center bg-background">
+    <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+  </div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <AuthProvider>
-        <CurrencyProvider>
-          <PortfolioProvider>
-            <BrowserRouter>
-              <div className="flex min-h-screen flex-col">
-                <Suspense fallback={<div className="flex flex-1 items-center justify-center bg-background"><div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-                <Footer />
-              </div>
-            </BrowserRouter>
-          </PortfolioProvider>
-        </CurrencyProvider>
-      </AuthProvider>
+      <ErrorBoundary>
+        <AuthProvider>
+          <CurrencyProvider>
+            <PortfolioProvider>
+              <BrowserRouter>
+                <div className="flex min-h-screen flex-col">
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <Routes>
+                      <Route path="/" element={<Index />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </Suspense>
+                  <Footer />
+                </div>
+              </BrowserRouter>
+            </PortfolioProvider>
+          </CurrencyProvider>
+        </AuthProvider>
+      </ErrorBoundary>
     </TooltipProvider>
   </QueryClientProvider>
 );
