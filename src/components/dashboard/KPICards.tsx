@@ -1,8 +1,7 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrency } from '@/contexts/CurrencyContext';
-import { setActiveCurrency } from '@/lib/formatters';
+import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { TrendingUp, TrendingDown, Wallet, BarChart3, Coins, Droplets } from 'lucide-react';
-import { formatCurrency, formatPercent, formatFullCurrency } from '@/lib/formatters';
+import { formatPercent } from '@/lib/formatters';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface KPICardProps {
@@ -48,14 +47,13 @@ function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps
 
 export function KPICards() {
   const { kpis } = usePortfolio();
-  const { currency } = useCurrency();
-  setActiveCurrency(currency.code, currency.symbol, currency.locale);
+  const { fmt } = useCurrencyFormatter();
 
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <KPICard
         label="Net Worth"
-        value={formatCurrency(kpis.currentNetWorth)}
+        value={fmt(kpis.currentNetWorth)}
         change={kpis.momChange}
         icon={<Wallet className="h-4 w-4 text-primary" />}
         subtitle="vs. last month"
@@ -63,7 +61,7 @@ export function KPICards() {
       />
       <KPICard
         label="Year-over-Year"
-        value={formatCurrency(kpis.yoyNetWorth)}
+        value={fmt(kpis.yoyNetWorth)}
         change={kpis.yoyChange}
         icon={<BarChart3 className="h-4 w-4 text-primary" />}
         subtitle="Net worth 12 months ago"

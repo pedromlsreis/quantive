@@ -1,70 +1,12 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrency } from '@/contexts/CurrencyContext';
-import { setActiveCurrency } from '@/lib/formatters';
+import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceDot, Label } from 'recharts';
 import { format } from 'date-fns';
-import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
-
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div
-      style={{
-        backgroundColor: TOOLTIP_BG,
-        border: `1px solid ${TOOLTIP_BORDER}`,
-        borderRadius: 8,
-        padding: '12px 16px',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-      }}
-    >
-      <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{label}</p>
-      <p style={{ color: '#e8ecf0', fontSize: 16, fontWeight: 700 }}>
-        {formatFullCurrency(payload[0].value)}
-      </p>
-    </div>
-  );
-};
-
-// Custom label with background box for readability
-const AnnotationLabel = ({ viewBox, value, color }: any) => {
-  if (!viewBox) return null;
-  const { x, y } = viewBox;
-  const textLen = value.length * 6 + 16;
-  const boxH = 22;
-  const offsetY = -20;
-
-  return (
-    <g>
-      <rect
-        x={x - textLen / 2}
-        y={y + offsetY - boxH / 2 - 1}
-        width={textLen}
-        height={boxH}
-        rx={5}
-        fill={color}
-        fillOpacity={0.15}
-        stroke={color}
-        strokeWidth={1}
-        strokeOpacity={0.8}
-      />
-      <text
-        x={x}
-        y={y + offsetY + 1}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        style={{ fontSize: 10, fontWeight: 700, fill: color }}
-      >
-        {value}
-      </text>
-    </g>
-  );
-};
 
 export function NetWorthChart() {
   const { snapshots } = usePortfolio();
-  const { currency } = useCurrency();
-  setActiveCurrency(currency.code, currency.symbol, currency.locale);
+  const { fmt, fmtFull } = useCurrencyFormatter();
 
   if (snapshots.length === 0) return null;
 
@@ -104,6 +46,16 @@ export function NetWorthChart() {
 
   const interval = Math.max(1, Math.floor(chartData.length / 12));
 
+  const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+        <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{label}</p>
+        <p style={{ color: '#e8ecf0', fontSize: 16, fontWeight: 700 }}>{fmtFull(payload[0].value)}</p>
+      </div>
+    );
+  };
+
   return (
     <div className="rounded-xl border border-border bg-card p-6" style={{ overflow: 'visible' }}>
       <h3 className="mb-4 text-sm font-medium text-muted-foreground">Net Worth Over Time</h3>
@@ -117,46 +69,13 @@ export function NetWorthChart() {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
-            <XAxis
-              dataKey="date"
-              stroke={AXIS_COLOR}
-              fontSize={11}
-              interval={interval}
-              tickMargin={8}
-            />
-            <YAxis
-              stroke={AXIS_COLOR}
-              fontSize={11}
-              tickFormatter={(v) => formatCurrency(v)}
-              width={70}
-            />
+            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} interval={interval} tickMargin={8} />
+            <YAxis stroke={AXIS_COLOR} fontSize={11} tickFormatter={(v) => fmt(v)} width={70} />
             <Tooltip content={<CustomTooltip />} />
-            <Area
-              type="monotone"
-              dataKey="total"
-              stroke={PRIMARY_COLOR}
-              fill="url(#netWorthGradient)"
-              strokeWidth={2}
-              dot={false}
-              activeDot={{ r: 4, fill: PRIMARY_COLOR }}
-            />
+            <Area type="monotone" dataKey="total" stroke={PRIMARY_COLOR} fill="url(#netWorthGradient)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: PRIMARY_COLOR }} />
             {annotations.map((a) => (
-              <ReferenceDot
-                key={`annotation-${a.idx}`}
-                x={chartData[a.idx].date}
-                y={chartData[a.idx].total}
-                r={6}
-                fill={a.color}
-                stroke="hsl(222, 25%, 10%)"
-                strokeWidth={2}
-                isFront
-              >
-                <Label
-                  value={a.label}
-                  position="top"
-                  offset={12}
-                  style={{ fontSize: 11, fontWeight: 700, fill: a.color }}
-                />
+              <ReferenceDot key={`annotation-${a.idx}`} x={chartData[a.idx].date} y={chartData[a.idx].total} r={6} fill={a.color} stroke="hsl(222, 25%, 10%)" strokeWidth={2} isFront>
+                <Label value={a.label} position="top" offset={12} style={{ fontSize: 11, fontWeight: 700, fill: a.color }} />
               </ReferenceDot>
             ))}
           </AreaChart>

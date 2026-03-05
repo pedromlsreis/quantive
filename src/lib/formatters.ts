@@ -1,18 +1,14 @@
 import type { CurrencyCode } from '@/contexts/CurrencyContext';
 
-// These will be set by the CurrencyProvider via setActiveCurrency
-let _code: CurrencyCode = 'EUR';
-let _symbol = '€';
-let _locale = 'de-DE';
-
-export function setActiveCurrency(code: CurrencyCode, symbol: string, locale: string) {
-  _code = code;
-  _symbol = symbol;
-  _locale = locale;
+export interface CurrencyConfig {
+  code: CurrencyCode;
+  symbol: string;
+  locale: string;
 }
 
-export function formatCurrency(value: number): string {
-  const s = _symbol === 'NOK' ? 'kr' : _symbol;
+/** Abbreviated currency format: €12.3k, $1.2M */
+export function formatCurrency(value: number, symbol: string): string {
+  const s = symbol === 'NOK' ? 'kr' : symbol;
   if (Math.abs(value) >= 1_000_000) {
     return `${s}${(value / 1_000_000).toFixed(1)}M`;
   }
@@ -22,10 +18,11 @@ export function formatCurrency(value: number): string {
   return `${s}${value.toFixed(0)}`;
 }
 
-export function formatFullCurrency(value: number): string {
-  return new Intl.NumberFormat(_locale, {
+/** Full Intl-formatted currency: €12,345.67 */
+export function formatFullCurrency(value: number, code: CurrencyCode, locale: string): string {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: _code,
+    currency: code,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
@@ -44,4 +41,12 @@ export function formatNumber(value: number): string {
     return `${(value / 1_000).toFixed(1)}k`;
   }
   return value.toFixed(0);
+}
+
+/** Milestone badge label: €100k, $1M */
+export function formatMilestone(value: number, symbol: string): string {
+  const s = symbol === 'NOK' ? 'kr' : symbol;
+  if (value >= 1_000_000) return `${s}${value / 1_000_000}M`;
+  if (value >= 1_000) return `${s}${value / 1_000}k`;
+  return `${s}${value}`;
 }

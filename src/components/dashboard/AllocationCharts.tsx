@@ -1,16 +1,7 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrency } from '@/contexts/CurrencyContext';
-import { setActiveCurrency } from '@/lib/formatters';
-import {
-  ResponsiveContainer,
-  Treemap,
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-} from 'recharts';
+import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
+import { ResponsiveContainer, Treemap, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { CHART_COLORS, TREEMAP_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } from '@/lib/chartColors';
-import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { SourceDetail } from '@/lib/types';
 import { Info } from 'lucide-react';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -74,48 +65,9 @@ function DonutChart({ title, data, description }: { title: string; data: { name:
   );
 }
 
-// Custom treemap content renderer
-const TreemapContent = (props: any) => {
-  const { x, y, width, height, name, value, index } = props;
-  if (width < 4 || height < 4) return null;
-
-  const color = TREEMAP_COLORS[index % TREEMAP_COLORS.length];
-  const showLabel = width > 60 && height > 35;
-  const showValue = width > 80 && height > 50;
-  const pad = 8;
-
-  return (
-    <g>
-      <rect x={x} y={y} width={width} height={height} rx={4} fill={color} fillOpacity={0.9} stroke="hsl(222, 25%, 10%)" strokeWidth={2} />
-      {showLabel && (
-        <text x={x + pad} y={y + pad + 12} textAnchor="start" fill="#e8ecf0" fontSize={11} fontWeight={600}>
-          {name}
-        </text>
-      )}
-      {showValue && (
-        <text x={x + pad} y={y + pad + 26} textAnchor="start" fill="#e8ecf0" fontSize={10}>
-          {formatCurrency(value)}
-        </text>
-      )}
-    </g>
-  );
-};
-
-const TreemapTooltip = ({ active, payload }: any) => {
-  if (!active || !payload?.length) return null;
-  const d = payload[0].payload;
-  return (
-    <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-      <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{d.name}</p>
-      <p style={{ color: '#e8ecf0', fontSize: 14, fontWeight: 700 }}>{formatFullCurrency(d.value)}</p>
-    </div>
-  );
-};
-
 export function AllocationCharts() {
   const { snapshots } = usePortfolio();
-  const { currency } = useCurrency();
-  setActiveCurrency(currency.code, currency.symbol, currency.locale);
+  const { fmt, fmtFull } = useCurrencyFormatter();
 
   if (snapshots.length === 0) return null;
 
@@ -123,15 +75,38 @@ export function AllocationCharts() {
 
   const treemapData = latest.sources
     .sort((a, b) => b.value - a.value)
-    .map((s, i) => ({
-      name: s.name,
-      value: Math.round(s.value),
-      fill: TREEMAP_COLORS[i % TREEMAP_COLORS.length],
-    }));
+    .map((s, i) => ({ name: s.name, value: Math.round(s.value), fill: TREEMAP_COLORS[i % TREEMAP_COLORS.length] }));
 
   const volatData = aggregateByKey(latest.sources, s => s.volatType);
   const cryptoData = aggregateByKey(latest.sources, s => (s.isCrypto ? 'Crypto' : 'Traditional'));
   const liquidData = aggregateByKey(latest.sources, s => (s.isLiquid ? 'Liquid' : 'Non-Liquid'));
+
+  const TreemapContent = (props: any) => {
+    const { x, y, width, height, name, value, index } = props;
+    if (width < 4 || height < 4) return null;
+    const color = TREEMAP_COLORS[index % TREEMAP_COLORS.length];
+    const showLabel = width > 60 && height > 35;
+    const showValue = width > 80 && height > 50;
+    const pad = 8;
+    return (
+      <g>
+        <rect x={x} y={y} width={width} height={height} rx={4} fill={color} fillOpacity={0.9} stroke="hsl(222, 25%, 10%)" strokeWidth={2} />
+        {showLabel && <text x={x + pad} y={y + pad + 12} textAnchor="start" fill="#e8ecf0" fontSize={11} fontWeight={600}>{name}</text>}
+        {showValue && <text x={x + pad} y={y + pad + 26} textAnchor="start" fill="#e8ecf0" fontSize={10}>{fmt(value)}</text>}
+      </g>
+    );
+  };
+
+  const TreemapTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0].payload;
+    return (
+      <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
+        <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{d.name}</p>
+        <p style={{ color: '#e8ecf0', fontSize: 14, fontWeight: 700 }}>{fmtFull(d.value)}</p>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -139,12 +114,7 @@ export function AllocationCharts() {
         <h3 className="mb-4 text-sm font-medium text-muted-foreground">Allocation by Source</h3>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <Treemap
-              data={treemapData}
-              dataKey="value"
-              stroke="none"
-              content={<TreemapContent />}
-            >
+            <Treemap data={treemapData} dataKey="value" stroke="none" content={<TreemapContent />}>
               <Tooltip content={<TreemapTooltip />} />
             </Treemap>
           </ResponsiveContainer>
@@ -152,21 +122,9 @@ export function AllocationCharts() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <DonutChart
-          title="Volatility"
-          data={volatData}
-          description="How stable each asset's value is over time. Volatile assets (stocks, crypto) swing more in price, while non-volatile assets (savings, bonds) remain steadier."
-        />
-        <DonutChart
-          title="Asset Type"
-          data={cryptoData}
-          description="Splits your portfolio between cryptocurrency-based assets (Bitcoin, Ethereum, etc.) and traditional assets (bank accounts, stocks, real estate)."
-        />
-        <DonutChart
-          title="Liquidity"
-          data={liquidData}
-          description="How quickly you can convert each asset to cash. Liquid assets (savings, stocks) can be accessed within days, while non-liquid assets (real estate, locked funds) take longer."
-        />
+        <DonutChart title="Volatility" data={volatData} description="How stable each asset's value is over time. Volatile assets (stocks, crypto) swing more in price, while non-volatile assets (savings, bonds) remain steadier." />
+        <DonutChart title="Asset Type" data={cryptoData} description="Splits your portfolio between cryptocurrency-based assets (Bitcoin, Ethereum, etc.) and traditional assets (bank accounts, stocks, real estate)." />
+        <DonutChart title="Liquidity" data={liquidData} description="How quickly you can convert each asset to cash. Liquid assets (savings, stocks) can be accessed within days, while non-liquid assets (real estate, locked funds) take longer." />
       </div>
     </div>
   );
