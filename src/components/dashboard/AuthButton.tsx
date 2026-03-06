@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { LogIn, UserPlus, X, LogOut, User, Mail } from 'lucide-react';
+import { LogIn, UserPlus, X, User, Mail } from 'lucide-react';
 import { toast } from 'sonner';
+import { ProfileMenu } from './ProfileMenu';
 
 export function AuthButton() {
-  const { user, signUp, signIn, signOut, resetPassword, loading } = useAuth();
+  const { user, signUp, signIn, resetPassword, loading } = useAuth();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
   const [email, setEmail] = useState('');
@@ -13,20 +14,7 @@ export function AuthButton() {
 
   if (loading) return null;
 
-  if (user) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="hidden text-xs text-muted-foreground sm:inline">{user.email}</span>
-        <button
-          onClick={signOut}
-          className="flex items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
-        >
-          <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">Sign out</span>
-        </button>
-      </div>
-    );
-  }
+  if (user) return <ProfileMenu />;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
