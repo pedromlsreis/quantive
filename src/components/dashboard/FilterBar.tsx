@@ -39,7 +39,7 @@ function MultiSelect({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 text-sm text-foreground transition-colors hover:bg-secondary px-[12px] py-[6px]">
+        className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 text-sm transition-colors hover:bg-secondary px-[12px] py-[6px] text-muted-foreground">
         
         {label}
         {selected.length > 0 &&
