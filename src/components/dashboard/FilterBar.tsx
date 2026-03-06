@@ -9,13 +9,13 @@ function MultiSelect({
   label,
   options,
   selected,
-  onChange,
-}: {
-  label: string;
-  options: string[];
-  selected: string[];
-  onChange: (v: string[]) => void;
-}) {
+  onChange
+
+
+
+
+
+}: {label: string;options: string[];selected: string[];onChange: (v: string[]) => void;}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -29,9 +29,9 @@ function MultiSelect({
 
   const toggle = (option: string) => {
     onChange(
-      selected.includes(option)
-        ? selected.filter(s => s !== option)
-        : [...selected, option]
+      selected.includes(option) ?
+      selected.filter((s) => s !== option) :
+      [...selected, option]
     );
   };
 
@@ -39,72 +39,72 @@ function MultiSelect({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground transition-colors hover:bg-secondary"
-      >
+        className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 text-sm text-foreground transition-colors hover:bg-secondary px-[12px] py-[6px]">
+        
         {label}
-        {selected.length > 0 && (
-          <span className="rounded-full bg-primary/20 px-1.5 text-xs text-primary">
+        {selected.length > 0 &&
+        <span className="rounded-full bg-primary/20 px-1.5 text-xs text-primary">
             {selected.length}
           </span>
-        )}
+        }
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
       </button>
-      {open && (
-        <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-border bg-popover p-2 shadow-xl">
-          {selected.length > 0 && (
-            <button
-              onClick={() => onChange([])}
-              className="mb-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary"
-            >
+      {open &&
+      <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-border bg-popover p-2 shadow-xl">
+          {selected.length > 0 &&
+        <button
+          onClick={() => onChange([])}
+          className="mb-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary">
+          
               <X className="h-3 w-3" /> Clear all
             </button>
-          )}
-          {options.map(option => (
-            <label
-              key={option}
-              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-secondary"
-            >
+        }
+          {options.map((option) =>
+        <label
+          key={option}
+          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-secondary">
+          
               <input
-                type="checkbox"
-                checked={selected.includes(option)}
-                onChange={() => toggle(option)}
-                className="rounded border-border accent-primary"
-              />
+            type="checkbox"
+            checked={selected.includes(option)}
+            onChange={() => toggle(option)}
+            className="rounded border-border accent-primary" />
+          
               {option}
             </label>
-          ))}
+        )}
         </div>
-      )}
-    </div>
-  );
+      }
+    </div>);
+
 }
 
 function ToggleFilter({
   value,
   options,
-  onChange,
-}: {
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (v: string) => void;
-}) {
+  onChange
+
+
+
+
+}: {value: string;options: {value: string;label: string;}[];onChange: (v: string) => void;}) {
   return (
     <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
-      {options.map(opt => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-            value === opt.value
-              ? 'bg-primary text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
+      {options.map((opt) =>
+      <button
+        key={opt.value}
+        onClick={() => onChange(opt.value)}
+        className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+        value === opt.value ?
+        'bg-primary text-primary-foreground' :
+        'text-muted-foreground hover:text-foreground'}`
+        }>
+        
           {opt.label}
         </button>
-      ))}
-    </div>
-  );
+      )}
+    </div>);
+
 }
 
 function DateRangeSlider() {
@@ -126,12 +126,12 @@ function DateRangeSlider() {
   if (months.length < 2) return null;
 
   // Map current filter dates to slider indices
-  const startIdx = filters.dateRange[0]
-    ? months.findIndex(m => m.getFullYear() === filters.dateRange[0]!.getFullYear() && m.getMonth() === filters.dateRange[0]!.getMonth())
-    : 0;
-  const endIdx = filters.dateRange[1]
-    ? months.findIndex(m => m.getFullYear() === filters.dateRange[1]!.getFullYear() && m.getMonth() === filters.dateRange[1]!.getMonth())
-    : months.length - 1;
+  const startIdx = filters.dateRange[0] ?
+  months.findIndex((m) => m.getFullYear() === filters.dateRange[0]!.getFullYear() && m.getMonth() === filters.dateRange[0]!.getMonth()) :
+  0;
+  const endIdx = filters.dateRange[1] ?
+  months.findIndex((m) => m.getFullYear() === filters.dateRange[1]!.getFullYear() && m.getMonth() === filters.dateRange[1]!.getMonth()) :
+  months.length - 1;
 
   const safeStart = Math.max(0, startIdx === -1 ? 0 : startIdx);
   const safeEnd = Math.max(safeStart, endIdx === -1 ? months.length - 1 : endIdx);
@@ -141,9 +141,9 @@ function DateRangeSlider() {
     const endMonth = months[values[1]];
     updateFilters({
       dateRange: [
-        new Date(startMonth.getFullYear(), startMonth.getMonth(), 1),
-        new Date(endMonth.getFullYear(), endMonth.getMonth() + 1, 0, 23, 59, 59),
-      ],
+      new Date(startMonth.getFullYear(), startMonth.getMonth(), 1),
+      new Date(endMonth.getFullYear(), endMonth.getMonth() + 1, 0, 23, 59, 59)]
+
     });
   };
 
@@ -159,11 +159,11 @@ function DateRangeSlider() {
         step={1}
         value={[safeStart, safeEnd]}
         onValueChange={handleChange}
-        className="flex-1"
-      />
+        className="flex-1" />
+      
       <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{endLabel}</span>
-    </div>
-  );
+    </div>);
+
 }
 
 export function FilterBar() {
@@ -179,38 +179,38 @@ export function FilterBar() {
         label="Sources"
         options={allSources}
         selected={filters.sources}
-        onChange={(v) => updateFilters({ sources: v })}
-      />
+        onChange={(v) => updateFilters({ sources: v })} />
+      
       <ToggleFilter
         value={filters.volatTypes.length === 1 ? filters.volatTypes[0] : 'all'}
         options={[
-          { value: 'all', label: 'All' },
-          ...allVolatTypes.map(v => ({ value: v, label: v })),
-        ]}
-        onChange={(v) => updateFilters({ volatTypes: v === 'all' ? [] : [v] })}
-      />
+        { value: 'all', label: 'All' },
+        ...allVolatTypes.map((v) => ({ value: v, label: v }))]
+        }
+        onChange={(v) => updateFilters({ volatTypes: v === 'all' ? [] : [v] })} />
+      
 
       <div className="h-6 w-px bg-border" />
 
       <ToggleFilter
         value={filters.cryptoFilter}
         options={[
-          { value: 'all', label: 'All' },
-          { value: 'crypto', label: 'Crypto' },
-          { value: 'non-crypto', label: 'Traditional' },
-        ]}
-        onChange={(v) => updateFilters({ cryptoFilter: v as FilterState['cryptoFilter'] })}
-      />
+        { value: 'all', label: 'All' },
+        { value: 'crypto', label: 'Crypto' },
+        { value: 'non-crypto', label: 'Traditional' }]
+        }
+        onChange={(v) => updateFilters({ cryptoFilter: v as FilterState['cryptoFilter'] })} />
+      
 
       <ToggleFilter
         value={filters.liquidFilter}
         options={[
-          { value: 'all', label: 'All' },
-          { value: 'liquid', label: 'Liquid' },
-          { value: 'non-liquid', label: 'Non-Liquid' },
-        ]}
-        onChange={(v) => updateFilters({ liquidFilter: v as FilterState['liquidFilter'] })}
-      />
-    </div>
-  );
+        { value: 'all', label: 'All' },
+        { value: 'liquid', label: 'Liquid' },
+        { value: 'non-liquid', label: 'Non-Liquid' }]
+        }
+        onChange={(v) => updateFilters({ liquidFilter: v as FilterState['liquidFilter'] })} />
+      
+    </div>);
+
 }
