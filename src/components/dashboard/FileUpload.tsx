@@ -3,6 +3,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { FileSpreadsheet, Download, Play } from 'lucide-react';
 import { downloadExcelTemplate } from '@/lib/templateGenerator';
 import { AuthButton } from './AuthButton';
+import { WelcomeModal } from './WelcomeModal';
 
 export function FileUpload() {
   const { loadFile, loadMockData, isLoading } = usePortfolio();
@@ -24,6 +25,7 @@ export function FileUpload() {
 
   return (
     <main className="flex flex-1 flex-col bg-background">
+      <WelcomeModal />
       <div className="flex justify-end px-6 py-3">
         <AuthButton />
       </div>
