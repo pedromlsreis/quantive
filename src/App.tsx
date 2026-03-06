@@ -11,6 +11,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 
 const Index = lazy(() => import("./pages/Index"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ const App = () => (
                   <Suspense fallback={<LoadingSpinner />}>
                     <Routes>
                       <Route path="/" element={<Index />} />
+                      <Route path="/reset-password" element={<ResetPassword />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </Suspense>
