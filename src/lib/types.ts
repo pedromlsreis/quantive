@@ -6,25 +6,17 @@ export interface FactRow {
 
 export interface RefSource {
   idSource: string;
-  idVolatType: number;
-  isCrypto: boolean;
+  volatType: string;
   transferableInDays: boolean;
-}
-
-export interface RefVolatType {
-  idVolatType: number;
-  volatTypeDsc: string;
 }
 
 export interface PortfolioData {
   facts: FactRow[];
   refSources: RefSource[];
-  refVolatTypes: RefVolatType[];
 }
 
 export interface EnrichedFact extends FactRow {
   volatType: string;
-  isCrypto: boolean;
   isLiquid: boolean;
 }
 
@@ -32,7 +24,6 @@ export interface SourceDetail {
   name: string;
   value: number;
   volatType: string;
-  isCrypto: boolean;
   isLiquid: boolean;
 }
 
@@ -46,7 +37,6 @@ export interface FilterState {
   dateRange: [Date | null, Date | null];
   sources: string[];
   volatTypes: string[];
-  cryptoFilter: 'all' | 'crypto' | 'non-crypto';
   liquidFilter: 'all' | 'liquid' | 'non-liquid';
 }
 
@@ -57,6 +47,5 @@ export interface KPIData {
   yoyNetWorth: number;
   sourceCount: number;
   volatilePercent: number;
-  cryptoPercent: number;
   liquidPercent: number;
 }

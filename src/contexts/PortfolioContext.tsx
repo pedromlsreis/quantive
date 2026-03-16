@@ -28,7 +28,6 @@ const defaultFilters: FilterState = {
   dateRange: [null, null],
   sources: [],
   volatTypes: [],
-  cryptoFilter: 'all',
   liquidFilter: 'all',
 };
 
@@ -39,7 +38,6 @@ const defaultKpis: KPIData = {
   yoyNetWorth: 0,
   sourceCount: 0,
   volatilePercent: 0,
-  cryptoPercent: 0,
   liquidPercent: 0,
 };
 
@@ -197,27 +195,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const enrichedFacts = useMemo<EnrichedFact[]>(() => {
     if (!data) return [];
     const sourceMap = new Map(data.refSources.map(s => [s.idSource.trim(), s]));
-    const volatMap = new Map(data.refVolatTypes.map(v => [v.idVolatType, v.volatTypeDsc]));
-
-    // Normalize volatility type descriptions to deduplicate (e.g. "Volatile" and "Volatile" with different IDs)
-    const normalizedVolatMap = new Map<number, string>();
-    const seenVolatLabels = new Map<string, string>();
-    for (const [id, dsc] of volatMap.entries()) {
-      const normalized = dsc.trim();
-      if (seenVolatLabels.has(normalized.toLowerCase())) {
-        normalizedVolatMap.set(id, seenVolatLabels.get(normalized.toLowerCase())!);
-      } else {
-        seenVolatLabels.set(normalized.toLowerCase(), normalized);
-        normalizedVolatMap.set(id, normalized);
-      }
-    }
 
     return data.facts.map(f => {
       const source = sourceMap.get(f.idSource.trim());
       return {
         ...f,
-        volatType: source ? (normalizedVolatMap.get(source.idVolatType) || 'Unknown') : 'Unknown',
-        isCrypto: source?.isCrypto ?? false,
+        volatType: source?.volatType ?? 'Unknown',
         isLiquid: source?.transferableInDays ?? false,
       };
     });
@@ -230,7 +213,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   const allVolatTypes = useMemo(() => {
     if (!data) return [];
-    return data.refVolatTypes.map(v => v.volatTypeDsc);
+    return [...new Set(data.refSources.map(s => s.volatType))].sort();
   }, [data]);
 
   const dateRange = useMemo<[Date, Date] | null>(() => {
@@ -246,7 +229,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (endDate) result = result.filter(f => f.date <= endDate);
     if (filters.sources.length > 0) result = result.filter(f => filters.sources.includes(f.idSource));
     if (filters.volatTypes.length > 0) result = result.filter(f => filters.volatTypes.includes(f.volatType));
-    if (filters.cryptoFilter !== 'all') result = result.filter(f => f.isCrypto === (filters.cryptoFilter === 'crypto'));
     if (filters.liquidFilter !== 'all') result = result.filter(f => f.isLiquid === (filters.liquidFilter === 'liquid'));
     return result;
   }, [enrichedFacts, filters]);
@@ -268,7 +250,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           name: f.idSource,
           value: f.sourceVl,
           volatType: f.volatType,
-          isCrypto: f.isCrypto,
           isLiquid: f.isLiquid,
         })),
       }));
@@ -293,7 +274,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     const sourceCount = latest.sources.length;
     const volatileTotal = latest.sources.filter(s => s.volatType.toLowerCase().includes('volatile') && !s.volatType.toLowerCase().includes('non')).reduce((sum, s) => sum + s.value, 0);
-    const cryptoTotal = latest.sources.filter(s => s.isCrypto).reduce((sum, s) => sum + s.value, 0);
     const liquidTotal = latest.sources.filter(s => s.isLiquid).reduce((sum, s) => sum + s.value, 0);
 
     return {
@@ -303,7 +283,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       yoyNetWorth,
       sourceCount,
       volatilePercent: currentNetWorth > 0 ? (volatileTotal / currentNetWorth) * 100 : 0,
-      cryptoPercent: currentNetWorth > 0 ? (cryptoTotal / currentNetWorth) * 100 : 0,
       liquidPercent: currentNetWorth > 0 ? (liquidTotal / currentNetWorth) * 100 : 0,
     };
   }, [snapshots]);

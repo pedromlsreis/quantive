@@ -10,11 +10,6 @@ function MultiSelect({
   options,
   selected,
   onChange
-
-
-
-
-
 }: {label: string;options: string[];selected: string[];onChange: (v: string[]) => void;}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -83,10 +78,6 @@ function ToggleFilter({
   value,
   options,
   onChange
-
-
-
-
 }: {value: string;options: {value: string;label: string;}[];onChange: (v: string) => void;}) {
   return (
     <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
@@ -188,19 +179,8 @@ export function FilterBar() {
         ...allVolatTypes.map((v) => ({ value: v, label: v }))]
         }
         onChange={(v) => updateFilters({ volatTypes: v === 'all' ? [] : [v] })} />
-      
 
       <div className="h-6 w-px bg-border" />
-
-      <ToggleFilter
-        value={filters.cryptoFilter}
-        options={[
-        { value: 'all', label: 'All' },
-        { value: 'crypto', label: 'Crypto' },
-        { value: 'non-crypto', label: 'Traditional' }]
-        }
-        onChange={(v) => updateFilters({ cryptoFilter: v as FilterState['cryptoFilter'] })} />
-      
 
       <ToggleFilter
         value={filters.liquidFilter}

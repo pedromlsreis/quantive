@@ -7,7 +7,6 @@ describe('generateMockData', () => {
   it('returns a valid PortfolioData structure', () => {
     expect(data).toHaveProperty('facts');
     expect(data).toHaveProperty('refSources');
-    expect(data).toHaveProperty('refVolatTypes');
   });
 
   it('generates facts with required fields', () => {
@@ -25,14 +24,9 @@ describe('generateMockData', () => {
     expect(data.refSources).toHaveLength(6);
     data.refSources.forEach(s => {
       expect(s).toHaveProperty('idSource');
-      expect(s).toHaveProperty('idVolatType');
-      expect(typeof s.isCrypto).toBe('boolean');
+      expect(typeof s.volatType).toBe('string');
       expect(typeof s.transferableInDays).toBe('boolean');
     });
-  });
-
-  it('generates 3 volatility types', () => {
-    expect(data.refVolatTypes).toHaveLength(3);
   });
 
   it('generates facts for all 6 sources per month', () => {

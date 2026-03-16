@@ -78,7 +78,6 @@ export function AllocationCharts() {
     .map((s, i) => ({ name: s.name, value: Math.round(s.value), fill: TREEMAP_COLORS[i % TREEMAP_COLORS.length] }));
 
   const volatData = aggregateByKey(latest.sources, s => s.volatType);
-  const cryptoData = aggregateByKey(latest.sources, s => (s.isCrypto ? 'Crypto' : 'Traditional'));
   const liquidData = aggregateByKey(latest.sources, s => (s.isLiquid ? 'Liquid' : 'Non-Liquid'));
 
   const TreemapContent = (props: any) => {
@@ -121,9 +120,8 @@ export function AllocationCharts() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <DonutChart title="Volatility" data={volatData} description="How stable each asset's value is over time. Volatile assets (stocks, crypto) swing more in price, while non-volatile assets (savings, bonds) remain steadier." />
-        <DonutChart title="Asset Type" data={cryptoData} description="Splits your portfolio between cryptocurrency-based assets (Bitcoin, Ethereum, etc.) and traditional assets (bank accounts, stocks, real estate)." />
         <DonutChart title="Liquidity" data={liquidData} description="How quickly you can convert each asset to cash. Liquid assets (savings, stocks) can be accessed within days, while non-liquid assets (real estate, locked funds) take longer." />
       </div>
     </div>

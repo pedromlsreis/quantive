@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import { FactRow, RefSource, RefVolatType, PortfolioData } from './types';
+import { FactRow, RefSource, PortfolioData } from './types';
 
 function parseDate(val: any): Date {
   if (val instanceof Date) return val;
@@ -96,26 +96,16 @@ export function parsePortfolioExcel(buffer: ArrayBuffer): PortfolioData {
   const refRows: any[][] = XLSX.utils.sheet_to_json(refSheet, { header: 1 });
 
   // Find REF_SOURCES table
-  const sourcesTable = findTableData(refRows, ['ID_SOURCE', 'ID_VOLAT_TYPE', 'IS_CRYPTO', 'TRANSFERABLE_IN_DAYS']);
+  const sourcesTable = findTableData(refRows, ['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS']);
   const refSources: RefSource[] = sourcesTable
     ? extractTableRows(refRows, sourcesTable.headerRow, sourcesTable.colIndices).map(r => ({
         idSource: String(r['ID_SOURCE']).trim(),
-        idVolatType: Number(r['ID_VOLAT_TYPE']),
-        isCrypto: parseBoolean(r['IS_CRYPTO']),
+        volatType: String(r['VOLAT_TYPE']).trim(),
         transferableInDays: parseBoolean(r['TRANSFERABLE_IN_DAYS']),
-      }))
-    : [];
-
-  // Find REF_VOLAT_TYPES table
-  const volatTable = findTableData(refRows, ['ID_VOLAT_TYPE', 'VOLAT_TYPE_DSC']);
-  const refVolatTypes: RefVolatType[] = volatTable
-    ? extractTableRows(refRows, volatTable.headerRow, volatTable.colIndices).map(r => ({
-        idVolatType: Number(r['ID_VOLAT_TYPE']),
-        volatTypeDsc: String(r['VOLAT_TYPE_DSC']),
       }))
     : [];
 
   if (facts.length === 0) throw new Error('No valid fact records found');
 
-  return { facts, refSources, refVolatTypes };
+  return { facts, refSources };
 }

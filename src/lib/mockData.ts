@@ -1,4 +1,4 @@
-import { PortfolioData, FactRow, RefSource, RefVolatType } from './types';
+import { PortfolioData, FactRow, RefSource } from './types';
 
 function monthDate(year: number, month: number): Date {
   return new Date(year, month - 1, 1);
@@ -7,18 +7,12 @@ function monthDate(year: number, month: number): Date {
 const sources = ['Savings Account', 'ETF World', 'ETF Bonds', 'Crypto BTC', 'Real Estate Fund', 'Pension Plan'];
 
 const refSources: RefSource[] = [
-  { idSource: 'Savings Account', idVolatType: 1, isCrypto: false, transferableInDays: true },
-  { idSource: 'ETF World', idVolatType: 2, isCrypto: false, transferableInDays: true },
-  { idSource: 'ETF Bonds', idVolatType: 1, isCrypto: false, transferableInDays: true },
-  { idSource: 'Crypto BTC', idVolatType: 3, isCrypto: true, transferableInDays: true },
-  { idSource: 'Real Estate Fund', idVolatType: 2, isCrypto: false, transferableInDays: false },
-  { idSource: 'Pension Plan', idVolatType: 1, isCrypto: false, transferableInDays: false },
-];
-
-const refVolatTypes: RefVolatType[] = [
-  { idVolatType: 1, volatTypeDsc: 'Non-Volatile' },
-  { idVolatType: 2, volatTypeDsc: 'Volatile' },
-  { idVolatType: 3, volatTypeDsc: 'Highly Volatile' },
+  { idSource: 'Savings Account', volatType: 'Non-Volatile', transferableInDays: true },
+  { idSource: 'ETF World', volatType: 'Volatile', transferableInDays: true },
+  { idSource: 'ETF Bonds', volatType: 'Non-Volatile', transferableInDays: true },
+  { idSource: 'Crypto BTC', volatType: 'Highly Volatile', transferableInDays: true },
+  { idSource: 'Real Estate Fund', volatType: 'Volatile', transferableInDays: false },
+  { idSource: 'Pension Plan', volatType: 'Non-Volatile', transferableInDays: false },
 ];
 
 // Base values and monthly growth multipliers per source
@@ -70,5 +64,5 @@ export function generateMockData(): PortfolioData {
     }
   }
 
-  return { facts, refSources, refVolatTypes };
+  return { facts, refSources };
 }

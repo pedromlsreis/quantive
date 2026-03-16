@@ -22,14 +22,9 @@ describe('parsePortfolioExcel', () => {
   ];
 
   const validRef = [
-    ['ID_SOURCE', 'ID_VOLAT_TYPE', 'IS_CRYPTO', 'TRANSFERABLE_IN_DAYS'],
-    ['Savings', 1, false, true],
-    ['ETF', 2, false, true],
-    [],
-    [],
-    ['ID_VOLAT_TYPE', 'VOLAT_TYPE_DSC'],
-    [1, 'Non-Volatile'],
-    [2, 'Volatile'],
+    ['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS'],
+    ['Savings', 'Non-Volatile', true],
+    ['ETF', 'Volatile', true],
   ];
 
   it('parses a valid workbook', () => {
@@ -37,7 +32,6 @@ describe('parsePortfolioExcel', () => {
     const result = parsePortfolioExcel(buffer);
     expect(result.facts).toHaveLength(4);
     expect(result.refSources).toHaveLength(2);
-    expect(result.refVolatTypes).toHaveLength(2);
   });
 
   it('parses dates correctly', () => {
@@ -61,6 +55,5 @@ describe('parsePortfolioExcel', () => {
     const result = parsePortfolioExcel(buffer);
     expect(result.facts.length).toBeGreaterThan(0);
     expect(result.refSources).toHaveLength(0);
-    expect(result.refVolatTypes).toHaveLength(0);
   });
 });

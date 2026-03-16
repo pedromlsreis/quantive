@@ -15,20 +15,14 @@ export function downloadExcelTemplate() {
   factsSheet['!cols'] = [{ wch: 14 }, { wch: 20 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, factsSheet, 'facts');
 
-  // Ref sheet with both reference tables
+  // Ref sheet with sources reference table
   const refData: any[][] = [
-    ['ID_SOURCE', 'ID_VOLAT_TYPE', 'IS_CRYPTO', 'TRANSFERABLE_IN_DAYS'],
-    ['Savings Account', 1, false, true],
-    ['ETF World', 2, false, true],
-    [],
-    [],
-    ['ID_VOLAT_TYPE', 'VOLAT_TYPE_DSC'],
-    [1, 'Non-Volatile'],
-    [2, 'Volatile'],
-    [3, 'Highly Volatile'],
+    ['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS'],
+    ['Savings Account', 'Non-Volatile', true],
+    ['ETF World', 'Volatile', true],
   ];
   const refSheet = XLSX.utils.aoa_to_sheet(refData);
-  refSheet['!cols'] = [{ wch: 20 }, { wch: 18 }, { wch: 12 }, { wch: 22 }];
+  refSheet['!cols'] = [{ wch: 20 }, { wch: 18 }, { wch: 22 }];
   XLSX.utils.book_append_sheet(wb, refSheet, 'ref');
 
   const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
