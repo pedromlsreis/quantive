@@ -1,18 +1,25 @@
 import { useRef } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { FileSpreadsheet, Upload, X } from 'lucide-react';
+import { FileSpreadsheet, Upload, X, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { HowToUse } from './HowToUse';
 import { AuthButton } from './AuthButton';
 import { CurrencySelector } from './CurrencySelector';
+import { exportPortfolioExcel } from '@/lib/exporter';
 
 export function DashboardHeader() {
-  const { clearData, loadFile, snapshots } = usePortfolio();
+  const { data, clearData, loadFile, snapshots } = usePortfolio();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const lastUpdated = snapshots.length > 0
     ? format(snapshots[snapshots.length - 1].date, 'd MMM yyyy')
     : null;
+
+  const handleExport = () => {
+    if (!data) return;
+    const timestamp = format(new Date(), 'yyyy-MM-dd');
+    exportPortfolioExcel(data, `portfolio_${timestamp}.xlsx`);
+  };
 
   return (
     <header className="flex flex-col gap-3 border-b border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -33,6 +40,16 @@ export function DashboardHeader() {
         <AuthButton />
         <CurrencySelector />
         <HowToUse />
+        {data && (
+          <button
+            onClick={handleExport}
+            className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
+            title="Export your data back to Excel"
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Export</span>
+          </button>
+        )}
         <button
           onClick={() => inputRef.current?.click()}
           className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
