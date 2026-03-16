@@ -4,6 +4,14 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tool
 import { format } from 'date-fns';
 import { generateForecast } from '@/lib/forecast';
 import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
+import { Info } from 'lucide-react';
+import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+const FORECAST_MODEL_DESCRIPTION =
+  'Uses Ordinary Least Squares (OLS) linear regression fitted on all historical monthly snapshots. ' +
+  'The trend line is extrapolated 12 months forward. ' +
+  'The 95% confidence band is based on residual standard deviation, widened over time ' +
+  'to reflect increasing uncertainty the further out the projection goes.';
 
 export function ForecastChart() {
   const { snapshots } = usePortfolio();
@@ -61,9 +69,21 @@ export function ForecastChart() {
   return (
     <div className="rounded-xl border border-border bg-card p-6">
       <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
-          <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
+        <div className="flex items-center gap-2">
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
+            <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
+          </div>
+          <TooltipProvider>
+            <UITooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground/50 mt-0.5" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[300px] text-xs leading-relaxed">
+                {FORECAST_MODEL_DESCRIPTION}
+              </TooltipContent>
+            </UITooltip>
+          </TooltipProvider>
         </div>
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-1.5">
