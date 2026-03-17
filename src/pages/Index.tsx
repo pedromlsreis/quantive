@@ -11,14 +11,16 @@ import { YearlyEarnings } from '@/components/dashboard/YearlyEarnings';
 import { MotivationalKPIs } from '@/components/dashboard/MotivationalKPIs';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
+import { DemoBanner } from '@/components/dashboard/DemoBanner';
 
 const Index = () => {
-  const { data } = usePortfolio();
+  const { data, isMockData } = usePortfolio();
 
   if (!data) return <FileUpload />;
 
   return (
     <div className="flex flex-1 flex-col bg-background">
+      {isMockData && <DemoBanner />}
       <DashboardHeader />
       <FilterBar />
       <main className="mx-auto w-full max-w-[1400px] flex-1 animate-fade-in space-y-8 p-6">

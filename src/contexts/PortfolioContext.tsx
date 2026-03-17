@@ -22,6 +22,7 @@ interface PortfolioContextType {
   loadMockData: () => void;
   clearData: () => void;
   isLoading: boolean;
+  isMockData: boolean;
 }
 
 const defaultFilters: FilterState = {
@@ -71,6 +72,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<PortfolioData | null>(null);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [isLoading, setIsLoading] = useState(false);
+  const [isMockData, setIsMockData] = useState(false);
   const { user } = useAuth();
 
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
@@ -131,6 +133,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           const cloudData = rows[0].data as any;
           cloudData.facts = cloudData.facts.map((f: any) => ({ ...f, date: new Date(f.date) }));
           setData(cloudData);
+          setIsMockData(false);
           setDefaultDateRange(cloudData);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
         }
@@ -150,6 +153,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const parsed = JSON.parse(cached);
         parsed.facts = parsed.facts.map((f: any) => ({ ...f, date: new Date(f.date) }));
         setData(parsed);
+        setIsMockData(false);
         setDefaultDateRange(parsed);
       }
     } catch (e) {
@@ -163,13 +167,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       const buffer = await file.arrayBuffer();
       const parsed = parsePortfolioExcel(buffer);
       setData(parsed);
+      setIsMockData(false);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
       setDefaultDateRange(parsed);
       saveToCloud(parsed);
       toast.success(`Loaded ${parsed.facts.length} records from ${file.name}`);
     } catch (e: any) {
       console.error('Failed to parse file:', e);
-      toast.error(e.message || 'Failed to parse Excel file.');
+      toast.error(e.message || 'Failed to parse Excel file. Check the format and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -178,12 +183,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const loadMockData = useCallback(() => {
     const mock = generateMockData();
     setData(mock);
+    setIsMockData(true);
     setDefaultDateRange(mock);
     toast.success('Loaded demo data');
   }, [setDefaultDateRange]);
 
   const clearData = useCallback(() => {
     setData(null);
+    setIsMockData(false);
     setFilters(defaultFilters);
     localStorage.removeItem(STORAGE_KEY);
   }, []);
@@ -273,7 +280,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const yoyNetWorth = yoySnapshot ? yoySnapshot.total : 0;
 
     const sourceCount = latest.sources.length;
-    const volatileTotal = latest.sources.filter(s => s.volatType.toLowerCase().includes('volatile') && !s.volatType.toLowerCase().includes('non')).reduce((sum, s) => sum + s.value, 0);
+    const volatileTotal = latest.sources
+      .filter(s => s.volatType.toLowerCase().includes('volatile') && !s.volatType.toLowerCase().includes('non'))
+      .reduce((sum, s) => sum + s.value, 0);
     const liquidTotal = latest.sources.filter(s => s.isLiquid).reduce((sum, s) => sum + s.value, 0);
 
     return {
@@ -301,6 +310,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     loadMockData,
     clearData,
     isLoading,
+    isMockData,
   };
 
   return <PortfolioContext.Provider value={value}>{children}</PortfolioContext.Provider>;
