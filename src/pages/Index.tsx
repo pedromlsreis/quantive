@@ -19,7 +19,7 @@ const Index = () => {
   if (!data) return <FileUpload />;
 
   return (
-    <div className="flex flex-1 flex-col bg-background">
+    <div className={`flex flex-1 flex-col bg-background${isMockData ? ' pt-9' : ''}`}>
       {isMockData && <DemoBanner />}
       <DashboardHeader />
       <FilterBar />
