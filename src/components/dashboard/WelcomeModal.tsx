@@ -48,7 +48,7 @@ export function WelcomeModal() {
       try {
         localStorage.setItem(STORAGE_KEY, 'true');
       } catch (e) {
-        // #14: Storage unavailable (e.g. private browsing) — warn but don't crash
+        // Storage unavailable (e.g. private browsing) — warn but don't crash
         console.warn('[WelcomeModal] Failed to persist dismissal preference:', e);
       }
     }
