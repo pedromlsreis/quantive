@@ -9,10 +9,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const FORECAST_MODEL_DESCRIPTION =
-  'Uses Ordinary Least Squares (OLS) linear regression fitted on all historical monthly snapshots. ' +
-  'The trend line is extrapolated 12 months forward. ' +
-  'The 95% confidence band is based on residual standard deviation, widened over time ' +
-  'to reflect increasing uncertainty the further out the projection goes.';
+  'Uses a Compound Annual Growth Rate (CAGR) model fitted to your historical net-worth data. ' +
+  'The CAGR is converted into a monthly growth rate and projected 12 months forward. ' +
+  'The uncertainty band is based on historical deviations from the CAGR trend, widening over time ' +
+  'to reflect increasing uncertainty in longer-term projections.';
 
 export function ForecastChart() {
   const { snapshots } = usePortfolio();
@@ -137,7 +137,7 @@ export function ForecastChart() {
         </div>
         <div className="flex items-center gap-1.5">
           <div className="h-2.5 w-5 rounded" style={{ backgroundColor: POSITIVE_COLOR, opacity: 0.12 }} />
-          <span className="text-muted-foreground">95% CI</span>
+          <span className="text-muted-foreground">Uncertainty band</span>
         </div>
       </div>
       <div className="h-[280px]">
