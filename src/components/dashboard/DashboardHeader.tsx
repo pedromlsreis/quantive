@@ -21,7 +21,7 @@ import {
 export function DashboardHeader() {
   const { data, clearData, loadFile, snapshots } = usePortfolio();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false); // #17
+  const [confirmOpen, setConfirmOpen] = useState(false); // Confirmation dialog for clear button
 
   const lastUpdated = snapshots.length > 0
     ? format(snapshots[snapshots.length - 1].date, 'd MMM yyyy')
@@ -70,7 +70,7 @@ export function DashboardHeader() {
           <span className="hidden sm:inline">Change File</span>
           <span className="sm:hidden">File</span>
         </button>
-        {/* #17: Wrap clear button in AlertDialog for confirmation */}
+        {/* Wrap clear button in AlertDialog for confirmation */}
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger asChild>
             <button
