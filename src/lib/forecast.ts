@@ -12,7 +12,6 @@ export function generateForecast(
     (last.date.getMonth() - first.date.getMonth());
   if (totalMonths === 0) return [];
 
-  // #10: CAGR-based forecast (replaces OLS)
   // CAGR = (lastValue / firstValue)^(1/years) - 1
   const years = totalMonths / 12;
   const cagr =

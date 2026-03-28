@@ -71,11 +71,7 @@ export function usePortfolio() {
   return ctx;
 }
 
-function findClosestSnapshot(
-  snapshots: Snapshot[],
-  targetDate: Date,
-  exclude?: Snapshot
-): Snapshot | null {
+function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: Snapshot): Snapshot | null {
   if (snapshots.length === 0) return null;
   let closest: Snapshot | null = null;
   let minDiff = Infinity;
@@ -91,7 +87,7 @@ function findClosestSnapshot(
 
   if (!closest) return null;
 
-  // #8: Dynamic threshold based on data cadence instead of hardcoded 45 days
+  // Dynamic threshold based on data cadence instead of hardcoded 45 days
   const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
   // Calculate median gap between consecutive snapshots to determine data cadence
