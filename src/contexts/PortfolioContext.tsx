@@ -71,7 +71,11 @@ export function usePortfolio() {
   return ctx;
 }
 
-function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: Snapshot): Snapshot | null {
+function findClosestSnapshot(
+  snapshots: Snapshot[],
+  targetDate: Date,
+  exclude?: Snapshot
+): Snapshot | null {
   if (snapshots.length === 0) return null;
   let closest: Snapshot | null = null;
   let minDiff = Infinity;
@@ -85,7 +89,29 @@ function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: 
     }
   }
 
-  if (!closest || minDiff > 45 * 24 * 60 * 60 * 1000) return null;
+  if (!closest) return null;
+
+  // #8: Dynamic threshold based on data cadence instead of hardcoded 45 days
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+  // Calculate median gap between consecutive snapshots to determine data cadence
+  const sorted = [...snapshots]
+    .map(s => s.date.getTime())
+    .sort((a, b) => a - b);
+  const gaps: number[] = [];
+  for (let i = 1; i < sorted.length; i++) {
+    gaps.push(sorted[i] - sorted[i - 1]);
+  }
+  // Use median gap as the cadence, fall back to 30 days if only one snapshot
+  const medianGap = gaps.length > 0
+    ? gaps[Math.floor(gaps.length / 2)]
+    : 30 * MS_PER_DAY;
+
+  // Threshold = 1.5× the median gap, minimum 30 days
+  // This supports daily, monthly, and quarterly data cadences
+  const dynamicThreshold = Math.max(medianGap * 1.5, 30 * MS_PER_DAY);
+
+  if (minDiff > dynamicThreshold) return null;
   return closest;
 }
 
