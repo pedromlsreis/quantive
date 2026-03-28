@@ -57,7 +57,7 @@ export function NetWorthChart() {
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6" style={{ overflow: 'visible' }}>
+    <div className="rounded-xl border border-border bg-card p-6" role="img" aria-label="Net worth over time line chart showing total portfolio value across all snapshots" style={{ overflow: 'visible' }}>
       <h3 className="mb-4 text-sm font-medium text-muted-foreground">Net Worth Over Time</h3>
       <div className="h-[320px]" style={{ overflow: 'visible' }}>
         <ResponsiveContainer width="100%" height="100%">

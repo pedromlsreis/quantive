@@ -109,7 +109,7 @@ export function ForecastChart() {
   };
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
+    <div className="rounded-xl border border-border bg-card p-6" role="img" aria-label="12-month net worth forecast with confidence band based on compound annual growth rate">
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
