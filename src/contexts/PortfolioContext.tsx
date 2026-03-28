@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData } from '@/lib/types';
 import { parsePortfolioExcel } from '@/lib/dataProcessor';
 import { generateMockData } from '@/lib/mockData';
@@ -7,6 +7,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 
 const STORAGE_KEY = 'portfolio-data';
+const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
+
+/**
+ * Safely parse a date value, returning null for invalid dates.
+ * Prevents silent NaN dates from cloud/localStorage.
+ */
+function safeDate(val: any): Date | null {
+  const d = val instanceof Date ? val : new Date(val);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Parse date and warn on invalid — returns Date or null.
+ */
+function safeDateWithWarning(val: any, context: string, index: number): Date | null {
+  const d = safeDate(val);
+  if (!d) {
+    console.warn(`[${context}] Skipping fact #${index}: invalid date "${val}"`);
+  }
+  return d;
+}
 
 interface PortfolioContextType {
   data: PortfolioData | null;
@@ -75,6 +96,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [isMockData, setIsMockData] = useState(false);
   const { user } = useAuth();
 
+  // Track pending cloud save when email is not yet confirmed
+  const pendingCloudSaveRef = useRef<PortfolioData | null>(null);
+
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
     const dates = parsed.facts.map(f => f.date.getTime());
     if (dates.length === 0) return;
@@ -93,6 +117,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     if (!user.email_confirmed_at) {
       toast.info('Please confirm your email to enable cloud sync.', { id: 'email-confirm' });
+      // Stash data so we can retry once email is confirmed
+      pendingCloudSaveRef.current = portfolioData;
       return;
     }
     try {
@@ -117,6 +143,15 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  // Retry pending cloud save once the user confirms their email
+  useEffect(() => {
+    if (user?.email_confirmed_at && pendingCloudSaveRef.current) {
+      saveToCloud(pendingCloudSaveRef.current);
+      pendingCloudSaveRef.current = null;
+      toast.success('Email confirmed — data synced to cloud!', { id: 'email-synced' });
+    }
+  }, [user?.email_confirmed_at, saveToCloud]);
+
   // Load from cloud when user signs in
   useEffect(() => {
     if (!user) return;
@@ -131,11 +166,34 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
         if (rows && rows.length > 0) {
           const cloudData = rows[0].data as any;
-          cloudData.facts = cloudData.facts.map((f: any) => ({ ...f, date: new Date(f.date) }));
+
+          // Validate dates on cloud load, filter out invalid ones
+          const parsedFacts = cloudData.facts
+            .map((f: any, i: number) => {
+              const date = safeDateWithWarning(f.date, 'cloud-load', i);
+              return date ? { ...f, date } : null;
+            })
+            .filter(Boolean);
+
+          const skipped = cloudData.facts.length - parsedFacts.length;
+          if (skipped > 0) {
+            console.warn(`[cloud-load] Skipped ${skipped}/${cloudData.facts.length} facts with invalid dates`);
+            toast.warning(`${skipped} record${skipped > 1 ? 's' : ''} had invalid dates and were skipped.`, {
+              id: 'cloud-date-warning',
+            });
+          }
+
+          if (parsedFacts.length === 0) {
+            console.warn('[cloud-load] No valid facts after date validation — skipping cloud data');
+            return;
+          }
+
+          cloudData.facts = parsedFacts;
           setData(cloudData);
           setIsMockData(false);
           setDefaultDateRange(cloudData);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+          localStorage.setItem(MOCK_FLAG_KEY, 'false'); // MOCK_FLAG_KEY = 'false' -> marked as real data
         }
       } catch (e) {
         console.error('Failed to load from cloud:', e);
@@ -148,13 +206,41 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (user) return; // cloud load handles authenticated users
     try {
+      // if previous data was mock (ephemeral), clear it and don't reload
+      const wasMock = localStorage.getItem(MOCK_FLAG_KEY) === 'true';
+      if (wasMock) {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(MOCK_FLAG_KEY);
+        return;
+      }
+
       const cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        parsed.facts = parsed.facts.map((f: any) => ({ ...f, date: new Date(f.date) }));
-        setData(parsed);
-        setIsMockData(false);
-        setDefaultDateRange(parsed);
+
+        // Validate dates when loading from localStorage
+        const validFacts = parsed.facts
+          .map((f: any, i: number) => {
+            const date = safeDateWithWarning(f.date, 'local-cache', i);
+            return date ? { ...f, date } : null;
+          })
+          .filter(Boolean);
+
+        const skipped = parsed.facts.length - validFacts.length;
+        if (skipped > 0) {
+          console.warn(`[local-cache] Skipped ${skipped}/${parsed.facts.length} facts with invalid dates`);
+        }
+
+        if (validFacts.length > 0) {
+          const validData = { ...parsed, facts: validFacts };
+          setData(validData);
+          setIsMockData(false);
+          setDefaultDateRange(validData);
+        } else {
+          // All dates were invalid — clear stale cache
+          localStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem(MOCK_FLAG_KEY);
+        }
       }
     } catch (e) {
       console.error('Failed to load cached data:', e);
@@ -169,6 +255,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       setData(parsed);
       setIsMockData(false);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      localStorage.setItem(MOCK_FLAG_KEY, 'false');  // MOCK_FLAG_KEY = 'false' -> marked as real data
       setDefaultDateRange(parsed);
       saveToCloud(parsed);
       toast.success(`Loaded ${parsed.facts.length} records from ${file.name}`);
@@ -185,6 +272,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setData(mock);
     setIsMockData(true);
     setDefaultDateRange(mock);
+    // flag as mock data so localStorage cache is cleared on next visit
+    localStorage.setItem(MOCK_FLAG_KEY, 'true');
+    // Do NOT save mock data to STORAGE_KEY — it's ephemeral
     toast.success('Loaded demo data');
   }, [setDefaultDateRange]);
 
@@ -193,6 +283,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setIsMockData(false);
     setFilters(defaultFilters);
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(MOCK_FLAG_KEY); // Clean up mock flag
   }, []);
 
   const updateFilters = useCallback((partial: Partial<FilterState>) => {
