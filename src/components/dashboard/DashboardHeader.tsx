@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { FileSpreadsheet, Upload, X, Download } from 'lucide-react';
 import { format } from 'date-fns';
@@ -6,7 +6,6 @@ import { HowToUse } from './HowToUse';
 import { AuthButton } from './AuthButton';
 import { CurrencySelector } from './CurrencySelector';
 import { exportPortfolioExcel } from '@/lib/exporter';
-import { useState } from 'react';
 import {
   AlertDialog,
   AlertDialogAction,
