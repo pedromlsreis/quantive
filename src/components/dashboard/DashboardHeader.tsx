@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { FileSpreadsheet, Upload, X, Download } from 'lucide-react';
 import { format } from 'date-fns';
@@ -6,10 +5,23 @@ import { HowToUse } from './HowToUse';
 import { AuthButton } from './AuthButton';
 import { CurrencySelector } from './CurrencySelector';
 import { exportPortfolioExcel } from '@/lib/exporter';
+import { useState } from 'react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export function DashboardHeader() {
   const { data, clearData, loadFile, snapshots } = usePortfolio();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false); // Confirmation dialog for clear button
 
   const lastUpdated = snapshots.length > 0
     ? format(snapshots[snapshots.length - 1].date, 'd MMM yyyy')
@@ -58,13 +70,39 @@ export function DashboardHeader() {
           <span className="hidden sm:inline">Change File</span>
           <span className="sm:hidden">File</span>
         </button>
-        <button
-          onClick={clearData}
-          className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-destructive transition-colors hover:bg-secondary/80"
-        >
-          <X className="h-4 w-4" />
-          Clear
-        </button>
+        {/* Wrap clear button in AlertDialog for confirmation */}
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+          <AlertDialogTrigger asChild>
+            <button
+              onClick={() => setConfirmOpen(true)}
+              className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-destructive transition-colors hover:bg-secondary/80"
+            >
+              <X className="h-4 w-4" />
+              Clear
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear all data?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete your portfolio data, including any cloud-synced
+                snapshots. You can always re-upload your Excel file to start fresh.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  clearData();
+                  setConfirmOpen(false);
+                }}
+                className="bg-destructive text-white hover:bg-destructive/90"
+              >
+                Yes, clear everything
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
         <input
           ref={inputRef}
           type="file"

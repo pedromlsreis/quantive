@@ -6,6 +6,7 @@ import { generateForecast } from '@/lib/forecast';
 import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
 import { Info } from 'lucide-react';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const FORECAST_MODEL_DESCRIPTION =
   'Uses Ordinary Least Squares (OLS) linear regression fitted on all historical monthly snapshots. ' +
@@ -17,7 +18,48 @@ export function ForecastChart() {
   const { snapshots } = usePortfolio();
   const { fmt, fmtFull } = useCurrencyFormatter();
 
-  if (snapshots.length < 3) return null;
+  // Show informational message instead of silently returning null
+  if (snapshots.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
+            <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
+          </div>
+        </div>
+        <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed">
+          <p className="text-sm text-muted-foreground">No data available yet. Upload your portfolio to see forecasts.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (snapshots.length < 3) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
+            <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
+          </div>
+        </div>
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Forecast requires at least 3 monthly snapshots to generate a trend. You currently have
+            <strong> {snapshots.length}</strong> snapshot{snapshots.length === 1 ? '' : 's'}. Upload more data or
+            wait for additional months to be recorded.
+          </AlertDescription>
+        </Alert>
+        <div className="mt-4 flex h-[120px] items-center justify-center rounded-lg border border-dashed">
+          <p className="text-xs text-muted-foreground">
+            {snapshots.length === 1 ? '1 more snapshot needed' : `${3 - snapshots.length} more snapshots needed`}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const forecastPoints = generateForecast(snapshots, 12);
 
@@ -57,9 +99,9 @@ export function ForecastChart() {
     return (
       <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
         <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{label}</p>
-        {actual?.value != null && <p style={{ color: PRIMARY_COLOR, fontSize: 14, fontWeight: 700 }}>Actual: {fmtFull(actual.value)}</p>}
-        {forecast?.value != null && <p style={{ color: POSITIVE_COLOR, fontSize: 14, fontWeight: 700 }}>Forecast: {fmtFull(forecast.value)}</p>}
-        {upper?.value != null && lower?.value != null && (
+        {actual?.value !== null && <p style={{ color: PRIMARY_COLOR, fontSize: 14, fontWeight: 700 }}>Actual: {fmtFull(actual.value)}</p>}
+        {forecast?.value !== null && <p style={{ color: POSITIVE_COLOR, fontSize: 14, fontWeight: 700 }}>Forecast: {fmtFull(forecast.value)}</p>}
+        {upper?.value !== null && lower?.value !== null && (
           <p style={{ color: AXIS_COLOR, fontSize: 11, marginTop: 2 }}>Range: {fmtFull(lower.value)} – {fmtFull(upper.value)}</p>
         )}
       </div>
@@ -69,35 +111,33 @@ export function ForecastChart() {
   return (
     <div className="rounded-xl border border-border bg-card p-6">
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
-            <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
-          </div>
-          <TooltipProvider>
-            <UITooltip>
-              <TooltipTrigger asChild>
-                <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground/50 mt-0.5" />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[300px] text-xs leading-relaxed">
-                {FORECAST_MODEL_DESCRIPTION}
-              </TooltipContent>
-            </UITooltip>
-          </TooltipProvider>
+        <div>
+          <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
+          <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
         </div>
-        <div className="flex items-center gap-4 text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="h-0.5 w-5 rounded" style={{ backgroundColor: PRIMARY_COLOR }} />
-            <span className="text-muted-foreground">Actual</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-0.5 w-5 rounded" style={{ backgroundColor: POSITIVE_COLOR, opacity: 0.7 }} />
-            <span className="text-muted-foreground">Forecast</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-2.5 w-5 rounded" style={{ backgroundColor: POSITIVE_COLOR, opacity: 0.12 }} />
-            <span className="text-muted-foreground">95% CI</span>
-          </div>
+        <TooltipProvider>
+          <UITooltip>
+            <UITooltipTrigger asChild>
+              <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground/50 mt-0.5" />
+            </UITooltipTrigger>
+            <TooltipContent side="right" className="max-w-[300px] text-xs leading-relaxed">
+              {FORECAST_MODEL_DESCRIPTION}
+            </TooltipContent>
+          </UITooltip>
+        </TooltipProvider>
+      </div>
+      <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-1.5">
+          <div className="h-0.5 w-5 rounded" style={{ backgroundColor: PRIMARY_COLOR }} />
+          <span className="text-muted-foreground">Actual</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-0.5 w-5 rounded" style={{ backgroundColor: POSITIVE_COLOR, opacity: 0.7 }} />
+          <span className="text-muted-foreground">Forecast</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2.5 w-5 rounded" style={{ backgroundColor: POSITIVE_COLOR, opacity: 0.12 }} />
+          <span className="text-muted-foreground">95% CI</span>
         </div>
       </div>
       <div className="h-[280px]">

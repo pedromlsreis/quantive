@@ -38,6 +38,7 @@ export function WelcomeModal() {
         setVisible(true);
       }
     } catch {
+      // Storage unavailable — show welcome on every visit
       setVisible(true);
     }
   }, []);
@@ -46,8 +47,9 @@ export function WelcomeModal() {
     if (dontShowAgain) {
       try {
         localStorage.setItem(STORAGE_KEY, 'true');
-      } catch {
-        // Storage unavailable — silently ignore
+      } catch (e) {
+        // Storage unavailable (e.g. private browsing) — warn but don't crash
+        console.warn('[WelcomeModal] Failed to persist dismissal preference:', e);
       }
     }
     setVisible(false);
@@ -60,7 +62,7 @@ export function WelcomeModal() {
       <div className="relative mx-4 w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
         <button
           onClick={handleClose}
-          className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
