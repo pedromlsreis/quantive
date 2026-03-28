@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { FileSpreadsheet, Upload, X, Download } from 'lucide-react';
 import { format } from 'date-fns';
