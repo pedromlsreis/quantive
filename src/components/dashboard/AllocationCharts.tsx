@@ -25,7 +25,7 @@ function DonutChart({ title, data, description }: { title: string; data: { name:
   if (total === 0) return null;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-xl border border-border bg-card p-4" role="img" aria-label={`Donut chart showing ${title.toLowerCase()} breakdown`}>
       <div className="mb-2 flex items-center gap-1.5">
         <h4 className="text-sm font-medium text-muted-foreground">{title}</h4>
         <TooltipProvider>
@@ -55,7 +55,7 @@ function DonutChart({ title, data, description }: { title: string; data: { name:
           <div key={d.name} className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
               <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-              <span className="text-muted-foreground">{d.name}</span>
+              <span className="text-foreground/80">{d.name}</span>
             </div>
             <span className="font-medium text-foreground">{((d.value / total) * 100).toFixed(0)}%</span>
           </div>
@@ -109,7 +109,7 @@ export function AllocationCharts() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-border bg-card p-6">
+      <div className="rounded-xl border border-border bg-card p-6" role="img" aria-label="Treemap showing portfolio allocation breakdown by financial source">
         <h3 className="mb-4 text-sm font-medium text-muted-foreground">Allocation by Source</h3>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">

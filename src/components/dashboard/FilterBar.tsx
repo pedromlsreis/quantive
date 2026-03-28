@@ -34,6 +34,8 @@ function MultiSelect({
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
+        aria-label="Filter by sources"
+        aria-expanded={open}
         className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 text-sm transition-colors hover:bg-secondary px-[12px] py-[6px] text-muted-foreground">
         
         {label}
@@ -80,11 +82,13 @@ function ToggleFilter({
   onChange
 }: {value: string;options: {value: string;label: string;}[];onChange: (v: string) => void;}) {
   return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5">
+    <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5" role="radiogroup" aria-label="Filter by type">
       {options.map((opt) =>
       <button
         key={opt.value}
         onClick={() => onChange(opt.value)}
+        role="radio"
+        aria-checked={value === opt.value}
         className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
         value === opt.value ?
         'bg-primary text-primary-foreground' :
@@ -142,7 +146,7 @@ function DateRangeSlider() {
   const endLabel = format(months[safeEnd], 'MMM yyyy');
 
   return (
-    <div className="flex items-center gap-3 min-w-[280px]">
+    <div className="flex items-center gap-3 min-w-[280px]" role="group" aria-label="Date range filter">
       <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{startLabel}</span>
       <Slider
         min={0}

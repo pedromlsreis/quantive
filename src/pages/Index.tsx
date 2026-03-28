@@ -12,14 +12,16 @@ import { MotivationalKPIs } from '@/components/dashboard/MotivationalKPIs';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 import { DemoBanner } from '@/components/dashboard/DemoBanner';
+import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 
 const Index = () => {
-  const { data, isMockData } = usePortfolio();
+  const { data, isLoading, isMockData } = usePortfolio();
 
+  if (isLoading) return <DashboardSkeleton />;
   if (!data) return <FileUpload />;
 
   return (
-    <div className={`flex flex-1 flex-col bg-background${isMockData ? ' pt-9' : ''}`}>
+    <div className={`flex flex-col flex-col bg-background${isMockData ? ' pt-9' : ''}`}>
       {isMockData && <DemoBanner />}
       <DashboardHeader />
       <FilterBar />
