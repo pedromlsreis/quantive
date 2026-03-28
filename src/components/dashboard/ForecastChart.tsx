@@ -6,7 +6,7 @@ import { generateForecast } from '@/lib/forecast';
 import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
 import { Info } from 'lucide-react';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Alert, AlertDescription } from '@/components/ui/alert'; // #7
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const FORECAST_MODEL_DESCRIPTION =
   'Uses Ordinary Least Squares (OLS) linear regression fitted on all historical monthly snapshots. ' +
@@ -18,7 +18,7 @@ export function ForecastChart() {
   const { snapshots } = usePortfolio();
   const { fmt, fmtFull } = useCurrencyFormatter();
 
-  // #7: Show informational message instead of silently returning null
+  // Show informational message instead of silently returning null
   if (snapshots.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-6">
