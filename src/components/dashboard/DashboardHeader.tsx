@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { FileSpreadsheet, Upload, X, Download } from 'lucide-react';
+import { FileSpreadsheet, Upload, X, Download, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { HowToUse } from './HowToUse';
 import { AuthButton } from './AuthButton';
 import { CurrencySelector } from './CurrencySelector';
 import { exportPortfolioExcel } from '@/lib/exporter';
+import { AddMeasurementModal } from './AddMeasurementModal';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ export function DashboardHeader() {
   const { data, clearData, loadFile, snapshots } = usePortfolio();
   const inputRef = useRef<HTMLInputElement>(null);
   const [confirmOpen, setConfirmOpen] = useState(false); // Confirmation dialog for clear button
+  const [addModalOpen, setAddModalOpen] = useState(false); // Add measurement modal
 
   const lastUpdated = snapshots.length > 0
     ? format(snapshots[snapshots.length - 1].date, 'd MMM yyyy')
@@ -60,6 +62,17 @@ export function DashboardHeader() {
           >
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Export</span>
+          </button>
+        )}
+        {data && (
+          <button
+            onClick={() => setAddModalOpen(true)}
+            className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
+            title="Manually add a new measurement"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">New</span>
+            <span className="sm:hidden">Meas.</span>
           </button>
         )}
         <button
@@ -103,6 +116,7 @@ export function DashboardHeader() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        <AddMeasurementModal open={addModalOpen} onOpenChange={setAddModalOpen} />
         <input
           ref={inputRef}
           type="file"

@@ -42,6 +42,7 @@ interface PortfolioContextType {
   loadFile: (file: File) => Promise<void>;
   loadMockData: () => void;
   clearData: () => void;
+  addMeasurement: (entries: { name: string; value: number }[]) => void;
   isLoading: boolean;
   isMockData: boolean;
 }
@@ -409,6 +410,71 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     };
   }, [snapshots]);
 
+  const addMeasurement = useCallback((entries: { name: string; value: number }[]) => {
+    if (entries.length === 0) return;
+
+    const now = new Date();
+    // Normalize to start of day for consistency with Excel ingestion
+    now.setHours(0, 0, 0, 0);
+
+    setData(prev => {
+      if (!prev) {
+        // No existing data — create a new dataset from these entries
+        const newFacts: any[] = entries.map(e => ({
+          date: now,
+          idSource: e.name,
+          sourceVl: e.value,
+        }));
+        const newRefSources: any[] = entries.map(e => ({
+          idSource: e.name,
+          volatType: 'Unknown',
+          transferableInDays: false,
+        }));
+        const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
+
+        // Persist
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        localStorage.setItem(MOCK_FLAG_KEY, 'false');
+        setDefaultDateRange(newData);
+        saveToCloud(newData);
+        toast.success(`Added measurement with ${entries.length} source${entries.length > 1 ? 's' : ''}`);
+        return newData;
+      }
+
+      // Merge with existing data
+      const newFacts = entries.map(e => ({
+        date: now,
+        idSource: e.name,
+        sourceVl: e.value,
+      }));
+
+      // Add any new data sources to refSources
+      const existingSourceNames = new Set(prev.refSources.map(s => s.idSource));
+      const newRefSources = [...prev.refSources];
+      for (const e of entries) {
+        if (!existingSourceNames.has(e.name)) {
+          newRefSources.push({
+            idSource: e.name,
+            volatType: 'Unknown',
+            transferableInDays: false,
+          });
+        }
+      }
+
+      const updatedData: PortfolioData = {
+        facts: [...prev.facts, ...newFacts],
+        refSources: newRefSources,
+      };
+
+      // Persist
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
+      setDefaultDateRange(updatedData);
+      saveToCloud(updatedData);
+      toast.success(`Added measurement with ${entries.length} source${entries.length > 1 ? 's' : ''}`);
+      return updatedData;
+    });
+  }, [saveToCloud, setDefaultDateRange]);
+
   const value = {
     data,
     enrichedFacts,
@@ -422,6 +488,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     loadFile,
     loadMockData,
     clearData,
+    addMeasurement,
     isLoading,
     isMockData,
   };

@@ -1,14 +1,54 @@
+import { useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { formatPercent } from '@/lib/formatters';
-import { Trophy, CalendarHeart, Rocket, Flag } from 'lucide-react';
+import { Trophy, CalendarHeart, Rocket, Flag, X } from 'lucide-react';
 import { POSITIVE_COLOR } from '@/lib/chartColors';
 
-const MILESTONES = [10_000, 25_000, 50_000, 75_000, 100_000, 150_000, 200_000, 300_000, 500_000, 750_000, 1_000_000, 2_000_000, 5_000_000];
+const DEFAULT_MILESTONES = [10_000, 25_000, 50_000, 75_000, 100_000, 150_000, 200_000, 300_000, 500_000, 750_000, 1_000_000, 2_000_000, 5_000_000];
+const MILESTONES_STORAGE_KEY = 'portfolio-custom-milestones';
+
+function loadMilestones(): number[] {
+  try {
+    const raw = localStorage.getItem(MILESTONES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [...DEFAULT_MILESTONES];
+  } catch {
+    return [...DEFAULT_MILESTONES];
+  }
+}
+
+function saveMilestones(milestones: number[]) {
+  localStorage.setItem(MILESTONES_STORAGE_KEY, JSON.stringify(milestones));
+}
 
 export function MotivationalKPIs() {
   const { snapshots } = usePortfolio();
   const { fmtFull, fmtMilestone } = useCurrencyFormatter();
+  const [milestones, setMilestones] = useState<number[]>(loadMilestones);
+  const [editingMilestones, setEditingMilestones] = useState(false);
+  const [newMilestone, setNewMilestone] = useState('');
+  const handleAddMilestone = () => {
+    const val = parseFloat(newMilestone);
+    if (isNaN(val) || val <= 0) return;
+    const updated = [...milestones, val].sort((a, b) => a - b);
+    // Remove duplicates
+    const unique = [...new Set(updated)];
+    setMilestones(unique);
+    saveMilestones(unique);
+    setNewMilestone('');
+  };
+
+  const handleRemoveMilestone = (value: number) => {
+    const updated = milestones.filter(m => m !== value);
+    setMilestones(updated);
+    saveMilestones(updated);
+  };
+
+  const handleResetMilestones = () => {
+    setMilestones([...DEFAULT_MILESTONES]);
+    saveMilestones([...DEFAULT_MILESTONES]);
+    setEditingMilestones(false);
+  };
 
   if (snapshots.length < 2) return null;
 
@@ -122,12 +162,52 @@ export function MotivationalKPIs() {
       {/* Milestone Badges */}
       {(reached.length > 0 || nextMilestone) && (
         <div className="mt-6">
-          <p className="mb-3 text-xs font-medium text-muted-foreground">Milestones</p>
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">Milestones</p>
+            <button
+              onClick={() => setEditingMilestones(!editingMilestones)}
+              className="text-xs text-primary hover:underline"
+            >
+              {editingMilestones ? 'Done' : 'Customize'}
+            </button>
+          </div>
+          {editingMilestones && (
+            <div className="mb-3 flex items-center gap-2">
+              <input
+                type="number"
+                value={newMilestone}
+                onChange={e => setNewMilestone(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddMilestone(); }}
+                placeholder="e.g. 50000"
+                className="w-28 rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+              />
+              <button
+                onClick={handleAddMilestone}
+                className="rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+              >
+                Add
+              </button>
+              <button
+                onClick={handleResetMilestones}
+                className="text-xs text-muted-foreground hover:underline"
+              >
+                Reset
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             {reached.map(m => (
-              <div key={m} className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent">
+              <div key={m} className="group relative flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent">
                 <Flag className="h-3 w-3" />
                 {fmtMilestone(m)}
+                {editingMilestones && (
+                  <button
+                    onClick={() => handleRemoveMilestone(m)}
+                    className="ml-0.5 -mr-1 rounded-full p-0.5 text-accent/60 hover:bg-accent/20 hover:text-accent"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                )}
               </div>
             ))}
             {nextMilestone && (
@@ -137,6 +217,14 @@ export function MotivationalKPIs() {
                 <div className="h-1 w-12 rounded-full bg-secondary">
                   <div className="h-1 rounded-full bg-primary/60 transition-all" style={{ width: `${Math.min(progressToNext * 100, 100)}%` }} />
                 </div>
+                {editingMilestones && (
+                  <button
+                    onClick={() => handleRemoveMilestone(nextMilestone)}
+                    className="-mr-1 rounded-full p-0.5 text-muted-foreground/60 hover:bg-secondary hover:text-muted-foreground"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                )}
               </div>
             )}
           </div>
