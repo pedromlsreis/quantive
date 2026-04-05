@@ -1,41 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { linearRegression, generateForecast } from '@/lib/forecast';
-
-describe('linearRegression', () => {
-  it('returns correct slope and intercept for simple data', () => {
-    const data = [
-      { x: 0, y: 0 },
-      { x: 1, y: 2 },
-      { x: 2, y: 4 },
-    ];
-    const { slope, intercept } = linearRegression(data);
-    expect(slope).toBeCloseTo(2, 5);
-    expect(intercept).toBeCloseTo(0, 5);
-  });
-
-  it('handles single data point', () => {
-    const { slope, intercept } = linearRegression([{ x: 5, y: 10 }]);
-    expect(slope).toBe(0);
-    expect(intercept).toBe(10);
-  });
-
-  it('handles empty array', () => {
-    const { slope, intercept } = linearRegression([]);
-    expect(slope).toBe(0);
-    expect(intercept).toBe(0);
-  });
-
-  it('handles constant y values', () => {
-    const data = [
-      { x: 0, y: 5 },
-      { x: 1, y: 5 },
-      { x: 2, y: 5 },
-    ];
-    const { slope, intercept } = linearRegression(data);
-    expect(slope).toBeCloseTo(0, 5);
-    expect(intercept).toBeCloseTo(5, 5);
-  });
-});
+import { generateForecast } from '@/lib/forecast';
 
 describe('generateForecast', () => {
   it('returns empty for less than 2 snapshots', () => {

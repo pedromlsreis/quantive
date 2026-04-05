@@ -42,7 +42,7 @@ interface PortfolioContextType {
   loadFile: (file: File) => Promise<void>;
   loadMockData: () => void;
   clearData: () => void;
-  addMeasurement: (entries: { name: string; value: number }[]) => void;
+  addMeasurement: (entries: { name: string; value: number; isLiquid?: boolean }[]) => void;
   isLoading: boolean;
   isMockData: boolean;
 }
@@ -297,7 +297,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return `${day} ${month} ${year}`;
   };
 
-  const addMeasurement = useCallback((entries: { name: string; value: number }[]) => {
+  const addMeasurement = useCallback((entries: { name: string; value: number; isLiquid?: boolean }[]) => {
     if (entries.length === 0) return;
 
     const now = new Date();
@@ -316,7 +316,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const newRefSources: any[] = entries.map(e => ({
           idSource: e.name,
           volatType: 'Unknown',
-          transferableInDays: false,
+          transferableInDays: e.isLiquid ?? false,
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
 
@@ -340,7 +340,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const newRefSources: any[] = entries.map(e => ({
           idSource: e.name,
           volatType: 'Unknown',
-          transferableInDays: false,
+          transferableInDays: e.isLiquid ?? false,
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
 
@@ -375,7 +375,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             newRefSources.push({
               idSource: e.name,
               volatType: 'Unknown',
-              transferableInDays: false,
+              transferableInDays: e.isLiquid ?? false,
             });
           }
         }
@@ -408,7 +408,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           newRefSources.push({
             idSource: e.name,
             volatType: 'Unknown',
-            transferableInDays: false,
+            transferableInDays: e.isLiquid ?? false,
           });
         }
       }
