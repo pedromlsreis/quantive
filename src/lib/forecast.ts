@@ -1,7 +1,35 @@
+/**
+ * @module forecast
+ * Generates net worth forecast projections using Compound Annual Growth Rate (CAGR).
+ * Includes confidence intervals based on historical residual standard deviation.
+ */
+
+/** A single forecast data point with confidence bounds. */
+export interface ForecastPoint {
+  /** The projected future date. */
+  date: Date;
+  /** The central forecast value. */
+  forecast: number;
+  /** Upper bound of the 95% confidence interval. */
+  upper: number;
+  /** Lower bound of the 95% confidence interval. */
+  lower: number;
+}
+
+/**
+ * Generate net worth forecast points from historical snapshots.
+ *
+ * Uses CAGR to project forward, then widens confidence bands over time
+ * based on the standard deviation of historical residuals (±1.96σ for ~95% CI).
+ *
+ * @param snapshots - Historical data points with date and total net worth.
+ * @param monthsForward - Number of months to forecast (default: 12).
+ * @returns Array of forecast points, empty if fewer than 2 snapshots.
+ */
 export function generateForecast(
   snapshots: { date: Date; total: number }[],
   monthsForward: number = 12,
-): { date: Date; forecast: number; upper: number; lower: number }[] {
+): ForecastPoint[] {
   if (snapshots.length < 2) return [];
 
   // Ensure snapshots are sorted by date
@@ -38,7 +66,7 @@ export function generateForecast(
     residuals.push(s.total - projected);
   }
 
-  // Standard deviation (sample)
+  // Sample standard deviation of residuals
   const stdDev =
     residuals.length > 1
       ? Math.sqrt(
@@ -47,14 +75,14 @@ export function generateForecast(
         )
       : 0;
 
-  const points: { date: Date; forecast: number; upper: number; lower: number }[] = [];
+  const points: ForecastPoint[] = [];
 
   for (let m = 1; m <= monthsForward; m++) {
     const futureDate = new Date(last.date);
     futureDate.setMonth(futureDate.getMonth() + m);
     const predicted = last.total * Math.pow(1 + monthlyRate, m);
 
-    // Confidence band widens over time
+    // Confidence band widens over time (√(1 + m/3) factor)
     const spread = stdDev * 1.96 * Math.sqrt(1 + m / 3);
     points.push({
       date: futureDate,
