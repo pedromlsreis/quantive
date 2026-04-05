@@ -2,7 +2,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { TrendingUp, TrendingDown, Wallet, BarChart3, Coins, Droplets } from 'lucide-react';
 import { formatPercent } from '@/lib/formatters';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface KPICardProps {
   label: string;
@@ -35,12 +35,12 @@ function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps
 
   return (
     <TooltipProvider>
-      <Tooltip>
+      <UITooltip>
         <TooltipTrigger asChild>{card}</TooltipTrigger>
         <TooltipContent side="bottom" className="max-w-[280px] text-xs leading-relaxed">
           {formula}
         </TooltipContent>
-      </Tooltip>
+      </UITooltip>
     </TooltipProvider>
   );
 }

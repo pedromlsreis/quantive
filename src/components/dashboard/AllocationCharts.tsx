@@ -4,7 +4,7 @@ import { ResponsiveContainer, Treemap, PieChart, Pie, Cell, Tooltip } from 'rech
 import { CHART_COLORS, TREEMAP_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } from '@/lib/chartColors';
 import { SourceDetail } from '@/lib/types';
 import { Info } from 'lucide-react';
-import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 function aggregateByKey(
   sources: SourceDetail[],

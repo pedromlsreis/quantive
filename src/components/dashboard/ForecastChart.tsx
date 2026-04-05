@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { generateForecast } from '@/lib/forecast';
 import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
 import { Info } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const FORECAST_MODEL_DESCRIPTION =
@@ -116,14 +116,14 @@ export function ForecastChart() {
           <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
         </div>
         <TooltipProvider>
-          <Tooltip>
+          <UITooltip>
             <TooltipTrigger asChild>
               <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground/50 mt-0.5" />
             </TooltipTrigger>
             <TooltipContent side="right" className="max-w-[300px] text-xs leading-relaxed">
               {FORECAST_MODEL_DESCRIPTION}
             </TooltipContent>
-          </Tooltip>
+          </UITooltip>
         </TooltipProvider>
       </div>
       <div className="flex items-center gap-4 text-xs">
