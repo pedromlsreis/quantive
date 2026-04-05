@@ -4,7 +4,7 @@ import { ResponsiveContainer, Treemap, PieChart, Pie, Cell, Tooltip } from 'rech
 import { CHART_COLORS, TREEMAP_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } from '@/lib/chartColors';
 import { SourceDetail } from '@/lib/types';
 import { Info } from 'lucide-react';
-import { UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 function aggregateByKey(
   sources: SourceDetail[],
@@ -29,14 +29,14 @@ function DonutChart({ title, data, description }: { title: string; data: { name:
       <div className="mb-2 flex items-center gap-1.5">
         <h4 className="text-sm font-medium text-muted-foreground">{title}</h4>
         <TooltipProvider>
-          <UITooltip>
+          <Tooltip>
             <TooltipTrigger asChild>
               <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground/50" />
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
               {description}
             </TooltipContent>
-          </UITooltip>
+          </Tooltip>
         </TooltipProvider>
       </div>
       <div className="h-[160px]">
