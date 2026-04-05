@@ -54,6 +54,16 @@ export function DashboardHeader() {
         <AuthButton />
         <CurrencySelector />
         <HowToUse />
+        
+        <button
+          onClick={() => setAddModalOpen(true)}
+          className="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          title="Add a new measurement"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">New</span>
+        </button>
+        
         {data && (
           <button
             onClick={handleExport}
@@ -64,17 +74,6 @@ export function DashboardHeader() {
             <span className="hidden sm:inline">Export</span>
           </button>
         )}
-        {data && (
-          <button
-            onClick={() => setAddModalOpen(true)}
-            className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
-            title="Manually add a new measurement"
-          >
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">New</span>
-            <span className="sm:hidden">Meas.</span>
-          </button>
-        )}
         <button
           onClick={() => inputRef.current?.click()}
           className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
@@ -83,7 +82,6 @@ export function DashboardHeader() {
           <span className="hidden sm:inline">Change File</span>
           <span className="sm:hidden">File</span>
         </button>
-        {/* Wrap clear button in AlertDialog for confirmation */}
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger asChild>
             <button
@@ -116,7 +114,6 @@ export function DashboardHeader() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-        <AddMeasurementModal open={addModalOpen} onOpenChange={setAddModalOpen} />
         <input
           ref={inputRef}
           type="file"
@@ -127,7 +124,8 @@ export function DashboardHeader() {
             if (file) loadFile(file);
           }}
         />
-      </div>
+      </div>      
+      <AddMeasurementModal open={addModalOpen} onOpenChange={setAddModalOpen} />
     </header>
   );
 }
