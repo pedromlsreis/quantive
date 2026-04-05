@@ -316,7 +316,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const newRefSources: any[] = entries.map(e => ({
           idSource: e.name,
           volatType: 'Unknown',
-          transferableInDays: false,
+          transferableInDays: e.isLiquid ?? false,
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
 
@@ -340,7 +340,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const newRefSources: any[] = entries.map(e => ({
           idSource: e.name,
           volatType: 'Unknown',
-          transferableInDays: false,
+          transferableInDays: e.isLiquid ?? false,
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
 
@@ -375,7 +375,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             newRefSources.push({
               idSource: e.name,
               volatType: 'Unknown',
-              transferableInDays: false,
+              transferableInDays: e.isLiquid ?? false,
             });
           }
         }
@@ -408,7 +408,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           newRefSources.push({
             idSource: e.name,
             volatType: 'Unknown',
-            transferableInDays: false,
+            transferableInDays: e.isLiquid ?? false,
           });
         }
       }
