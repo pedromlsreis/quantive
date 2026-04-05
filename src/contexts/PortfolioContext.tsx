@@ -297,7 +297,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return `${day} ${month} ${year}`;
   };
 
-  const addMeasurement = useCallback((entries: { name: string; value: number }[]) => {
+  const addMeasurement = useCallback((entries: { name: string; value: number; isLiquid?: boolean }[]) => {
     if (entries.length === 0) return;
 
     const now = new Date();
