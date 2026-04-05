@@ -1,11 +1,28 @@
+/**
+ * @module mockData
+ * Generates deterministic mock portfolio data for the demo mode.
+ * Produces 6 financial sources across ~3.5 years of monthly snapshots
+ * with realistic growth rates and sinusoidal noise.
+ */
+
 import { PortfolioData, FactRow, RefSource } from './types';
 
+/** Create a Date for the 1st of the given month (1-indexed). */
 function monthDate(year: number, month: number): Date {
   return new Date(year, month - 1, 1);
 }
 
-const sources = ['Savings Account', 'ETF World', 'ETF Bonds', 'Crypto BTC', 'Real Estate Fund', 'Pension Plan'];
+/** The 6 mock financial source names. */
+const sources: readonly string[] = [
+  'Savings Account',
+  'ETF World',
+  'ETF Bonds',
+  'Crypto BTC',
+  'Real Estate Fund',
+  'Pension Plan',
+];
 
+/** Reference metadata for each mock source. */
 const refSources: RefSource[] = [
   { idSource: 'Savings Account', volatType: 'Non-Volatile', transferableInDays: true },
   { idSource: 'ETF World', volatType: 'Volatile', transferableInDays: true },
@@ -15,8 +32,8 @@ const refSources: RefSource[] = [
   { idSource: 'Pension Plan', volatType: 'Non-Volatile', transferableInDays: false },
 ];
 
-// Base values and monthly growth multipliers per source
-const baseValues: Record<string, number> = {
+/** Starting monetary values for each source. */
+const baseValues: Readonly<Record<string, number>> = {
   'Savings Account': 15000,
   'ETF World': 25000,
   'ETF Bonds': 10000,
@@ -25,7 +42,8 @@ const baseValues: Record<string, number> = {
   'Pension Plan': 30000,
 };
 
-const growthRates: Record<string, number> = {
+/** Monthly compound growth rates per source. */
+const growthRates: Readonly<Record<string, number>> = {
   'Savings Account': 0.002,
   'ETF World': 0.008,
   'ETF Bonds': 0.003,
@@ -34,6 +52,11 @@ const growthRates: Record<string, number> = {
   'Pension Plan': 0.004,
 };
 
+/**
+ * Generate a complete mock PortfolioData dataset.
+ * Creates monthly snapshots going back ~3.5 years from the current month.
+ * Values follow compound growth with sinusoidal noise for realism.
+ */
 export function generateMockData(): PortfolioData {
   const facts: FactRow[] = [];
   const now = new Date();
@@ -52,6 +75,7 @@ export function generateMockData(): PortfolioData {
       for (const src of sources) {
         const base = baseValues[src];
         const rate = growthRates[src];
+        // Deterministic noise via sin() keyed to elapsed months and source name length
         const noise = 1 + (Math.sin(monthsElapsed * 1.7 + src.length) * 0.03);
         const value = base * Math.pow(1 + rate, monthsElapsed) * noise;
         facts.push({

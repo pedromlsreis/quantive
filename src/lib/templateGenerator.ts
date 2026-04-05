@@ -1,10 +1,23 @@
+/**
+ * @module templateGenerator
+ * Generates and downloads a blank portfolio Excel template
+ * with example data to guide users on the expected format.
+ */
+
 import * as XLSX from 'xlsx';
 
-export function downloadExcelTemplate() {
+/**
+ * Download a pre-filled Excel template that users can populate with their own data.
+ *
+ * The template contains:
+ * - **facts sheet**: Example rows with DATE, ID_SOURCE, SOURCE_VL columns
+ * - **ref sheet**: Example rows with ID_SOURCE, VOLAT_TYPE, TRANSFERABLE_IN_DAYS columns
+ */
+export function downloadExcelTemplate(): void {
   const wb = XLSX.utils.book_new();
 
   // Facts sheet with example rows
-  const factsData = [
+  const factsData: unknown[][] = [
     ['DATE', 'ID_SOURCE', 'SOURCE_VL'],
     [new Date(2024, 0, 1), 'Savings Account', 15000],
     [new Date(2024, 0, 1), 'ETF World', 25000],
@@ -16,7 +29,7 @@ export function downloadExcelTemplate() {
   XLSX.utils.book_append_sheet(wb, factsSheet, 'facts');
 
   // Ref sheet with sources reference table
-  const refData: any[][] = [
+  const refData: unknown[][] = [
     ['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS'],
     ['Savings Account', 'Non-Volatile', true],
     ['ETF World', 'Volatile', true],

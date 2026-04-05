@@ -1,22 +1,33 @@
+/**
+ * @module exporter
+ * Exports PortfolioData back to an .xlsx file matching the original template
+ * structure, enabling a lossless upload → explore → export round-trip.
+ */
+
 import * as XLSX from 'xlsx';
 import type { PortfolioData } from './types';
 
 /**
- * Exports the current PortfolioData back to an .xlsx file that mirrors the
- * original template structure (facts sheet + ref sheet), making the upload →
- * explore → export round-trip lossless.
+ * Export the current portfolio data as an Excel (.xlsx) file download.
+ *
+ * Creates a workbook with two sheets:
+ * - **facts**: DATE, ID_SOURCE, SOURCE_VL columns
+ * - **ref**: ID_SOURCE, VOLAT_TYPE, TRANSFERABLE_IN_DAYS columns
+ *
+ * @param data - The portfolio data to export.
+ * @param filename - Download filename (default: "portfolio_export.xlsx").
  */
 export function exportPortfolioExcel(data: PortfolioData, filename = 'portfolio_export.xlsx'): void {
   const wb = XLSX.utils.book_new();
 
   // ── facts sheet ──────────────────────────────────────────────────────────
-  const factsRows: any[][] = [
+  const factsRows: unknown[][] = [
     ['DATE', 'ID_SOURCE', 'SOURCE_VL'],
     ...data.facts.map(f => [f.date, f.idSource, f.sourceVl]),
   ];
   const factsSheet = XLSX.utils.aoa_to_sheet(factsRows, { cellDates: true });
 
-  // Format the DATE column as YYYY-MM-DD so Excel shows it cleanly
+  // Format the DATE column as YYYY-MM-DD for clean Excel display
   const dateFormat = 'yyyy-mm-dd';
   for (let r = 1; r <= data.facts.length; r++) {
     const cellRef = XLSX.utils.encode_cell({ r, c: 0 });
@@ -29,8 +40,7 @@ export function exportPortfolioExcel(data: PortfolioData, filename = 'portfolio_
   XLSX.utils.book_append_sheet(wb, factsSheet, 'facts');
 
   // ── ref sheet ─────────────────────────────────────────────────────────────
-  // Single table: ID_SOURCE | VOLAT_TYPE | TRANSFERABLE_IN_DAYS
-  const refRows: any[][] = [
+  const refRows: unknown[][] = [
     ['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS'],
     ...data.refSources.map(s => [s.idSource, s.volatType, s.transferableInDays]),
   ];
