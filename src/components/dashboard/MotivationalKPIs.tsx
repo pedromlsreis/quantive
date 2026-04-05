@@ -91,8 +91,8 @@ export function MotivationalKPIs() {
   const daysSinceStart = Math.max(1, Math.round((latest.date.getTime() - first.date.getTime()) / (1000 * 60 * 60 * 24)));
 
   // Milestone Badges
-  const reached = MILESTONES.filter(m => ath >= m);
-  const nextMilestone = MILESTONES.find(m => m > ath);
+  const reached = milestones.filter(m => ath >= m);
+  const nextMilestone = milestones.find(m => m > ath);
   const progressToNext = nextMilestone ? latest.total / nextMilestone : 1;
 
   return (
