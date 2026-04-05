@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { generateForecast } from '@/lib/forecast';
 import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
 import { Info } from 'lucide-react';
-import { UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";;
+import { UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const FORECAST_MODEL_DESCRIPTION =
