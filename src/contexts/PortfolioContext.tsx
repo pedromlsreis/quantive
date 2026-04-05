@@ -42,7 +42,7 @@ interface PortfolioContextType {
   loadFile: (file: File) => Promise<void>;
   loadMockData: () => void;
   clearData: () => void;
-  addMeasurement: (entries: { name: string; value: number }[]) => void;
+  addMeasurement: (entries: { name: string; value: number; isLiquid?: boolean }[]) => void;
   isLoading: boolean;
   isMockData: boolean;
 }
