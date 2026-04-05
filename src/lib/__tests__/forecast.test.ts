@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { linearRegression, generateForecast } from '@/lib/forecast';
+import { generateForecast } from '@/lib/forecast';
 
 describe('linearRegression', () => {
   it('returns correct slope and intercept for simple data', () => {
