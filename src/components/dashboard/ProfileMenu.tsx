@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { LogOut, User, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePortfolio } from '@/contexts/PortfolioContext';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
@@ -22,6 +23,8 @@ export function ProfileMenu() {
         if (data) setDisplayName(data.display_name);
       });
   }, [user]);
+
+  const { clearData } = usePortfolio();
 
   const handleSave = async () => {
     if (!user || !draft.trim()) return;
@@ -88,7 +91,10 @@ export function ProfileMenu() {
         </button>
       )}
       <button
-        onClick={signOut}
+        onClick={() => {
+          clearData();
+          signOut();
+        }}
         className="flex items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
       >
         <LogOut className="h-4 w-4" />
