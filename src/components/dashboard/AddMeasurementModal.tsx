@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { Switch } from '@/components/ui/switch';
 
 interface SourceEntry {
   name: string;
-  value: string; // string to allow empty input
-  isSeeded?: boolean; // flag to mark entries pre-filled from latest snapshot
+  value: string;
+  isSeeded?: boolean;
+  isLiquid: boolean;
 }
 
 const STORAGE_KEY_ENTRIES = 'add-measurement-draft';
@@ -25,10 +27,9 @@ function saveDraft(entries: SourceEntry[]) {
 }
 
 export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { data, addMeasurement, allSources } = usePortfolio();
+  const { data, addMeasurement } = usePortfolio();
 
   const [entries, setEntries] = useState<SourceEntry[]>(() => {
-    // Pre-populate with existing sources from latest snapshot
     if (data && data.facts.length > 0) {
       const latestDate = Math.max(...data.facts.map(f => f.date.getTime()));
       const latestFacts = data.facts.filter(f => f.date.getTime() === latestDate);
@@ -36,10 +37,18 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       for (const f of latestFacts) {
         uniqueSources.set(f.idSource.trim(), f.sourceVl);
       }
+      // Look up liquidity from refSources
+      const liquidMap = new Map<string, boolean>();
+      if (data.refSources) {
+        for (const rs of data.refSources) {
+          liquidMap.set(rs.idSource.trim(), rs.transferableInDays);
+        }
+      }
       return Array.from(uniqueSources.entries()).map(([name, value]) => ({
         name,
         value: value === 0 ? '' : String(value),
-        isSeeded: true, // mark as seeded - immutable
+        isSeeded: true,
+        isLiquid: liquidMap.get(name) ?? false,
       }));
     }
     return loadDraft();
@@ -48,19 +57,17 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   const [saving, setSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Persist draft to localStorage on every change
   const updateEntries = (newEntries: SourceEntry[]) => {
     setEntries(newEntries);
     saveDraft(newEntries);
-    setValidationError(null); // clear error on change
+    setValidationError(null);
   };
 
   const handleAddSource = () => {
-    updateEntries([...entries, { name: '', value: '', isSeeded: false }]);
+    updateEntries([...entries, { name: '', value: '', isSeeded: false, isLiquid: false }]);
   };
 
   const handleRemoveSource = (index: number) => {
-    // Prevent removing seeded entries
     if (entries[index].isSeeded) {
       setValidationError('Cannot remove pre-filled data sources');
       return;
@@ -70,7 +77,6 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   };
 
   const handleChange = (index: number, field: 'name' | 'value', val: string) => {
-    // Prevent editing seeded entry names
     if (field === 'name' && entries[index].isSeeded) {
       setValidationError('Cannot edit pre-filled data source names');
       return;
@@ -80,24 +86,27 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     updateEntries(updated);
   };
 
+  const handleToggleLiquid = (index: number) => {
+    if (entries[index].isSeeded) return; // liquidity is already set for seeded entries
+    const updated = [...entries];
+    updated[index] = { ...updated[index], isLiquid: !updated[index].isLiquid };
+    updateEntries(updated);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setValidationError(null);
     try {
-      // Filter out empty names first for processing
       const validEntries = entries.filter(e => e.name.trim() !== '');
-      
-      // Check for duplicates using Set
       const names = validEntries.map(e => e.name.trim());
       const uniqueNames = new Set(names);
-      
+
       if (uniqueNames.size !== names.length) {
         setValidationError('Duplicate source names are not allowed');
         setSaving(false);
         return;
       }
-      
-      // Check for empty names in original entries
+
       const hasEmptyNames = entries.some(e => e.name.trim() === '' && e.value.trim() !== '');
       if (hasEmptyNames) {
         setValidationError('Source name cannot be empty');
@@ -105,12 +114,11 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         return;
       }
 
-      // Convert string values to numbers, treating empty as 0
-      const measurement = validEntries
-        .map(e => ({
-          name: e.name.trim(),
-          value: e.value.trim() === '' ? 0 : parseFloat(e.value),
-        }));
+      const measurement = validEntries.map(e => ({
+        name: e.name.trim(),
+        value: e.value.trim() === '' ? 0 : parseFloat(e.value),
+        isLiquid: e.isLiquid,
+      }));
 
       if (measurement.length === 0) {
         setSaving(false);
@@ -118,7 +126,6 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       }
 
       addMeasurement(measurement);
-      // Clear draft on successful save
       localStorage.removeItem(STORAGE_KEY_ENTRIES);
       onOpenChange(false);
     } finally {
@@ -133,7 +140,6 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
           <div className="relative mx-4 w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl">
-            {/* Close button */}
             <button
               onClick={() => onOpenChange(false)}
               className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -146,12 +152,19 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
               Record your balances for {today}. All sources from your latest snapshot are pre-filled.
             </p>
 
-            {/* Validation error display */}
             {validationError && (
               <div className="mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
                 {validationError}
               </div>
             )}
+
+            {/* Column headers */}
+            <div className="mb-2 flex items-center gap-2 px-0.5 text-xs font-medium text-muted-foreground">
+              <span className="flex-1">Source name</span>
+              <span className="w-32 text-right">Value</span>
+              <span className="w-16 text-center">Liquid</span>
+              <span className="w-8" />
+            </div>
 
             <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
               {entries.map((entry, index) => (
@@ -172,6 +185,14 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                     step="0.01"
                     className="w-32 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-right text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
                   />
+                  <div className="flex w-16 items-center justify-center">
+                    <Switch
+                      checked={entry.isLiquid}
+                      onCheckedChange={() => handleToggleLiquid(index)}
+                      disabled={entry.isSeeded}
+                      className="scale-90"
+                    />
+                  </div>
                   <button
                     onClick={() => handleRemoveSource(index)}
                     disabled={entry.isSeeded}
@@ -184,7 +205,6 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
               ))}
             </div>
 
-            {/* Add new source */}
             <button
               onClick={handleAddSource}
               className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
@@ -193,7 +213,6 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
               Add data source
             </button>
 
-            {/* Actions */}
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 onClick={() => onOpenChange(false)}
