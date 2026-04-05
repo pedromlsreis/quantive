@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { FileSpreadsheet, Upload, X, Download } from 'lucide-react';
+import { FileSpreadsheet, Upload, X, Download, Plus } from 'lucide-react';
 import { format } from 'date-fns';
 import { HowToUse } from './HowToUse';
 import { AuthButton } from './AuthButton';
 import { CurrencySelector } from './CurrencySelector';
 import { exportPortfolioExcel } from '@/lib/exporter';
+import { AddMeasurementModal } from './AddMeasurementModal';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +23,7 @@ export function DashboardHeader() {
   const { data, clearData, loadFile, snapshots } = usePortfolio();
   const inputRef = useRef<HTMLInputElement>(null);
   const [confirmOpen, setConfirmOpen] = useState(false); // Confirmation dialog for clear button
+  const [addModalOpen, setAddModalOpen] = useState(false); // Add measurement modal
 
   const lastUpdated = snapshots.length > 0
     ? format(snapshots[snapshots.length - 1].date, 'd MMM yyyy')
@@ -52,6 +54,16 @@ export function DashboardHeader() {
         <AuthButton />
         <CurrencySelector />
         <HowToUse />
+        
+        <button
+          onClick={() => setAddModalOpen(true)}
+          className="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          title="Add a new measurement"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">New</span>
+        </button>
+        
         {data && (
           <button
             onClick={handleExport}
@@ -70,7 +82,6 @@ export function DashboardHeader() {
           <span className="hidden sm:inline">Change File</span>
           <span className="sm:hidden">File</span>
         </button>
-        {/* Wrap clear button in AlertDialog for confirmation */}
         <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogTrigger asChild>
             <button
@@ -113,7 +124,8 @@ export function DashboardHeader() {
             if (file) loadFile(file);
           }}
         />
-      </div>
+      </div>      
+      <AddMeasurementModal open={addModalOpen} onOpenChange={setAddModalOpen} />
     </header>
   );
 }

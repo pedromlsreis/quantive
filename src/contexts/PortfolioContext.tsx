@@ -42,6 +42,7 @@ interface PortfolioContextType {
   loadFile: (file: File) => Promise<void>;
   loadMockData: () => void;
   clearData: () => void;
+  addMeasurement: (entries: { name: string; value: number }[]) => void;
   isLoading: boolean;
   isMockData: boolean;
 }
@@ -85,29 +86,7 @@ function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: 
     }
   }
 
-  if (!closest) return null;
-
-  // Dynamic threshold based on data cadence instead of hardcoded 45 days
-  const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-  // Calculate median gap between consecutive snapshots to determine data cadence
-  const sorted = [...snapshots]
-    .map(s => s.date.getTime())
-    .sort((a, b) => a - b);
-  const gaps: number[] = [];
-  for (let i = 1; i < sorted.length; i++) {
-    gaps.push(sorted[i] - sorted[i - 1]);
-  }
-  // Use median gap as the cadence, fall back to 30 days if only one snapshot
-  const medianGap = gaps.length > 0
-    ? gaps[Math.floor(gaps.length / 2)]
-    : 30 * MS_PER_DAY;
-
-  // Threshold = 1.5× the median gap, minimum 30 days
-  // This supports daily, monthly, and quarterly data cadences
-  const dynamicThreshold = Math.max(medianGap * 1.5, 30 * MS_PER_DAY);
-
-  if (minDiff > dynamicThreshold) return null;
+  if (!closest || minDiff > 45 * 24 * 60 * 60 * 1000) return null;
   return closest;
 }
 
@@ -215,7 +194,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           setIsMockData(false);
           setDefaultDateRange(cloudData);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
-          localStorage.setItem(MOCK_FLAG_KEY, 'false'); // MOCK_FLAG_KEY = 'false' -> marked as real data
+          localStorage.setItem(MOCK_FLAG_KEY, 'false'); // mark as real data
         }
       } catch (e) {
         console.error('Failed to load from cloud:', e);
@@ -277,7 +256,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       setData(parsed);
       setIsMockData(false);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      localStorage.setItem(MOCK_FLAG_KEY, 'false');  // MOCK_FLAG_KEY = 'false' -> marked as real data
+      localStorage.setItem(MOCK_FLAG_KEY, 'false'); // mark as real data
       setDefaultDateRange(parsed);
       saveToCloud(parsed);
       toast.success(`Loaded ${parsed.facts.length} records from ${file.name}`);
@@ -294,7 +273,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setData(mock);
     setIsMockData(true);
     setDefaultDateRange(mock);
-    // flag as mock data so localStorage cache is cleared on next visit
+    // flag as mock so localStorage cache is cleared on next visit
     localStorage.setItem(MOCK_FLAG_KEY, 'true');
     // Do NOT save mock data to STORAGE_KEY — it's ephemeral
     toast.success('Loaded demo data');
@@ -307,6 +286,146 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(MOCK_FLAG_KEY); // Clean up mock flag
   }, []);
+
+  // Helper function for formatting dates
+  const format = (d: Date, fmt: string): string => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    if (fmt === 'dd MMM yyyy') return `${day} ${month} ${year}`;
+    return `${day} ${month} ${year}`;
+  };
+
+  const addMeasurement = useCallback((entries: { name: string; value: number }[]) => {
+    if (entries.length === 0) return;
+
+    const now = new Date();
+    // Normalize to start of day for consistency with Excel ingestion
+    now.setHours(0, 0, 0, 0);
+    const nowKey = now.getTime();
+
+    setData(prev => {
+      // If no existing data, create a new dataset
+      if (!prev) {
+        const newFacts: any[] = entries.map(e => ({
+          date: now,
+          idSource: e.name,
+          sourceVl: e.value,
+        }));
+        const newRefSources: any[] = entries.map(e => ({
+          idSource: e.name,
+          volatType: 'Unknown',
+          transferableInDays: false,
+        }));
+        const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
+
+        // Persist
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        localStorage.setItem(MOCK_FLAG_KEY, 'false');
+        setDefaultDateRange(newData);
+        saveToCloud(newData);
+        toast.success(`Added measurement with ${entries.length} source${entries.length > 1 ? 's' : ''}`);
+        return newData;
+      }
+
+      // If previous data is mock, replace instead of append
+      // Clear mock flag and use only the new real entries
+      if (isMockData) {
+        const newFacts: any[] = entries.map(e => ({
+          date: now,
+          idSource: e.name,
+          sourceVl: e.value,
+        }));
+        const newRefSources: any[] = entries.map(e => ({
+          idSource: e.name,
+          volatType: 'Unknown',
+          transferableInDays: false,
+        }));
+        const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
+
+        // Persist as real data
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+        localStorage.setItem(MOCK_FLAG_KEY, 'false');
+        setDefaultDateRange(newData);
+        saveToCloud(newData);
+        setIsMockData(false); // Clear the mock flag
+        toast.success(`Added first real measurement — replaced demo data`);
+        return newData;
+      }
+
+      // Check if this measurement's date already exists
+      // If so, replace the entire day's snapshot instead of adding/merging
+      const existingDateFacts = prev.facts.filter(f => f.date.getTime() === nowKey);
+      
+      if (existingDateFacts.length > 0) {
+        // Replace: filter out facts for this date and add new ones
+        const remainingFacts = prev.facts.filter(f => f.date.getTime() !== nowKey);
+        const newFacts = entries.map(e => ({
+          date: now,
+          idSource: e.name,
+          sourceVl: e.value,
+        }));
+
+        // Add any new data sources to refSources
+        const existingSourceNames = new Set(prev.refSources.map(s => s.idSource));
+        const newRefSources = [...prev.refSources];
+        for (const e of entries) {
+          if (!existingSourceNames.has(e.name)) {
+            newRefSources.push({
+              idSource: e.name,
+              volatType: 'Unknown',
+              transferableInDays: false,
+            });
+          }
+        }
+
+        const updatedData: PortfolioData = {
+          facts: [...remainingFacts, ...newFacts],
+          refSources: newRefSources,
+        };
+
+        // Persist
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
+        setDefaultDateRange(updatedData);
+        saveToCloud(updatedData);
+        toast.success(`Updated measurement for ${format(now, 'dd MMM yyyy')}`);
+        return updatedData;
+      }
+
+      // Normal append for new dates
+      const newFacts = entries.map(e => ({
+        date: now,
+        idSource: e.name,
+        sourceVl: e.value,
+      }));
+
+      // Add any new data sources to refSources
+      const existingSourceNames = new Set(prev.refSources.map(s => s.idSource));
+      const newRefSources = [...prev.refSources];
+      for (const e of entries) {
+        if (!existingSourceNames.has(e.name)) {
+          newRefSources.push({
+            idSource: e.name,
+            volatType: 'Unknown',
+            transferableInDays: false,
+          });
+        }
+      }
+
+      const updatedData: PortfolioData = {
+        facts: [...prev.facts, ...newFacts],
+        refSources: newRefSources,
+      };
+
+      // Persist
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
+      setDefaultDateRange(updatedData);
+      saveToCloud(updatedData);
+      toast.success(`Added measurement with ${entries.length} source${entries.length > 1 ? 's' : ''}`);
+      return updatedData;
+    });
+  }, [isMockData, saveToCloud, setDefaultDateRange]);
 
   const updateFilters = useCallback((partial: Partial<FilterState>) => {
     setFilters(prev => ({ ...prev, ...partial }));
@@ -422,9 +541,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     loadFile,
     loadMockData,
     clearData,
+    addMeasurement,
     isLoading,
     isMockData,
   };
 
-  return <PortfolioContext.Provider value={value}>{children}</PortfolioContext.Provider>;
+  return (
+    <PortfolioContext.Provider value={value}>
+      {children}
+    </PortfolioContext.Provider>
+  );
 }
