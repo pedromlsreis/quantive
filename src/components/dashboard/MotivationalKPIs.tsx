@@ -11,7 +11,24 @@ const MILESTONES_STORAGE_KEY = 'portfolio-custom-milestones';
 function loadMilestones(): number[] {
   try {
     const raw = localStorage.getItem(MILESTONES_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [...DEFAULT_MILESTONES];
+    if (!raw) return [...DEFAULT_MILESTONES];
+
+    const parsed = JSON.parse(raw);
+
+    // Validate: must be array with finite numbers
+    if (!Array.isArray(parsed)) return [...DEFAULT_MILESTONES];
+
+    // Filter, coerce, and normalize
+    const validated = parsed
+      .map(v => typeof v === 'string' ? parseFloat(v) : v)
+      .filter(v => typeof v === 'number' && Number.isFinite(v) && v > 0)
+      .sort((a, b) => a - b);
+
+    // Deduplicate
+    const unique = [...new Set(validated)];
+
+    // Return normalized array or default if empty/invalid
+    return unique.length > 0 ? unique : [...DEFAULT_MILESTONES];
   } catch {
     return [...DEFAULT_MILESTONES];
   }
@@ -160,7 +177,7 @@ export function MotivationalKPIs() {
       </div>
 
       {/* Milestone Badges */}
-      {(reached.length > 0 || nextMilestone) && (
+      {(editingMilestones || milestones.length === 0 || reached.length > 0 || nextMilestone) && (
         <div className="mt-6">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-xs font-medium text-muted-foreground">Milestones</p>
@@ -175,6 +192,7 @@ export function MotivationalKPIs() {
             <div className="mb-3 flex items-center gap-2">
               <input
                 type="number"
+                aria-label="New milestone threshold"
                 value={newMilestone}
                 onChange={e => setNewMilestone(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleAddMilestone(); }}
@@ -202,6 +220,7 @@ export function MotivationalKPIs() {
                 {fmtMilestone(m)}
                 {editingMilestones && (
                   <button
+                    aria-label={`Remove milestone ${fmtMilestone(m)}`}
                     onClick={() => handleRemoveMilestone(m)}
                     className="ml-0.5 -mr-1 rounded-full p-0.5 text-accent/60 hover:bg-accent/20 hover:text-accent"
                   >
@@ -219,6 +238,7 @@ export function MotivationalKPIs() {
                 </div>
                 {editingMilestones && (
                   <button
+                    aria-label={`Remove milestone ${fmtMilestone(nextMilestone)}`}
                     onClick={() => handleRemoveMilestone(nextMilestone)}
                     className="-mr-1 rounded-full p-0.5 text-muted-foreground/60 hover:bg-secondary hover:text-muted-foreground"
                   >

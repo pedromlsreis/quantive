@@ -287,6 +287,16 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(MOCK_FLAG_KEY); // Clean up mock flag
   }, []);
 
+  // Helper function for formatting dates
+  const format = (d: Date, fmt: string): string => {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const day = d.getDate();
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    if (fmt === 'dd MMM yyyy') return `${day} ${month} ${year}`;
+    return `${day} ${month} ${year}`;
+  };
+
   const addMeasurement = useCallback((entries: { name: string; value: number }[]) => {
     if (entries.length === 0) return;
 
@@ -517,16 +527,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       liquidPercent: currentNetWorth > 0 ? (liquidTotal / currentNetWorth) * 100 : 0,
     };
   }, [snapshots]);
-
-  // Helper function for formatting dates
-  const format = (d: Date, fmt: string): string => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const day = d.getDate();
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    if (fmt === 'dd MMM yyyy') return `${day} ${month} ${year}`;
-    return `${day} ${month} ${year}`;
-  };
 
   const value = {
     data,
