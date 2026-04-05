@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 interface SourceEntry {
   name: string;
   value: string; // string to allow empty input
+  isSeeded?: boolean; // flag to mark entries pre-filled from latest snapshot
 }
 
 const STORAGE_KEY_ENTRIES = 'add-measurement-draft';
@@ -38,29 +39,42 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       return Array.from(uniqueSources.entries()).map(([name, value]) => ({
         name,
         value: value === 0 ? '' : String(value),
+        isSeeded: true, // mark as seeded - immutable
       }));
     }
     return loadDraft();
   });
 
   const [saving, setSaving] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Persist draft to localStorage on every change
   const updateEntries = (newEntries: SourceEntry[]) => {
     setEntries(newEntries);
     saveDraft(newEntries);
+    setValidationError(null); // clear error on change
   };
 
   const handleAddSource = () => {
-    updateEntries([...entries, { name: '', value: '' }]);
+    updateEntries([...entries, { name: '', value: '', isSeeded: false }]);
   };
 
   const handleRemoveSource = (index: number) => {
+    // Prevent removing seeded entries
+    if (entries[index].isSeeded) {
+      setValidationError('Cannot remove pre-filled data sources');
+      return;
+    }
     const updated = entries.filter((_, i) => i !== index);
     updateEntries(updated);
   };
 
   const handleChange = (index: number, field: 'name' | 'value', val: string) => {
+    // Prevent editing seeded entry names
+    if (field === 'name' && entries[index].isSeeded) {
+      setValidationError('Cannot edit pre-filled data source names');
+      return;
+    }
     const updated = [...entries];
     updated[index] = { ...updated[index], [field]: val };
     updateEntries(updated);
@@ -68,10 +82,31 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
 
   const handleSave = async () => {
     setSaving(true);
+    setValidationError(null);
     try {
+      // Filter out empty names first for processing
+      const validEntries = entries.filter(e => e.name.trim() !== '');
+      
+      // Check for duplicates using Set
+      const names = validEntries.map(e => e.name.trim());
+      const uniqueNames = new Set(names);
+      
+      if (uniqueNames.size !== names.length) {
+        setValidationError('Duplicate source names are not allowed');
+        setSaving(false);
+        return;
+      }
+      
+      // Check for empty names in original entries
+      const hasEmptyNames = entries.some(e => e.name.trim() === '' && e.value.trim() !== '');
+      if (hasEmptyNames) {
+        setValidationError('Source name cannot be empty');
+        setSaving(false);
+        return;
+      }
+
       // Convert string values to numbers, treating empty as 0
-      const measurement = entries
-        .filter(e => e.name.trim() !== '') // Only include entries with a source name
+      const measurement = validEntries
         .map(e => ({
           name: e.name.trim(),
           value: e.value.trim() === '' ? 0 : parseFloat(e.value),
@@ -111,6 +146,13 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
               Record your balances for {today}. All sources from your latest snapshot are pre-filled.
             </p>
 
+            {/* Validation error display */}
+            {validationError && (
+              <div className="mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {validationError}
+              </div>
+            )}
+
             <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
               {entries.map((entry, index) => (
                 <div key={index} className="flex items-center gap-2">
@@ -119,7 +161,8 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                     value={entry.name}
                     onChange={e => handleChange(index, 'name', e.target.value)}
                     placeholder="Source name"
-                    className="flex-1 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                    disabled={entry.isSeeded}
+                    className="flex-1 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-60"
                   />
                   <input
                     type="number"
@@ -131,8 +174,9 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                   />
                   <button
                     onClick={() => handleRemoveSource(index)}
-                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                    title="Remove source"
+                    disabled={entry.isSeeded}
+                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-30"
+                    title={entry.isSeeded ? "Cannot remove pre-filled source" : "Remove source"}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
