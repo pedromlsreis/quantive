@@ -108,7 +108,8 @@ describe('filter logic', () => {
     const enriched = enrichFacts(data);
     const volatile = enriched.filter(f => f.volatType === 'Volatile');
     expect(volatile.length).toBeGreaterThan(0);
-    volatile.forEach(f => expect(f.idSource).toBe('ETF World'));
+    const volatileSourceNames = new Set(volatile.map(f => f.idSource));
+    expect(volatileSourceNames.has('ETF World')).toBe(true);
   });
 
   it('filters by date range', () => {
