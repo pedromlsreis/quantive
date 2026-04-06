@@ -58,13 +58,15 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        {/* screenshot placeholder */}
+        {/* dashboard screenshot */}
         <div className="relative z-10 mx-auto mt-16 w-full max-w-4xl">
           <div className="animate-hero-glow-slow absolute -inset-4 rounded-2xl bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 blur-2xl" />
           <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-1">
-            <div className="flex h-64 items-center justify-center rounded-lg bg-muted/30 text-muted-foreground sm:h-80">
-              <span className="text-sm">Dashboard Preview</span>
-            </div>
+            <img
+              src="/images/dashboard.png"
+              alt="Networth Analysis dashboard preview"
+              className="w-full h-auto rounded-lg"
+            />
           </div>
         </div>
       </section>
