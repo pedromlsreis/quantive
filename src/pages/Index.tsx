@@ -50,8 +50,10 @@ const Index = () => {
           <FeedbackButton />
         </div>
       </main>
+      <Footer />
     </div>
   );
+};
 };
 
 export default Index;
