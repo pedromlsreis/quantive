@@ -49,7 +49,7 @@ export function DashboardHeader() {
             </p>
           )}
         </div>
-      </div>
+      </a>
       <div className="flex flex-wrap items-center gap-2">
         <AuthButton />
         <CurrencySelector />
