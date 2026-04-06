@@ -1,4 +1,5 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { Footer } from '@/components/Footer';
 import { FileUpload } from '@/components/dashboard/FileUpload';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { FilterBar } from '@/components/dashboard/FilterBar';
@@ -49,6 +50,7 @@ const Index = () => {
           <FeedbackButton />
         </div>
       </main>
+      <Footer />
     </div>
   );
 };
