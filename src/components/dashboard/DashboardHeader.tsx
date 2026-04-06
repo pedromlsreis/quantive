@@ -37,7 +37,7 @@ export function DashboardHeader() {
 
   return (
     <header className="flex flex-col gap-3 border-b border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
+        <a href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
           <FileSpreadsheet className="h-5 w-5 text-primary" />
         </div>
