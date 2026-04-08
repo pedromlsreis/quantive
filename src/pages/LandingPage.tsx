@@ -1,7 +1,4 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { AuthModal } from '@/components/auth/AuthModal';
+import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import {
@@ -23,30 +20,6 @@ function FeatureCard({ icon: Icon, title, desc }: { icon: any; title: string; de
       <h3 className="mb-2 text-base font-semibold text-foreground">{title}</h3>
       <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
     </div>
-  );
-}
-
-/* ---------- CTA button that opens auth for guests ---------- */
-function GetStartedButton({ className, children }: { className: string; children: React.ReactNode }) {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [authOpen, setAuthOpen] = useState(false);
-
-  const handleClick = () => {
-    if (user) {
-      navigate('/dashboard');
-    } else {
-      setAuthOpen(true);
-    }
-  };
-
-  return (
-    <>
-      <button onClick={handleClick} className={className}>
-        {children}
-      </button>
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode="signup" />
-    </>
   );
 }
 
