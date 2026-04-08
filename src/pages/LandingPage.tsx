@@ -1,7 +1,4 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { AuthModal } from '@/components/auth/AuthModal';
+import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import {
@@ -26,30 +23,6 @@ function FeatureCard({ icon: Icon, title, desc }: { icon: any; title: string; de
   );
 }
 
-/* ---------- CTA button that opens auth for guests ---------- */
-function GetStartedButton({ className, children }: { className: string; children: React.ReactNode }) {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [authOpen, setAuthOpen] = useState(false);
-
-  const handleClick = () => {
-    if (user) {
-      navigate('/dashboard');
-    } else {
-      setAuthOpen(true);
-    }
-  };
-
-  return (
-    <>
-      <button onClick={handleClick} className={className}>
-        {children}
-      </button>
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode="signup" />
-    </>
-  );
-}
-
 /* ============================================= */
 export default function LandingPage() {
   return (
@@ -71,11 +44,12 @@ export default function LandingPage() {
           A finance cockpit for personal-finance nerds who enjoy giving themselves a well-earned pat on the back.
         </p>
         <div className="relative z-10 mt-8 flex flex-wrap justify-center gap-4">
-          <GetStartedButton
+          <Link
+            to="/dashboard"
             className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105"
           >
             Get Started Free
-          </GetStartedButton>
+          </Link>
           <Link
             to="/demo"
             className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
@@ -247,11 +221,12 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <GetStartedButton
+              <Link
+                to="/dashboard"
                 className="mt-8 block w-full rounded-lg border border-border bg-secondary py-2.5 text-center text-sm font-medium text-secondary-foreground transition-transform hover:scale-105"
               >
                 Get Started
-              </GetStartedButton>
+              </Link>
             </div>
             {/* Pro */}
             <div className="relative rounded-xl border-2 border-primary/50 bg-card p-8">
@@ -289,11 +264,12 @@ export default function LandingPage() {
           <h2 className="text-3xl font-bold text-foreground">Start tracking your wealth today</h2>
           <p className="mt-3 text-muted-foreground">Free forever. No credit card required.</p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <GetStartedButton
+            <Link
+              to="/dashboard"
               className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105"
             >
               Get Started Free
-            </GetStartedButton>
+            </Link>
             <Link
               to="/demo"
               className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
