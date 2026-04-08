@@ -221,11 +221,12 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <GetStartedButton
+              <Link
+                to="/dashboard"
                 className="mt-8 block w-full rounded-lg border border-border bg-secondary py-2.5 text-center text-sm font-medium text-secondary-foreground transition-transform hover:scale-105"
               >
                 Get Started
-              </GetStartedButton>
+              </Link>
             </div>
             {/* Pro */}
             <div className="relative rounded-xl border-2 border-primary/50 bg-card p-8">
@@ -263,11 +264,12 @@ export default function LandingPage() {
           <h2 className="text-3xl font-bold text-foreground">Start tracking your wealth today</h2>
           <p className="mt-3 text-muted-foreground">Free forever. No credit card required.</p>
           <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <GetStartedButton
+            <Link
+              to="/dashboard"
               className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105"
             >
               Get Started Free
-            </GetStartedButton>
+            </Link>
             <Link
               to="/demo"
               className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
