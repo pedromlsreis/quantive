@@ -138,6 +138,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
           )}
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
