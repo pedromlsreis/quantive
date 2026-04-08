@@ -59,7 +59,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
       <div className="relative mx-4 w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl">
         <button
