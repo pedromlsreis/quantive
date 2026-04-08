@@ -1,16 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { FileSpreadsheet, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthModal } from '@/components/auth/AuthModal';
 
 export function StickyNav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
   const { user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -25,15 +22,6 @@ export function StickyNav() {
     const el = document.getElementById(id);
     el?.scrollIntoView({ behavior: 'smooth' });
     setMobileOpen(false);
-  };
-
-  const handleGetStarted = () => {
-    setMobileOpen(false);
-    if (user) {
-      navigate('/dashboard');
-    } else {
-      setAuthOpen(true);
-    }
   };
 
   const navLinks = [
@@ -51,7 +39,6 @@ export function StickyNav() {
   ];
 
   return (
-    <>
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled
@@ -88,12 +75,12 @@ export function StickyNav() {
                 </Link>
               )
             ))}
-            <button
-              onClick={handleGetStarted}
+            <Link
+              to="/dashboard"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
             >
               {user ? 'Go to Dashboard' : 'Get Started Free'}
-            </button>
+            </Link>
           </div>
 
           {/* Mobile toggle */}
@@ -129,18 +116,16 @@ export function StickyNav() {
                   </Link>
                 )
               ))}
-              <button
-                onClick={handleGetStarted}
+              <Link
+                to="/dashboard"
+                onClick={() => setMobileOpen(false)}
                 className="mt-2 rounded-lg bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
               >
                 {user ? 'Go to Dashboard' : 'Get Started Free'}
-              </button>
+              </Link>
             </div>
           </div>
         )}
-      </nav>
-
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode="signup" />
-    </>
+    </nav>
   );
 }
