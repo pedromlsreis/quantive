@@ -8,7 +8,6 @@ export function StickyNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
   const location = useLocation();
-  const navigate = useNavigate();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -77,12 +76,12 @@ export function StickyNav() {
                 </Link>
               )
             ))}
-            <button
-              onClick={handleGetStarted}
+            <Link
+              to="/dashboard"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
             >
               {user ? 'Go to Dashboard' : 'Get Started Free'}
-            </button>
+            </Link>
           </div>
 
           {/* Mobile toggle */}
@@ -118,18 +117,16 @@ export function StickyNav() {
                   </Link>
                 )
               ))}
-              <button
-                onClick={handleGetStarted}
+              <Link
+                to="/dashboard"
+                onClick={() => setMobileOpen(false)}
                 className="mt-2 rounded-lg bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
               >
                 {user ? 'Go to Dashboard' : 'Get Started Free'}
-              </button>
+              </Link>
             </div>
           </div>
         )}
-      </nav>
-
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode="signup" />
-    </>
+    </nav>
   );
 }
