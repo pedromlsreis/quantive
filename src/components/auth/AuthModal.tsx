@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn, UserPlus, X, Mail } from 'lucide-react';
 import { toast } from 'sonner';
