@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { FileSpreadsheet, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { AuthModal } from '@/components/auth/AuthModal';
 
 export function StickyNav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -25,15 +23,6 @@ export function StickyNav() {
     const el = document.getElementById(id);
     el?.scrollIntoView({ behavior: 'smooth' });
     setMobileOpen(false);
-  };
-
-  const handleGetStarted = () => {
-    setMobileOpen(false);
-    if (user) {
-      navigate('/dashboard');
-    } else {
-      setAuthOpen(true);
-    }
   };
 
   const navLinks = [
