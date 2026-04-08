@@ -71,11 +71,12 @@ export default function LandingPage() {
           A finance cockpit for personal-finance nerds who enjoy giving themselves a well-earned pat on the back.
         </p>
         <div className="relative z-10 mt-8 flex flex-wrap justify-center gap-4">
-          <GetStartedButton
+          <Link
+            to="/dashboard"
             className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105"
           >
             Get Started Free
-          </GetStartedButton>
+          </Link>
           <Link
             to="/demo"
             className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
