@@ -24,6 +24,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
   const handleClose = () => {
     setEmail('');
     setPassword('');
+    setAcceptedTerms(false);
     setSubmitting(false);
     onClose();
   };
