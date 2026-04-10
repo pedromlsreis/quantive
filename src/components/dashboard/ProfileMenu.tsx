@@ -1,9 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, User, Pencil, Check, X } from 'lucide-react';
+import { LogOut, User, Pencil, Check, X, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
@@ -11,6 +21,8 @@ export function ProfileMenu() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -40,6 +52,24 @@ export function ProfileMenu() {
       setDisplayName(draft.trim());
       setEditing(false);
       toast.success('Display name updated!');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('delete-account');
+      if (error || !data?.success) {
+        toast.error('Failed to delete account. Please try again.');
+        setDeleting(false);
+        return;
+      }
+      clearData();
+      await signOut();
+      toast.success('Your account and all data have been permanently deleted.');
+    } catch {
+      toast.error('Failed to delete account. Please try again.');
+      setDeleting(false);
     }
   };
 
@@ -91,6 +121,13 @@ export function ProfileMenu() {
         </button>
       )}
       <button
+        onClick={() => setDeleteOpen(true)}
+        className="flex items-center justify-center rounded-lg p-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
+        title="Delete account & data"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+      <button
         onClick={() => {
           clearData();
           signOut();
@@ -100,6 +137,28 @@ export function ProfileMenu() {
         <LogOut className="h-4 w-4" />
         <span className="hidden sm:inline">Sign out</span>
       </button>
+
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete your account and all associated data including
+              portfolio snapshots, profile, and feedback. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAccount}
+              disabled={deleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting…' : 'Yes, delete everything'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
