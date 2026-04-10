@@ -17,6 +17,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Reset form when modal opens
