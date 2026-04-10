@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { LogIn, UserPlus, X, Mail } from 'lucide-react';
 import { toast } from 'sonner';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface AuthModalProps {
   open: boolean;
@@ -15,12 +17,14 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   // Reset form when modal opens
   const handleClose = () => {
     setEmail('');
     setPassword('');
+    setAcceptedTerms(false);
     setSubmitting(false);
     onClose();
   };
@@ -45,6 +49,11 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     }
 
     if (!password.trim()) { setSubmitting(false); return; }
+    if (mode === 'signup' && !acceptedTerms) {
+      toast.error('You must accept the Privacy Policy and Terms of Service.');
+      setSubmitting(false);
+      return;
+    }
     const fn = mode === 'signup' ? signUp : signIn;
     const { error } = await fn(email.trim(), password);
     setSubmitting(false);
@@ -100,9 +109,24 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
               minLength={6}
             />
           )}
+          {mode === 'signup' && (
+            <label className="flex items-start gap-2 cursor-pointer">
+              <Checkbox
+                checked={acceptedTerms}
+                onCheckedChange={(v) => setAcceptedTerms(v === true)}
+                className="mt-0.5"
+              />
+              <span className="text-xs text-muted-foreground leading-snug">
+                I agree to the{' '}
+                <Link to="/privacy" onClick={handleClose} className="text-primary hover:underline">Privacy Policy</Link>
+                {' '}and{' '}
+                <Link to="/terms" onClick={handleClose} className="text-primary hover:underline">Terms of Service</Link>
+              </span>
+            </label>
+          )}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || (mode === 'signup' && !acceptedTerms)}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             {mode === 'signin' ? <LogIn className="h-4 w-4" /> : mode === 'signup' ? <UserPlus className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
