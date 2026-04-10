@@ -109,9 +109,24 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
               minLength={6}
             />
           )}
+          {mode === 'signup' && (
+            <label className="flex items-start gap-2 cursor-pointer">
+              <Checkbox
+                checked={acceptedTerms}
+                onCheckedChange={(v) => setAcceptedTerms(v === true)}
+                className="mt-0.5"
+              />
+              <span className="text-xs text-muted-foreground leading-snug">
+                I agree to the{' '}
+                <Link to="/privacy" onClick={handleClose} className="text-primary hover:underline">Privacy Policy</Link>
+                {' '}and{' '}
+                <Link to="/terms" onClick={handleClose} className="text-primary hover:underline">Terms of Service</Link>
+              </span>
+            </label>
+          )}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || (mode === 'signup' && !acceptedTerms)}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
             {mode === 'signin' ? <LogIn className="h-4 w-4" /> : mode === 'signup' ? <UserPlus className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
