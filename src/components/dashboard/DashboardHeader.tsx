@@ -42,7 +42,7 @@ export function DashboardHeader() {
           <FileSpreadsheet className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <h1 className="text-lg font-bold text-foreground">Finance Cockpit</h1>
+          <h1 className="text-lg font-bold text-foreground">Networth Analysis</h1>
           {lastUpdated && (
             <p className="text-[11px] text-muted-foreground/60">
               Data through {lastUpdated}

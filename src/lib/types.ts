@@ -1,6 +1,6 @@
 /**
  * @module types
- * Core domain types for the Finance Cockpit application.
+ * Core domain types for the Networth Analysis application.
  * These types model the portfolio data structure from Excel ingestion
  * through enrichment and display.
  */

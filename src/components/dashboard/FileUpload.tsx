@@ -52,7 +52,7 @@ export function FileUpload() {
                 <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
                   <FileSpreadsheet className="h-8 w-8 text-primary" />
                 </div>
-                <h2 className="mb-1 text-xl font-bold text-foreground">Finance Cockpit</h2>
+                <h2 className="mb-1 text-xl font-bold text-foreground">Networth Analysis</h2>
                 <p className="mb-5 text-sm text-muted-foreground">
                   Drop your <code className="rounded bg-secondary px-1.5 py-0.5 text-xs text-primary">.xlsx</code> file here
                 </p>
