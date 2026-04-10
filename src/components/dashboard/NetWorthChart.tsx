@@ -47,11 +47,13 @@ export function NetWorthChart() {
   const interval = Math.max(1, Math.floor(chartData.length / 12));
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload?.length) return null;
+    if (!active || !payload || !Array.isArray(payload) || payload.length === 0) return null;
+    const item = payload[0];
+    if (!item || item.value == null) return null;
     return (
       <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
         <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{label}</p>
-        <p style={{ color: '#e8ecf0', fontSize: 16, fontWeight: 700 }}>{fmtFull(payload[0].value)}</p>
+        <p style={{ color: '#e8ecf0', fontSize: 16, fontWeight: 700 }}>{fmtFull(item.value)}</p>
       </div>
     );
   };

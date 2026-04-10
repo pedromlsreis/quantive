@@ -30,11 +30,15 @@ export function StackedAreaChart() {
   });
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload?.length) return null;
-    const total = payload.reduce((sum: number, p: any) => sum + (p.value || 0), 0);
-    const sorted = [...payload].filter((p: any) => p.value > 0).sort((a: any, b: any) => b.value - a.value);
+    if (!active || !payload || !Array.isArray(payload) || payload.length === 0) return null;
+
+    const safe = payload.filter((p: any) => p && typeof p.value === 'number');
+    if (safe.length === 0) return null;
+
+    const total = safe.reduce((sum: number, p: any) => sum + p.value, 0);
+    const sorted = [...safe].filter((p: any) => p.value > 0).sort((a: any, b: any) => b.value - a.value);
     const top5 = sorted.slice(0, 5);
-    const othersVal = sorted.slice(5).reduce((sum: number, p: any) => sum + (p.value || 0), 0);
+    const othersVal = sorted.slice(5).reduce((sum: number, p: any) => sum + p.value, 0);
 
     return (
       <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>

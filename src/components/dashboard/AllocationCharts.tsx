@@ -97,8 +97,10 @@ export function AllocationCharts() {
   };
 
   const TreemapTooltip = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
+    if (!active || !payload || !Array.isArray(payload) || payload.length === 0) return null;
+    const first = payload[0];
+    if (!first || !first.payload) return null;
+    const d = first.payload;
     return (
       <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
         <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{d.name}</p>
