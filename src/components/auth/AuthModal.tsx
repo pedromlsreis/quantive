@@ -49,6 +49,11 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     }
 
     if (!password.trim()) { setSubmitting(false); return; }
+    if (mode === 'signup' && !acceptedTerms) {
+      toast.error('You must accept the Privacy Policy and Terms of Service.');
+      setSubmitting(false);
+      return;
+    }
     const fn = mode === 'signup' ? signUp : signIn;
     const { error } = await fn(email.trim(), password);
     setSubmitting(false);
