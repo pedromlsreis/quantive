@@ -12,6 +12,40 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      console.error("Missing env vars", { hasUrl: !!supabaseUrl, hasKey: !!serviceRoleKey });
+      return new Response(JSON.stringify({ error: "Server configuration error" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    // Rate limiting — check before parsing body
+    const ip =
+      req.headers.get("CF-Connecting-IP") ||
+      req.headers.get("X-Forwarded-For")?.split(",")[0].trim() ||
+      "unknown";
+
+    const { data: allowed, error: rlError } = await adminClient.rpc("check_rate_limit", {
+      p_ip: ip,
+    });
+
+    if (rlError) {
+      console.error("[RATE_LIMIT] Check failed:", rlError);
+      // Fail open to avoid blocking legitimate users on DB errors
+    } else if (!allowed) {
+      console.warn(`[RATE_LIMIT] Rejected ip=${ip} at=${new Date().toISOString()}`);
+      return new Response(JSON.stringify({ error: "Too many requests" }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
+      });
+    }
+
     const { type, message } = await req.json();
 
     if (!type || !message) {
@@ -32,17 +66,6 @@ Deno.serve(async (req) => {
     if (typeof message !== "string" || message.trim().length === 0 || message.length > 2000) {
       return new Response(JSON.stringify({ error: "Message must be 1-2000 characters" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!supabaseUrl || !serviceRoleKey) {
-      console.error("Missing env vars", { hasUrl: !!supabaseUrl, hasKey: !!serviceRoleKey });
-      return new Response(JSON.stringify({ error: "Server configuration error" }), {
-        status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -68,8 +91,6 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Store feedback using service role (bypasses RLS)
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { error: insertError } = await adminClient
       .from("feedback")
       .insert({
