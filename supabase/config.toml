@@ -2,3 +2,15 @@ project_id = "zopuheksdstvptorphck"
 
 [functions.submit-feedback]
 verify_jwt = false
+
+[functions.check-subscription]
+verify_jwt = false
+
+[functions.create-checkout]
+verify_jwt = false
+
+[functions.customer-portal]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false
