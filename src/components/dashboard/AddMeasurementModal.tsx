@@ -3,6 +3,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
+import { sanitizeSourceName } from '@/lib/utils';
 
 interface SourceEntry {
   name: string;
@@ -97,8 +98,25 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     setSaving(true);
     setValidationError(null);
     try {
+      const hasEmptyNames = entries.some(e => e.name.trim() === '' && e.value.trim() !== '');
+      if (hasEmptyNames) {
+        setValidationError('Source name cannot be empty');
+        setSaving(false);
+        return;
+      }
+
       const validEntries = entries.filter(e => e.name.trim() !== '');
-      const names = validEntries.map(e => e.name.trim());
+
+      for (const e of validEntries) {
+        const { error } = sanitizeSourceName(e.name);
+        if (error) {
+          setValidationError(`"${e.name}": ${error}`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      const names = validEntries.map(e => sanitizeSourceName(e.name).value);
       const uniqueNames = new Set(names);
 
       if (uniqueNames.size !== names.length) {
@@ -107,15 +125,8 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         return;
       }
 
-      const hasEmptyNames = entries.some(e => e.name.trim() === '' && e.value.trim() !== '');
-      if (hasEmptyNames) {
-        setValidationError('Source name cannot be empty');
-        setSaving(false);
-        return;
-      }
-
       const measurement = validEntries.map(e => ({
-        name: e.name.trim(),
+        name: sanitizeSourceName(e.name).value,
         value: e.value.trim() === '' ? 0 : parseFloat(e.value),
         isLiquid: e.isLiquid,
       }));

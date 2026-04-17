@@ -5,6 +5,7 @@ import { generateMockData } from '@/lib/mockData';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
+import { sanitizeSourceName } from '@/lib/utils';
 
 const STORAGE_KEY = 'portfolio-data';
 const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
@@ -299,6 +300,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   const addMeasurement = useCallback((entries: { name: string; value: number; isLiquid?: boolean }[]) => {
     if (entries.length === 0) return;
+    entries = entries.map(e => ({ ...e, name: sanitizeSourceName(e.name).value })).filter(e => e.name.length > 0);
 
     const now = new Date();
     // Normalize to start of day for consistency with Excel ingestion
