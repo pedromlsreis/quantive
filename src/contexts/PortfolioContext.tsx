@@ -30,6 +30,8 @@ function safeDateWithWarning(val: any, context: string, index: number): Date | n
   return d;
 }
 
+export type SyncStatus = 'idle' | 'syncing' | 'error' | 'synced';
+
 interface PortfolioContextType {
   data: PortfolioData | null;
   enrichedFacts: EnrichedFact[];
@@ -46,6 +48,8 @@ interface PortfolioContextType {
   addMeasurement: (entries: { name: string; value: number; isLiquid?: boolean }[]) => void;
   isLoading: boolean;
   isMockData: boolean;
+  syncStatus: SyncStatus;
+  retrySync: () => void;
 }
 
 const defaultFilters: FilterState = {
@@ -100,6 +104,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   // Track pending cloud save when email is not yet confirmed
   const pendingCloudSaveRef = useRef<PortfolioData | null>(null);
+  // Last attempted payload — held for manual retry after a sync failure
+  const lastAttemptRef = useRef<PortfolioData | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
 
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
     const dates = parsed.facts.map(f => f.date.getTime());
@@ -114,6 +121,26 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
+  // Single upsert call — replaces the racy select-then-update/insert pattern.
+  // Surfaces both the supabase `error` field and thrown exceptions.
+  const upsertSnapshot = async (userId: string, portfolioData: PortfolioData) => {
+    const { error } = await supabase
+      .from('portfolio_snapshots')
+      .upsert(
+        { user_id: userId, data: portfolioData as any },
+        { onConflict: 'user_id' },
+      );
+    if (error) throw error;
+  };
+
+  // Treat network failures and 5xx as transient; everything else is terminal.
+  const isTransientError = (err: any): boolean => {
+    if (!err) return false;
+    if (err instanceof TypeError) return true; // fetch network error
+    const status = typeof err.status === 'number' ? err.status : Number(err.code);
+    return Number.isFinite(status) && status >= 500;
+  };
+
   // Save data to cloud when user is authenticated AND email confirmed
   const saveToCloud = useCallback(async (portfolioData: PortfolioData) => {
     if (!user) return;
@@ -123,27 +150,44 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       pendingCloudSaveRef.current = portfolioData;
       return;
     }
-    try {
-      const { data: existing } = await supabase
-        .from('portfolio_snapshots')
-        .select('id')
-        .eq('user_id', user.id)
-        .limit(1);
 
-      if (existing && existing.length > 0) {
-        await supabase
-          .from('portfolio_snapshots')
-          .update({ data: portfolioData as any })
-          .eq('user_id', user.id);
-      } else {
-        await supabase
-          .from('portfolio_snapshots')
-          .insert({ user_id: user.id, data: portfolioData as any });
+    lastAttemptRef.current = portfolioData;
+    setSyncStatus('syncing');
+
+    try {
+      await upsertSnapshot(user.id, portfolioData);
+      setSyncStatus('synced');
+      // Brief confirmation, then return to idle
+      setTimeout(() => {
+        setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev));
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to sync to cloud:', err);
+      if (isTransientError(err)) {
+        // One automatic retry after 2s before giving up
+        try {
+          await new Promise(r => setTimeout(r, 2000));
+          await upsertSnapshot(user.id, portfolioData);
+          setSyncStatus('synced');
+          setTimeout(() => {
+            setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev));
+          }, 2000);
+          return;
+        } catch (retryErr) {
+          console.error('Retry also failed:', retryErr);
+        }
       }
-    } catch (e) {
-      console.error('Failed to sync to cloud:', e);
+      setSyncStatus('error');
+      toast.error('Cloud sync failed. Your data is saved locally — click Retry in the header.', {
+        id: 'cloud-sync-error',
+      });
     }
   }, [user]);
+
+  const retrySync = useCallback(() => {
+    if (!lastAttemptRef.current) return;
+    saveToCloud(lastAttemptRef.current);
+  }, [saveToCloud]);
 
   // Retry pending cloud save once the user confirms their email
   useEffect(() => {
@@ -546,6 +590,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     addMeasurement,
     isLoading,
     isMockData,
+    syncStatus,
+    retrySync,
   };
 
   return (

@@ -7,6 +7,7 @@ import { AuthButton } from './AuthButton';
 import { CurrencySelector } from './CurrencySelector';
 import { exportPortfolioExcel } from '@/lib/exporter';
 import { AddMeasurementModal } from './AddMeasurementModal';
+import { SyncIndicator } from './SyncIndicator';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +52,7 @@ export function DashboardHeader() {
         </div>
       </a>
       <div className="flex flex-wrap items-center gap-2">
+        <SyncIndicator />
         <AuthButton />
         <CurrencySelector />
         <HowToUse />
