@@ -6,44 +6,48 @@ import { KeyRound } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { urlLooksLikeRecovery } from '@/lib/recoveryUrl';
 
+type LinkState = 'checking' | 'invalid' | 'verifying' | 'ready';
+
+function submitButtonLabel(submitting: boolean, linkState: LinkState): string {
+  if (submitting) return 'Updating...';
+  if (linkState !== 'ready') return 'Verifying link...';
+  return 'Update password';
+}
+
 const ResetPassword = () => {
   const { updatePassword } = useAuth();
   const navigate = useNavigate();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [isRecovery, setIsRecovery] = useState(false);
-  const [checkingLink, setCheckingLink] = useState(true);
-  // The SDK can mark `isRecovery` true (from URL markers) before it has
-  // actually exchanged the token for a session. Track session readiness
-  // separately so we don't allow a submit that's guaranteed to fail.
-  const [sessionReady, setSessionReady] = useState(false);
+  // Single state machine: 'checking' (waiting for SDK) → 'verifying' (URL
+  // looks like recovery, awaiting session) → 'ready' (session in hand);
+  // 'invalid' if the 1.5s grace timer expires without progress.
+  const [linkState, setLinkState] = useState<LinkState>('checking');
 
   useEffect(() => {
-    // Fast path: URL still has the recovery markers (we beat the SDK).
     if (urlLooksLikeRecovery(window.location)) {
-      setIsRecovery(true);
+      setLinkState('verifying');
     }
 
-    // Authoritative path: the SDK fires PASSWORD_RECOVERY once it has
-    // exchanged the URL for a session. Works for hash, query, and PKCE.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        setIsRecovery(true);
-        setCheckingLink(false);
-        if (session) setSessionReady(true);
+        setLinkState(session ? 'ready' : 'verifying');
       }
     });
 
-    // Cover the case where the SDK already processed the URL and emitted
-    // PASSWORD_RECOVERY before this listener was attached: ask directly.
+    // StrictMode remount safety: the SDK may have already processed the
+    // URL on a prior mount, so PASSWORD_RECOVERY won't fire again. Ask
+    // directly — but only promote to 'ready', never back to 'verifying'.
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setSessionReady(true);
+      if (session) setLinkState(prev => (prev === 'verifying' ? 'ready' : prev));
     });
 
-    // Give the SDK a moment to process the URL before deciding the link
-    // is invalid. 1.5s covers slow network token exchanges (PKCE).
-    const timer = setTimeout(() => setCheckingLink(false), 1500);
+    // 1.5s covers slow PKCE token exchanges. After that, if we haven't
+    // moved on from 'checking', the link wasn't a recovery link.
+    const timer = setTimeout(() => {
+      setLinkState(prev => (prev === 'checking' ? 'invalid' : prev));
+    }, 1500);
 
     return () => {
       subscription.unsubscribe();
@@ -61,8 +65,8 @@ const ResetPassword = () => {
       toast.error('Password must be at least 6 characters.');
       return;
     }
-    // Final guard: even with the disabled button, race the session check
-    // against the click. If still no session, fail cleanly.
+    // Defense-in-depth: the button is disabled unless 'ready', but a token
+    // could be revoked between enable and click — re-check before mutating.
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       toast.error('Reset session not ready. Please reopen the email link.');
@@ -79,14 +83,15 @@ const ResetPassword = () => {
     }
   };
 
-  if (!isRecovery) {
-    if (checkingLink) {
-      return (
-        <div className="flex flex-1 items-center justify-center bg-background p-8">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      );
-    }
+  if (linkState === 'checking') {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-background p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (linkState === 'invalid') {
     return (
       <div className="flex flex-1 items-center justify-center bg-background p-8">
         <div className="w-full max-w-sm text-center">
@@ -140,10 +145,10 @@ const ResetPassword = () => {
           />
           <button
             type="submit"
-            disabled={submitting || !sessionReady}
+            disabled={submitting || linkState !== 'ready'}
             className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {submitting ? 'Updating...' : !sessionReady ? 'Verifying link...' : 'Update password'}
+            {submitButtonLabel(submitting, linkState)}
           </button>
         </form>
       </div>
