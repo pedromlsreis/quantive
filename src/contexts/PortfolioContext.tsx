@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { sanitizeSourceName } from '@/lib/utils';
+import { attemptCloudSync, upsertSnapshot } from '@/lib/cloudSync';
 
 const STORAGE_KEY = 'portfolio-data';
 const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
@@ -106,6 +107,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const pendingCloudSaveRef = useRef<PortfolioData | null>(null);
   // Last attempted payload — held for manual retry after a sync failure
   const lastAttemptRef = useRef<PortfolioData | null>(null);
+  // Monotonically increasing id; only the latest in-flight call mutates state.
+  // Stops overlapping saves from clobbering each other's status.
+  const requestIdRef = useRef(0);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
 
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
@@ -121,26 +125,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  // Single upsert call — replaces the racy select-then-update/insert pattern.
-  // Surfaces both the supabase `error` field and thrown exceptions.
-  const upsertSnapshot = async (userId: string, portfolioData: PortfolioData) => {
-    const { error } = await supabase
-      .from('portfolio_snapshots')
-      .upsert(
-        { user_id: userId, data: portfolioData as any },
-        { onConflict: 'user_id' },
-      );
-    if (error) throw error;
-  };
-
-  // Treat network failures and 5xx as transient; everything else is terminal.
-  const isTransientError = (err: any): boolean => {
-    if (!err) return false;
-    if (err instanceof TypeError) return true; // fetch network error
-    const status = typeof err.status === 'number' ? err.status : Number(err.code);
-    return Number.isFinite(status) && status >= 500;
-  };
-
   // Save data to cloud when user is authenticated AND email confirmed
   const saveToCloud = useCallback(async (portfolioData: PortfolioData) => {
     if (!user) return;
@@ -151,37 +135,30 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    lastAttemptRef.current = portfolioData;
-    setSyncStatus('syncing');
+    const myId = ++requestIdRef.current;
+    const isLatest = () => requestIdRef.current === myId;
 
-    try {
-      await upsertSnapshot(user.id, portfolioData);
-      setSyncStatus('synced');
-      // Brief confirmation, then return to idle
+    lastAttemptRef.current = portfolioData;
+
+    const outcome = await attemptCloudSync(portfolioData, {
+      upsert: (p) => upsertSnapshot(supabase, user.id, p),
+      isLatest,
+      delay: (ms) => new Promise(r => setTimeout(r, ms)),
+      onStatus: setSyncStatus,
+    });
+
+    if (outcome === 'synced') {
+      // Brief green-check confirmation, then return to idle. Guarded so a
+      // newer in-flight save isn't yanked back to idle by this stale timer.
       setTimeout(() => {
         setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev));
       }, 2000);
-    } catch (err) {
-      console.error('Failed to sync to cloud:', err);
-      if (isTransientError(err)) {
-        // One automatic retry after 2s before giving up
-        try {
-          await new Promise(r => setTimeout(r, 2000));
-          await upsertSnapshot(user.id, portfolioData);
-          setSyncStatus('synced');
-          setTimeout(() => {
-            setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev));
-          }, 2000);
-          return;
-        } catch (retryErr) {
-          console.error('Retry also failed:', retryErr);
-        }
-      }
-      setSyncStatus('error');
+    } else if (outcome === 'error') {
       toast.error('Cloud sync failed. Your data is saved locally — click Retry in the header.', {
         id: 'cloud-sync-error',
       });
     }
+    // outcome === null: superseded by a newer call; do nothing.
   }, [user]);
 
   const retrySync = useCallback(() => {

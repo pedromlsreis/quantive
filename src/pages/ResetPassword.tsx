@@ -4,21 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { KeyRound } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
-// Detect a recovery link from either URL format. The SDK strips the URL
-// after processing, so this only catches the case where we land here
-// before the SDK has run; the auth-state listener handles the rest.
-function urlLooksLikeRecovery(): boolean {
-  const { hash, search } = window.location;
-  if (hash.includes('type=recovery')) return true;
-  const params = new URLSearchParams(search);
-  if (params.get('type') === 'recovery') return true;
-  // PKCE flow: query string carries `code` and the SDK exchanges it.
-  if (params.has('code')) return true;
-  // Supabase verify-redirect flow: token_hash + type=recovery
-  if (params.has('token_hash') && params.get('type') === 'recovery') return true;
-  return false;
-}
+import { urlLooksLikeRecovery } from '@/lib/recoveryUrl';
 
 const ResetPassword = () => {
   const { updatePassword } = useAuth();
@@ -28,20 +14,31 @@ const ResetPassword = () => {
   const [submitting, setSubmitting] = useState(false);
   const [isRecovery, setIsRecovery] = useState(false);
   const [checkingLink, setCheckingLink] = useState(true);
+  // The SDK can mark `isRecovery` true (from URL markers) before it has
+  // actually exchanged the token for a session. Track session readiness
+  // separately so we don't allow a submit that's guaranteed to fail.
+  const [sessionReady, setSessionReady] = useState(false);
 
   useEffect(() => {
     // Fast path: URL still has the recovery markers (we beat the SDK).
-    if (urlLooksLikeRecovery()) {
+    if (urlLooksLikeRecovery(window.location)) {
       setIsRecovery(true);
     }
 
     // Authoritative path: the SDK fires PASSWORD_RECOVERY once it has
     // exchanged the URL for a session. Works for hash, query, and PKCE.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsRecovery(true);
         setCheckingLink(false);
+        if (session) setSessionReady(true);
       }
+    });
+
+    // Cover the case where the SDK already processed the URL and emitted
+    // PASSWORD_RECOVERY before this listener was attached: ask directly.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setSessionReady(true);
     });
 
     // Give the SDK a moment to process the URL before deciding the link
@@ -62,6 +59,13 @@ const ResetPassword = () => {
     }
     if (password.length < 6) {
       toast.error('Password must be at least 6 characters.');
+      return;
+    }
+    // Final guard: even with the disabled button, race the session check
+    // against the click. If still no session, fail cleanly.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast.error('Reset session not ready. Please reopen the email link.');
       return;
     }
     setSubmitting(true);
@@ -136,10 +140,10 @@ const ResetPassword = () => {
           />
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !sessionReady}
             className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
           >
-            {submitting ? 'Updating...' : 'Update password'}
+            {submitting ? 'Updating...' : !sessionReady ? 'Verifying link...' : 'Update password'}
           </button>
         </form>
       </div>
