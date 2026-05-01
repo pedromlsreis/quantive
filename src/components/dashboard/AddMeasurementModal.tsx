@@ -125,11 +125,25 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         return;
       }
 
-      const measurement = validEntries.map(e => ({
-        name: sanitizeSourceName(e.name).value,
-        value: e.value.trim() === '' ? 0 : parseFloat(e.value),
-        isLiquid: e.isLiquid,
-      }));
+      const measurement: { name: string; value: number; isLiquid: boolean }[] = [];
+      for (const e of validEntries) {
+        const raw = e.value.trim();
+        let value = 0;
+        if (raw !== '') {
+          const normalized = raw.replace(',', '.');
+          value = parseFloat(normalized);
+          if (!Number.isFinite(value)) {
+            setValidationError(`"${e.name}": invalid number "${raw}"`);
+            setSaving(false);
+            return;
+          }
+        }
+        measurement.push({
+          name: sanitizeSourceName(e.name).value,
+          value,
+          isLiquid: e.isLiquid,
+        });
+      }
 
       if (measurement.length === 0) {
         setSaving(false);
@@ -189,11 +203,11 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                     className="flex-1 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-60"
                   />
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     value={entry.value}
                     onChange={e => handleChange(index, 'value', e.target.value)}
                     placeholder="0"
-                    step="0.01"
                     className="w-32 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-right text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
                   />
                   <div className="flex w-16 items-center justify-center">
