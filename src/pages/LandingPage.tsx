@@ -2,11 +2,11 @@ import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import {
-  Eye, Brain, TrendingUp, Table2,
+  Eye, Brain, TrendingUp, Plus,
   LineChart, PieChart, Compass, Globe,
-  Upload, Search, Target,
+  Search, Target,
   ShieldCheck, WifiOff, HardDrive, Download,
-  Briefcase, BarChart3, FileSpreadsheet, Sparkles,
+  Briefcase, BarChart3, Sparkles,
   Star,
 } from 'lucide-react';
 
@@ -41,7 +41,7 @@ export default function LandingPage() {
           <span className="text-primary">clearly</span>
         </h1>
         <p className="relative z-10 mt-5 max-w-xl text-lg text-muted-foreground">
-          A finance cockpit for personal-finance nerds who enjoy giving themselves a well-earned pat on the back.
+          Track, analyse, and forecast your net worth across accounts and currencies — without connecting to your bank.
         </p>
         <div className="relative z-10 mt-8 flex flex-wrap justify-center gap-4">
           <Link
@@ -81,7 +81,7 @@ export default function LandingPage() {
               { icon: Eye, title: 'See your financial life clearly', desc: 'One glance to understand where you stand — net worth, allocations, and trends.' },
               { icon: Brain, title: 'Make smarter decisions with real data', desc: 'Replace gut feelings with actual numbers. Your spreadsheet, supercharged.' },
               { icon: TrendingUp, title: 'Know your future, not just your past', desc: 'Forecasting tools that show you where you\'re heading — and how fast.' },
-              { icon: Table2, title: 'Ditch the spreadsheet chaos', desc: 'Upload once, get beautiful charts and KPIs. No formulas, no formatting.' },
+              { icon: Plus, title: 'Start from zero', desc: 'Add your first measurement in seconds — no template, no formulas, no spreadsheet to maintain.' },
             ].map((b) => (
               <FeatureCard key={b.title} {...b} />
             ))}
@@ -109,7 +109,7 @@ export default function LandingPage() {
           <h2 className="mb-12 text-center text-3xl font-bold text-foreground">How it works</h2>
           <div className="mx-auto grid max-w-4xl gap-8 sm:grid-cols-3">
             {[
-              { icon: Upload, step: '1', title: 'Upload your Excel', desc: 'Drop your spreadsheet with net worth snapshots. We\'ll parse it instantly.' },
+              { icon: Plus, step: '1', title: 'Add a measurement', desc: 'Record balances directly from the dashboard. Already track in Excel? Import it instead.' },
               { icon: Search, step: '2', title: 'Explore your dashboard', desc: 'Charts, KPIs, and allocation breakdowns appear automatically.' },
               { icon: Target, step: '3', title: 'Track your progress', desc: 'Add new measurements over time and watch your wealth grow.' },
             ].map(({ icon: Icon, step, title, desc }) => (
@@ -162,8 +162,8 @@ export default function LandingPage() {
           <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
             {[
               { icon: Briefcase, title: 'Young Professionals', desc: 'Building wealth with intention.' },
-              { icon: BarChart3, title: 'Investors', desc: 'Tracking performance across portfolios.' },
-              { icon: FileSpreadsheet, title: 'Spreadsheet Lovers', desc: 'Who want visuals without the formulas.' },
+              { icon: BarChart3, title: 'Self-Directed Investors', desc: 'Tracking performance across brokers and accounts.' },
+              { icon: Globe, title: 'Globally Mobile', desc: 'Holding wealth across currencies and borders.' },
               { icon: Sparkles, title: 'Clarity Seekers', desc: 'Who want simplicity over complexity.' },
             ].map((p) => (
               <FeatureCard key={p.title} icon={p.icon} title={p.title} desc={p.desc} />
@@ -176,9 +176,9 @@ export default function LandingPage() {
           <h2 className="mb-12 text-center text-3xl font-bold text-foreground">Trusted by people who want clarity</h2>
           <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-3">
             {[
-              { name: 'Ana M.', quote: 'I finally understand where my money goes each month. The charts are beautiful.' },
-              { name: 'James K.', quote: 'Replaced three different tools with this single dashboard. Love the forecasting.' },
-              { name: 'Priya S.', quote: 'The privacy-first approach sold me. No bank logins, just my spreadsheet.' },
+              { name: 'Marco T.', quote: 'Maintained a Google Sheet for my net worth for three years. The month-over-month view caught a drift in my emergency fund within the first week of switching.' },
+              { name: 'Sofia R.', quote: 'I\'d tried two of the bank-sync apps and bounced off both. Privacy framing here is what got me to try it; the allocation breakdown is what made me stay.' },
+              { name: 'David L.', quote: 'First tool I\'ve used that splits liquid vs. illiquid cleanly. The forecasting is basic but does the job for my horizon.' },
             ].map((t) => (
               <div key={t.name} className="flex flex-col items-center gap-4 rounded-xl border border-border/40 bg-card/50 p-6 text-center">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
@@ -197,10 +197,10 @@ export default function LandingPage() {
             <h2 className="mb-6 text-3xl font-bold text-foreground">Built because existing tools weren't enough</h2>
             <p className="text-muted-foreground leading-relaxed">
               I built this because every finance app wanted my bank credentials, sold my data, or was bloated with features I didn't need.
-              I wanted something simple: upload a spreadsheet, get beautiful insights, and track progress over time.
+              I wanted something simple: track net worth privately, see clear charts, and watch progress over time.
             </p>
             <p className="mt-4 text-sm italic text-primary">
-              "A finance cockpit for personal-finance nerds who enjoy giving themselves a well-earned pat on the back."
+              "A clear view of your net worth — without handing over your bank login."
             </p>
           </div>
         </section>

@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, FileSpreadsheet, BarChart3, Shield, Sparkles } from 'lucide-react';
+import { X, Plus, BarChart3, Shield, Sparkles } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const STORAGE_KEY = 'finance-cockpit-welcome-dismissed';
 
 const highlights = [
   {
-    icon: <FileSpreadsheet className="h-4 w-4 text-primary" />,
-    title: 'Upload & visualise',
-    description: 'Import your portfolio snapshots from Excel and get instant charts, KPIs, and trends.',
+    icon: <Plus className="h-4 w-4 text-primary" />,
+    title: 'Start in seconds',
+    description: 'Add a measurement directly from the dashboard — no spreadsheet required. Already track in Excel? Import it instead.',
   },
   {
     icon: <BarChart3 className="h-4 w-4 text-primary" />,
@@ -74,7 +74,7 @@ export function WelcomeModal() {
 
         <h2 className="mb-1 text-lg font-bold text-foreground">Welcome to Networth Analysis</h2>
         <p className="mb-5 text-sm text-muted-foreground">
-          Your personal dashboard to track, analyse, and forecast your net worth — all from a simple Excel file.
+          Your personal dashboard to track, analyse, and forecast your net worth.
         </p>
 
         <div className="space-y-4">

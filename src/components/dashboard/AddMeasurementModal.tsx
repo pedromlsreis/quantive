@@ -52,7 +52,10 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         isLiquid: liquidMap.get(name) ?? false,
       }));
     }
-    return loadDraft();
+    const draft = loadDraft();
+    if (draft.length > 0) return draft;
+    // First-time user: start with one empty row so they can type immediately.
+    return [{ name: '', value: '', isSeeded: false, isLiquid: false }];
   });
 
   const [saving, setSaving] = useState(false);

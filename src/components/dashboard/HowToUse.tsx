@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { HelpCircle, X, FileSpreadsheet, Filter, TrendingUp, CloudUpload } from 'lucide-react';
+import { HelpCircle, X, Plus, Filter, TrendingUp, CloudUpload } from 'lucide-react';
 
 const steps = [
   {
-    icon: <FileSpreadsheet className="h-4 w-4 text-primary" />,
-    title: 'Upload your Excel file',
-    description: 'Drop an .xlsx with your portfolio snapshots (or try the demo). Add monthly measurements for trends and forecasts. All values must use the same currency.',
+    icon: <Plus className="h-4 w-4 text-primary" />,
+    title: 'Add your first measurement',
+    description: 'Record balances per source from the dashboard — type the value and save. Add new measurements regularly to unlock trends and forecasts. All values must use the same currency. If you already track in a spreadsheet, you can import an .xlsx instead.',
   },
   {
     icon: <Filter className="h-4 w-4 text-primary" />,
