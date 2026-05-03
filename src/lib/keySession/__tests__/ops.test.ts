@@ -1,15 +1,15 @@
 /**
- * Tests for the pure unlock logic. Uses an in-memory KeyStore so we exercise
- * every branch without hitting Supabase.
+ * Tests for the pure unlock + migration logic. Uses in-memory KeyStore and
+ * SnapshotStore so we exercise every branch without hitting Supabase.
  *
  * Note: these tests run real Argon2id under production parameters. Each
- * `detectAndUnlock` call takes ~300ms. Suite is bounded by the small number
- * of paths we need to cover.
+ * `detectAndUnlock` call takes ~300ms.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
+import { decryptSnapshot } from '@/lib/crypto';
 import { detectAndUnlock } from '../ops';
-import type { KeyStore, UserKeysRow } from '../types';
+import type { KeyStore, SnapshotStore, UserKeysRow } from '../types';
 
 const USER_A = '550e8400-e29b-41d4-a716-446655440000';
 const USER_B = '550e8400-e29b-41d4-a716-446655440001';
@@ -18,7 +18,7 @@ function utf8(s: string): Uint8Array {
   return new TextEncoder().encode(s);
 }
 
-class InMemoryStore implements KeyStore {
+class InMemoryKeyStore implements KeyStore {
   rows = new Map<string, UserKeysRow>();
   snapshotUsers = new Set<string>();
 
@@ -36,77 +36,151 @@ class InMemoryStore implements KeyStore {
   }
 }
 
+interface StoredEncryptedSnapshot {
+  ciphertext: Uint8Array;
+  nonce: Uint8Array;
+  encVersion: number;
+}
+
+class InMemorySnapshotStore implements SnapshotStore {
+  /** v0 plaintext payload, keyed by user id. */
+  legacy = new Map<string, unknown>();
+  /** v1 encrypted snapshot, keyed by user id. */
+  encrypted = new Map<string, StoredEncryptedSnapshot>();
+
+  async getLegacyPlaintext(userId: string) {
+    return this.legacy.get(userId) ?? null;
+  }
+  async upsertEncrypted(
+    userId: string,
+    plaintextPayload: unknown,
+    dataKey: Uint8Array,
+  ) {
+    const { encryptSnapshot } = await import('@/lib/crypto');
+    const plaintext = new TextEncoder().encode(JSON.stringify(plaintextPayload));
+    const enc = await encryptSnapshot({ plaintext, dataKey, userId });
+    this.encrypted.set(userId, {
+      ciphertext: enc.ciphertext,
+      nonce: enc.nonce,
+      encVersion: enc.encVersion,
+    });
+    // Migrating writes v1 + clears v0.
+    this.legacy.delete(userId);
+  }
+}
+
 describe('detectAndUnlock', () => {
-  let store: InMemoryStore;
+  let keyStore: InMemoryKeyStore;
+  let snapshotStore: InMemorySnapshotStore;
 
   beforeEach(() => {
-    store = new InMemoryStore();
+    keyStore = new InMemoryKeyStore();
+    snapshotStore = new InMemorySnapshotStore();
   });
 
-  it('new user (no keys, no snapshots) -> generates and persists keys', async () => {
-    const result = await detectAndUnlock(USER_A, utf8('password123'), store);
+  it('new user (no keys, no snapshots) -> provisions, migrated=false', async () => {
+    const result = await detectAndUnlock(
+      USER_A,
+      utf8('password123'),
+      keyStore,
+      snapshotStore,
+    );
 
     expect(result.kind).toBe('encrypted-unlocked');
-    if (result.kind !== 'encrypted-unlocked') return;
+    expect(result.migrated).toBe(false);
     expect(result.kek.length).toBe(32);
     expect(result.dk.length).toBe(32);
 
-    const persisted = await store.getUserKeys(USER_A);
+    const persisted = await keyStore.getUserKeys(USER_A);
     expect(persisted).not.toBeNull();
     expect(persisted!.enc_version).toBe(1);
     expect(persisted!.kdf_salt.length).toBe(16);
-    expect(persisted!.wrapped_dk_kek.length).toBe(72); // 24 nonce + 32 DK + 16 tag
-    expect(persisted!.wrapped_dk_recovery).toBeNull();
-    expect(persisted!.recovery_kdf_salt).toBeNull();
+    expect(persisted!.wrapped_dk_kek.length).toBe(72);
+    expect(snapshotStore.encrypted.has(USER_A)).toBe(false);
   }, 30_000);
 
-  it('returning user with correct password -> unwraps the same DK', async () => {
+  it('returning user with correct password -> unwraps the same DK, migrated=false', async () => {
     const password = utf8('correct horse battery staple');
-    // First call: provisions keys.
-    const first = await detectAndUnlock(USER_A, password, store);
-    if (first.kind !== 'encrypted-unlocked') throw new Error('first call should provision');
+    const first = await detectAndUnlock(USER_A, password, keyStore, snapshotStore);
+    const second = await detectAndUnlock(USER_A, password, keyStore, snapshotStore);
 
-    // Second call (same password): unwraps the existing DK.
-    const second = await detectAndUnlock(USER_A, password, store);
-    expect(second.kind).toBe('encrypted-unlocked');
-    if (second.kind !== 'encrypted-unlocked') return;
+    expect(second.migrated).toBe(false);
     expect(Array.from(second.dk)).toEqual(Array.from(first.dk));
   }, 60_000);
 
   it('returning user with wrong password -> DecryptionError', async () => {
-    await detectAndUnlock(USER_A, utf8('right'), store);
-
+    await detectAndUnlock(USER_A, utf8('right'), keyStore, snapshotStore);
     await expect(
-      detectAndUnlock(USER_A, utf8('wrong'), store),
+      detectAndUnlock(USER_A, utf8('wrong'), keyStore, snapshotStore),
     ).rejects.toThrow();
   }, 60_000);
 
-  it('legacy user (no keys, has snapshot) -> returns "legacy", does not insert', async () => {
-    store.snapshotUsers.add(USER_A);
+  it('legacy user -> provisions keys AND re-encrypts the v0 plaintext, migrated=true', async () => {
+    const plaintextPayload = {
+      facts: [{ idSource: 'CGD', sourceVl: 100 }],
+      refSources: [{ idSource: 'CGD', volatType: 'Non-Volatile', transferableInDays: true }],
+    };
+    snapshotStore.legacy.set(USER_A, plaintextPayload);
 
-    const result = await detectAndUnlock(USER_A, utf8('any password'), store);
-    expect(result.kind).toBe('legacy');
+    const result = await detectAndUnlock(
+      USER_A,
+      utf8('legacy-user-pw'),
+      keyStore,
+      snapshotStore,
+    );
 
-    // Critically, no user_keys row was created — Phase 5 owns migration.
-    const keys = await store.getUserKeys(USER_A);
-    expect(keys).toBeNull();
-  });
+    expect(result.kind).toBe('encrypted-unlocked');
+    expect(result.migrated).toBe(true);
+
+    // Keys persisted.
+    const keys = await keyStore.getUserKeys(USER_A);
+    expect(keys).not.toBeNull();
+
+    // v0 plaintext gone, v1 ciphertext written.
+    expect(snapshotStore.legacy.has(USER_A)).toBe(false);
+    const stored = snapshotStore.encrypted.get(USER_A);
+    expect(stored).toBeDefined();
+
+    // Round-trip: decrypt the stored ciphertext under the returned DK,
+    // confirm we recover the original plaintext payload.
+    const decryptedBytes = await decryptSnapshot({
+      encrypted: {
+        ciphertext: stored!.ciphertext,
+        nonce: stored!.nonce,
+        encVersion: stored!.encVersion,
+      },
+      dataKey: result.dk,
+      userId: USER_A,
+    });
+    const recovered = JSON.parse(new TextDecoder().decode(decryptedBytes));
+    expect(recovered).toEqual(plaintextPayload);
+  }, 30_000);
+
+  it('legacy migration is single-shot: re-running detectAndUnlock takes the keys-exist path', async () => {
+    snapshotStore.legacy.set(USER_A, { facts: [], refSources: [] });
+    const password = utf8('pw');
+
+    const first = await detectAndUnlock(USER_A, password, keyStore, snapshotStore);
+    expect(first.migrated).toBe(true);
+
+    const second = await detectAndUnlock(USER_A, password, keyStore, snapshotStore);
+    expect(second.migrated).toBe(false);
+    expect(Array.from(second.dk)).toEqual(Array.from(first.dk));
+  }, 60_000);
 
   it('isolated users: A cannot unwrap B keys (AAD binding)', async () => {
     const password = utf8('shared');
-    await detectAndUnlock(USER_A, password, store);
-    await detectAndUnlock(USER_B, password, store);
+    await detectAndUnlock(USER_A, password, keyStore, snapshotStore);
+    await detectAndUnlock(USER_B, password, keyStore, snapshotStore);
 
-    // Pull A's row and try to decrypt it under B's user_id.
-    const rowA = await store.getUserKeys(USER_A);
+    const rowA = await keyStore.getUserKeys(USER_A);
     expect(rowA).not.toBeNull();
 
-    const stolenStore = new InMemoryStore();
-    // Inject A's wrapped_dk_kek/kdf_salt under B's user_id.
-    await stolenStore.insertUserKeys({ ...rowA!, user_id: USER_B });
+    const stolenKeyStore = new InMemoryKeyStore();
+    await stolenKeyStore.insertUserKeys({ ...rowA!, user_id: USER_B });
 
     await expect(
-      detectAndUnlock(USER_B, password, stolenStore),
+      detectAndUnlock(USER_B, password, stolenKeyStore, snapshotStore),
     ).rejects.toThrow();
   }, 90_000);
 });

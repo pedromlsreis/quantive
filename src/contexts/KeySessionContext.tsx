@@ -19,14 +19,18 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { toast } from 'sonner';
 import { ready, sodium } from '@/lib/crypto/sodium';
-import { detectAndUnlock, supabaseKeyStore } from '@/lib/keySession';
+import {
+  detectAndUnlock,
+  supabaseKeyStore,
+  supabaseSnapshotStore,
+} from '@/lib/keySession';
 import { useAuth } from './AuthContext';
 
 export type KeySessionStatus =
   | 'locked'              // No DK in memory. Either signed out, or session restored without re-unlock.
-  | 'unlocked-encrypted'  // DK loaded; encrypted save/load is active.
-  | 'unlocked-legacy';    // No user_keys row; user has plaintext snapshots (Phase 5 will migrate).
+  | 'unlocked-encrypted'; // DK loaded; encrypted save/load is active.
 
 interface KeySessionContextType {
   status: KeySessionStatus;
@@ -75,19 +79,22 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
             userId,
             passwordBytes,
             supabaseKeyStore,
+            supabaseSnapshotStore,
           );
-          if (result.kind === 'encrypted-unlocked') {
-            // Replace any prior keys defensively before installing new ones.
-            if (kekRef.current) sodium.memzero(kekRef.current);
-            if (dkRef.current) sodium.memzero(dkRef.current);
-            kekRef.current = result.kek;
-            dkRef.current = result.dk;
-            setStatus('unlocked-encrypted');
-          } else {
-            // Legacy user: no keys to hold. Mark as unlocked-legacy.
-            kekRef.current = null;
-            dkRef.current = null;
-            setStatus('unlocked-legacy');
+          // Replace any prior keys defensively before installing new ones.
+          if (kekRef.current) sodium.memzero(kekRef.current);
+          if (dkRef.current) sodium.memzero(dkRef.current);
+          kekRef.current = result.kek;
+          dkRef.current = result.dk;
+          setStatus('unlocked-encrypted');
+
+          // Spec §11: surface a one-time toast when a legacy user has just
+          // been migrated. The toast id makes it idempotent across re-renders.
+          if (result.migrated) {
+            toast.success('Your data is now end-to-end encrypted.', {
+              id: 'e2e-migration-complete',
+              duration: 6000,
+            });
           }
           return { error: null };
         } finally {
@@ -118,37 +125,10 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
     previousUserIdRef.current = currentUserId;
   }, [user?.id, lock]);
 
-  // Passive legacy detection: when a user is authenticated but locked, peek
-  // at server state to determine whether they actually need to unlock.
-  //
-  //   user_keys row exists      -> stay 'locked' (RequireUnlock will prompt for password)
-  //   no keys + has snapshots   -> 'unlocked-legacy' (Phase 5 will migrate later)
-  //   no keys + no snapshots    -> stay 'locked' (provisioning needs password)
-  //
-  // This avoids prompting legacy users for a password they never set up.
-  useEffect(() => {
-    if (!user || status !== 'locked') return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const keys = await supabaseKeyStore.getUserKeys(user.id);
-        if (cancelled) return;
-        if (keys) return; // encrypted user; needs password
-        const hasSnap = await supabaseKeyStore.hasPortfolioSnapshot(user.id);
-        if (cancelled) return;
-        if (hasSnap) {
-          setStatus('unlocked-legacy');
-        }
-        // else: brand-new user — stays 'locked' until they enter a password.
-      } catch (e) {
-        // Swallow — the RequireUnlock modal still works as a fallback.
-        console.error('[KeySession] passive detection failed:', e);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user, status]);
+  // Phase 5: legacy users are migrated on unlock, so there is no longer a
+  // passive auto-resolve path. Every authenticated 'locked' state requires
+  // a password — RequireUnlock prompts, detectAndUnlock decides whether to
+  // unwrap, provision, or provision-and-migrate.
 
   // Best-effort lock on tab close. JS provides no guarantee here, but it
   // raises the bar against trivial memory inspection.

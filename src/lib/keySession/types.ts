@@ -26,3 +26,24 @@ export interface KeyStore {
   /** True iff the user has at least one row in portfolio_snapshots (legacy or v1). */
   hasPortfolioSnapshot(userId: string): Promise<boolean>;
 }
+
+/**
+ * Storage interface for portfolio_snapshots. Used by Phase 5 lazy migration:
+ * we read a user's existing v0 plaintext, encrypt it under their fresh DK,
+ * and write it back as v1.
+ */
+export interface SnapshotStore {
+  /**
+   * Returns the v0 plaintext payload (whatever was in the `data` JSONB
+   * column), or null if the user has no v0 row. Encrypted (v1) rows return
+   * null — we don't double-migrate.
+   */
+  getLegacyPlaintext(userId: string): Promise<unknown | null>;
+
+  /** Encrypts the payload under the data key and upserts as a v1 row. */
+  upsertEncrypted(
+    userId: string,
+    plaintextPayload: unknown,
+    dataKey: Uint8Array,
+  ): Promise<void>;
+}

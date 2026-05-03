@@ -11,7 +11,6 @@ import {
   attemptCloudSync,
   decodeSnapshot,
   upsertEncryptedSnapshot,
-  upsertSnapshot,
   type SnapshotRow,
 } from '@/lib/cloudSync';
 
@@ -148,32 +147,27 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     lastAttemptRef.current = portfolioData;
 
-    // Encrypted users save through the v1 path. Legacy (un-migrated) users
-    // continue to write plaintext until Phase 5 lazy-migrates them.
-    // 'locked' users (session restored, DK not loaded) cannot save remotely
-    // — local cache is still updated by the caller.
+    // After Phase 5, every authenticated user has user_keys and saves go
+    // through the v1 encrypted path. 'locked' users (session restored, DK
+    // not in memory) cannot save remotely until they re-unlock; the global
+    // RequireUnlock modal prompts them.
     if (keySession.status === 'locked') {
-      // Surface a one-shot info; the global RequireUnlock modal will prompt.
       toast.info('Unlock your encrypted data to enable cloud sync.', {
         id: 'sync-locked',
       });
       return;
     }
 
-    const upsertFn = (p: PortfolioData) => {
-      if (keySession.status === 'unlocked-encrypted') {
-        const dk = keySession.getDataKey();
-        if (!dk) {
-          // Defensive: status said unlocked but DK is gone. Treat as locked.
-          throw new Error('Encrypted session is missing its data key. Please re-unlock.');
-        }
-        return upsertEncryptedSnapshot(supabase, user.id, p, dk);
-      }
-      return upsertSnapshot(supabase, user.id, p);
-    };
+    const dk = keySession.getDataKey();
+    if (!dk) {
+      // Defensive: status said unlocked-encrypted but DK is gone. Surface
+      // and bail — the user will be re-prompted on next save attempt.
+      toast.error('Encrypted session is missing its data key. Please re-unlock.');
+      return;
+    }
 
     const outcome = await attemptCloudSync(portfolioData, {
-      upsert: upsertFn,
+      upsert: (p) => upsertEncryptedSnapshot(supabase, user.id, p, dk),
       isLatest,
       delay: (ms) => new Promise(r => setTimeout(r, ms)),
       onStatus: setSyncStatus,

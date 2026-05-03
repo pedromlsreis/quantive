@@ -7,8 +7,10 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { upsertEncryptedSnapshot } from '@/lib/cloudSync';
+import type { PortfolioData } from '@/lib/types';
 import { byteaToBytes, bytesToBytea } from './bytea';
-import type { KeyStore } from './types';
+import type { KeyStore, SnapshotStore } from './types';
 
 export const supabaseKeyStore: KeyStore = {
   async getUserKeys(userId) {
@@ -60,5 +62,37 @@ export const supabaseKeyStore: KeyStore = {
       .eq('user_id', userId);
     if (error) throw error;
     return (count ?? 0) > 0;
+  },
+};
+
+export const supabaseSnapshotStore: SnapshotStore = {
+  async getLegacyPlaintext(userId) {
+    const { data, error } = await supabase
+      .from('portfolio_snapshots')
+      .select('data, enc_version')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    // We only return the payload for v0 (legacy) rows. v1 rows are already
+    // encrypted; double-migration would be a no-op at best, a re-encrypt
+    // under a new DK at worst (which we do NOT want here — the existing
+    // user_keys row owns the only DK that can decrypt v1 rows).
+    if (data.enc_version !== 0) return null;
+    return data.data;
+  },
+
+  async upsertEncrypted(userId, plaintextPayload, dataKey) {
+    // Reuse the production encrypt+upsert path. The cast is safe: the
+    // function's body JSON.stringifies the payload and never inspects its
+    // type — see cloudSync.ts.
+    await upsertEncryptedSnapshot(
+      supabase,
+      userId,
+      plaintextPayload as PortfolioData,
+      dataKey,
+    );
   },
 };

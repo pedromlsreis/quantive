@@ -1,13 +1,27 @@
 /**
- * Key session operations. Pure, no I/O of its own — the KeyStore parameter
- * abstracts persistence so this module is testable without Supabase.
+ * Key session operations. Pure, no I/O of its own — the KeyStore and
+ * SnapshotStore parameters abstract persistence so this module is testable
+ * without Supabase.
  *
- * Spec: docs/security/encryption.md §8.
+ * Spec: docs/security/encryption.md §8, §11.
  *
- * Three terminal states for a unlock attempt:
- *   - encrypted-unlocked  -> user has user_keys; DK is in memory
- *   - legacy              -> user has plaintext snapshots; no keys yet (Phase 5 will migrate)
- *   - (throws)            -> wrong password / corrupted wrap / store error
+ * After Phase 5, every successful unlock returns 'encrypted-unlocked'. The
+ * legacy plaintext path no longer exists at the session level: a user with
+ * v0 plaintext is migrated in-place during the provisioning step.
+ *
+ *   user_keys exists           -> derive KEK, unwrap DK
+ *   no user_keys, no plaintext -> NEW user. Provision keys.
+ *   no user_keys, has plaintext-> LEGACY user. Provision keys AND re-encrypt
+ *                                  the existing snapshot. `migrated: true`.
+ *
+ * Rationale on ordering during provisioning + migration:
+ *   1. INSERT user_keys first.
+ *   2. THEN re-encrypt snapshot (only if legacy).
+ *   If step 2 fails, the user is in a recoverable state: they have a key,
+ *   their snapshot is still v0 plaintext, and `loadFromCloud` reads it
+ *   correctly. The next save naturally re-encrypts.
+ *   The reverse order would either lose data (snapshot encrypted with no
+ *   key persisted) or leave a CHECK-violating row.
  */
 
 import {
@@ -17,30 +31,23 @@ import {
   unwrapDataKey,
   wrapDataKey,
 } from '@/lib/crypto';
-import type { KeyStore } from './types';
+import type { KeyStore, SnapshotStore } from './types';
 
-export type SessionState =
-  | { kind: 'encrypted-unlocked'; kek: Uint8Array; dk: Uint8Array }
-  | { kind: 'legacy' };
+export type SessionState = {
+  kind: 'encrypted-unlocked';
+  kek: Uint8Array;
+  dk: Uint8Array;
+  /** True iff a v0 plaintext row was re-encrypted as part of this unlock. */
+  migrated: boolean;
+};
 
-/**
- * Resolve the user's key state. Three paths:
- *
- *   1. user_keys row exists -> derive KEK, unwrap DK. Throws on wrong password.
- *   2. No user_keys, no portfolio_snapshots -> NEW user. Generate keys, persist user_keys.
- *   3. No user_keys, has portfolio_snapshots -> LEGACY user. Return 'legacy'; do not write.
- *
- * @param userId   auth.uid() of the logged-in user.
- * @param password UTF-8-encoded password bytes. Caller is responsible for zeroing
- *                 the buffer after this call returns.
- * @param store    Backing storage (Supabase in production, in-memory in tests).
- */
 export async function detectAndUnlock(
   userId: string,
   password: Uint8Array,
-  store: KeyStore,
+  keyStore: KeyStore,
+  snapshotStore: SnapshotStore,
 ): Promise<SessionState> {
-  const existing = await store.getUserKeys(userId);
+  const existing = await keyStore.getUserKeys(userId);
   if (existing) {
     const kek = await deriveKey(password, existing.kdf_salt);
     const dk = await unwrapDataKey({
@@ -48,23 +55,19 @@ export async function detectAndUnlock(
       kek,
       userId,
     });
-    return { kind: 'encrypted-unlocked', kek, dk };
+    return { kind: 'encrypted-unlocked', kek, dk, migrated: false };
   }
 
-  const hasLegacyData = await store.hasPortfolioSnapshot(userId);
-  if (hasLegacyData) {
-    // Legacy plaintext user. Phase 5 (#33) will re-encrypt on next login;
-    // until then we leave the row alone.
-    return { kind: 'legacy' };
-  }
-
-  // Brand-new user. Set up keys.
+  // No user_keys yet. Could be a new user OR a pre-encryption legacy user.
+  // Either way we provision a fresh DK; the difference is whether we also
+  // re-encrypt an existing plaintext snapshot.
   const salt = await generateSalt();
   const kek = await deriveKey(password, salt);
   const dk = await generateDataKey();
   const wrappedDk = await wrapDataKey({ dataKey: dk, kek, userId });
 
-  await store.insertUserKeys({
+  // Step 1: insert user_keys. If this throws, nothing is changed server-side.
+  await keyStore.insertUserKeys({
     user_id: userId,
     kdf_salt: salt,
     wrapped_dk_kek: wrappedDk,
@@ -73,5 +76,13 @@ export async function detectAndUnlock(
     enc_version: 1,
   });
 
-  return { kind: 'encrypted-unlocked', kek, dk };
+  // Step 2: if legacy data exists, re-encrypt it now. If this throws, the
+  // user_keys row is still committed — next save will naturally encrypt.
+  const legacyPlaintext = await snapshotStore.getLegacyPlaintext(userId);
+  if (legacyPlaintext !== null && legacyPlaintext !== undefined) {
+    await snapshotStore.upsertEncrypted(userId, legacyPlaintext, dk);
+    return { kind: 'encrypted-unlocked', kek, dk, migrated: true };
+  }
+
+  return { kind: 'encrypted-unlocked', kek, dk, migrated: false };
 }
