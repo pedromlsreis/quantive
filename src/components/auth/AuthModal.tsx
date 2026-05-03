@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useKeySession } from '@/contexts/KeySessionContext';
+import { supabase } from '@/integrations/supabase/client';
 import { LogIn, UserPlus, X, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -14,6 +16,7 @@ interface AuthModalProps {
 
 export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalProps) {
   const { signUp, signIn, resetPassword } = useAuth();
+  const keySession = useKeySession();
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>(defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -56,16 +59,40 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     }
     const fn = mode === 'signup' ? signUp : signIn;
     const { error } = await fn(email.trim(), password);
-    setSubmitting(false);
     if (error) {
+      setSubmitting(false);
       toast.error(error);
-    } else if (mode === 'signup') {
-      toast.success('Check your email to confirm your account.');
-      handleClose();
+      return;
+    }
+
+    // Auth succeeded. If a session exists (sign-in, or sign-up with auto-
+    // confirm), unlock the key session immediately while the password is
+    // still in scope. With email-confirm flows, signUp returns no session
+    // here; the user will unlock on first sign-in after clicking the link.
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      const { error: unlockErr } = await keySession.unlock(session.user.id, password);
+      if (unlockErr) {
+        // Auth credentials worked but the key wrap failed to open. This
+        // means the wrap is corrupted or the password truly doesn't match
+        // the wrap (e.g., a server-side reset). Surface and bail.
+        setSubmitting(false);
+        toast.error('Could not unlock encrypted data. Try again or reset your password.');
+        return;
+      }
+    }
+
+    setSubmitting(false);
+    if (mode === 'signup') {
+      toast.success(
+        session?.user
+          ? 'Account created and unlocked.'
+          : 'Check your email to confirm your account.',
+      );
     } else {
       toast.success('Signed in successfully!');
-      handleClose();
     }
+    handleClose();
   };
 
   return createPortal(

@@ -5,8 +5,15 @@ import { generateMockData } from '@/lib/mockData';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
+import { useKeySession } from './KeySessionContext';
 import { sanitizeSourceName } from '@/lib/utils';
-import { attemptCloudSync, upsertSnapshot } from '@/lib/cloudSync';
+import {
+  attemptCloudSync,
+  decodeSnapshot,
+  upsertEncryptedSnapshot,
+  upsertSnapshot,
+  type SnapshotRow,
+} from '@/lib/cloudSync';
 
 const STORAGE_KEY = 'portfolio-data';
 const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
@@ -102,6 +109,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isMockData, setIsMockData] = useState(false);
   const { user } = useAuth();
+  const keySession = useKeySession();
 
   // Track pending cloud save when email is not yet confirmed
   const pendingCloudSaveRef = useRef<PortfolioData | null>(null);
@@ -140,8 +148,32 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     lastAttemptRef.current = portfolioData;
 
+    // Encrypted users save through the v1 path. Legacy (un-migrated) users
+    // continue to write plaintext until Phase 5 lazy-migrates them.
+    // 'locked' users (session restored, DK not loaded) cannot save remotely
+    // — local cache is still updated by the caller.
+    if (keySession.status === 'locked') {
+      // Surface a one-shot info; the global RequireUnlock modal will prompt.
+      toast.info('Unlock your encrypted data to enable cloud sync.', {
+        id: 'sync-locked',
+      });
+      return;
+    }
+
+    const upsertFn = (p: PortfolioData) => {
+      if (keySession.status === 'unlocked-encrypted') {
+        const dk = keySession.getDataKey();
+        if (!dk) {
+          // Defensive: status said unlocked but DK is gone. Treat as locked.
+          throw new Error('Encrypted session is missing its data key. Please re-unlock.');
+        }
+        return upsertEncryptedSnapshot(supabase, user.id, p, dk);
+      }
+      return upsertSnapshot(supabase, user.id, p);
+    };
+
     const outcome = await attemptCloudSync(portfolioData, {
-      upsert: (p) => upsertSnapshot(supabase, user.id, p),
+      upsert: upsertFn,
       isLatest,
       delay: (ms) => new Promise(r => setTimeout(r, ms)),
       onStatus: setSyncStatus,
@@ -159,7 +191,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       });
     }
     // outcome === null: superseded by a newer call; do nothing.
-  }, [user]);
+  }, [user, keySession]);
 
   const retrySync = useCallback(() => {
     if (!lastAttemptRef.current) return;
@@ -175,20 +207,39 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user?.email_confirmed_at, saveToCloud]);
 
-  // Load from cloud when user signs in
+  // Load from cloud when user signs in.
+  //
+  // Gated on keySession.status: while 'locked' we defer the load until the
+  // user unlocks (otherwise we'd try to decrypt without a DK). Once status
+  // flips to either 'unlocked-encrypted' or 'unlocked-legacy', this effect
+  // re-fires and the load proceeds.
   useEffect(() => {
     if (!user) return;
+    if (keySession.status === 'locked') return;
+
     const loadFromCloud = async () => {
       try {
         const { data: rows } = await supabase
           .from('portfolio_snapshots')
-          .select('data')
+          .select('data, encrypted_data, nonce, enc_version')
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false })
           .limit(1);
 
         if (rows && rows.length > 0) {
-          const cloudData = rows[0].data as any;
+          const row = rows[0] as unknown as SnapshotRow;
+          let cloudData: any;
+          try {
+            const decoded = await decodeSnapshot(row, {
+              userId: user.id,
+              dataKey: keySession.getDataKey(),
+            });
+            cloudData = decoded.data;
+          } catch (e) {
+            console.error('[cloud-load] failed to decode snapshot:', e);
+            toast.error('Could not decrypt your saved data. Try signing out and back in.');
+            return;
+          }
 
           // Validate dates on cloud load, filter out invalid ones
           const parsedFacts = cloudData.facts
@@ -223,7 +274,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       }
     };
     loadFromCloud();
-  }, [user, setDefaultDateRange]);
+  }, [user, keySession, setDefaultDateRange]);
 
   // Load from localStorage for guests
   useEffect(() => {

@@ -7,8 +7,10 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { KeySessionProvider } from "@/contexts/KeySessionContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { EmailConfirmationBanner } from "@/components/auth/EmailConfirmationBanner";
+import { RequireUnlock } from "@/components/auth/RequireUnlock";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Index = lazy(() => import("./pages/Index"));
@@ -35,28 +37,31 @@ const App = () => (
       <Sonner />
       <ErrorBoundary>
         <AuthProvider>
-          <CurrencyProvider>
-            <PortfolioProvider>
-              <BrowserRouter>
-                <div className="flex min-h-screen flex-col">
-                  <EmailConfirmationBanner />
-                  <Suspense fallback={<LoadingSpinner />}>
-                    <Routes>
-                      <Route path="/" element={<LandingPage />} />
-                      <Route path="/dashboard" element={<Index />} />
-                      <Route path="/pricing" element={<PricingPage />} />
-                      <Route path="/demo" element={<DemoRedirect />} />
-                      <Route path="/reset-password" element={<ResetPassword />} />
-                      <Route path="/privacy" element={<PrivacyPolicy />} />
-                      <Route path="/terms" element={<TermsOfService />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </Suspense>
-                </div>
-              </BrowserRouter>
-            </PortfolioProvider>
-          </CurrencyProvider>
+          <KeySessionProvider>
+            <CurrencyProvider>
+              <PortfolioProvider>
+                <BrowserRouter>
+                  <div className="flex min-h-screen flex-col">
+                    <EmailConfirmationBanner />
+                    <RequireUnlock />
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <Routes>
+                        <Route path="/" element={<LandingPage />} />
+                        <Route path="/dashboard" element={<Index />} />
+                        <Route path="/pricing" element={<PricingPage />} />
+                        <Route path="/demo" element={<DemoRedirect />} />
+                        <Route path="/reset-password" element={<ResetPassword />} />
+                        <Route path="/privacy" element={<PrivacyPolicy />} />
+                        <Route path="/terms" element={<TermsOfService />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
+                  </div>
+                </BrowserRouter>
+              </PortfolioProvider>
+            </CurrencyProvider>
+          </KeySessionProvider>
         </AuthProvider>
       </ErrorBoundary>
     </TooltipProvider>
