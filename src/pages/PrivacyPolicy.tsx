@@ -36,9 +36,20 @@ export default function PrivacyPolicy() {
 
           <h2>4. Data Storage & Security</h2>
           <p>
-            Your data is stored securely using industry-standard encryption and
-            row-level security policies. We do not connect to your bank accounts
-            or any third-party financial institutions. Your portfolio data stays yours.
+            Your portfolio data is <strong>end-to-end encrypted</strong> in your
+            browser before it reaches our servers. We see ciphertext only and
+            cannot decrypt your data — even if we wanted to. Database access is
+            additionally protected by Postgres row-level security. We do not
+            connect to your bank accounts or any third-party financial
+            institutions.
+          </p>
+          <p>
+            For details on the cryptographic primitives, threat model, and what
+            we explicitly do <em>not</em> protect against, see our{' '}
+            <Link to="/security" className="text-primary hover:underline">
+              Security & Encryption page
+            </Link>
+            .
           </p>
 
           <h2>5. Third-Party Services</h2>

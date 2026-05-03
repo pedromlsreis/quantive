@@ -17,6 +17,8 @@ export function Footer() {
         <span className="mx-1.5">·</span>
         <Link to="/privacy" className="transition-colors hover:text-primary">Privacy</Link>
         <span className="mx-1.5">·</span>
+        <Link to="/security" className="transition-colors hover:text-primary">Security</Link>
+        <span className="mx-1.5">·</span>
         <Link to="/terms" className="transition-colors hover:text-primary">Terms</Link>
       </p>
       <p className="mt-1 text-[10px] text-muted-foreground/30">

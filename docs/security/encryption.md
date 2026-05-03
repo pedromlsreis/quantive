@@ -1,11 +1,28 @@
 # End-to-End Encryption — Design
 
-**Status:** Draft (pre-implementation)
-**Spec version:** 0.1 (`enc_version = 1` on the wire)
-**Last updated:** 2026-05-02
+**Status:** Implemented (v0.1 wire format = `enc_version = 1`)
+**Last updated:** 2026-05-04
 **Tracking issue:** [#33](https://github.com/pedromlsreis/networth-analysis/issues/33)
 
-> This document is the source of truth for how Networth Analysis encrypts user data. It is **public on purpose**: the encryption module will be open-sourced under the same repository, and this design is meant to be reviewed by the community before any code ships. If you spot something wrong, please open an issue.
+> This document is the source of truth for how Networth Analysis encrypts user data. It is **public on purpose**: the encryption module is open-source under [`src/lib/crypto/`](../../src/lib/crypto/), and this design is meant to be reviewed by the community. If you spot something wrong, please open an issue.
+
+## What's verified by tests
+
+| Property | Verified by |
+|---|---|
+| AEAD round-trip (XChaCha20-Poly1305) | [aead.test.ts](../../src/lib/crypto/__tests__/aead.test.ts) |
+| Tamper detection on ciphertext / nonce / tag | [aead.test.ts](../../src/lib/crypto/__tests__/aead.test.ts) |
+| AAD-mismatch rejection | [aead.test.ts](../../src/lib/crypto/__tests__/aead.test.ts) |
+| Random-ciphertext fuzz (no oracle) | [aead.test.ts](../../src/lib/crypto/__tests__/aead.test.ts) |
+| Argon2id parameters + determinism | [kdf.test.ts](../../src/lib/crypto/__tests__/kdf.test.ts) |
+| AAD framing for DK / snapshot / recovery wraps | [aad.test.ts](../../src/lib/crypto/__tests__/aad.test.ts) |
+| BIP-39 round-trip + checksum rejection | [recovery.test.ts](../../src/lib/crypto/__tests__/recovery.test.ts) |
+| New-user provisioning | [keySession/ops.test.ts](../../src/lib/keySession/__tests__/ops.test.ts) |
+| Legacy v0 → v1 lazy migration | [keySession/ops.test.ts](../../src/lib/keySession/__tests__/ops.test.ts) |
+| **Cross-user AAD isolation** (A's wrap can't be unwrapped under B's id) | [keySession/ops.test.ts](../../src/lib/keySession/__tests__/ops.test.ts) |
+| Recovery flow round-trip + **byte-identical DK invariant** | [keySession/recovery.test.ts](../../src/lib/keySession/__tests__/recovery.test.ts) |
+| Change-password rotates wrap; recovery wrap untouched | [keySession/recovery.test.ts](../../src/lib/keySession/__tests__/recovery.test.ts) |
+| Encrypted-snapshot upsert + decode round-trip | [cloudSync.encrypted.test.ts](../../src/lib/__tests__/cloudSync.encrypted.test.ts) |
 
 ---
 
@@ -495,10 +512,12 @@ Out of scope for v1, tracked separately:
 
 - **Subresource Integrity + signed bundles** (mitigates active malicious server). Requires hosting changes — couples to [#37](https://github.com/pedromlsreis/networth-analysis/issues/37) (own domain) where we control the deploy pipeline.
 - **Multi-device "remember me"** via a device key wrapped in a hardware-backed CryptoKey (WebAuthn / Passkeys).
-- **Data key rotation** flow for paranoid users.
+- **Data key rotation** flow for paranoid users (the password wrap and recovery wrap can already rotate independently; the underlying DK does not).
 - **Encrypted sharing** between users for [#38](https://github.com/pedromlsreis/networth-analysis/issues/38) (multi-portfolio). Will require per-portfolio key wrap with member public keys (libsodium `crypto_box`).
 - **PAKE-based authentication** (OPAQUE / SRP-6a) so the password is never sent to the server even for auth. Eliminates the "Supabase auth sees password" caveat. Requires replacing Supabase auth or layering custom auth.
 - **Third-party security audit** by a recognized firm (Trail of Bits, NCC Group, Cure53). Targeted at the crypto module + auth flow. Funded post-revenue.
+- **"Wipe and start fresh"** flow for users who forget their password AND skipped the recovery code. Currently they're stuck (can reset password via email but the at-rest wrap stays unrecoverable). Needs an edge-function path to delete `user_keys` + `portfolio_snapshots` under service role.
+- **Pinned IETF KAT vector** for XChaCha20-Poly1305. Today the AEAD test uses the IETF draft inputs (key/nonce/plaintext/AAD) and asserts deterministic round-trip; a manual cross-implementation byte comparison against the official draft text is still TODO. Tracked inline in [aead.test.ts](../../src/lib/crypto/__tests__/aead.test.ts).
 
 ---
 
