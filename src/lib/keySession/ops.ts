@@ -196,3 +196,37 @@ export async function recoverAndRewrap(args: {
 
   return { kek: newKek, dk };
 }
+
+/**
+ * Re-wrap the active session's DK under a new password's KEK. Used by the
+ * "change password" flow in settings: the user is already unlocked, so we
+ * have the DK in memory; we just need to rotate the salt + wrap so the new
+ * password unlocks the same DK on next sign-in.
+ *
+ * Spec: derived from §8.4 (recovery flow), without the recovery-unwrap step.
+ *
+ * The caller is responsible for rotating the Supabase auth password
+ * separately. Order recommendation: rotate the auth password first; if it
+ * succeeds, rotate the wrap. If the wrap rotation then fails, the user can
+ * retry from the same session — auth doesn't need to be touched again.
+ */
+export async function rewrapDataKey(args: {
+  userId: string;
+  dataKey: Uint8Array;
+  newPassword: Uint8Array;
+  keyStore: KeyStore;
+}): Promise<{ kek: Uint8Array }> {
+  const newSalt = await generateSalt();
+  const newKek = await deriveKey(args.newPassword, newSalt);
+  const newWrap = await wrapDataKey({
+    dataKey: args.dataKey,
+    kek: newKek,
+    userId: args.userId,
+  });
+  await args.keyStore.updatePasswordWrap({
+    user_id: args.userId,
+    kdf_salt: newSalt,
+    wrapped_dk_kek: newWrap,
+  });
+  return { kek: newKek };
+}

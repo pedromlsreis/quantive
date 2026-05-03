@@ -17,10 +17,11 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { AlertTriangle, Copy, Download, Lock, X } from 'lucide-react';
+import { AlertTriangle, Lock, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
+import { RecoveryCodeDisplay } from './RecoveryCodeDisplay';
 
 const STORAGE_PREFIX = 'recovery-offered:';
 
@@ -34,11 +35,6 @@ export function RecoveryOfferModal() {
   const [step, setStep] = useState<'offer' | 'display' | 'done'>('offer');
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [confirmInput, setConfirmInput] = useState('');
-
-  // Pick a random index for the confirm-back word. Stable for the lifetime
-  // of one display step. Using 1-indexed for human display.
-  const [confirmIndex] = useState(() => Math.floor(Math.random() * 24));
 
   const shouldShow = useMemo(() => {
     if (!user) return false;
@@ -56,7 +52,6 @@ export function RecoveryOfferModal() {
     if (!shouldShow) {
       setStep('offer');
       setRecoveryCode(null);
-      setConfirmInput('');
     }
   }, [shouldShow]);
 
@@ -90,56 +85,14 @@ export function RecoveryOfferModal() {
     setStep('done');
   };
 
-  const handleCopy = async () => {
-    if (!recoveryCode) return;
-    try {
-      await navigator.clipboard.writeText(recoveryCode);
-      toast.success('Recovery code copied to clipboard.');
-    } catch {
-      toast.error('Could not access clipboard. Please write the words down.');
-    }
-  };
-
-  const handleDownload = () => {
-    if (!recoveryCode) return;
-    const blob = new Blob(
-      [
-        'Networth Analysis — recovery code\n',
-        '------------------------------------\n\n',
-        recoveryCode + '\n\n',
-        'Treat this like a password. Anyone with this code can unlock your encrypted data.\n',
-        'Store it offline (printed or in a password manager). We CANNOT recover it for you.\n',
-      ],
-      { type: 'text/plain' },
-    );
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'networth-analysis-recovery-code.txt';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const handleConfirm = () => {
-    if (!recoveryCode) return;
-    const expected = recoveryCode.split(' ')[confirmIndex];
-    if (confirmInput.trim().toLowerCase() !== expected) {
-      toast.error(
-        `That's not word #${confirmIndex + 1}. Check your saved copy.`,
-      );
-      return;
-    }
+  const finishDisplay = () => {
     markOffered();
     setRecoveryCode(null);
     setStep('done');
-    toast.success('Recovery code saved. Keep it somewhere safe.');
   };
 
   const close = () => {
-    if (step === 'display' && !submitting) {
-      // Don't allow close-without-confirm during display — user needs to
-      // either confirm or click "Skip confirmation" (a way out).
-      // Showing as a toast prompt for now.
+    if (step === 'display') {
       toast.info('Either confirm the word or click "I\'ll save it later" below.');
       return;
     }
@@ -213,71 +166,11 @@ export function RecoveryOfferModal() {
               Anyone with these words can unlock your data.
             </p>
 
-            <div className="mb-3 grid grid-cols-3 gap-2 rounded-lg border border-border bg-secondary/30 p-3 sm:grid-cols-4">
-              {recoveryCode.split(' ').map((word, i) => (
-                <div
-                  key={i}
-                  className="flex items-baseline gap-1.5 rounded bg-background/40 px-2 py-1 font-mono text-xs text-foreground"
-                >
-                  <span className="text-muted-foreground/60">{i + 1}</span>
-                  <span>{word}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mb-5 flex gap-2">
-              <button
-                onClick={handleCopy}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground transition-colors hover:bg-secondary"
-              >
-                <Copy className="h-3.5 w-3.5" />
-                Copy
-              </button>
-              <button
-                onClick={handleDownload}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground transition-colors hover:bg-secondary"
-              >
-                <Download className="h-3.5 w-3.5" />
-                Download .txt
-              </button>
-            </div>
-
-            <div className="mb-3">
-              <label className="mb-1.5 block text-xs font-medium text-foreground">
-                Confirm: type word #{confirmIndex + 1}
-              </label>
-              <input
-                type="text"
-                value={confirmInput}
-                onChange={(e) => setConfirmInput(e.target.value)}
-                placeholder={`word ${confirmIndex + 1}`}
-                className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-2.5 font-mono text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                autoComplete="off"
-                autoCapitalize="off"
-                autoCorrect="off"
-                spellCheck={false}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={handleConfirm}
-                disabled={!confirmInput.trim()}
-                className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
-                Confirm
-              </button>
-              <button
-                onClick={() => {
-                  markOffered();
-                  setRecoveryCode(null);
-                  setStep('done');
-                }}
-                className="text-center text-xs text-muted-foreground hover:text-foreground"
-              >
-                I'll save it later — close anyway
-              </button>
-            </div>
+            <RecoveryCodeDisplay
+              code={recoveryCode}
+              onConfirmed={finishDisplay}
+              onSkipConfirm={finishDisplay}
+            />
           </>
         )}
       </div>

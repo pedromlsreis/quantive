@@ -14,7 +14,12 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { detectAndUnlock, recoverAndRewrap, setupRecoveryCode } from '../ops';
+import {
+  detectAndUnlock,
+  recoverAndRewrap,
+  rewrapDataKey,
+  setupRecoveryCode,
+} from '../ops';
 import type { KeyStore, SnapshotStore, UserKeysRow } from '../types';
 
 const USER = '550e8400-e29b-41d4-a716-446655440000';
@@ -246,4 +251,76 @@ describe('recoverAndRewrap', () => {
       }),
     ).rejects.toThrow(/recovery is not configured/);
   }, 30_000);
+});
+
+describe('rewrapDataKey (change-password flow)', () => {
+  let keyStore: InMemoryKeyStore;
+
+  beforeEach(() => {
+    keyStore = new InMemoryKeyStore();
+  });
+
+  it('rotates the password salt + wrap; the same DK survives', async () => {
+    const oldPassword = utf8('original');
+    const session = await provisionUser(keyStore, oldPassword);
+
+    const oldRow = await keyStore.getUserKeys(USER);
+    const oldSalt = oldRow!.kdf_salt;
+    const oldWrap = oldRow!.wrapped_dk_kek;
+
+    const newPassword = utf8('rotated');
+    const result = await rewrapDataKey({
+      userId: USER,
+      dataKey: session.dk,
+      newPassword,
+      keyStore,
+    });
+
+    expect(result.kek.length).toBe(32);
+
+    const newRow = await keyStore.getUserKeys(USER);
+    expect(Array.from(newRow!.kdf_salt)).not.toEqual(Array.from(oldSalt));
+    expect(Array.from(newRow!.wrapped_dk_kek)).not.toEqual(Array.from(oldWrap));
+
+    // Sign in with the NEW password unwraps the SAME DK.
+    const reUnlocked = await detectAndUnlock(
+      USER,
+      newPassword,
+      keyStore,
+      new NullSnapshotStore(),
+    );
+    expect(Array.from(reUnlocked.dk)).toEqual(Array.from(session.dk));
+
+    // Sign in with the OLD password fails — the wrap no longer accepts it.
+    await expect(
+      detectAndUnlock(USER, oldPassword, keyStore, new NullSnapshotStore()),
+    ).rejects.toThrow();
+  }, 90_000);
+
+  it('does not touch the recovery wrap', async () => {
+    const session = await provisionUser(keyStore);
+    await setupRecoveryCode({
+      userId: USER,
+      dataKey: session.dk,
+      keyStore,
+    });
+    const beforeRow = await keyStore.getUserKeys(USER);
+    const recoveryWrapBefore = beforeRow!.wrapped_dk_recovery!;
+    const recoverySaltBefore = beforeRow!.recovery_kdf_salt!;
+
+    await rewrapDataKey({
+      userId: USER,
+      dataKey: session.dk,
+      newPassword: utf8('new-pw'),
+      keyStore,
+    });
+
+    const afterRow = await keyStore.getUserKeys(USER);
+    expect(Array.from(afterRow!.wrapped_dk_recovery!)).toEqual(
+      Array.from(recoveryWrapBefore),
+    );
+    expect(Array.from(afterRow!.recovery_kdf_salt!)).toEqual(
+      Array.from(recoverySaltBefore),
+    );
+  }, 60_000);
 });

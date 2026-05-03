@@ -3,6 +3,7 @@ export type { SessionState } from './ops';
 export {
   detectAndUnlock,
   recoverAndRewrap,
+  rewrapDataKey,
   setupRecoveryCode,
 } from './ops';
 export { supabaseKeyStore, supabaseSnapshotStore } from './supabaseStore';

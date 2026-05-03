@@ -24,6 +24,7 @@ import { ready, sodium } from '@/lib/crypto/sodium';
 import {
   detectAndUnlock,
   recoverAndRewrap,
+  rewrapDataKey,
   setupRecoveryCode,
   supabaseKeyStore,
   supabaseSnapshotStore,
@@ -61,6 +62,15 @@ interface KeySessionContextType {
   recoverWithCode: (
     userId: string,
     recoveryCode: string,
+    newPassword: string,
+  ) => Promise<{ error: string | null }>;
+  /**
+   * Re-wrap the in-memory DK under a new password's KEK. The caller is
+   * responsible for rotating the Supabase auth password (this method only
+   * touches the at-rest wrap). Throws if the session is locked.
+   */
+  rewrapForNewPassword: (
+    userId: string,
     newPassword: string,
   ) => Promise<{ error: string | null }>;
 }
@@ -224,6 +234,37 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
     [],
   );
 
+  const rewrapForNewPassword = useCallback(
+    async (userId: string, newPassword: string) => {
+      try {
+        await ready();
+        const dk = dkRef.current;
+        if (!dk) {
+          return { error: 'Session is locked. Please unlock and try again.' };
+        }
+        const passwordBytes = new TextEncoder().encode(newPassword);
+        try {
+          const { kek } = await rewrapDataKey({
+            userId,
+            dataKey: dk,
+            newPassword: passwordBytes,
+            keyStore: supabaseKeyStore,
+          });
+          if (kekRef.current) sodium.memzero(kekRef.current);
+          kekRef.current = kek;
+          // DK is unchanged — it stays in memory under the new KEK.
+          return { error: null };
+        } finally {
+          sodium.memzero(passwordBytes);
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'rewrap failed';
+        return { error: msg };
+      }
+    },
+    [],
+  );
+
   return (
     <KeySessionContext.Provider
       value={{
@@ -234,6 +275,7 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
         getDataKey,
         setupRecovery,
         recoverWithCode,
+        rewrapForNewPassword,
       }}
     >
       {children}
