@@ -11,6 +11,7 @@ import { KeySessionProvider } from "@/contexts/KeySessionContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { EmailConfirmationBanner } from "@/components/auth/EmailConfirmationBanner";
 import { RequireUnlock } from "@/components/auth/RequireUnlock";
+import { RecoveryOfferModal } from "@/components/auth/RecoveryOfferModal";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Index = lazy(() => import("./pages/Index"));
@@ -44,6 +45,7 @@ const App = () => (
                   <div className="flex min-h-screen flex-col">
                     <EmailConfirmationBanner />
                     <RequireUnlock />
+                    <RecoveryOfferModal />
                     <Suspense fallback={<LoadingSpinner />}>
                       <Routes>
                         <Route path="/" element={<LandingPage />} />

@@ -63,6 +63,28 @@ export const supabaseKeyStore: KeyStore = {
     if (error) throw error;
     return (count ?? 0) > 0;
   },
+
+  async updatePasswordWrap(args) {
+    const { error } = await supabase
+      .from('user_keys')
+      .update({
+        kdf_salt: bytesToBytea(args.kdf_salt) as unknown as never,
+        wrapped_dk_kek: bytesToBytea(args.wrapped_dk_kek) as unknown as never,
+      })
+      .eq('user_id', args.user_id);
+    if (error) throw error;
+  },
+
+  async updateRecoveryWrap(args) {
+    const { error } = await supabase
+      .from('user_keys')
+      .update({
+        recovery_kdf_salt: bytesToBytea(args.recovery_kdf_salt) as unknown as never,
+        wrapped_dk_recovery: bytesToBytea(args.wrapped_dk_recovery) as unknown as never,
+      })
+      .eq('user_id', args.user_id);
+    if (error) throw error;
+  },
 };
 
 export const supabaseSnapshotStore: SnapshotStore = {
