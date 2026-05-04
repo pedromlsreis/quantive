@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -40,22 +65,31 @@ export type Database = {
       }
       portfolio_snapshots: {
         Row: {
-          data: Json
+          data: Json | null
+          enc_version: number
+          encrypted_data: string | null
           id: string
+          nonce: string | null
           updated_at: string
           uploaded_at: string
           user_id: string
         }
         Insert: {
-          data: Json
+          data?: Json | null
+          enc_version?: number
+          encrypted_data?: string | null
           id?: string
+          nonce?: string | null
           updated_at?: string
           uploaded_at?: string
           user_id: string
         }
         Update: {
-          data?: Json
+          data?: Json | null
+          enc_version?: number
+          encrypted_data?: string | null
           id?: string
+          nonce?: string | null
           updated_at?: string
           uploaded_at?: string
           user_id?: string
@@ -83,12 +117,70 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          ip: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          ip: string
+          request_count?: number
+          window_start?: string
+        }
+        Update: {
+          ip?: string
+          request_count?: number
+          window_start?: string
+        }
+        Relationships: []
+      }
+      user_keys: {
+        Row: {
+          created_at: string
+          enc_version: number
+          kdf_salt: string
+          recovery_kdf_salt: string | null
+          updated_at: string
+          user_id: string
+          wrapped_dk_kek: string
+          wrapped_dk_recovery: string | null
+        }
+        Insert: {
+          created_at?: string
+          enc_version?: number
+          kdf_salt: string
+          recovery_kdf_salt?: string | null
+          updated_at?: string
+          user_id: string
+          wrapped_dk_kek: string
+          wrapped_dk_recovery?: string | null
+        }
+        Update: {
+          created_at?: string
+          enc_version?: number
+          kdf_salt?: string
+          recovery_kdf_salt?: string | null
+          updated_at?: string
+          user_id?: string
+          wrapped_dk_kek?: string
+          wrapped_dk_recovery?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      check_rate_limit: {
+        Args: {
+          p_ip: string
+          p_max_requests?: number
+          p_window_seconds?: number
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
@@ -217,6 +309,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

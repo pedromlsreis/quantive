@@ -32,7 +32,7 @@ export default function Impressum() {
             </a>
           </p>
 
-          <h2>Verantwortlich gemäß § 5 TMG</h2>
+          <h2>Verantwortlich gemäß § 5 TMG:</h2>
           <p>Pedro Miguel Lima de Sousa Reis</p>
         </div>
       </main>
