@@ -2,9 +2,9 @@
 
 **Status:** Implemented (v0.1 wire format = `enc_version = 1`)
 **Last updated:** 2026-05-04
-**Tracking issue:** [#33](https://github.com/pedromlsreis/networth-analysis/issues/33)
+**Tracking issue:** [#33](https://github.com/pedromlsreis/quantive/issues/33)
 
-> This document is the source of truth for how Networth Analysis encrypts user data. It is **public on purpose**: the encryption module is open-source under [`src/lib/crypto/`](../../src/lib/crypto/), and this design is meant to be reviewed by the community. If you spot something wrong, please open an issue.
+> This document is the source of truth for how Quantive encrypts user data. It is **public on purpose**: the encryption module is open-source under [`src/lib/crypto/`](../../src/lib/crypto/), and this design is meant to be reviewed by the community. If you spot something wrong, please open an issue.
 
 ## What's verified by tests
 
@@ -49,7 +49,7 @@ We do **not** claim to defend against an actively malicious server, a compromise
 - Encryption of feedback messages.
 - Encryption of email addresses or auth metadata (Supabase auth requires plaintext email for password reset / magic links).
 - Multi-device "trust this device" flows (would require storing a wrapped key locally — deferred).
-- Sharing encrypted data between users (relevant to [#38](https://github.com/pedromlsreis/networth-analysis/issues/38) — multi-portfolio).
+- Sharing encrypted data between users (relevant to [#38](https://github.com/pedromlsreis/quantive/issues/38) — multi-portfolio).
 - Subresource integrity (SRI) and reproducible build pipelines (see §16 for why this matters and §17 for the path forward).
 
 ---
@@ -495,7 +495,7 @@ We will publish exactly this list on the public privacy / security page so users
 
 ## 14. Open-source posture
 
-The encryption module (`src/lib/crypto/`) is licensed permissively (planned: MIT, matching the rest of the repo if applicable) and is intended to be reviewed in isolation. It contains no Networth-Analysis-specific business logic — it is a thin wrapper over libsodium with explicit AAD framing.
+The encryption module (`src/lib/crypto/`) is licensed permissively (planned: MIT, matching the rest of the repo if applicable) and is intended to be reviewed in isolation. It contains no Quantive-specific business logic — it is a thin wrapper over libsodium with explicit AAD framing.
 
 The module will:
 
@@ -510,10 +510,10 @@ The module will:
 
 Out of scope for v1, tracked separately:
 
-- **Subresource Integrity + signed bundles** (mitigates active malicious server). Requires hosting changes — couples to [#37](https://github.com/pedromlsreis/networth-analysis/issues/37) (own domain) where we control the deploy pipeline.
+- **Subresource Integrity + signed bundles** (mitigates active malicious server). Requires hosting changes — couples to [#37](https://github.com/pedromlsreis/quantive/issues/37) (own domain) where we control the deploy pipeline.
 - **Multi-device "remember me"** via a device key wrapped in a hardware-backed CryptoKey (WebAuthn / Passkeys).
 - **Data key rotation** flow for paranoid users (the password wrap and recovery wrap can already rotate independently; the underlying DK does not).
-- **Encrypted sharing** between users for [#38](https://github.com/pedromlsreis/networth-analysis/issues/38) (multi-portfolio). Will require per-portfolio key wrap with member public keys (libsodium `crypto_box`).
+- **Encrypted sharing** between users for [#38](https://github.com/pedromlsreis/quantive/issues/38) (multi-portfolio). Will require per-portfolio key wrap with member public keys (libsodium `crypto_box`).
 - **PAKE-based authentication** (OPAQUE / SRP-6a) so the password is never sent to the server even for auth. Eliminates the "Supabase auth sees password" caveat. Requires replacing Supabase auth or layering custom auth.
 - **Third-party security audit** by a recognized firm (Trail of Bits, NCC Group, Cure53). Targeted at the crypto module + auth flow. Funded post-revenue.
 - **"Wipe and start fresh"** flow for users who forget their password AND skipped the recovery code. Currently they're stuck (can reset password via email but the at-rest wrap stays unrecoverable). Needs an edge-function path to delete `user_keys` + `portfolio_snapshots` under service role.
@@ -569,7 +569,7 @@ We will state this explicitly on the public security page. Users who need protec
 This design is meaningless as long as the `.env` file containing Supabase keys is committed to the repository. While the repo remains private and the keys are anon-tier (designed to be present in the client bundle), the immediate risk is low. **Before the repo is made public, and before the encryption feature is announced**, we must:
 
 1. Rotate the Supabase anon and service-role keys.
-2. Move secrets out of the repo into the host's environment-variable mechanism (couples to [#37](https://github.com/pedromlsreis/networth-analysis/issues/37)).
+2. Move secrets out of the repo into the host's environment-variable mechanism (couples to [#37](https://github.com/pedromlsreis/quantive/issues/37)).
 3. Scrub git history of any committed secrets (`git filter-repo` or BFG).
 4. Add `.env*` to `.gitignore`.
 

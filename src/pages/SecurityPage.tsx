@@ -10,7 +10,7 @@ import {
   Github,
 } from 'lucide-react';
 
-const REPO_URL = 'https://github.com/pedromlsreis/networth-analysis';
+const REPO_URL = 'https://github.com/pedromlsreis/quantive';
 const DESIGN_DOC_URL = `${REPO_URL}/blob/main/docs/security/encryption.md`;
 const CRYPTO_MODULE_URL = `${REPO_URL}/tree/main/src/lib/crypto`;
 
