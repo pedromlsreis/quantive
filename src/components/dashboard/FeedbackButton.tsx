@@ -63,7 +63,7 @@ export function FeedbackButton() {
               <h2 className="text-lg font-bold text-foreground">Share your feedback</h2>
             </div>
             <p className="mb-5 text-sm text-muted-foreground">
-              Help us improve Networth Analysis with your ideas.
+              Help us improve Quantive with your ideas.
               {!user && <span className="block mt-1 text-xs text-muted-foreground/70">No account needed to submit feedback.</span>}
             </p>
 

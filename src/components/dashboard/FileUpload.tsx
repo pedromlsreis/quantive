@@ -45,7 +45,7 @@ export function FileUpload() {
               <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10">
                 <BarChart3 className="h-8 w-8 text-primary" />
               </div>
-              <h1 className="mb-2 text-2xl font-bold text-foreground">Networth Analysis</h1>
+              <h1 className="mb-2 text-2xl font-bold text-foreground">Quantive</h1>
               <p className="mb-7 text-center text-sm text-muted-foreground">
                 Track and analyse your net worth over time.
               </p>

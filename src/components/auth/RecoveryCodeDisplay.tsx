@@ -40,7 +40,7 @@ export function RecoveryCodeDisplay({ code, onConfirmed, onSkipConfirm }: Props)
   const handleDownload = () => {
     const blob = new Blob(
       [
-        'Networth Analysis — recovery code\n',
+        'Quantive — recovery code\n',
         '------------------------------------\n\n',
         code + '\n\n',
         'Treat this like a password. Anyone with this code can unlock your encrypted data.\n',
@@ -51,7 +51,7 @@ export function RecoveryCodeDisplay({ code, onConfirmed, onSkipConfirm }: Props)
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'networth-analysis-recovery-code.txt';
+    a.download = 'quantive-recovery-code.txt';
     a.click();
     URL.revokeObjectURL(url);
   };

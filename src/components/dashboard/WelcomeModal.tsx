@@ -72,7 +72,7 @@ export function WelcomeModal() {
           <BarChart3 className="h-6 w-6 text-primary" />
         </div>
 
-        <h2 className="mb-1 text-lg font-bold text-foreground">Welcome to Networth Analysis</h2>
+        <h2 className="mb-1 text-lg font-bold text-foreground">Welcome to Quantive</h2>
         <p className="mb-5 text-sm text-muted-foreground">
           Your personal dashboard to track, analyse, and forecast your net worth.
         </p>

@@ -14,13 +14,13 @@ export default function TermsOfService() {
         <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_strong]:text-foreground">
           <h2>1. Acceptance of Terms</h2>
           <p>
-            By creating an account or using Networth Analysis ("the Service"), you agree to
+            By creating an account or using Quantive ("the Service"), you agree to
             be bound by these Terms of Service. If you do not agree, please do not use the Service.
           </p>
 
           <h2>2. Description of Service</h2>
           <p>
-            Networth Analysis is a personal finance dashboard that allows you to upload,
+            Quantive is a personal finance dashboard that allows you to upload,
             visualise, and track your portfolio data over time. The Service is provided
             "as is" and is intended for personal, informational use only.
           </p>
@@ -67,7 +67,7 @@ export default function TermsOfService() {
 
           <h2>8. Limitation of Liability</h2>
           <p>
-            To the maximum extent permitted by law, Networth Analysis and its creators shall
+            To the maximum extent permitted by law, Quantive and its creators shall
             not be liable for any indirect, incidental, or consequential damages arising from
             your use of the Service.
           </p>
