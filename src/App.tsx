@@ -22,6 +22,7 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const SecurityPage = lazy(() => import("./pages/SecurityPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const Impressum = lazy(() => import("./pages/Impressum"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -58,6 +59,7 @@ const App = () => (
                         <Route path="/terms" element={<TermsOfService />} />
                         <Route path="/security" element={<SecurityPage />} />
                         <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/impressum" element={<Impressum />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>
