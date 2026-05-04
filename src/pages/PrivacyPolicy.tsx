@@ -14,10 +14,10 @@ export default function PrivacyPolicy() {
         <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_strong]:text-foreground">
           <h2>1. Introduction</h2>
           <p>
-            Networth Analysis ("we", "our", "us") is committed to protecting your privacy.
+            Quantive ("we", "our", "us") is committed to protecting your privacy.
             This Privacy Policy explains how we collect, use, and safeguard your information
             when you use our web application at{' '}
-            <Link to="/" className="text-primary hover:underline">networth-analysis.lovable.app</Link>.
+            <Link to="/" className="text-primary hover:underline">usequantive.app</Link>.
           </p>
 
           <h2>2. Information We Collect</h2>

@@ -1,5 +1,5 @@
 /**
- * Public API for the Networth Analysis E2E encryption module.
+ * Public API for the Quantive E2E encryption module.
  *
  * Spec: docs/security/encryption.md
  *

@@ -50,7 +50,7 @@ export function HowToUse() {
             </button>
 
             <h2 className="mb-1 text-lg font-bold text-foreground">How to use</h2>
-            <p className="mb-5 text-sm text-muted-foreground">Get the most out of your Networth Analysis.</p>
+            <p className="mb-5 text-sm text-muted-foreground">Get the most out of your Quantive.</p>
 
             <div className="space-y-4">
               {steps.map((step, i) => (

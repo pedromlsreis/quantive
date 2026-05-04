@@ -64,7 +64,7 @@ export default function LandingPage() {
           <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-1">
             <img
               src="/images/dashboard.png"
-              alt="Networth Analysis dashboard preview"
+              alt="Quantive dashboard preview"
               className="w-full h-auto rounded-lg"
             />
           </div>
