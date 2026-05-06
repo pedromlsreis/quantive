@@ -10,6 +10,19 @@ export function NetWorthChart() {
 
   if (snapshots.length === 0) return null;
 
+  if (snapshots.length < 2) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-6">
+        <h3 className="mb-4 text-sm font-medium text-muted-foreground">Net Worth Over Time</h3>
+        <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed">
+          <p className="text-sm text-muted-foreground">
+            Add a measurement on another day to see your net-worth trend.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const chartData = snapshots.map((s, i) => ({
     key: i,
     date: format(s.date, 'MMM yyyy'),

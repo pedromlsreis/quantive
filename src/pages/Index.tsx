@@ -14,9 +14,10 @@ import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 import { DemoBanner } from '@/components/dashboard/DemoBanner';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
 
 const Index = () => {
-  const { data, isLoading, isMockData } = usePortfolio();
+  const { data, isLoading, isMockData, snapshots } = usePortfolio();
 
   if (isLoading) return <DashboardSkeleton />;
   if (!data) return <FileUpload />;
@@ -27,6 +28,7 @@ const Index = () => {
       <DashboardHeader />
       <FilterBar />
       <main className="mx-auto w-full max-w-[1400px] flex-1 animate-fade-in space-y-8 p-6">
+        {!isMockData && snapshots.length === 1 && <FreshStartNudge />}
         <DashboardSection id="performance" title="Performance">
           <KPICards />
           <NetWorthChart />
