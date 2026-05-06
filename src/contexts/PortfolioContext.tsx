@@ -52,7 +52,8 @@ interface PortfolioContextType {
   loadFile: (file: File) => Promise<void>;
   loadMockData: () => void;
   clearData: () => void;
-  addMeasurement: (entries: { name: string; value: number; isLiquid?: boolean }[]) => void;
+  addMeasurement: (entries: { name: string; value: number; isLiquid?: boolean; volatType?: string }[]) => void;
+  updateRefSource: (idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => void;
   isLoading: boolean;
   isMockData: boolean;
   syncStatus: SyncStatus;
@@ -383,7 +384,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         }));
         const newRefSources: any[] = entries.map(e => ({
           idSource: e.name,
-          volatType: 'Unknown',
+          volatType: e.volatType?.trim() || 'Unknown',
           transferableInDays: e.isLiquid ?? false,
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
@@ -407,7 +408,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         }));
         const newRefSources: any[] = entries.map(e => ({
           idSource: e.name,
-          volatType: 'Unknown',
+          volatType: e.volatType?.trim() || 'Unknown',
           transferableInDays: e.isLiquid ?? false,
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
@@ -442,7 +443,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           if (!existingSourceNames.has(e.name)) {
             newRefSources.push({
               idSource: e.name,
-              volatType: 'Unknown',
+              volatType: e.volatType?.trim() || 'Unknown',
               transferableInDays: e.isLiquid ?? false,
             });
           }
@@ -475,7 +476,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         if (!existingSourceNames.has(e.name)) {
           newRefSources.push({
             idSource: e.name,
-            volatType: 'Unknown',
+            volatType: e.volatType?.trim() || 'Unknown',
             transferableInDays: e.isLiquid ?? false,
           });
         }
@@ -494,6 +495,28 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       return updatedData;
     });
   }, [isMockData, saveToCloud, setDefaultDateRange]);
+
+  const updateRefSource = useCallback((idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => {
+    setData(prev => {
+      if (!prev) return prev;
+      const target = idSource.trim();
+      let changed = false;
+      const newRefSources = prev.refSources.map(rs => {
+        if (rs.idSource.trim() !== target) return rs;
+        changed = true;
+        return {
+          ...rs,
+          volatType: patch.volatType !== undefined ? (patch.volatType.trim() || 'Unknown') : rs.volatType,
+          transferableInDays: patch.isLiquid !== undefined ? patch.isLiquid : rs.transferableInDays,
+        };
+      });
+      if (!changed) return prev;
+      const updated: PortfolioData = { ...prev, refSources: newRefSources };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      saveToCloud(updated);
+      return updated;
+    });
+  }, [saveToCloud]);
 
   const updateFilters = useCallback((partial: Partial<FilterState>) => {
     setFilters(prev => ({ ...prev, ...partial }));
@@ -612,6 +635,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     loadMockData,
     clearData,
     addMeasurement,
+    updateRefSource,
     isLoading,
     isMockData,
     syncStatus,

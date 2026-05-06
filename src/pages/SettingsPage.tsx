@@ -8,6 +8,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Footer } from '@/components/Footer';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { RecoveryCodeDisplay } from '@/components/auth/RecoveryCodeDisplay';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Pencil,
   Check,
@@ -18,6 +20,7 @@ import {
   KeyRound,
   RotateCcw,
   Wallet,
+  Layers,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -34,7 +37,7 @@ import {
 export default function SettingsPage() {
   const { user, signOut, updatePassword } = useAuth();
   const keySession = useKeySession();
-  const { clearData } = usePortfolio();
+  const { clearData, data, updateRefSource } = usePortfolio();
   const { currency, setCurrency, allCurrencies } = useCurrency();
   const navigate = useNavigate();
 
@@ -273,6 +276,14 @@ export default function SettingsPage() {
           </div>
         </section>
 
+        {/* Sources */}
+        {data && data.refSources.length > 0 && (
+          <SourcesSection
+            refSources={data.refSources}
+            onUpdate={updateRefSource}
+          />
+        )}
+
         {/* Security */}
         {user && (
         <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
@@ -472,5 +483,111 @@ export default function SettingsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+interface SourcesSectionProps {
+  refSources: { idSource: string; volatType: string; transferableInDays: boolean }[];
+  onUpdate: (idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => void;
+}
+
+function SourcesSection({ refSources, onUpdate }: SourcesSectionProps) {
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+
+  const sorted = [...refSources].sort((a, b) => a.idSource.localeCompare(b.idSource));
+  const unknownCount = refSources.filter(s => s.volatType.toLowerCase() === 'unknown').length;
+
+  const draftFor = (s: { idSource: string; volatType: string }) =>
+    drafts[s.idSource] !== undefined ? drafts[s.idSource] : (s.volatType.toLowerCase() === 'unknown' ? '' : s.volatType);
+
+  const commitVolat = (idSource: string, currentValue: string) => {
+    const next = (drafts[idSource] ?? '').trim();
+    const original = currentValue.toLowerCase() === 'unknown' ? '' : currentValue;
+    if (next === original) {
+      setDrafts(prev => {
+        const { [idSource]: _, ...rest } = prev;
+        return rest;
+      });
+      return;
+    }
+    onUpdate(idSource, { volatType: next });
+    setDrafts(prev => {
+      const { [idSource]: _, ...rest } = prev;
+      return rest;
+    });
+  };
+
+  return (
+    <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
+      <div className="mb-1 flex items-center gap-2">
+        <Layers className="h-4 w-4 text-primary" />
+        <h2 className="text-base font-semibold text-foreground">Sources</h2>
+      </div>
+      <p className="mb-4 text-xs text-muted-foreground/80">
+        Edit how each source is classified. Volatility is free text — use any label that fits (e.g. <span className="font-mono">Stable</span>, <span className="font-mono">Volatile</span>, <span className="font-mono">Highly Volatile</span>).
+        {unknownCount > 0 && (
+          <> {' '}
+            <span className="text-foreground">{unknownCount} {unknownCount === 1 ? 'source has' : 'sources have'} unknown volatility.</span>
+          </>
+        )}
+      </p>
+
+      <TooltipProvider delayDuration={150}>
+        <div className="mb-2 flex items-center gap-2 px-0.5 text-xs font-medium text-muted-foreground">
+          <span className="flex-1">Source</span>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="w-40 cursor-help underline decoration-dotted underline-offset-4">Volatility</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
+              Free-text classification of how much this source's value fluctuates. Use any label you like (e.g. <span className="font-mono">Stable</span>, <span className="font-mono">Volatile</span>, <span className="font-mono">Highly Volatile</span>). Leave blank for Unknown. Drives the "% volatile" KPI.
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="w-14 cursor-help text-center underline decoration-dotted underline-offset-4">Liquid</span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
+              Whether this source can be transferred to cash within a few days (e.g. a savings account vs. a pension plan). Drives the "% liquid" KPI.
+            </TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
+
+      <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-1">
+        {sorted.map(s => (
+          <div key={s.idSource} className="flex items-center gap-2">
+            <span className="flex-1 truncate rounded-lg bg-secondary/30 px-3 py-2 text-sm text-foreground" title={s.idSource}>
+              {s.idSource}
+            </span>
+            <input
+              type="text"
+              value={draftFor(s)}
+              placeholder="Unknown"
+              onChange={e => setDrafts(prev => ({ ...prev, [s.idSource]: e.target.value }))}
+              onBlur={() => commitVolat(s.idSource, s.volatType)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                if (e.key === 'Escape') {
+                  setDrafts(prev => {
+                    const { [s.idSource]: _, ...rest } = prev;
+                    return rest;
+                  });
+                  (e.target as HTMLInputElement).blur();
+                }
+              }}
+              className="w-40 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+            />
+            <div className="flex w-14 items-center justify-center">
+              <Switch
+                checked={s.transferableInDays}
+                onCheckedChange={(checked) => onUpdate(s.idSource, { isLiquid: checked })}
+                className="scale-90"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
