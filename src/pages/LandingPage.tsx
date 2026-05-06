@@ -1,6 +1,10 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
+import { AllocationChartsView } from '@/components/dashboard/AllocationCharts';
+import { generateMockData, toSnapshots } from '@/lib/mockData';
+import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import {
   Eye, Brain, TrendingUp, Plus,
   LineChart, PieChart, Compass, Globe,
@@ -25,6 +29,9 @@ function FeatureCard({ icon: Icon, title, desc }: { icon: any; title: string; de
 
 /* ============================================= */
 export default function LandingPage() {
+  const { fmt, fmtFull } = useCurrencyFormatter();
+  const previewSnapshots = useMemo(() => toSnapshots(generateMockData()), []);
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <StickyNav />
@@ -58,15 +65,11 @@ export default function LandingPage() {
           </Link>
         </div>
 
-        {/* dashboard screenshot */}
-        <div className="relative z-10 mx-auto mt-16 w-full max-w-4xl">
+        {/* live allocation preview (mock data) */}
+        <div className="relative z-10 mx-auto mt-16 w-full max-w-4xl text-left">
           <div className="animate-hero-glow-slow absolute -inset-4 rounded-2xl bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 blur-2xl" />
-          <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-1">
-            <img
-              src="/images/dashboard.png"
-              alt="Quantive dashboard preview"
-              className="w-full h-auto rounded-lg"
-            />
+          <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 sm:p-6">
+            <AllocationChartsView snapshots={previewSnapshots} fmt={fmt} fmtFull={fmtFull} />
           </div>
         </div>
       </section>

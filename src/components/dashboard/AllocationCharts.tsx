@@ -2,7 +2,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { ResponsiveContainer, Treemap, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { CHART_COLORS, TREEMAP_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } from '@/lib/chartColors';
-import { SourceDetail } from '@/lib/types';
+import { Snapshot, SourceDetail } from '@/lib/types';
 import { Info } from 'lucide-react';
 import { UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -65,10 +65,18 @@ function DonutChart({ title, data, description }: { title: string; data: { name:
   );
 }
 
-export function AllocationCharts() {
-  const { snapshots } = usePortfolio();
-  const { fmt, fmtFull } = useCurrencyFormatter();
+interface AllocationChartsViewProps {
+  snapshots: Snapshot[];
+  fmt: (value: number) => string;
+  fmtFull: (value: number) => string;
+}
 
+/**
+ * Pure presenter for the allocation charts. No context dependencies.
+ * Use this directly in marketing/landing surfaces with synthetic data;
+ * use the {@link AllocationCharts} container for the live dashboard.
+ */
+export function AllocationChartsView({ snapshots, fmt, fmtFull }: AllocationChartsViewProps) {
   if (snapshots.length === 0) return null;
 
   const latest = snapshots[snapshots.length - 1];
@@ -128,4 +136,10 @@ export function AllocationCharts() {
       </div>
     </div>
   );
+}
+
+export function AllocationCharts() {
+  const { snapshots } = usePortfolio();
+  const { fmt, fmtFull } = useCurrencyFormatter();
+  return <AllocationChartsView snapshots={snapshots} fmt={fmt} fmtFull={fmtFull} />;
 }

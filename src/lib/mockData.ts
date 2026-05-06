@@ -5,7 +5,7 @@
  * with realistic growth rates and sinusoidal noise.
  */
 
-import { PortfolioData, FactRow, RefSource } from './types';
+import { PortfolioData, FactRow, RefSource, Snapshot, EnrichedFact } from './types';
 
 /** Create a Date for the 1st of the given month (1-indexed). */
 function monthDate(year: number, month: number): Date {
@@ -89,4 +89,42 @@ export function generateMockData(): PortfolioData {
   }
 
   return { facts, refSources };
+}
+
+/**
+ * Group a PortfolioData into Snapshot[] (one entry per unique date with
+ * summed totals and per-source breakdowns). Mirrors the snapshot derivation
+ * in PortfolioContext, extracted so marketing surfaces can render dashboard
+ * components without mounting the full provider stack.
+ */
+export function toSnapshots(data: PortfolioData): Snapshot[] {
+  const sourceMap = new Map(data.refSources.map(s => [s.idSource.trim(), s]));
+  const enriched: EnrichedFact[] = data.facts.map(f => {
+    const source = sourceMap.get(f.idSource.trim());
+    return {
+      ...f,
+      volatType: source?.volatType ?? 'Unknown',
+      isLiquid: source?.transferableInDays ?? false,
+    };
+  });
+
+  const grouped = new Map<number, EnrichedFact[]>();
+  enriched.forEach(f => {
+    const key = f.date.getTime();
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key)!.push(f);
+  });
+
+  return Array.from(grouped.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([ts, facts]) => ({
+      date: new Date(ts),
+      total: facts.reduce((sum, f) => sum + f.sourceVl, 0),
+      sources: facts.map(f => ({
+        name: f.idSource,
+        value: f.sourceVl,
+        volatType: f.volatType,
+        isLiquid: f.isLiquid,
+      })),
+    }));
 }
