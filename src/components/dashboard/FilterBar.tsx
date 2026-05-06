@@ -4,6 +4,7 @@ import { ChevronDown, X } from 'lucide-react';
 import { FilterState } from '@/lib/types';
 import { Slider } from '@/components/ui/slider';
 import { format } from 'date-fns';
+import { toTitleCase } from '@/lib/utils';
 
 function MultiSelect({
   label,
@@ -181,7 +182,7 @@ export function FilterBar() {
           value={filters.volatTypes.length === 1 ? filters.volatTypes[0] : 'all'}
           options={[
           { value: 'all', label: 'All' },
-          ...allVolatTypes.map((v) => ({ value: v, label: v }))]
+          ...allVolatTypes.map((v) => ({ value: v, label: toTitleCase(v) }))]
           }
           onChange={(v) => updateFilters({ volatTypes: v === 'all' ? [] : [v] })} />
 

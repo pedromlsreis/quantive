@@ -5,6 +5,7 @@ import { CHART_COLORS, TREEMAP_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } 
 import { Snapshot, SourceDetail } from '@/lib/types';
 import { Info } from 'lucide-react';
 import { UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { toTitleCase } from '@/lib/utils';
 
 function aggregateByKey(
   sources: SourceDetail[],
@@ -85,7 +86,7 @@ export function AllocationChartsView({ snapshots, fmt, fmtFull }: AllocationChar
     .sort((a, b) => b.value - a.value)
     .map((s, i) => ({ name: s.name, value: Math.round(s.value), fill: TREEMAP_COLORS[i % TREEMAP_COLORS.length] }));
 
-  const volatData = aggregateByKey(latest.sources, s => s.volatType);
+  const volatData = aggregateByKey(latest.sources, s => toTitleCase(s.volatType));
   const liquidData = aggregateByKey(latest.sources, s => (s.isLiquid ? 'Liquid' : 'Non-Liquid'));
 
   const TreemapContent = (props: any) => {
