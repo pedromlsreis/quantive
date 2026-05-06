@@ -63,8 +63,7 @@ export async function upsertEncryptedSnapshot(
       {
         user_id: userId,
         // Explicitly NULL data so the CHECK invariant holds even if the
-        // row was previously v0 plaintext (e.g., during Phase 5 lazy
-        // migration).
+        // row was previously v0 plaintext (legacy lazy migration).
         data: null,
         encrypted_data: bytesToBytea(enc.ciphertext) as unknown as never,
         nonce: bytesToBytea(enc.nonce) as unknown as never,

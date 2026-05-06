@@ -5,9 +5,9 @@
  *
  * Spec: docs/security/encryption.md §8, §11.
  *
- * After Phase 5, every successful unlock returns 'encrypted-unlocked'. The
- * legacy plaintext path no longer exists at the session level: a user with
- * v0 plaintext is migrated in-place during the provisioning step.
+ * Every successful unlock returns 'encrypted-unlocked'. The legacy plaintext
+ * path no longer exists at the session level: a user with v0 plaintext is
+ * migrated in-place during the provisioning step.
  *
  *   user_keys exists           -> derive KEK, unwrap DK
  *   no user_keys, no plaintext -> NEW user. Provision keys.

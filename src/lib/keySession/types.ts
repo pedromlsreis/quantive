@@ -48,7 +48,7 @@ export interface KeyStore {
 }
 
 /**
- * Storage interface for portfolio_snapshots. Used by Phase 5 lazy migration:
+ * Storage interface for portfolio_snapshots. Used by the lazy migration:
  * we read a user's existing v0 plaintext, encrypt it under their fresh DK,
  * and write it back as v1.
  */

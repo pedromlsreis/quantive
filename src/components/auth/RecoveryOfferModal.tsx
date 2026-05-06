@@ -8,7 +8,7 @@
  *   - 'done'    : confirmation flashed, modal dismounts.
  *
  * Once dismissed (Yes-completed or Skip), a localStorage flag prevents
- * re-prompting that user. They can still set up later via Settings (Phase 7).
+ * re-prompting that user. They can still set up later via Settings.
  *
  * If the user closes the tab during 'display' before confirming, the
  * recovery code is already persisted server-side — they can use it. The

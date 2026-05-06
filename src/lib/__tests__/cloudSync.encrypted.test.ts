@@ -1,5 +1,5 @@
 /**
- * Tests for encrypted save/load (Phase 4 of #33).
+ * Tests for encrypted save/load.
  *
  * Round-trip strategy: encrypt with upsertEncryptedSnapshot's logic, capture
  * what would be sent to Supabase, then feed that "row" into decodeSnapshot

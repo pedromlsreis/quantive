@@ -47,7 +47,7 @@ interface KeySessionContextType {
   unlock: (userId: string, password: string) => Promise<{ error: string | null }>;
   /** Zero KEK + DK and reset status to 'locked'. */
   lock: () => void;
-  /** DK while unlocked-encrypted, null otherwise. Phase 4 uses this to encrypt snapshots. */
+  /** DK while unlocked-encrypted, null otherwise. */
   getDataKey: () => Uint8Array | null;
   /**
    * Provision a recovery code for the active session. Returns the 24-word
@@ -171,7 +171,7 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
     previousUserIdRef.current = currentUserId;
   }, [user?.id, lock]);
 
-  // Phase 5: legacy users are migrated on unlock, so there is no longer a
+  // Legacy users are migrated on unlock, so there is no longer a
   // passive auto-resolve path. Every authenticated 'locked' state requires
   // a password — RequireUnlock prompts, detectAndUnlock decides whether to
   // unwrap, provision, or provision-and-migrate.

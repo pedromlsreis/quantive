@@ -147,7 +147,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     lastAttemptRef.current = portfolioData;
 
-    // After Phase 5, every authenticated user has user_keys and saves go
+    // Every authenticated user has user_keys and saves go
     // through the v1 encrypted path. 'locked' users (session restored, DK
     // not in memory) cannot save remotely until they re-unlock; the global
     // RequireUnlock modal prompts them.

@@ -1,5 +1,5 @@
 /**
- * Phase 6 — recovery code generation and use.
+ * Recovery code generation and use.
  *
  * Tests cover:
  *   - setupRecoveryCode: provisions a wrap, idempotent re-runs OK.
