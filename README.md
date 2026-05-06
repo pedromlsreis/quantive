@@ -4,6 +4,8 @@ A privacy-first finance cockpit. Upload your spreadsheet, track net worth, analy
 
 Live: https://usequantive.app
 
+![Recovery code setup — 24-word BIP-39 mnemonic, confirm by typing word #6](public/images/recovery-code.png)
+
 ## Tech stack
 
 - Vite + React + TypeScript
