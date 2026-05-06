@@ -42,21 +42,21 @@ export function DashboardHeader() {
   };
 
   return (
-    <header className="flex flex-col gap-3 border-b border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <a href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+    <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
+      <a href="/" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-80">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
           <FileSpreadsheet className="h-5 w-5 text-primary" />
         </div>
-        <div>
+        <div className="min-w-0">
           <h1 className="text-lg font-bold text-foreground">Quantive</h1>
           {lastUpdated && (
-            <p className="text-[11px] text-muted-foreground/60">
+            <p className="truncate text-[11px] text-muted-foreground/60">
               Data through {lastUpdated}
             </p>
           )}
         </div>
       </a>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
         <SyncIndicator />
 
         <button

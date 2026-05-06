@@ -146,7 +146,7 @@ function DateRangeSlider() {
   const endLabel = format(months[safeEnd], 'MMM yyyy');
 
   return (
-    <div className="flex items-center gap-3 min-w-[280px]" role="group" aria-label="Date range filter">
+    <div className="flex w-full items-center gap-3 sm:w-auto sm:min-w-[280px]" role="group" aria-label="Date range filter">
       <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{startLabel}</span>
       <Slider
         min={0}
@@ -155,7 +155,7 @@ function DateRangeSlider() {
         value={[safeStart, safeEnd]}
         onValueChange={handleChange}
         className="flex-1" />
-      
+
       <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{endLabel}</span>
     </div>);
 
@@ -165,36 +165,37 @@ export function FilterBar() {
   const { filters, updateFilters, allSources, allVolatTypes } = usePortfolio();
 
   return (
-    <div className="flex flex-wrap items-center gap-3 border-b border-border px-6 py-3">
+    <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:px-6">
       <DateRangeSlider />
 
-      <div className="h-6 w-px bg-border" />
+      <div className="hidden h-6 w-px bg-border sm:block" />
 
-      <MultiSelect
-        label="Sources"
-        options={allSources}
-        selected={filters.sources}
-        onChange={(v) => updateFilters({ sources: v })} />
-      
-      <ToggleFilter
-        value={filters.volatTypes.length === 1 ? filters.volatTypes[0] : 'all'}
-        options={[
-        { value: 'all', label: 'All' },
-        ...allVolatTypes.map((v) => ({ value: v, label: v }))]
-        }
-        onChange={(v) => updateFilters({ volatTypes: v === 'all' ? [] : [v] })} />
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <MultiSelect
+          label="Sources"
+          options={allSources}
+          selected={filters.sources}
+          onChange={(v) => updateFilters({ sources: v })} />
 
-      <div className="h-6 w-px bg-border" />
+        <ToggleFilter
+          value={filters.volatTypes.length === 1 ? filters.volatTypes[0] : 'all'}
+          options={[
+          { value: 'all', label: 'All' },
+          ...allVolatTypes.map((v) => ({ value: v, label: v }))]
+          }
+          onChange={(v) => updateFilters({ volatTypes: v === 'all' ? [] : [v] })} />
 
-      <ToggleFilter
-        value={filters.liquidFilter}
-        options={[
-        { value: 'all', label: 'All' },
-        { value: 'liquid', label: 'Liquid' },
-        { value: 'non-liquid', label: 'Non-Liquid' }]
-        }
-        onChange={(v) => updateFilters({ liquidFilter: v as FilterState['liquidFilter'] })} />
-      
+        <div className="hidden h-6 w-px bg-border sm:block" />
+
+        <ToggleFilter
+          value={filters.liquidFilter}
+          options={[
+          { value: 'all', label: 'All' },
+          { value: 'liquid', label: 'Liquid' },
+          { value: 'non-liquid', label: 'Non-Liquid' }]
+          }
+          onChange={(v) => updateFilters({ liquidFilter: v as FilterState['liquidFilter'] })} />
+      </div>
     </div>);
 
 }

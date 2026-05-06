@@ -9,16 +9,19 @@ const VARIANTS = {
     className: `${PILL_BASE} bg-secondary text-muted-foreground`,
     icon: <Loader2 className="h-3 w-3 animate-spin" />,
     label: 'Syncing',
+    title: 'Syncing',
   },
   synced: {
     className: `${PILL_BASE} bg-emerald-500/10 text-emerald-400`,
     icon: <Check className="h-3 w-3" />,
     label: 'Synced',
+    title: 'Synced',
   },
   error: {
     className: `${PILL_BASE} bg-destructive/10 text-destructive transition-colors hover:bg-destructive/20`,
     icon: <CloudOff className="h-3 w-3" />,
     label: 'Sync failed — Retry',
+    title: 'Sync failed — tap to retry',
   },
 } as const;
 
@@ -33,17 +36,17 @@ export function SyncIndicator() {
 
   if (syncStatus === 'error') {
     return (
-      <button onClick={retrySync} className={variant.className} title="Cloud sync failed — click to retry">
+      <button onClick={retrySync} className={variant.className} title={variant.title} aria-label={variant.title}>
         {variant.icon}
-        {variant.label}
+        <span className="hidden sm:inline">{variant.label}</span>
       </button>
     );
   }
 
   return (
-    <span className={variant.className}>
+    <span className={variant.className} title={variant.title} aria-label={variant.title}>
       {variant.icon}
-      {variant.label}
+      <span className="hidden sm:inline">{variant.label}</span>
     </span>
   );
 }
