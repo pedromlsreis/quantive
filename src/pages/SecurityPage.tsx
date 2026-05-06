@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   ExternalLink,
   Key,
-  Github,
 } from 'lucide-react';
 
 const REPO_URL = 'https://github.com/pedromlsreis/quantive';
@@ -282,7 +281,7 @@ export default function SecurityPage() {
                   className="inline-flex items-center gap-1 text-primary hover:underline"
                 >
                   Repository
-                  <Github className="h-3 w-3" />
+                  <ExternalLink className="h-3 w-3" />
                 </a>
                 {' '}— full source. File issues if you find a problem.
               </li>
@@ -310,20 +309,23 @@ export default function SecurityPage() {
               Disclosure and contact
             </h2>
             <p className="text-xs">
-              If you find a security issue, please disclose it responsibly.
-              Open an issue on the{' '}
+              If you find a security issue, please disclose it responsibly —
+              do not open a public issue. Email{' '}
               <a
-                href={REPO_URL + '/issues'}
+                href="mailto:hello@usequantive.app"
+                className="text-primary hover:underline"
+              >
+                hello@usequantive.app
+              </a>
+              {' '}or use a{' '}
+              <a
+                href={REPO_URL + '/security/advisories/new'}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary hover:underline"
               >
-                repository
-              </a>{' '}
-              or contact us via the link in the{' '}
-              <Link to="/privacy" className="text-primary hover:underline">
-                Privacy Policy
-              </Link>
+                GitHub private advisory
+              </a>
               .
             </p>
           </section>
