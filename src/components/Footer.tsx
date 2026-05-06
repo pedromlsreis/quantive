@@ -4,7 +4,7 @@ export function Footer() {
   return (
     <footer className="sticky bottom-0 z-40 border-t border-border bg-background py-3 text-center text-xs text-muted-foreground/50 tracking-wide">
       <p>
-        © {new Date().getFullYear()} Quantive — All rights reserved.
+        <span className="whitespace-nowrap">© {new Date().getFullYear()} Quantive — All rights reserved.</span>
         <span className="mx-1.5">·</span>
         <Link to="/privacy" className="transition-colors hover:text-primary">Privacy</Link>
         <span className="mx-1.5">·</span>
