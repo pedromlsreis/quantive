@@ -205,8 +205,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   //
   // Gated on keySession.status: while 'locked' we defer the load until the
   // user unlocks (otherwise we'd try to decrypt without a DK). Once status
-  // flips to either 'unlocked-encrypted' or 'unlocked-legacy', this effect
-  // re-fires and the load proceeds.
+  // flips to 'unlocked-encrypted', this effect re-fires and the load proceeds.
   useEffect(() => {
     if (!user) return;
     if (keySession.status === 'locked') return;

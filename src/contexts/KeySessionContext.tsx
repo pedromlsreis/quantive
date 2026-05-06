@@ -19,7 +19,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { toast } from 'sonner';
 import { ready, sodium } from '@/lib/crypto/sodium';
 import {
   detectAndUnlock,
@@ -27,7 +26,6 @@ import {
   rewrapDataKey,
   setupRecoveryCode,
   supabaseKeyStore,
-  supabaseSnapshotStore,
 } from '@/lib/keySession';
 import { useAuth } from './AuthContext';
 
@@ -114,7 +112,6 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
             userId,
             passwordBytes,
             supabaseKeyStore,
-            supabaseSnapshotStore,
           );
           // Replace any prior keys defensively before installing new ones.
           if (kekRef.current) sodium.memzero(kekRef.current);
@@ -134,14 +131,6 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
             setHasRecovery(null); // unknown; UI defaults to "may offer"
           }
 
-          // Spec §11: surface a one-time toast when a legacy user has just
-          // been migrated. The toast id makes it idempotent across re-renders.
-          if (result.migrated) {
-            toast.success('Your data is now end-to-end encrypted.', {
-              id: 'e2e-migration-complete',
-              duration: 6000,
-            });
-          }
           return { error: null };
         } finally {
           sodium.memzero(passwordBytes);
@@ -170,11 +159,6 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
     }
     previousUserIdRef.current = currentUserId;
   }, [user?.id, lock]);
-
-  // Legacy users are migrated on unlock, so there is no longer a
-  // passive auto-resolve path. Every authenticated 'locked' state requires
-  // a password — RequireUnlock prompts, detectAndUnlock decides whether to
-  // unwrap, provision, or provision-and-migrate.
 
   // Best-effort lock on tab close. JS provides no guarantee here, but it
   // raises the bar against trivial memory inspection.

@@ -22,26 +22,6 @@ export function isTransientError(err: unknown): boolean {
 }
 
 /**
- * Plaintext upsert (legacy v0 path). Used only by 'unlocked-legacy' sessions
- * — encrypted users go through `upsertEncryptedSnapshot` instead.
- *
- * Throws on supabase error so callers have one error path to handle.
- */
-export async function upsertSnapshot(
-  client: SupabaseClient,
-  userId: string,
-  portfolioData: PortfolioData,
-): Promise<void> {
-  const { error } = await client
-    .from('portfolio_snapshots')
-    .upsert(
-      { user_id: userId, data: portfolioData as never },
-      { onConflict: 'user_id' },
-    );
-  if (error) throw error;
-}
-
-/**
  * Encrypted upsert (v1 path). Serializes portfolioData to JSON bytes,
  * encrypts under the user's DK with a fresh nonce, and writes
  * (encrypted_data, nonce, enc_version=1, data=NULL) to the snapshot row.
@@ -62,8 +42,6 @@ export async function upsertEncryptedSnapshot(
     .upsert(
       {
         user_id: userId,
-        // Explicitly NULL data so the CHECK invariant holds even if the
-        // row was previously v0 plaintext (legacy lazy migration).
         data: null,
         encrypted_data: bytesToBytea(enc.ciphertext) as unknown as never,
         nonce: bytesToBytea(enc.nonce) as unknown as never,
@@ -79,21 +57,13 @@ export async function upsertEncryptedSnapshot(
  * for the load path. Only the fields we care about.
  */
 export interface SnapshotRow {
-  data: unknown | null;            // legacy plaintext (any JSON shape)
+  data: unknown | null;
   encrypted_data: string | null;   // PostgREST hex-bytea
   nonce: string | null;            // PostgREST hex-bytea (24 bytes)
-  enc_version: number;             // 0 or 1
+  enc_version: number;
 }
 
-/**
- * Result of a successful load. `kind: 'plaintext'` returns the raw JSON-
- * parsed object (legacy v0 row). `kind: 'encrypted'` returns the decrypted
- * JSON-parsed object. The shape of `data` is not validated here — that's
- * the caller's job (date parsing, etc.).
- */
-export type LoadedSnapshot =
-  | { kind: 'plaintext'; data: unknown }
-  | { kind: 'encrypted'; data: unknown };
+export type LoadedSnapshot = { kind: 'encrypted'; data: unknown };
 
 /**
  * Load + decrypt-if-needed a single snapshot row. Pure decoding, no I/O —
@@ -108,13 +78,6 @@ export async function decodeSnapshot(
   row: SnapshotRow,
   args: { userId: string; dataKey: Uint8Array | null },
 ): Promise<LoadedSnapshot> {
-  if (row.enc_version === 0) {
-    if (row.data === null || row.data === undefined) {
-      throw new Error('row marked v0 but data is null');
-    }
-    return { kind: 'plaintext', data: row.data };
-  }
-
   if (row.enc_version === ENC_VERSION) {
     if (!row.encrypted_data || !row.nonce) {
       throw new Error('row marked v1 but encrypted_data or nonce is null');
@@ -134,12 +97,12 @@ export async function decodeSnapshot(
   }
 
   throw new Error(
-    `unsupported snapshot enc_version: ${row.enc_version} (this build supports 0 and ${ENC_VERSION})`,
+    `unsupported snapshot enc_version: ${row.enc_version} (this build supports ${ENC_VERSION})`,
   );
 }
 
 export interface AttemptCloudSyncDeps {
-  /** The actual upsert. Tests substitute a mock; production passes upsertSnapshot bound to the supabase client. */
+  /** The actual upsert. Tests substitute a mock; production passes upsertEncryptedSnapshot bound to the supabase client. */
   upsert: (payload: PortfolioData) => Promise<void>;
   /** Returns true while this attempt is still the latest. Stale attempts must no-op. */
   isLatest: () => boolean;

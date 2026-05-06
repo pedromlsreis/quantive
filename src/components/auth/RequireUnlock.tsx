@@ -3,8 +3,7 @@
  * (e.g., page reload). Spec: docs/security/encryption.md §8.3.
  *
  * Captures the password and calls keySession.unlock(). On success, the
- * provider transitions to 'unlocked-encrypted' (or 'unlocked-legacy' if
- * the user is pre-encryption) and this modal dismounts.
+ * provider transitions to 'unlocked-encrypted' and this modal dismounts.
  */
 
 import { useState } from 'react';

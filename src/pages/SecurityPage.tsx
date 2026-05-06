@@ -288,21 +288,6 @@ export default function SecurityPage() {
             </ul>
           </section>
 
-          {/* What happens to legacy data */}
-          <section>
-            <h2 className="mb-3 text-lg font-semibold text-foreground">
-              If you used the app before we shipped encryption
-            </h2>
-            <p>
-              Existing accounts that pre-date the encryption rollout had their
-              portfolio data stored as plaintext in the database. The first
-              time you sign in after the rollout, your data is migrated:
-              encryption keys are provisioned from your password, your
-              existing portfolio is re-encrypted, and the plaintext column
-              is cleared. You'll see a confirmation toast when this happens.
-            </p>
-          </section>
-
           {/* Legal stuff */}
           <section className="rounded-xl border border-border bg-card/50 p-5">
             <h2 className="mb-2 text-sm font-semibold text-foreground">

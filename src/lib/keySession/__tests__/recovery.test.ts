@@ -20,7 +20,7 @@ import {
   rewrapDataKey,
   setupRecoveryCode,
 } from '../ops';
-import type { KeyStore, SnapshotStore, UserKeysRow } from '../types';
+import type { KeyStore, UserKeysRow } from '../types';
 
 const USER = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -70,20 +70,11 @@ class InMemoryKeyStore implements KeyStore {
   }
 }
 
-class NullSnapshotStore implements SnapshotStore {
-  async getLegacyPlaintext() {
-    return null;
-  }
-  async upsertEncrypted() {
-    /* no-op */
-  }
-}
-
 async function provisionUser(
   keyStore: InMemoryKeyStore,
   password = utf8('p@ss'),
 ) {
-  return await detectAndUnlock(USER, password, keyStore, new NullSnapshotStore());
+  return await detectAndUnlock(USER, password, keyStore);
 }
 
 describe('setupRecoveryCode', () => {
@@ -180,7 +171,6 @@ describe('recoverAndRewrap', () => {
       USER,
       newPassword,
       keyStore,
-      new NullSnapshotStore(),
     );
     expect(Array.from(reUnlocked.dk)).toEqual(Array.from(session.dk));
   }, 60_000);
@@ -287,13 +277,12 @@ describe('rewrapDataKey (change-password flow)', () => {
       USER,
       newPassword,
       keyStore,
-      new NullSnapshotStore(),
     );
     expect(Array.from(reUnlocked.dk)).toEqual(Array.from(session.dk));
 
     // Sign in with the OLD password fails — the wrap no longer accepts it.
     await expect(
-      detectAndUnlock(USER, oldPassword, keyStore, new NullSnapshotStore()),
+      detectAndUnlock(USER, oldPassword, keyStore),
     ).rejects.toThrow();
   }, 90_000);
 

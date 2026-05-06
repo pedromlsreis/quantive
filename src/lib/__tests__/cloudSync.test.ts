@@ -1,6 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { isTransientError, upsertSnapshot } from '@/lib/cloudSync';
-import type { PortfolioData } from '@/lib/types';
+import { describe, it, expect } from 'vitest';
+import { isTransientError } from '@/lib/cloudSync';
 
 describe('isTransientError', () => {
   it('returns false for null/undefined', () => {
@@ -38,36 +37,3 @@ describe('isTransientError', () => {
   });
 });
 
-describe('upsertSnapshot', () => {
-  const samplePayload: PortfolioData = {
-    facts: [],
-    refSources: [],
-  };
-
-  function makeMockClient(upsertResult: { error: unknown }) {
-    const upsert = vi.fn().mockResolvedValue(upsertResult);
-    const from = vi.fn().mockReturnValue({ upsert });
-    return { client: { from } as never, from, upsert };
-  }
-
-  it('calls upsert on portfolio_snapshots with the right payload + onConflict', async () => {
-    const { client, from, upsert } = makeMockClient({ error: null });
-    await upsertSnapshot(client, 'user-123', samplePayload);
-    expect(from).toHaveBeenCalledWith('portfolio_snapshots');
-    expect(upsert).toHaveBeenCalledWith(
-      { user_id: 'user-123', data: samplePayload },
-      { onConflict: 'user_id' },
-    );
-  });
-
-  it('throws when supabase returns an error', async () => {
-    const supabaseErr = { message: 'permission denied', status: 403 };
-    const { client } = makeMockClient({ error: supabaseErr });
-    await expect(upsertSnapshot(client, 'u', samplePayload)).rejects.toBe(supabaseErr);
-  });
-
-  it('resolves cleanly when supabase returns no error', async () => {
-    const { client } = makeMockClient({ error: null });
-    await expect(upsertSnapshot(client, 'u', samplePayload)).resolves.toBeUndefined();
-  });
-});

@@ -10,7 +10,6 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   decodeSnapshot,
   upsertEncryptedSnapshot,
-  upsertSnapshot,
   type SnapshotRow,
 } from '@/lib/cloudSync';
 import { generateDataKey } from '@/lib/crypto';
@@ -115,30 +114,6 @@ describe('upsertEncryptedSnapshot', () => {
 });
 
 describe('decodeSnapshot', () => {
-  it('passes through legacy v0 plaintext rows', async () => {
-    const row: SnapshotRow = {
-      data: { facts: [], refSources: [] },
-      encrypted_data: null,
-      nonce: null,
-      enc_version: 0,
-    };
-    const result = await decodeSnapshot(row, { userId: USER, dataKey: null });
-    expect(result.kind).toBe('plaintext');
-    expect(result.data).toEqual({ facts: [], refSources: [] });
-  });
-
-  it('throws if v0 row has null data', async () => {
-    const row: SnapshotRow = {
-      data: null,
-      encrypted_data: null,
-      nonce: null,
-      enc_version: 0,
-    };
-    await expect(
-      decodeSnapshot(row, { userId: USER, dataKey: null }),
-    ).rejects.toThrow(/v0 but data is null/);
-  });
-
   it('throws if v1 row missing encrypted_data or nonce', async () => {
     const row: SnapshotRow = {
       data: null,
@@ -212,15 +187,3 @@ describe('decodeSnapshot', () => {
   });
 });
 
-describe('upsertSnapshot (legacy plaintext path)', () => {
-  it('still works for the legacy v0 path', async () => {
-    const upsert = vi.fn().mockResolvedValue({ error: null });
-    const from = vi.fn().mockReturnValue({ upsert });
-    const client = { from } as never;
-    await upsertSnapshot(client, USER, SAMPLE);
-    expect(upsert).toHaveBeenCalledWith(
-      { user_id: USER, data: SAMPLE },
-      { onConflict: 'user_id' },
-    );
-  });
-});
