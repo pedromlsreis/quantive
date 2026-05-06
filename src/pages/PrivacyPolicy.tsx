@@ -56,7 +56,7 @@ export default function PrivacyPolicy() {
           <p>We use the following third-party services:</p>
           <ul className="list-disc pl-6 space-y-1">
             <li><strong>Stripe</strong> — for payment processing. Stripe's privacy policy applies to payment data.</li>
-            <li><strong>Lovable Cloud</strong> — for hosting, authentication, and database services.</li>
+            <li><strong>Supabase</strong> — for authentication and database services.</li>
           </ul>
 
           <h2>6. Data Retention</h2>
