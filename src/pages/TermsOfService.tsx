@@ -92,14 +92,14 @@ export default function TermsOfService() {
 
           <h2>12. Contact</h2>
           <p>
-            For questions about these Terms, contact us via{' '}
+            For questions about this Privacy Policy, contact us at{' '}
             <a
-              href="https://www.linkedin.com/in/pedrom-reis/"
+              href="mailto:hello@usequantive.app"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              LinkedIn
+              hello@usequantive.app
             </a>.
           </p>
         </div>

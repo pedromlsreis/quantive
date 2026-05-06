@@ -89,14 +89,14 @@ export default function PrivacyPolicy() {
 
           <h2>10. Contact</h2>
           <p>
-            For questions about this Privacy Policy, contact us via{' '}
+            For questions about this Privacy Policy, contact us at{' '}
             <a
-              href="https://www.linkedin.com/in/pedrom-reis/"
+              href="mailto:hello@usequantive.app"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              LinkedIn
+              hello@usequantive.app
             </a>.
           </p>
         </div>
