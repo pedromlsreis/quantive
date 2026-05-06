@@ -89,6 +89,8 @@ export interface KPIData {
   sourceCount: number;
   /** Percentage of net worth in volatile assets. */
   volatilePercent: number;
+  /** False when all sources have an unknown volatility type, making volatilePercent unreliable. */
+  volatilityDataAvailable: boolean;
   /** Percentage of net worth in liquid assets. */
   liquidPercent: number;
 }

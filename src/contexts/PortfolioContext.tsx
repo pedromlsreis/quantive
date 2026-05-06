@@ -72,6 +72,7 @@ const defaultKpis: KPIData = {
   yoyChange: 0,
   yoyNetWorth: 0,
   sourceCount: 0,
+  volatilityDataAvailable: false,
   volatilePercent: 0,
   liquidPercent: 0,
 };
@@ -579,6 +580,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const yoyNetWorth = yoySnapshot ? yoySnapshot.total : 0;
 
     const sourceCount = latest.sources.length;
+    const volatilityDataAvailable = latest.sources.some(s => s.volatType.toLowerCase() !== 'unknown');
     const volatileTotal = latest.sources
       .filter(s => s.volatType.toLowerCase().includes('volatile') && !s.volatType.toLowerCase().includes('non'))
       .reduce((sum, s) => sum + s.value, 0);
@@ -590,6 +592,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       yoyChange,
       yoyNetWorth,
       sourceCount,
+      volatilityDataAvailable,
       volatilePercent: currentNetWorth > 0 ? (volatileTotal / currentNetWorth) * 100 : 0,
       liquidPercent: currentNetWorth > 0 ? (liquidTotal / currentNetWorth) * 100 : 0,
     };

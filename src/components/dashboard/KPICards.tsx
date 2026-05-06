@@ -78,7 +78,7 @@ export function KPICards() {
         label="Liquid Assets"
         value={`${kpis.liquidPercent.toFixed(0)}%`}
         icon={<Droplets className="h-4 w-4 text-primary" />}
-        subtitle={`${kpis.volatilePercent.toFixed(0)}% volatile`}
+        subtitle={kpis.volatilityDataAvailable ? `${kpis.volatilePercent.toFixed(0)}% volatile` : 'volatility data unavailable'}
         formula="Liquid % = total value of transferable-in-days sources ÷ net worth × 100. Volatile % same logic for volatile-type sources."
       />
     </div>

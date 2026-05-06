@@ -91,6 +91,74 @@ describe('buildSnapshots', () => {
   });
 });
 
+/** Mirror of the KPI computation in PortfolioContext. */
+function computeKpis(snapshots: Snapshot[]): Pick<KPIData, 'volatilePercent' | 'volatilityDataAvailable' | 'liquidPercent'> {
+  if (snapshots.length === 0) return { volatilePercent: 0, volatilityDataAvailable: false, liquidPercent: 0 };
+  const latest = snapshots[snapshots.length - 1];
+  const currentNetWorth = latest.total;
+  const volatilityDataAvailable = latest.sources.some(s => s.volatType.toLowerCase() !== 'unknown');
+  const volatileTotal = latest.sources
+    .filter(s => s.volatType.toLowerCase().includes('volatile') && !s.volatType.toLowerCase().includes('non'))
+    .reduce((sum, s) => sum + s.value, 0);
+  const liquidTotal = latest.sources.filter(s => s.isLiquid).reduce((sum, s) => sum + s.value, 0);
+  return {
+    volatilityDataAvailable,
+    volatilePercent: currentNetWorth > 0 ? (volatileTotal / currentNetWorth) * 100 : 0,
+    liquidPercent: currentNetWorth > 0 ? (liquidTotal / currentNetWorth) * 100 : 0,
+  };
+}
+
+describe('computeKpis', () => {
+  it('reports volatilityDataAvailable=true and non-zero volatilePercent with known volatility types', () => {
+    const data = generateMockData();
+    const snapshots = buildSnapshots(enrichFacts(data));
+    const kpis = computeKpis(snapshots);
+
+    expect(kpis.volatilityDataAvailable).toBe(true);
+    expect(kpis.volatilePercent).toBeGreaterThan(0);
+  });
+
+  it('reports volatilityDataAvailable=false and 0% volatile when all sources have Unknown volatility', () => {
+    const snapshot: Snapshot = {
+      date: new Date(),
+      total: 1000,
+      sources: [
+        { name: 'A', value: 600, volatType: 'Unknown', isLiquid: true },
+        { name: 'B', value: 400, volatType: 'Unknown', isLiquid: false },
+      ],
+    };
+    const kpis = computeKpis([snapshot]);
+
+    expect(kpis.volatilityDataAvailable).toBe(false);
+    expect(kpis.volatilePercent).toBe(0);
+  });
+
+  it('counts Highly Volatile as volatile and Non-Volatile as non-volatile', () => {
+    const snapshot: Snapshot = {
+      date: new Date(),
+      total: 1000,
+      sources: [
+        { name: 'A', value: 200, volatType: 'Highly Volatile', isLiquid: true },
+        { name: 'B', value: 300, volatType: 'Volatile', isLiquid: true },
+        { name: 'C', value: 500, volatType: 'Non-Volatile', isLiquid: false },
+      ],
+    };
+    const kpis = computeKpis([snapshot]);
+
+    expect(kpis.volatilityDataAvailable).toBe(true);
+    expect(kpis.volatilePercent).toBeCloseTo(50, 5); // (200+300)/1000 * 100
+  });
+
+  it('returns 0% liquid when no sources are liquid', () => {
+    const snapshot: Snapshot = {
+      date: new Date(),
+      total: 500,
+      sources: [{ name: 'A', value: 500, volatType: 'Non-Volatile', isLiquid: false }],
+    };
+    expect(computeKpis([snapshot]).liquidPercent).toBe(0);
+  });
+});
+
 describe('filter logic', () => {
   it('filters by liquid status', () => {
     const data = generateMockData();
