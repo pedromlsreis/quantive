@@ -66,7 +66,7 @@ export default function LandingPage() {
         </div>
 
         {/* live allocation preview (mock data) */}
-        <div className="relative z-10 mx-auto mt-16 w-full max-w-4xl text-left">
+        <div className="relative z-10 mx-auto mt-24 w-full max-w-4xl text-left">
           <div className="animate-hero-glow-slow absolute -inset-4 rounded-2xl bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 blur-2xl" />
           <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 sm:p-6">
             <AllocationChartsView snapshots={previewSnapshots} fmt={fmt} fmtFull={fmtFull} />
