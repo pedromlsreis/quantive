@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { X, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
@@ -29,6 +31,8 @@ function saveDraft(entries: SourceEntry[]) {
 
 export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { data, addMeasurement } = usePortfolio();
+  const { currency } = useCurrency();
+  const navigate = useNavigate();
 
   const [entries, setEntries] = useState<SourceEntry[]>(() => {
     if (data && data.facts.length > 0) {
@@ -176,8 +180,18 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
             </button>
 
             <h2 className="mb-1 text-lg font-bold text-foreground">Add New Measurement</h2>
-            <p className="mb-5 text-sm text-muted-foreground">
+            <p className="mb-1 text-sm text-muted-foreground">
               Record your balances for {today}. All sources from your latest snapshot are pre-filled.
+            </p>
+            <p className="mb-5 text-sm text-muted-foreground">
+              Values are in{' '}
+              <span className="font-medium text-foreground">{currency.code} ({currency.symbol})</span>.{' '}
+              <button
+                onClick={() => { onOpenChange(false); navigate('/settings'); }}
+                className="underline underline-offset-2 hover:text-foreground transition-colors"
+              >
+                Change in preferences
+              </button>
             </p>
 
             {validationError && (
