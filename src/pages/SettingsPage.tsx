@@ -9,7 +9,7 @@ import { Footer } from '@/components/Footer';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { RecoveryCodeDisplay } from '@/components/auth/RecoveryCodeDisplay';
 import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { HelpHint } from '@/components/ui/help-hint';
 import {
   Pencil,
   Check,
@@ -532,27 +532,31 @@ function SourcesSection({ refSources, onUpdate }: SourcesSectionProps) {
         )}
       </p>
 
-      <TooltipProvider delayDuration={150}>
-        <div className="mb-2 flex items-center gap-2 px-0.5 text-xs font-medium text-muted-foreground">
-          <span className="flex-1">Source</span>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="w-40 cursor-help underline decoration-dotted underline-offset-4">Volatility</span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
-              Free-text classification of how much this source's value fluctuates. Use any label you like (e.g. <span className="font-mono">Stable</span>, <span className="font-mono">Volatile</span>, <span className="font-mono">Highly Volatile</span>). Leave blank for Unknown. Drives the "% volatile" KPI.
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="w-14 cursor-help text-center underline decoration-dotted underline-offset-4">Liquid</span>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
-              Whether this source can be transferred to cash within a few days (e.g. a savings account vs. a pension plan). Drives the "% liquid" KPI.
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </TooltipProvider>
+      <div className="mb-2 flex items-center gap-2 px-0.5 text-xs font-medium text-muted-foreground">
+        <span className="flex-1">Source</span>
+        <HelpHint
+          maxWidthClass="max-w-[280px]"
+          content={<>Free-text classification of how much this source's value fluctuates. Use any label you like (e.g. <span className="font-mono">Stable</span>, <span className="font-mono">Volatile</span>, <span className="font-mono">Highly Volatile</span>). Leave blank for Unknown. Drives the "% volatile" KPI.</>}
+        >
+          <button
+            type="button"
+            className="w-40 cursor-help text-left underline decoration-dotted underline-offset-4 focus:outline-none focus:text-foreground"
+          >
+            Volatility
+          </button>
+        </HelpHint>
+        <HelpHint
+          maxWidthClass="max-w-[280px]"
+          content={<>Whether this source can be transferred to cash within a few days (e.g. a savings account vs. a pension plan). Drives the "% liquid" KPI.</>}
+        >
+          <button
+            type="button"
+            className="w-14 cursor-help text-center underline decoration-dotted underline-offset-4 focus:outline-none focus:text-foreground"
+          >
+            Liquid
+          </button>
+        </HelpHint>
+      </div>
 
       <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-1">
         {sorted.map(s => (

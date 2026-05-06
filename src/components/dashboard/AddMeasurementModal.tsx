@@ -5,7 +5,7 @@ import { useCurrency } from '@/contexts/CurrencyContext';
 import { X, Plus, Trash2, Settings } from 'lucide-react';
 import { format } from 'date-fns';
 import { Switch } from '@/components/ui/switch';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { HelpHint } from '@/components/ui/help-hint';
 import { sanitizeSourceName } from '@/lib/utils';
 
 interface SourceEntry {
@@ -211,88 +211,86 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
               </div>
             )}
 
-            <TooltipProvider delayDuration={150}>
-              <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
-                {entries.map((entry, index) => (
-                  <div
-                    key={index}
-                    className="rounded-lg border border-border bg-secondary/30 p-2.5"
-                  >
-                    {/* Primary row: name + value + delete */}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={entry.name}
-                        onChange={e => handleChange(index, 'name', e.target.value)}
-                        placeholder="Source name"
-                        disabled={entry.isSeeded}
-                        className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-60"
-                      />
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={entry.value}
-                        onChange={e => handleChange(index, 'value', e.target.value)}
-                        placeholder="0"
-                        className="w-24 shrink-0 rounded-md border border-border bg-card px-3 py-1.5 text-right text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20 sm:w-28"
-                      />
-                      <button
-                        onClick={() => handleRemoveSource(index)}
-                        disabled={entry.isSeeded}
-                        className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-30"
-                        title={entry.isSeeded ? "Cannot remove pre-filled source" : "Remove source"}
+            <div className="max-h-[60vh] space-y-2 overflow-y-auto pr-1">
+              {entries.map((entry, index) => (
+                <div
+                  key={index}
+                  className="rounded-lg border border-border bg-secondary/30 p-2.5"
+                >
+                  {/* Primary row: name + value + delete */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={entry.name}
+                      onChange={e => handleChange(index, 'name', e.target.value)}
+                      placeholder="Source name"
+                      disabled={entry.isSeeded}
+                      className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-60"
+                    />
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={entry.value}
+                      onChange={e => handleChange(index, 'value', e.target.value)}
+                      placeholder="0"
+                      className="w-24 shrink-0 rounded-md border border-border bg-card px-3 py-1.5 text-right text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20 sm:w-28"
+                    />
+                    <button
+                      onClick={() => handleRemoveSource(index)}
+                      disabled={entry.isSeeded}
+                      className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-30"
+                      title={entry.isSeeded ? "Cannot remove pre-filled source" : "Remove source"}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Metadata row: volatility + liquid */}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 pl-0.5">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <HelpHint
+                        content={<>Free-text label for how much this source's value fluctuates (e.g. <span className="font-mono">Stable</span>, <span className="font-mono">Volatile</span>). Drives the "% volatile" KPI. Leave blank for Unknown.</>}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                        <button
+                          type="button"
+                          className="shrink-0 cursor-help text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-4 focus:outline-none focus:text-foreground"
+                        >
+                          Volatility
+                        </button>
+                      </HelpHint>
+                      <input
+                        type="text"
+                        value={entry.volatType}
+                        onChange={e => handleChange(index, 'volatType', e.target.value)}
+                        placeholder={entry.isSeeded ? '—' : 'e.g. Volatile'}
+                        disabled={entry.isSeeded}
+                        title={entry.isSeeded ? 'Edit volatility from Settings → Sources' : undefined}
+                        className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-border focus:bg-card focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-60"
+                      />
                     </div>
 
-                    {/* Metadata row: volatility + liquid */}
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 pl-0.5">
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <label className="shrink-0 cursor-help text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-4">
-                              Volatility
-                            </label>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
-                            Free-text label for how much this source's value fluctuates (e.g. <span className="font-mono">Stable</span>, <span className="font-mono">Volatile</span>). Drives the "% volatile" KPI. Leave blank for Unknown.
-                          </TooltipContent>
-                        </Tooltip>
-                        <input
-                          type="text"
-                          value={entry.volatType}
-                          onChange={e => handleChange(index, 'volatType', e.target.value)}
-                          placeholder={entry.isSeeded ? '—' : 'e.g. Volatile'}
-                          disabled={entry.isSeeded}
-                          title={entry.isSeeded ? 'Edit volatility from Settings → Sources' : undefined}
-                          className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-foreground placeholder:text-muted-foreground/50 focus:border-border focus:bg-card focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-60"
-                        />
-                      </div>
-
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <label className="cursor-help text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-4">
-                              Liquid
-                            </label>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
-                            Whether this source can be transferred to cash within a few days (e.g. savings account vs. pension plan). Drives the "% liquid" KPI.
-                          </TooltipContent>
-                        </Tooltip>
-                        <Switch
-                          checked={entry.isLiquid}
-                          onCheckedChange={() => handleToggleLiquid(index)}
-                          disabled={entry.isSeeded}
-                          className="scale-90"
-                        />
-                      </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <HelpHint
+                        content={<>Whether this source can be transferred to cash within a few days (e.g. savings account vs. pension plan). Drives the "% liquid" KPI.</>}
+                      >
+                        <button
+                          type="button"
+                          className="cursor-help text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-4 focus:outline-none focus:text-foreground"
+                        >
+                          Liquid
+                        </button>
+                      </HelpHint>
+                      <Switch
+                        checked={entry.isLiquid}
+                        onCheckedChange={() => handleToggleLiquid(index)}
+                        disabled={entry.isSeeded}
+                        className="scale-90"
+                      />
                     </div>
                   </div>
-                ))}
-              </div>
-            </TooltipProvider>
+                </div>
+              ))}
+            </div>
 
             <button
               onClick={handleAddSource}

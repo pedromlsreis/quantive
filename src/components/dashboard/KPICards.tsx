@@ -2,7 +2,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { TrendingUp, TrendingDown, Wallet, BarChart3, Coins, Droplets } from 'lucide-react';
 import { formatPercent } from '@/lib/formatters';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { HelpHint } from '@/components/ui/help-hint';
 
 interface KPICardProps {
   label: string;
@@ -14,8 +14,8 @@ interface KPICardProps {
 }
 
 function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps) {
-  const card = (
-    <div className="rounded-xl border border-border bg-card p-5 transition-colors hover:bg-card/80">
+  const inner = (
+    <>
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">{label}</p>
         <div className="rounded-lg bg-primary/10 p-2">{icon}</div>
@@ -28,20 +28,26 @@ function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps
         </div>
       )}
       {subtitle && <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>}
-    </div>
+    </>
   );
 
-  if (!formula) return card;
+  if (!formula) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80">
+        {inner}
+      </div>
+    );
+  }
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>{card}</TooltipTrigger>
-        <TooltipContent side="bottom" className="max-w-[280px] text-xs leading-relaxed">
-          {formula}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <HelpHint side="bottom" maxWidthClass="max-w-[280px]" content={formula}>
+      <button
+        type="button"
+        className="rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary/30"
+      >
+        {inner}
+      </button>
+    </HelpHint>
   );
 }
 
