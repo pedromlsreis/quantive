@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Footer } from '@/components/Footer';
 import { StickyNav } from '@/components/landing/StickyNav';
@@ -16,6 +17,7 @@ import {
   ShieldCheck,
   KeyRound,
   RotateCcw,
+  Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -33,6 +35,7 @@ export default function SettingsPage() {
   const { user, signOut, updatePassword } = useAuth();
   const keySession = useKeySession();
   const { clearData } = usePortfolio();
+  const { currency, setCurrency, allCurrencies } = useCurrency();
   const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -53,10 +56,7 @@ export default function SettingsPage() {
   const [submittingPassword, setSubmittingPassword] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/');
-      return;
-    }
+    if (!user) return;
     supabase
       .from('profiles')
       .select('display_name')
@@ -65,7 +65,7 @@ export default function SettingsPage() {
       .then(({ data }) => {
         if (data) setDisplayName(data.display_name);
       });
-  }, [user, navigate]);
+  }, [user]);
 
   const handleSave = async () => {
     if (!user || !draft.trim()) return;
@@ -169,8 +169,6 @@ export default function SettingsPage() {
     }
   };
 
-  if (!user) return null;
-
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <StickyNav />
@@ -187,6 +185,7 @@ export default function SettingsPage() {
         <h1 className="mb-8 text-2xl font-bold text-foreground">Settings</h1>
 
         {/* Profile section */}
+        {user && (
         <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
           <h2 className="mb-4 text-base font-semibold text-foreground">Profile</h2>
 
@@ -243,8 +242,39 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+        )}
+
+        {/* Preferences */}
+        <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
+          <div className="mb-4 flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-primary" />
+            <h2 className="text-base font-semibold text-foreground">Preferences</h2>
+          </div>
+
+          <div>
+            <label htmlFor="currency-select" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Display currency
+            </label>
+            <p className="mb-2 text-xs text-muted-foreground/80">
+              All balances are shown in this currency. Source values must already be in this currency — no conversion is applied.
+            </p>
+            <select
+              id="currency-select"
+              value={currency.code}
+              onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+              className="w-full max-w-xs rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+            >
+              {allCurrencies.map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.symbol === c.code ? c.code : `${c.symbol} ${c.code}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
 
         {/* Security */}
+        {user && (
         <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
           <div className="mb-4 flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-primary" />
@@ -375,8 +405,10 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+        )}
 
         {/* Danger zone */}
+        {user && (
         <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
           <h2 className="mb-2 text-base font-semibold text-destructive">Danger Zone</h2>
           <p className="mb-4 text-sm text-muted-foreground">
@@ -390,6 +422,7 @@ export default function SettingsPage() {
             Delete my account
           </button>
         </section>
+        )}
       </main>
 
       <Footer />

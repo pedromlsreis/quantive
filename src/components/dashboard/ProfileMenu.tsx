@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { LogOut, User, Settings, ChevronDown } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -12,21 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-
-const CURRENCY_LABELS: Record<CurrencyCode, string> = {
-  EUR: '€ EUR',
-  USD: '$ USD',
-  GBP: '£ GBP',
-  NOK: 'NOK',
-};
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
   const { clearData } = usePortfolio();
-  const { currency, setCurrency, allCurrencies } = useCurrency();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState<string | null>(null);
 
@@ -65,20 +54,6 @@ export function ProfileMenu() {
             <span className="truncate text-xs font-normal text-muted-foreground">{user.email}</span>
           )}
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-          Currency
-        </DropdownMenuLabel>
-        <DropdownMenuRadioGroup
-          value={currency.code}
-          onValueChange={(v) => setCurrency(v as CurrencyCode)}
-        >
-          {allCurrencies.map((c) => (
-            <DropdownMenuRadioItem key={c.code} value={c.code}>
-              {CURRENCY_LABELS[c.code]}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => navigate('/settings')}>
           <Settings className="mr-2 h-4 w-4" />
