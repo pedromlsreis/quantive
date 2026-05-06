@@ -560,16 +560,3 @@ We will state this explicitly on the public security page. Users who need protec
 | **KDF** | Key Derivation Function. Here, Argon2id. |
 | **TOFU** | Trust On First Use. The assumption that the JS delivered on the first interaction is legitimate. |
 | **XChaCha20-Poly1305** | Extended-nonce variant of ChaCha20-Poly1305 AEAD. 256-bit key, 192-bit nonce, 128-bit auth tag. |
-
----
-
-## 19. Caveat: secrets-in-repo prerequisite
-
-This design is meaningless as long as the `.env` file containing Supabase keys is committed to the repository. While the repo remains private and the keys are anon-tier (designed to be present in the client bundle), the immediate risk is low. **Before the repo is made public, and before the encryption feature is announced**, we must:
-
-1. Rotate the Supabase anon and service-role keys.
-2. Move secrets out of the repo into the host's environment-variable mechanism (couples to [#37](https://github.com/pedromlsreis/quantive/issues/37)).
-3. Scrub git history of any committed secrets (`git filter-repo` or BFG).
-4. Add `.env*` to `.gitignore`.
-
-Shipping E2E encryption while production secrets sit in committed history would be a credibility-destroying contradiction.
