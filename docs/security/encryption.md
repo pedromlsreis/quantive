@@ -517,7 +517,6 @@ Out of scope for v1, tracked separately:
 - **PAKE-based authentication** (OPAQUE / SRP-6a) so the password is never sent to the server even for auth. Eliminates the "Supabase auth sees password" caveat. Requires replacing Supabase auth or layering custom auth.
 - **Third-party security audit** by a recognized firm (Trail of Bits, NCC Group, Cure53). Targeted at the crypto module + auth flow. Funded post-revenue.
 - **"Wipe and start fresh"** flow for users who forget their password AND skipped the recovery code. Currently they're stuck (can reset password via email but the at-rest wrap stays unrecoverable). Needs an edge-function path to delete `user_keys` + `portfolio_snapshots` under service role.
-- **Pinned IETF KAT vector** for XChaCha20-Poly1305. Today the AEAD test uses the IETF draft inputs (key/nonce/plaintext/AAD) and asserts deterministic round-trip; a manual cross-implementation byte comparison against the official draft text is still TODO. Tracked inline in [aead.test.ts](../../src/lib/crypto/__tests__/aead.test.ts).
 
 ---
 

@@ -33,18 +33,8 @@ function utf8(s: string): Uint8Array {
   return new TextEncoder().encode(s);
 }
 
-// Inputs from draft-irtf-cfrg-xchacha-03 §A.3.1.
-//
-// TODO(crypto): pin the exact ciphertext + tag from the IETF draft once a
-// human has verified the bytes against the official document text. Until
-// then we test:
-//   (a) encrypt is deterministic for fixed inputs (basic regression),
-//   (b) decrypt round-trips encrypt's output (functional correctness),
-//   (c) round-trip succeeds end-to-end on the published inputs.
-// This catches primitive misselection (e.g. accidentally calling AES-GCM)
-// and AAD-handling regressions, but does NOT cross-validate the
-// XChaCha20-Poly1305 implementation against the IETF reference until the
-// expected ciphertext is pinned.
+// KAT from draft-irtf-cfrg-xchacha-03 §A.3.1. Cross-validates our
+// XChaCha20-Poly1305 binding against the IETF reference output byte-for-byte.
 const VECTOR = {
   plaintext: utf8(
     "Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.",
@@ -58,10 +48,21 @@ const VECTOR = {
     40 41 42 43 44 45 46 47 48 49 4a 4b 4c 4d 4e 4f
     50 51 52 53 54 55 56 57
   `),
+  ciphertext: hex(`
+    bd 6d 17 9d 3e 83 d4 3b 95 76 57 94 93 c0 e9 39
+    57 2a 17 00 25 2b fa cc be d2 90 2c 21 39 6c bb
+    73 1c 7f 1b 0b 4a a6 44 0b f3 a8 2f 4e da 7e 39
+    ae 64 c6 70 8c 54 c2 16 cb 96 b7 2e 12 13 b4 52
+    2f 8c 9b a4 0d b5 d9 45 b1 1b 69 b9 82 c1 bb 9e
+    3f 3f ac 2b c3 69 48 8f 76 b2 38 35 65 d3 ff f9
+    21 f9 66 4c 97 63 7d a9 76 88 12 f6 15 c6 8b 13
+    b5 2e
+  `),
+  tag: hex('c0 87 59 24 c1 c7 98 79 47 de af d8 78 0a cf 49'),
 };
 
-describe('AEAD: XChaCha20-Poly1305 — IETF draft inputs (round-trip)', () => {
-  it('round-trips the IETF reference inputs', async () => {
+describe('AEAD: XChaCha20-Poly1305 — IETF draft KAT', () => {
+  it('matches the IETF reference ciphertext and tag byte-for-byte', async () => {
     const ct = await encrypt({
       key: VECTOR.key,
       nonce: VECTOR.nonce,
@@ -69,6 +70,11 @@ describe('AEAD: XChaCha20-Poly1305 — IETF draft inputs (round-trip)', () => {
       aad: VECTOR.aad,
     });
     expect(ct.length).toBe(VECTOR.plaintext.length + AEAD_TAG_BYTES);
+
+    const body = ct.subarray(0, VECTOR.plaintext.length);
+    const tag = ct.subarray(VECTOR.plaintext.length);
+    expect(Array.from(body)).toEqual(Array.from(VECTOR.ciphertext));
+    expect(Array.from(tag)).toEqual(Array.from(VECTOR.tag));
 
     const pt = await decrypt({
       key: VECTOR.key,
