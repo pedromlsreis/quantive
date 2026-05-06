@@ -57,7 +57,8 @@ export function NetWorthChart() {
     }
   }
 
-  const interval = Math.max(1, Math.floor(chartData.length / 12));
+  // ~6 labels on mobile, ~12 on desktop — reduced to avoid overlap when tilted
+  const interval = Math.max(1, Math.floor(chartData.length / 6));
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload || !Array.isArray(payload) || payload.length === 0) return null;
@@ -76,7 +77,7 @@ export function NetWorthChart() {
       <h3 className="mb-4 text-sm font-medium text-muted-foreground">Net Worth Over Time</h3>
       <div className="h-[320px]" style={{ overflow: 'visible' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 35, right: 30, left: 10, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 35, right: 30, left: 10, bottom: 40 }}>
             <defs>
               <linearGradient id="netWorthGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={PRIMARY_COLOR} stopOpacity={0.25} />
@@ -84,7 +85,7 @@ export function NetWorthChart() {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
-            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} interval={interval} tickMargin={8} />
+            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} interval={interval} tickMargin={8} angle={-40} textAnchor="end" />
             <YAxis stroke={AXIS_COLOR} fontSize={11} tickFormatter={(v) => fmt(v)} width={70} />
             <Tooltip content={<CustomTooltip />} />
             <Area type="monotone" dataKey="total" stroke={PRIMARY_COLOR} fill="url(#netWorthGradient)" strokeWidth={2} dot={false} activeDot={{ r: 4, fill: PRIMARY_COLOR }} />

@@ -88,7 +88,7 @@ export function ForecastChart() {
     });
   });
 
-  const interval = Math.max(1, Math.floor(chartData.length / 12));
+  const interval = Math.max(1, Math.floor(chartData.length / 6));
 
   const ForecastTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload || !Array.isArray(payload) || payload.length === 0) return null;
@@ -147,7 +147,7 @@ export function ForecastChart() {
       </div>
       <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData}>
+          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 40 }}>
             <defs>
               <linearGradient id="actualForecastGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={PRIMARY_COLOR} stopOpacity={0.2} />
@@ -159,7 +159,7 @@ export function ForecastChart() {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
-            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} interval={interval} tickMargin={8} />
+            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} interval={interval} tickMargin={8} angle={-40} textAnchor="end" />
             <YAxis stroke={AXIS_COLOR} fontSize={11} tickFormatter={(v) => fmt(v)} width={70} />
             <Tooltip content={<ForecastTooltip />} />
             <Area type="monotone" dataKey="upper" stroke="none" fill={POSITIVE_COLOR} fillOpacity={0.08} dot={false} connectNulls={false} activeDot={false} />

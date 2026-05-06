@@ -67,9 +67,9 @@ export function StackedAreaChart() {
       <h3 className="mb-4 text-sm font-medium text-muted-foreground">Source Breakdown Over Time</h3>
       <div className="h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 0 }}>
+          <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
-            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} />
+            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} interval="preserveStartEnd" angle={-40} textAnchor="end" tickMargin={8} />
             <YAxis stroke={AXIS_COLOR} fontSize={11} tickFormatter={(v) => fmt(v)} />
             <Tooltip content={<CustomTooltip />} />
             {sortedSources.map((name, i) => (
