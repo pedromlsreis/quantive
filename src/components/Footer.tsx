@@ -14,9 +14,6 @@ export function Footer() {
         <span className="mx-1.5">·</span>
         <Link to="/impressum" className="transition-colors hover:text-primary">Impressum</Link>
       </p>
-      <p className="mt-1 text-[10px] text-muted-foreground/30">
-        Not financial advice. For informational purposes only. Consult a qualified financial advisor before making investment decisions.
-      </p>
     </footer>
   );
 }
