@@ -500,7 +500,7 @@ The encryption module (`src/lib/crypto/`) is licensed permissively (planned: MIT
 The module will:
 
 - Have **no I/O**: pure functions only. Database calls and network calls happen in higher layers.
-- Ship with **Known Answer Test (KAT) vectors** from RFC 8439 (ChaCha20-Poly1305) and RFC 9106 (Argon2id) executed in the test suite.
+- Ship with **Known Answer Test (KAT) vectors** from draft-irtf-cfrg-xchacha (XChaCha20-Poly1305 §A.3.1) and RFC 9106 (Argon2id) executed in the test suite.
 - Ship with a **fuzz target** (decryption with random ciphertexts, expecting failure) to catch accidental oracles.
 - Be **unit-tested at >95% line coverage**.
 
