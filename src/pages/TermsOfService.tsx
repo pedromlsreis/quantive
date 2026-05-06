@@ -52,7 +52,29 @@ export default function TermsOfService() {
             handled on a case-by-case basis.
           </p>
 
-          <h2>6. Data Ownership</h2>
+          <h2>6. Right of Withdrawal (Widerrufsrecht)</h2>
+          <p>
+            If you are a consumer within the European Union, you have the right to withdraw
+            from this contract within <strong>14 days</strong> without giving any reason.
+            The withdrawal period begins on the date your subscription is confirmed.
+          </p>
+          <p>
+            <strong>Waiver of the right of withdrawal for digital services:</strong> By
+            completing your subscription purchase, you expressly request that we begin
+            providing the Service immediately. You acknowledge that you thereby lose your
+            right of withdrawal once performance of the Service has begun.
+          </p>
+          <p>
+            If you wish to exercise your right of withdrawal before the Service has started,
+            notify us in writing at{' '}
+            <a href="mailto:hello@usequantive.app" className="text-primary hover:underline">
+              hello@usequantive.app
+            </a>{' '}
+            within the 14-day period. Upon a valid withdrawal, we will refund all payments
+            received from you without undue delay.
+          </p>
+
+          <h2>7. Data Ownership</h2>
           <p>
             You retain full ownership of your portfolio data. We do not claim any rights
             over your uploaded content. You can export or delete your data at any time.
