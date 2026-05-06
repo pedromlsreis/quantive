@@ -14,9 +14,9 @@ export default function Impressum() {
           <h2>Quantive</h2>
 
           <p>
-            <strong>Operated by:</strong>
+            <strong>Business form:</strong> Einzelunternehmen
             <br />
-            Pedro Miguel Lima de Sousa Reis
+            <strong>Inhaber:</strong> Pedro Miguel Lima de Sousa Reis
             <br />
             Lützowstraße 31
             <br />
@@ -32,7 +32,13 @@ export default function Impressum() {
             </a>
           </p>
 
+          {/* TODO: Add USt-IdNr. once available */}
+          {/* <p><strong>USt-IdNr.:</strong> DE-XXXXXXX</p> */}
+
           <h2>Verantwortlich gemäß § 5 TMG:</h2>
+          <p>Pedro Miguel Lima de Sousa Reis</p>
+
+          <h2>Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV:</h2>
           <p>Pedro Miguel Lima de Sousa Reis</p>
         </div>
       </main>
