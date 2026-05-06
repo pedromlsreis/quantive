@@ -1,8 +1,6 @@
-# Hacker News launch — draft
+# Hacker News launch
 
-Status: **draft** — review and edit before posting.
-
-This file is tracked in git so the post can be iterated on with feedback. Not deployed.
+Status: **draft**
 
 ---
 
@@ -16,16 +14,9 @@ This file is tracked in git so the post can be iterated on with feedback. Not de
 
 ---
 
-## Title (pick one)
+## Title
 
-Primary candidate (recommended):
-
-> **Show HN: A personal finance app where the server can't read your data**
-
-Alternatives if the first doesn't land in `Show HN`:
-
-- Show HN: End-to-end encrypted personal finance tracker (no bank sync)
-- Show HN: I built E2E encryption into a personal finance app — design doc + code
+**Show HN: A personal finance app where the server can't read your data**
 
 ---
 
@@ -62,10 +53,9 @@ Alternatives if the first doesn't land in `Show HN`:
 ### Pre-flight checklist (do these BEFORE submitting)
 
 - [ ] **Repo is public.** Confirm `gh repo view --json visibility` returns `PUBLIC`.
-- [ ] **`.env` is removed from git AND history is scrubbed.** `git log --all -- .env` should be empty. Use `git filter-repo` if needed. Rotate Supabase anon key after.
-- [ ] **All Supabase keys rotated** since the codebase has been reviewed externally.
-- [ ] **Custom domain live.** `quantive.app` reads as low-effort to HN; ideally post with the owned domain (#37). If the domain isn't ready, post anyway — the encryption story is what carries.
-- [ ] **README pinned at top of repo** has a one-paragraph encryption summary linking to `docs/security/encryption.md`. HN visitors land on the README; surface the story there.
+- [x] **`.env` is removed from git AND history is scrubbed.** `git log --all -- .env` should be empty. Use `git filter-repo` if needed. Rotate Supabase anon key after.
+- [x] **All Supabase keys rotated** since the codebase has been reviewed externally.
+- [x] **README pinned at top of repo** has a one-paragraph encryption summary linking to `docs/security/encryption.md`. HN visitors land on the README; surface the story there.
 - [ ] **One canonical HN-friendly screenshot** in the README — recovery code modal, settings security panel, or threat-model excerpt. Not a marketing hero.
 - [ ] **Open issues triaged.** Anything embarrassing on the issue tracker should either be fixed, hidden, or have a clear acknowledgment in the OP.
 - [ ] **Status page / contact.** Have a way for security reports to reach you (link in `/security` page).
