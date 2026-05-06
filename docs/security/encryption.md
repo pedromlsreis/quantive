@@ -495,7 +495,7 @@ We will publish exactly this list on the public privacy / security page so users
 
 ## 14. Open-source posture
 
-The encryption module (`src/lib/crypto/`) is licensed permissively (planned: MIT, matching the rest of the repo if applicable) and is intended to be reviewed in isolation. It contains no Quantive-specific business logic — it is a thin wrapper over libsodium with explicit AAD framing.
+The encryption module (`src/lib/crypto/`) is licensed under the MIT License (see [`src/lib/crypto/LICENSE`](../../src/lib/crypto/LICENSE)) and is intended to be reviewed in isolation. It contains no Quantive-specific business logic — it is a thin wrapper over libsodium with explicit AAD framing. The rest of the repository is licensed under the PolyForm Noncommercial License 1.0.0.
 
 The module will:
 
