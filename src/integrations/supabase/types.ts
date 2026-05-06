@@ -101,18 +101,21 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          preferred_currency: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           display_name?: string | null
           id?: string
+          preferred_currency?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           display_name?: string | null
           id?: string
+          preferred_currency?: string | null
           user_id?: string
         }
         Relationships: []

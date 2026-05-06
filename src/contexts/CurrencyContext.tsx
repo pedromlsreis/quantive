@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type CurrencyCode = 'EUR' | 'USD' | 'GBP' | 'NOK';
 
@@ -31,19 +33,62 @@ export function useCurrency() {
 
 const STORAGE_KEY = 'preferred-currency';
 
+function isCurrencyCode(value: unknown): value is CurrencyCode {
+  return typeof value === 'string' && value in CURRENCIES;
+}
+
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [code, setCode] = useState<CurrencyCode>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved && saved in CURRENCIES) return saved as CurrencyCode;
+      if (isCurrencyCode(saved)) return saved;
     } catch {}
     return 'EUR';
   });
 
+  // Avoid re-fetching the profile on every re-render once we've adopted it for this user.
+  const hydratedForUserRef = useRef<string | null>(null);
+
+  // Profile wins on sign-in: pull preferred_currency and adopt it locally.
+  useEffect(() => {
+    if (!user) {
+      hydratedForUserRef.current = null;
+      return;
+    }
+    if (hydratedForUserRef.current === user.id) return;
+    hydratedForUserRef.current = user.id;
+
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('preferred_currency')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const remote = data?.preferred_currency;
+      if (isCurrencyCode(remote)) {
+        setCode(remote);
+        try { localStorage.setItem(STORAGE_KEY, remote); } catch {}
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
+
   const setCurrency = useCallback((c: CurrencyCode) => {
     setCode(c);
-    localStorage.setItem(STORAGE_KEY, c);
-  }, []);
+    try { localStorage.setItem(STORAGE_KEY, c); } catch {}
+    if (user) {
+      supabase
+        .from('profiles')
+        .update({ preferred_currency: c })
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) console.error('Failed to persist preferred currency:', error);
+        });
+    }
+  }, [user]);
 
   return (
     <CurrencyContext.Provider value={{ currency: CURRENCIES[code], setCurrency, allCurrencies: Object.values(CURRENCIES) }}>
