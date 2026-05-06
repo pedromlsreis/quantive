@@ -1,13 +1,19 @@
 import { useRef, useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { FileSpreadsheet, Upload, X, Download, Plus } from 'lucide-react';
+import { FileSpreadsheet, Upload, X, Download, Plus, MoreHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { HowToUse } from './HowToUse';
 import { AuthButton } from './AuthButton';
-import { CurrencySelector } from './CurrencySelector';
 import { exportPortfolioExcel } from '@/lib/exporter';
 import { AddMeasurementModal } from './AddMeasurementModal';
 import { SyncIndicator } from './SyncIndicator';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,14 +23,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
 export function DashboardHeader() {
   const { data, clearData, loadFile, snapshots } = usePortfolio();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false); // Confirmation dialog for clear button
-  const [addModalOpen, setAddModalOpen] = useState(false); // Add measurement modal
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   const lastUpdated = snapshots.length > 0
     ? format(snapshots[snapshots.length - 1].date, 'd MMM yyyy')
@@ -38,7 +43,7 @@ export function DashboardHeader() {
 
   return (
     <header className="flex flex-col gap-3 border-b border-border px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <a href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
+      <a href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
           <FileSpreadsheet className="h-5 w-5 text-primary" />
         </div>
@@ -53,10 +58,7 @@ export function DashboardHeader() {
       </a>
       <div className="flex flex-wrap items-center gap-2">
         <SyncIndicator />
-        <AuthButton />
-        <CurrencySelector />
-        <HowToUse />
-        
+
         <button
           onClick={() => setAddModalOpen(true)}
           className="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
@@ -65,35 +67,48 @@ export function DashboardHeader() {
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">New</span>
         </button>
-        
-        {data && (
-          <button
-            onClick={handleExport}
-            className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
-            title="Export your data back to Excel"
-          >
-            <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Export</span>
-          </button>
-        )}
-        <button
-          onClick={() => inputRef.current?.click()}
-          className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-secondary/80"
-        >
-          <Upload className="h-4 w-4" />
-          <span className="hidden sm:inline">Change File</span>
-          <span className="sm:hidden">File</span>
-        </button>
-        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-          <AlertDialogTrigger asChild>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
-              onClick={() => setConfirmOpen(true)}
-              className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2 text-sm text-destructive transition-colors hover:bg-secondary/80"
+              className="flex items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-label="More actions"
+              title="More actions"
             >
-              <X className="h-4 w-4" />
-              Clear
+              <MoreHorizontal className="h-4 w-4" />
             </button>
-          </AlertDialogTrigger>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            {data && (
+              <>
+                <DropdownMenuItem onSelect={handleExport}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
+            <DropdownMenuItem onSelect={() => inputRef.current?.click()}>
+              <Upload className="mr-2 h-4 w-4" />
+              Change file
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                setConfirmOpen(true);
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <X className="mr-2 h-4 w-4" />
+              Clear data
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <HowToUse />
+        <AuthButton />
+
+        <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Clear all data?</AlertDialogTitle>
@@ -126,7 +141,7 @@ export function DashboardHeader() {
             if (file) loadFile(file);
           }}
         />
-      </div>      
+      </div>
       <AddMeasurementModal open={addModalOpen} onOpenChange={setAddModalOpen} />
     </header>
   );

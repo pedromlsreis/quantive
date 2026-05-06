@@ -31,12 +31,11 @@ export function HowToUse() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center justify-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
+        className="flex items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         aria-label="How to use"
+        title="How to use"
       >
         <HelpCircle className="h-4 w-4" />
-        <span className="hidden sm:inline">How to use</span>
-        <span className="sm:hidden">Help</span>
       </button>
 
       {open && (
