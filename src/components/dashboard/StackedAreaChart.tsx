@@ -62,6 +62,8 @@ export function StackedAreaChart() {
     );
   };
 
+  const interval = Math.max(1, Math.floor(data.length / 6));
+
   return (
     <div className="rounded-xl border border-border bg-card p-6" role="img" aria-label="Stacked area chart showing how each financial source contributes to total net worth over time">
       <h3 className="mb-4 text-sm font-medium text-muted-foreground">Source Breakdown Over Time</h3>
@@ -69,7 +71,7 @@ export function StackedAreaChart() {
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
-            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} interval="preserveStartEnd" angle={-40} textAnchor="end" tickMargin={8} />
+            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} interval={interval} angle={-40} textAnchor="end" tickMargin={8} />
             <YAxis stroke={AXIS_COLOR} fontSize={11} tickFormatter={(v) => fmt(v)} />
             <Tooltip content={<CustomTooltip />} />
             {sortedSources.map((name, i) => (
