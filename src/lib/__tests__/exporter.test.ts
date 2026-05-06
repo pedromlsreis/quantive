@@ -33,9 +33,9 @@ function mockDownload() {
 }
 
 describe('downloadExcelTemplate', () => {
-  it('triggers a file download with the correct filename', () => {
+  it('triggers a file download with the correct filename', async () => {
     const mock = mockDownload();
-    downloadExcelTemplate();
+    await downloadExcelTemplate();
     expect(mock.clicks).toContain('portfolio_template.xlsx');
     mock.restore();
   });
@@ -52,16 +52,16 @@ describe('exportPortfolioExcel', () => {
     ],
   };
 
-  it('triggers a download with default filename', () => {
+  it('triggers a download with default filename', async () => {
     const mock = mockDownload();
-    exportPortfolioExcel(sampleData);
+    await exportPortfolioExcel(sampleData);
     expect(mock.clicks).toContain('portfolio_export.xlsx');
     mock.restore();
   });
 
-  it('uses a custom filename when provided', () => {
+  it('uses a custom filename when provided', async () => {
     const mock = mockDownload();
-    exportPortfolioExcel(sampleData, 'custom.xlsx');
+    await exportPortfolioExcel(sampleData, 'custom.xlsx');
     expect(mock.clicks).toContain('custom.xlsx');
     mock.restore();
   });

@@ -4,8 +4,73 @@
  * Supports flexible header matching (case-insensitive, accent-stripped).
  */
 
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { FactRow, RefSource, PortfolioData } from './types';
+
+/**
+ * Normalize ExcelJS cell values to primitives. ExcelJS returns rich objects
+ * for hyperlinks, formulas, errors, and rich text — flatten them so downstream
+ * code only deals with strings, numbers, booleans, Dates, null, or undefined.
+ */
+function cellValue(v: unknown): unknown {
+  if (v === null || v === undefined) return v;
+  if (v instanceof Date) return v;
+  if (typeof v !== 'object') return v;
+  const obj = v as Record<string, unknown>;
+  if ('richText' in obj && Array.isArray(obj.richText)) {
+    return obj.richText.map((rt: { text?: string }) => rt.text ?? '').join('');
+  }
+  if ('text' in obj) return obj.text;
+  if ('result' in obj) return obj.result;
+  if ('error' in obj) return null;
+  return v;
+}
+
+/**
+ * Convert an ExcelJS worksheet to a 2D array of rows. Empty rows are preserved
+ * as `[]` so row indices line up with sheet row numbers (minus 1).
+ */
+function sheetToArrays(worksheet: ExcelJS.Worksheet): unknown[][] {
+  const out: unknown[][] = [];
+  const lastRow = worksheet.actualRowCount;
+  for (let r = 1; r <= lastRow; r++) {
+    const row = worksheet.getRow(r);
+    const cells: unknown[] = [];
+    // ExcelJS row.values is 1-indexed (index 0 is metadata); slice it.
+    const values = row.values as unknown[];
+    for (let c = 1; c < values.length; c++) {
+      cells.push(cellValue(values[c]));
+    }
+    out.push(cells);
+  }
+  return out;
+}
+
+/**
+ * Convert an ExcelJS worksheet to a list of objects keyed by the first row's
+ * header cells. Mirrors the shape that `xlsx.utils.sheet_to_json(sheet)`
+ * produced previously.
+ */
+function sheetToObjects(worksheet: ExcelJS.Worksheet): Record<string, unknown>[] {
+  const rows = sheetToArrays(worksheet);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => (h == null ? '' : String(h)));
+  const out: Record<string, unknown>[] = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const obj: Record<string, unknown> = {};
+    let hasValue = false;
+    for (let c = 0; c < headers.length; c++) {
+      const key = headers[c];
+      if (!key) continue;
+      const val = row[c];
+      obj[key] = val;
+      if (val !== undefined && val !== null && val !== '') hasValue = true;
+    }
+    if (hasValue) out.push(obj);
+  }
+  return out;
+}
 
 /**
  * Convert an Excel date value to a JS Date.
@@ -108,12 +173,17 @@ function extractTableRows(
  * @param buffer - The raw ArrayBuffer of the .xlsx file.
  * @throws Error if no valid data is found.
  */
-export function parsePortfolioExcel(buffer: ArrayBuffer): PortfolioData {
-  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+export async function parsePortfolioExcel(buffer: ArrayBuffer): Promise<PortfolioData> {
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer);
+
+  if (workbook.worksheets.length === 0) {
+    throw new Error('Workbook contains no sheets');
+  }
 
   // Parse fact sheet (first sheet)
-  const factSheet = workbook.Sheets[workbook.SheetNames[0]];
-  const factRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(factSheet);
+  const factSheet = workbook.worksheets[0];
+  const factRows = sheetToObjects(factSheet);
 
   if (factRows.length === 0) throw new Error('No data found in the first sheet');
 
@@ -125,22 +195,24 @@ export function parsePortfolioExcel(buffer: ArrayBuffer): PortfolioData {
     }))
     .filter(f => f.idSource && !isNaN(f.sourceVl) && !isNaN(f.date.getTime()));
 
-  // Parse ref sheet
-  const refSheetName = workbook.SheetNames.find(n => n.toLowerCase() === 'ref') || workbook.SheetNames[1];
-  if (!refSheetName) throw new Error('Reference sheet "ref" not found');
+  // Parse ref sheet — prefer one named "ref" (case-insensitive), else fall back
+  // to the second sheet. Returns no refSources if neither yields a match.
+  const refSheet =
+    workbook.worksheets.find(ws => ws.name.toLowerCase() === 'ref') ??
+    workbook.worksheets[1];
 
-  const refSheet = workbook.Sheets[refSheetName];
-  const refRows: unknown[][] = XLSX.utils.sheet_to_json(refSheet, { header: 1 });
-
-  // Find REF_SOURCES table
-  const sourcesTable = findTableData(refRows, ['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS']);
-  const refSources: RefSource[] = sourcesTable
-    ? extractTableRows(refRows, sourcesTable.headerRow, sourcesTable.colIndices).map(r => ({
+  let refSources: RefSource[] = [];
+  if (refSheet) {
+    const refRows = sheetToArrays(refSheet);
+    const sourcesTable = findTableData(refRows, ['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS']);
+    if (sourcesTable) {
+      refSources = extractTableRows(refRows, sourcesTable.headerRow, sourcesTable.colIndices).map(r => ({
         idSource: String(r['ID_SOURCE']).trim(),
         volatType: String(r['VOLAT_TYPE']).trim(),
         transferableInDays: parseBoolean(r['TRANSFERABLE_IN_DAYS']),
-      }))
-    : [];
+      }));
+    }
+  }
 
   if (facts.length === 0) throw new Error('No valid fact records found');
 

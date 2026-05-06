@@ -30,10 +30,10 @@ export function DashboardHeader() {
     ? format(snapshots[snapshots.length - 1].date, 'd MMM yyyy')
     : null;
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!data) return;
     const timestamp = format(new Date(), 'yyyy-MM-dd');
-    exportPortfolioExcel(data, `portfolio_${timestamp}.xlsx`);
+    await exportPortfolioExcel(data, `portfolio_${timestamp}.xlsx`);
   };
 
   return (

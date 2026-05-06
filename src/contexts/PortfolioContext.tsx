@@ -319,7 +319,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const buffer = await file.arrayBuffer();
-      const parsed = parsePortfolioExcel(buffer);
+      const parsed = await parsePortfolioExcel(buffer);
       setData(parsed);
       setIsMockData(false);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));

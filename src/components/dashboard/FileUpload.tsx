@@ -95,7 +95,7 @@ export function FileUpload() {
               {/* Tertiary actions */}
               <div className="mt-3 flex w-full gap-2">
                 <button
-                  onClick={downloadExcelTemplate}
+                  onClick={() => { void downloadExcelTemplate(); }}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 >
                   <Download className="h-3.5 w-3.5" />

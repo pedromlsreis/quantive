@@ -1,13 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import * as XLSX from 'xlsx';
-
-// We can't monkey-patch XLSX.write, so instead we spy on Blob/URL and
-// just verify the template function runs without errors and triggers download.
-// For content verification, we replicate the template logic inline.
+import ExcelJS from 'exceljs';
+import { buildTemplateWorkbook, downloadExcelTemplate } from '@/lib/templateGenerator';
 
 describe('downloadExcelTemplate', () => {
   it('triggers a download', async () => {
-    // Mock DOM APIs
     const clickSpy = vi.fn();
     const origCreate = document.createElement.bind(document);
     document.createElement = ((tag: string) => {
@@ -21,47 +17,44 @@ describe('downloadExcelTemplate', () => {
     URL.createObjectURL = vi.fn(() => 'blob:mock');
     URL.revokeObjectURL = vi.fn();
 
-    const { downloadExcelTemplate } = await import('@/lib/templateGenerator');
-    downloadExcelTemplate();
+    await downloadExcelTemplate();
 
     expect(clickSpy).toHaveBeenCalledOnce();
 
-    // Cleanup
     document.createElement = origCreate;
   });
 });
 
 describe('template content structure', () => {
-  // Directly build the same workbook the template generates to verify structure
-  it('facts sheet has DATE, ID_SOURCE, SOURCE_VL headers with example data', () => {
-    const wb = XLSX.utils.book_new();
-    const factsData = [
-      ['DATE', 'ID_SOURCE', 'SOURCE_VL'],
-      [new Date(2024, 0, 1), 'Savings Account', 15000],
-      [new Date(2024, 0, 1), 'ETF World', 25000],
-      [new Date(2024, 1, 1), 'Savings Account', 15100],
-      [new Date(2024, 1, 1), 'ETF World', 25400],
-    ];
-    const sheet = XLSX.utils.aoa_to_sheet(factsData);
-    XLSX.utils.book_append_sheet(wb, sheet, 'facts');
+  it('facts sheet has DATE, ID_SOURCE, SOURCE_VL headers with example data', async () => {
+    const buf = await buildTemplateWorkbook();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
 
-    const rows: any[][] = XLSX.utils.sheet_to_json(wb.Sheets['facts'], { header: 1 });
-    expect(rows[0]).toEqual(['DATE', 'ID_SOURCE', 'SOURCE_VL']);
-    expect(rows.length).toBe(5); // header + 4 data rows
+    const factsSheet = wb.getWorksheet('facts');
+    expect(factsSheet).toBeDefined();
+
+    const headerRow = factsSheet!.getRow(1);
+    expect(headerRow.getCell(1).value).toBe('DATE');
+    expect(headerRow.getCell(2).value).toBe('ID_SOURCE');
+    expect(headerRow.getCell(3).value).toBe('SOURCE_VL');
+
+    expect(factsSheet!.actualRowCount).toBe(5); // header + 4 data rows
   });
 
-  it('ref sheet has ID_SOURCE, VOLAT_TYPE, TRANSFERABLE_IN_DAYS headers', () => {
-    const wb = XLSX.utils.book_new();
-    const refData = [
-      ['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS'],
-      ['Savings Account', 'Non-Volatile', true],
-      ['ETF World', 'Volatile', true],
-    ];
-    const sheet = XLSX.utils.aoa_to_sheet(refData);
-    XLSX.utils.book_append_sheet(wb, sheet, 'ref');
+  it('ref sheet has ID_SOURCE, VOLAT_TYPE, TRANSFERABLE_IN_DAYS headers', async () => {
+    const buf = await buildTemplateWorkbook();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
 
-    const rows: any[][] = XLSX.utils.sheet_to_json(wb.Sheets['ref'], { header: 1 });
-    expect(rows[0]).toEqual(['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS']);
-    expect(rows.length).toBe(3);
+    const refSheet = wb.getWorksheet('ref');
+    expect(refSheet).toBeDefined();
+
+    const headerRow = refSheet!.getRow(1);
+    expect(headerRow.getCell(1).value).toBe('ID_SOURCE');
+    expect(headerRow.getCell(2).value).toBe('VOLAT_TYPE');
+    expect(headerRow.getCell(3).value).toBe('TRANSFERABLE_IN_DAYS');
+
+    expect(refSheet!.actualRowCount).toBe(3); // header + 2 data rows
   });
 });

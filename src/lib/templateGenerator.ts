@@ -4,7 +4,39 @@
  * with example data to guide users on the expected format.
  */
 
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+
+/**
+ * Build the template workbook bytes. Pure function — no DOM, no I/O. Exported
+ * so tests can verify the structure without intercepting the download flow.
+ */
+export async function buildTemplateWorkbook(): Promise<ArrayBuffer> {
+  const wb = new ExcelJS.Workbook();
+
+  // Facts sheet with example rows
+  const factsSheet = wb.addWorksheet('facts');
+  factsSheet.columns = [
+    { header: 'DATE', key: 'date', width: 14 },
+    { header: 'ID_SOURCE', key: 'idSource', width: 20 },
+    { header: 'SOURCE_VL', key: 'sourceVl', width: 14 },
+  ];
+  factsSheet.addRow({ date: new Date(2024, 0, 1), idSource: 'Savings Account', sourceVl: 15000 });
+  factsSheet.addRow({ date: new Date(2024, 0, 1), idSource: 'ETF World', sourceVl: 25000 });
+  factsSheet.addRow({ date: new Date(2024, 1, 1), idSource: 'Savings Account', sourceVl: 15100 });
+  factsSheet.addRow({ date: new Date(2024, 1, 1), idSource: 'ETF World', sourceVl: 25400 });
+
+  // Ref sheet with sources reference table
+  const refSheet = wb.addWorksheet('ref');
+  refSheet.columns = [
+    { header: 'ID_SOURCE', key: 'idSource', width: 20 },
+    { header: 'VOLAT_TYPE', key: 'volatType', width: 18 },
+    { header: 'TRANSFERABLE_IN_DAYS', key: 'transferableInDays', width: 22 },
+  ];
+  refSheet.addRow({ idSource: 'Savings Account', volatType: 'Non-Volatile', transferableInDays: true });
+  refSheet.addRow({ idSource: 'ETF World', volatType: 'Volatile', transferableInDays: true });
+
+  return await wb.xlsx.writeBuffer() as ArrayBuffer;
+}
 
 /**
  * Download a pre-filled Excel template that users can populate with their own data.
@@ -13,33 +45,11 @@ import * as XLSX from 'xlsx';
  * - **facts sheet**: Example rows with DATE, ID_SOURCE, SOURCE_VL columns
  * - **ref sheet**: Example rows with ID_SOURCE, VOLAT_TYPE, TRANSFERABLE_IN_DAYS columns
  */
-export function downloadExcelTemplate(): void {
-  const wb = XLSX.utils.book_new();
-
-  // Facts sheet with example rows
-  const factsData: unknown[][] = [
-    ['DATE', 'ID_SOURCE', 'SOURCE_VL'],
-    [new Date(2024, 0, 1), 'Savings Account', 15000],
-    [new Date(2024, 0, 1), 'ETF World', 25000],
-    [new Date(2024, 1, 1), 'Savings Account', 15100],
-    [new Date(2024, 1, 1), 'ETF World', 25400],
-  ];
-  const factsSheet = XLSX.utils.aoa_to_sheet(factsData);
-  factsSheet['!cols'] = [{ wch: 14 }, { wch: 20 }, { wch: 14 }];
-  XLSX.utils.book_append_sheet(wb, factsSheet, 'facts');
-
-  // Ref sheet with sources reference table
-  const refData: unknown[][] = [
-    ['ID_SOURCE', 'VOLAT_TYPE', 'TRANSFERABLE_IN_DAYS'],
-    ['Savings Account', 'Non-Volatile', true],
-    ['ETF World', 'Volatile', true],
-  ];
-  const refSheet = XLSX.utils.aoa_to_sheet(refData);
-  refSheet['!cols'] = [{ wch: 20 }, { wch: 18 }, { wch: 22 }];
-  XLSX.utils.book_append_sheet(wb, refSheet, 'ref');
-
-  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+export async function downloadExcelTemplate(): Promise<void> {
+  const buf = await buildTemplateWorkbook();
+  const blob = new Blob([buf], {
+    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
