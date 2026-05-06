@@ -58,6 +58,68 @@ export default function SecurityPage() {
             </p>
           </section>
 
+          {/* Key hierarchy diagram */}
+          <section>
+            <h2 className="mb-4 text-lg font-semibold text-foreground">
+              How your key hierarchy works
+            </h2>
+            <div className="rounded-xl border border-border bg-card/50 p-5 font-mono text-xs leading-relaxed text-foreground/80 overflow-x-auto">
+              {/* Row 1: inputs */}
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center gap-1 min-w-[120px]">
+                  <div className="rounded border border-primary/40 bg-primary/10 px-3 py-1.5 text-center text-primary font-semibold">
+                    your password
+                  </div>
+                  <div className="text-muted-foreground text-[10px]">never sent to server</div>
+                </div>
+                <div className="flex flex-col items-center gap-1 min-w-[140px]">
+                  <div className="rounded border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-center text-amber-500 font-semibold">
+                    recovery code
+                  </div>
+                  <div className="text-muted-foreground text-[10px]">24-word BIP-39, opt-in</div>
+                </div>
+              </div>
+
+              {/* Arrows down to KDFs */}
+              <div className="flex items-start gap-4 mt-1">
+                <div className="flex flex-col items-center min-w-[120px]">
+                  <div className="text-muted-foreground">↓ Argon2id</div>
+                  <div className="rounded border border-border bg-muted/30 px-3 py-1.5 text-center">
+                    KEK
+                  </div>
+                  <div className="text-muted-foreground text-[10px]">Key Encryption Key</div>
+                </div>
+                <div className="flex flex-col items-center min-w-[140px]">
+                  <div className="text-muted-foreground">↓ Argon2id</div>
+                  <div className="rounded border border-border bg-muted/30 px-3 py-1.5 text-center">
+                    Recovery KEK
+                  </div>
+                  <div className="text-muted-foreground text-[10px]">Key Encryption Key</div>
+                </div>
+              </div>
+
+              {/* Both KEKs unwrap the same DK */}
+              <div className="mt-2 text-muted-foreground">
+                ↓ both unwrap (XSalsa20) ↓
+              </div>
+              <div className="mt-1 flex flex-col items-start gap-1">
+                <div className="rounded border border-border bg-muted/30 px-3 py-1.5 text-center min-w-[120px]">
+                  Data Key (DK)
+                </div>
+                <div className="text-muted-foreground text-[10px]">random 256-bit key, stored encrypted; rotated only on wipe</div>
+              </div>
+
+              {/* DK → ciphertext */}
+              <div className="mt-2 text-muted-foreground">↓ XChaCha20-Poly1305 + random nonce + AAD(user_id)</div>
+              <div className="mt-1 flex flex-col items-start gap-1">
+                <div className="rounded border border-green-500/40 bg-green-500/10 px-3 py-1.5 text-center min-w-[120px] text-green-600 font-semibold">
+                  ciphertext
+                </div>
+                <div className="text-muted-foreground text-[10px]">the only thing stored on the server — no keys, no plaintext</div>
+              </div>
+            </div>
+          </section>
+
           {/* What we protect against */}
           <section>
             <h2 className="mb-3 text-lg font-semibold text-foreground">

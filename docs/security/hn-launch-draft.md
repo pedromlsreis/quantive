@@ -6,6 +6,16 @@ This file is tracked in git so the post can be iterated on with feedback. Not de
 
 ---
 
+## TL;DR
+
+- Personal net-worth tracker where the server stores only ciphertext — your portfolio data never leaves your browser unencrypted.
+- Keys are derived from your password with Argon2id and never sent to the server; a full database leak reveals nothing.
+- XChaCha20-Poly1305 AEAD with per-encryption random nonces and AAD binding that ties each ciphertext to your user ID (prevents cross-user transplant attacks).
+- Optional 24-word BIP-39 recovery code wraps the same Data Key under a separate KEK so you're not locked out if you forget your password — but if you skip it and forget your password, your data is gone by design.
+- Crypto module is open source, pure (no I/O), and tested against the IETF draft KAT vector for XChaCha20-Poly1305 and at-production Argon2id parameters.
+
+---
+
 ## Title (pick one)
 
 Primary candidate (recommended):
