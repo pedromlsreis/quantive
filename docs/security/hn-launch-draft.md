@@ -50,16 +50,6 @@ Status: **draft**
 
 ## Notes for posting
 
-### Pre-flight checklist (do these BEFORE submitting)
-
-- [ ] **Repo is public.** Confirm `gh repo view --json visibility` returns `PUBLIC`.
-- [x] **`.env` is removed from git AND history is scrubbed.** `git log --all -- .env` should be empty. Use `git filter-repo` if needed. Rotate Supabase anon key after.
-- [x] **All Supabase keys rotated** since the codebase has been reviewed externally.
-- [x] **README pinned at top of repo** has a one-paragraph encryption summary linking to `docs/security/encryption.md`. HN visitors land on the README; surface the story there.
-- [ ] **One canonical HN-friendly screenshot** in the README — recovery code modal, settings security panel, or threat-model excerpt. Not a marketing hero.
-- [ ] **Open issues triaged.** Anything embarrassing on the issue tracker should either be fixed, hidden, or have a clear acknowledgment in the OP.
-- [ ] **Status page / contact.** Have a way for security reports to reach you (link in `/security` page).
-
 ### Posting tactics
 
 - **Time of day:** Tuesday–Thursday, 06:00–09:00 PT (around US east-coast morning). Avoid weekends.
