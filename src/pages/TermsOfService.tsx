@@ -80,41 +80,43 @@ export default function TermsOfService() {
             over your uploaded content. You can export or delete your data at any time.
           </p>
 
-          <h2>7. Disclaimer</h2>
+          <h2>8. Disclaimer</h2>
           <p>
             The Service is not financial advice. We do not provide investment recommendations.
             You are solely responsible for your financial decisions. The Service is provided
             without warranties of any kind, express or implied.
           </p>
 
-          <h2>8. Limitation of Liability</h2>
+          <h2>9. Limitation of Liability</h2>
           <p>
             To the maximum extent permitted by law, Quantive and its creators shall
             not be liable for any indirect, incidental, or consequential damages arising from
             your use of the Service.
           </p>
 
-          <h2>9. Termination</h2>
+          <h2>10. Termination</h2>
           <p>
             We may suspend or terminate your account if you violate these terms. You may
             delete your account at any time. Upon termination, your data will be permanently removed.
           </p>
 
-          <h2>10. Changes to These Terms</h2>
+          <h2>11. Changes to These Terms</h2>
           <p>
             We may update these terms from time to time. Continued use of the Service after
             changes constitutes acceptance. We will notify you of material changes via email.
           </p>
 
-          <h2>11. Governing Law</h2>
+          <h2>12. Governing Law</h2>
           <p>
-            These terms are governed by the laws of the European Union and applicable
-            local legislation.
+            These terms are governed by the laws of the Federal Republic of Germany,
+            excluding its conflict-of-law provisions. If you are a consumer in the EU,
+            you also benefit from mandatory protections of your country of residence.
+            The place of jurisdiction is Düsseldorf, Germany.
           </p>
 
-          <h2>12. Contact</h2>
+          <h2>13. Contact</h2>
           <p>
-            For questions about this Privacy Policy, contact us at{' '}
+            For questions about these Terms of Service, contact us at{' '}
             <a
               href="mailto:hello@usequantive.app"
               target="_blank"
