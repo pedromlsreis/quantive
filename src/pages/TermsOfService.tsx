@@ -9,7 +9,7 @@ export default function TermsOfService() {
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-20">
         <h1 className="mb-2 text-3xl font-bold text-foreground">Terms of Service</h1>
-        <p className="mb-10 text-sm text-muted-foreground">Last updated: April 10, 2026</p>
+        <p className="mb-10 text-sm text-muted-foreground">Last updated: May 6, 2026</p>
 
         <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_strong]:text-foreground">
           <h2>1. Acceptance of Terms</h2>
