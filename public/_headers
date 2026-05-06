@@ -1,0 +1,17 @@
+/*.js
+  Content-Type: application/javascript; charset=utf-8
+
+/*.mjs
+  Content-Type: application/javascript; charset=utf-8
+
+/*.css
+  Content-Type: text/css; charset=utf-8
+
+/assets/*.js
+  Content-Type: application/javascript; charset=utf-8
+
+/assets/*.mjs
+  Content-Type: application/javascript; charset=utf-8
+
+/assets/*.css
+  Content-Type: text/css; charset=utf-8
