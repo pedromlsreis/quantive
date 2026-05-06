@@ -64,7 +64,7 @@ export function ForecastChart() {
   const forecastPoints = generateForecast(snapshots, 12);
 
   const chartData: { date: string; actual: number | null; forecast: number | null; upper: number | null; lower: number | null }[] = snapshots.map(s => ({
-    date: format(s.date, 'MMM yy'),
+    date: format(s.date, 'MMM yyyy'),
     actual: Math.round(s.total),
     forecast: null,
     upper: null,
@@ -80,7 +80,7 @@ export function ForecastChart() {
 
   forecastPoints.forEach(f => {
     chartData.push({
-      date: format(f.date, 'MMM yy'),
+      date: format(f.date, 'MMM yyyy'),
       actual: null,
       forecast: Math.round(f.forecast),
       upper: Math.round(f.upper),

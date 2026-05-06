@@ -13,7 +13,7 @@ export function StackedAreaChart() {
 
   const data = snapshots.map(snap => {
     const row: Record<string, any> = {
-      date: snap.date.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' }),
+      date: snap.date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' }),
     };
     allSourceNames.forEach(name => {
       const src = snap.sources.find(s => s.name === name);
