@@ -4,7 +4,7 @@ import { ResponsiveContainer, Treemap, PieChart, Pie, Cell, Tooltip } from 'rech
 import { CHART_COLORS, TREEMAP_COLORS, TOOLTIP_BG, TOOLTIP_BORDER, AXIS_COLOR } from '@/lib/chartColors';
 import { Snapshot, SourceDetail } from '@/lib/types';
 import { Info } from 'lucide-react';
-import { UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { HelpHint } from "@/components/ui/help-hint";
 import { toTitleCase } from '@/lib/utils';
 
 function aggregateByKey(
@@ -29,16 +29,15 @@ function DonutChart({ title, data, description }: { title: string; data: { name:
     <div className="rounded-xl border border-border bg-card p-4" role="img" aria-label={`Donut chart showing ${title.toLowerCase()} breakdown`}>
       <div className="mb-2 flex items-center gap-1.5">
         <h4 className="text-sm font-medium text-muted-foreground">{title}</h4>
-        <TooltipProvider>
-          <UITooltip>
-            <TooltipTrigger asChild>
-              <Info className="h-3.5 w-3.5 cursor-help text-muted-foreground/50" />
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-[260px] text-xs leading-relaxed">
-              {description}
-            </TooltipContent>
-          </UITooltip>
-        </TooltipProvider>
+        <HelpHint side="top" content={description}>
+          <button
+            type="button"
+            aria-label="More info"
+            className="inline-flex cursor-help items-center justify-center text-muted-foreground/50 hover:text-muted-foreground focus:outline-none focus:text-foreground"
+          >
+            <Info className="h-3.5 w-3.5" />
+          </button>
+        </HelpHint>
       </div>
       <div className="h-[160px]">
         <ResponsiveContainer>
