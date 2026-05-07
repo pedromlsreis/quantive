@@ -191,7 +191,12 @@ export default function LandingPage() {
         {/* ───── PRICING ───── */}
         <section id="pricing" className="border-t border-border/30 px-6 py-20">
           <h2 className="mb-4 text-center text-3xl font-bold text-foreground">Simple, transparent pricing</h2>
-          <p className="mx-auto mb-12 max-w-lg text-center text-muted-foreground">Start free, upgrade when you're ready. End-to-end encryption is included on every tier.</p>
+          <p className="mx-auto mb-3 max-w-lg text-center text-muted-foreground">
+            Start free, upgrade when you're ready. End-to-end encryption is included on every tier.
+          </p>
+          <p className="mx-auto mb-12 max-w-xl text-center text-sm font-medium text-primary">
+            Sign up free now → get your first month of Pro on us when it launches.
+          </p>
           <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
             {/* Free */}
             <div className="rounded-xl border border-border/40 bg-card/50 p-8">
@@ -206,6 +211,7 @@ export default function LandingPage() {
                   'Excel import',
                   'Manual balance entry',
                   'End-to-end encrypted cloud sync',
+                  'Rolling 12-month history view',
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2">
                     <span className="text-accent">✓</span> {f}
@@ -225,39 +231,107 @@ export default function LandingPage() {
                 Coming Soon
               </span>
               <h3 className="text-lg font-bold text-foreground">Pro</h3>
-              <p className="mt-1 text-3xl font-extrabold text-foreground">€9<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
-              <p className="mt-1 text-xs text-muted-foreground">or €79/year (~€6.60/mo)</p>
-              <p className="mt-3 text-xs font-medium text-foreground">Everything in Free, plus:</p>
-              <ul className="mt-3 space-y-3 text-sm text-muted-foreground">
-                {[
-                  { label: 'Forecasting engine — CAGR projection with 95% confidence intervals', soon: false },
-                  { label: 'Excel & CSV export', soon: false },
-                  { label: 'PDF wealth report', soon: false },
-                  { label: 'Milestone & goal tracking', soon: true },
-                  { label: 'Benchmark comparison', soon: true },
-                  { label: 'Priority support (24h)', soon: false },
-                ].map((f) => (
-                  <li key={f.label} className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">✓</span>
-                    <span>
-                      {f.label}
-                      {f.soon && (
+              <p className="mt-1 text-3xl font-extrabold text-foreground">€69<span className="text-sm font-normal text-muted-foreground">/year</span></p>
+              <p className="mt-1 text-xs text-muted-foreground">~€5.75/mo · or €9/mo billed monthly</p>
+
+              <div className="mt-5 space-y-4 text-sm text-muted-foreground">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Know if you're on track</p>
+                  <ul className="mt-2 space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-primary">✓</span>
+                      <span>Full historical view — every snapshot since you started, charted and tabular</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-primary">✓</span>
+                      <span>Forecasting engine — CAGR projection with 95% confidence intervals</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-primary">✓</span>
+                      <span>
+                        Milestone &amp; goal tracking
                         <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                           In development
                         </span>
-                      )}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <button
-                disabled
-                className="mt-8 w-full rounded-lg bg-primary/50 py-2.5 text-center text-sm font-medium text-primary-foreground opacity-60"
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-primary">✓</span>
+                      <span>
+                        Benchmark comparison (vs. inflation, S&amp;P 500, MSCI World)
+                        <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                          In development
+                        </span>
+                      </span>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Get your data out</p>
+                  <ul className="mt-2 space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-primary">✓</span>
+                      <span>Excel &amp; CSV export</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-primary">✓</span>
+                      <span>PDF wealth report (one-page summary for advisors or annual review)</span>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Support</p>
+                  <ul className="mt-2 space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="mt-0.5 text-primary">✓</span>
+                      <span>Priority support (24h response)</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const data = new FormData(form);
+                  const email = String(data.get('email') ?? '').trim();
+                  if (!email) return;
+                  // TODO: wire to waitlist endpoint
+                  form.reset();
+                  form.querySelector<HTMLElement>('[data-waitlist-success]')?.removeAttribute('hidden');
+                }}
+                className="mt-6"
               >
-                Coming Soon
-              </button>
+                <label htmlFor="pro-waitlist" className="block text-xs font-medium text-foreground">
+                  Join the Pro waitlist
+                </label>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    id="pro-waitlist"
+                    name="email"
+                    type="email"
+                    required
+                    placeholder="you@example.com"
+                    className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
+                  >
+                    Notify me
+                  </button>
+                </div>
+                <p
+                  data-waitlist-success
+                  hidden
+                  className="mt-2 text-xs text-accent"
+                >
+                  Thanks — we'll email you when Pro launches.
+                </p>
+              </form>
               <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                Free users at launch get at least 3 months of Pro on us.
+                Existing free users get their first month of Pro on us.
               </p>
             </div>
           </div>
