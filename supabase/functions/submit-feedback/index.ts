@@ -107,12 +107,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const adminEmail = Deno.env.get("ADMIN_EMAIL");
-    if (adminEmail) {
-      console.log(
-        `[FEEDBACK] To: ${adminEmail} | Type: ${type} | From: ${userEmail ?? "anonymous"} | Message: ${message.trim()}`
-      );
-    }
+    await sendFeedbackEmail({
+      type: type.trim(),
+      message: message.trim(),
+      userId,
+      userEmail,
+    });
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -125,3 +125,62 @@ Deno.serve(async (req) => {
     });
   }
 });
+
+async function sendFeedbackEmail(params: {
+  type: string;
+  message: string;
+  userId: string | null;
+  userEmail: string | null;
+}) {
+  const apiKey = Deno.env.get("RESEND_API_KEY");
+  if (!apiKey) {
+    console.warn("[FEEDBACK_EMAIL] RESEND_API_KEY not set — skipping notification");
+    return;
+  }
+
+  const to = Deno.env.get("FEEDBACK_TO_EMAIL") || "hello@usequantive.app";
+  const from = Deno.env.get("FEEDBACK_FROM_EMAIL") || "Quantive Feedback <feedback@usequantive.app>";
+  const { type, message, userId, userEmail } = params;
+  const fromLabel = userEmail ?? (userId ? `user ${userId}` : "anonymous");
+  const subject = `[Feedback · ${type}] ${message.slice(0, 80)}${message.length > 80 ? "…" : ""}`;
+  const escape = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const html = `
+    <div style="font-family: ui-sans-serif, system-ui, sans-serif; max-width: 560px;">
+      <h2 style="margin: 0 0 12px;">New Quantive feedback</h2>
+      <p style="margin: 0 0 4px;"><strong>Type:</strong> ${escape(type)}</p>
+      <p style="margin: 0 0 4px;"><strong>From:</strong> ${escape(fromLabel)}</p>
+      ${userId ? `<p style="margin: 0 0 4px;"><strong>User ID:</strong> <code>${escape(userId)}</code></p>` : ""}
+      <hr style="margin: 16px 0; border: none; border-top: 1px solid #e5e7eb;" />
+      <pre style="white-space: pre-wrap; font-family: inherit; margin: 0;">${escape(message)}</pre>
+    </div>
+  `;
+
+  const text = `New Quantive feedback\n\nType: ${type}\nFrom: ${fromLabel}${userId ? `\nUser ID: ${userId}` : ""}\n\n${message}`;
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from,
+        to: [to],
+        subject,
+        html,
+        text,
+        reply_to: userEmail || undefined,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[FEEDBACK_EMAIL] Resend ${res.status}: ${body}`);
+    }
+  } catch (e) {
+    console.error("[FEEDBACK_EMAIL] Send failed:", e);
+  }
+}
