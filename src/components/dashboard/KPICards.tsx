@@ -40,10 +40,15 @@ function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps
   }
 
   return (
-    <HelpHint side="bottom" maxWidthClass="max-w-[280px]" content={formula}>
+    <HelpHint
+      side="bottom"
+      maxWidthClass="max-w-[280px]"
+      triggerWrapperClassName="block"
+      content={formula}
+    >
       <button
         type="button"
-        className="rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary/30"
+        className="w-full rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary/30"
       >
         {inner}
       </button>

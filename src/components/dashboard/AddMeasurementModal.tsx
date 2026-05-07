@@ -249,11 +249,12 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                   <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 pl-0.5">
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       <HelpHint
+                        triggerWrapperClassName="inline-flex shrink-0"
                         content={<>Free-text label for how much this source's value fluctuates (e.g. <span className="font-mono">Stable</span>, <span className="font-mono">Volatile</span>). Drives the "% volatile" KPI. Leave blank for Unknown.</>}
                       >
                         <button
                           type="button"
-                          className="shrink-0 cursor-help text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-4 focus:outline-none focus:text-foreground"
+                          className="cursor-help text-xs font-medium text-muted-foreground underline decoration-dotted underline-offset-4 focus:outline-none focus:text-foreground"
                         >
                           Volatility
                         </button>

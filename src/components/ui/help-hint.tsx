@@ -1,5 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 function useIsTouchPrimary() {
@@ -19,41 +18,77 @@ function useIsTouchPrimary() {
 }
 
 interface HelpHintProps {
-  /** The label/element that triggers the hint (e.g. a `<label>`). */
+  /** The label/element that triggers the hint (must be focusable, e.g. a `<button>`). */
   children: ReactNode;
   /** The explanatory content shown on hover (desktop) or tap (touch). */
   content: ReactNode;
   side?: 'top' | 'bottom' | 'left' | 'right';
-  /** Max width applied to both Tooltip and Popover bubbles. */
+  /** Max width applied to the bubble. */
   maxWidthClass?: string;
+  /** Optional classes applied to the trigger wrapper (the element that participates in flex/grid layout). */
+  triggerWrapperClassName?: string;
 }
 
 /**
- * Hover-on-desktop, tap-on-mobile help affordance. Same explanatory content,
- * different primitive depending on whether the device has a hover-capable pointer.
+ * Help affordance that opens on hover (desktop) and on tap (touch). Built on a
+ * single Radix Popover so behavior is identical across devices — we just wire
+ * pointer events on top to give desktop users a hover-to-peek experience.
  */
-export function HelpHint({ children, content, side = 'top', maxWidthClass = 'max-w-[260px]' }: HelpHintProps) {
+export function HelpHint({ children, content, side = 'top', maxWidthClass = 'max-w-[260px]', triggerWrapperClassName }: HelpHintProps) {
   const touch = useIsTouchPrimary();
+  const [open, setOpen] = useState(false);
+  const closeTimer = useRef<number | null>(null);
 
-  if (touch) {
-    return (
-      <Popover>
-        <PopoverTrigger asChild>{children}</PopoverTrigger>
-        <PopoverContent side={side} className={`${maxWidthClass} w-auto p-3 text-xs leading-relaxed`}>
-          {content}
-        </PopoverContent>
-      </Popover>
-    );
-  }
+  const cancelClose = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  const scheduleClose = (delay = 120) => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => setOpen(false), delay);
+  };
+
+  useEffect(() => () => cancelClose(), []);
+
+  // On touch devices we rely purely on tap (Popover's default click-to-open);
+  // on hover-capable devices we also open on pointer enter / close on pointer leave.
+  const hoverProps = touch
+    ? {}
+    : {
+        onPointerEnter: () => {
+          cancelClose();
+          setOpen(true);
+        },
+        onPointerLeave: () => scheduleClose(),
+        onFocus: () => {
+          cancelClose();
+          setOpen(true);
+        },
+        onBlur: () => scheduleClose(0),
+      };
 
   return (
-    <TooltipProvider delayDuration={150}>
-      <Tooltip>
-        <TooltipTrigger asChild>{children}</TooltipTrigger>
-        <TooltipContent side={side} className={`${maxWidthClass} text-xs leading-relaxed`}>
-          {content}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <span {...hoverProps} className={triggerWrapperClassName ?? 'inline-flex'}>
+          {children}
+        </span>
+      </PopoverTrigger>
+      <PopoverContent
+        side={side}
+        className={`${maxWidthClass} z-[100] w-auto p-3 text-xs leading-relaxed`}
+        onPointerEnter={touch ? undefined : cancelClose}
+        onPointerLeave={touch ? undefined : () => scheduleClose()}
+        onOpenAutoFocus={(e) => {
+          // On desktop hover, don't steal focus from underlying inputs.
+          if (!touch) e.preventDefault();
+        }}
+      >
+        {content}
+      </PopoverContent>
+    </Popover>
   );
 }
