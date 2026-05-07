@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { LogOut, User, Settings, ChevronDown } from 'lucide-react';
+import { LogOut, User, Settings, ChevronDown, Shield } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useUserRole } from '@/hooks/useUserRole';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -16,6 +17,7 @@ import {
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
   const { clearData } = usePortfolio();
+  const { isAdmin } = useUserRole();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState<string | null>(null);
 
@@ -59,6 +61,12 @@ export function ProfileMenu() {
           <Settings className="mr-2 h-4 w-4" />
           Settings
         </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem onSelect={() => navigate('/admin')}>
+            <Shield className="mr-2 h-4 w-4" />
+            Admin
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem
           onSelect={() => {
             clearData();
