@@ -271,7 +271,7 @@ export default function AdminPage() {
                     stats.subscriptions.mrrEur !== null
                       ? `~€${stats.subscriptions.mrrEur.toFixed(2)} MRR`
                       : 'MRR unavailable',
-                    stats.subscriptions.error ? `Error: ${stats.subscriptions.error}` : 'Active subscribers',
+                    stats.subscriptions.error ? `Stripe error — check secret key` : 'Active subscribers',
                   ]
                 : ['STRIPE_SECRET_KEY not set']
             }
@@ -524,7 +524,7 @@ function StatCard({ icon, title, primary, details }: StatCardProps) {
       <div className="mb-2 text-2xl font-bold text-foreground">{primary}</div>
       <ul className="space-y-0.5 text-xs text-muted-foreground">
         {details.map((d, i) => (
-          <li key={i}>{d}</li>
+          <li key={i} className="break-all">{d}</li>
         ))}
       </ul>
     </div>
