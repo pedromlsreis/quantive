@@ -10,6 +10,7 @@ import {
   ShieldOff,
   RefreshCw,
   Search,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { StickyNav } from '@/components/landing/StickyNav';
@@ -17,6 +18,16 @@ import { Footer } from '@/components/Footer';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface AdminStats {
   generatedAt: string;
@@ -88,6 +99,8 @@ export default function AdminPage() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [mutating, setMutating] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<AdminUser | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Gate. Wait for auth + role to resolve before redirecting; otherwise we
   // bounce admins out on first paint.
@@ -138,6 +151,27 @@ export default function AdminPage() {
     loadStats();
     loadUsers();
   }, [isAdmin, loadStats, loadUsers]);
+
+  const deleteUser = async (target: AdminUser) => {
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-users', {
+        method: 'POST',
+        body: { action: 'delete', userId: target.id },
+      });
+      if (error) throw error;
+      const payload = data as { ok?: boolean; error?: string };
+      if (payload?.error) throw new Error(payload.error);
+      toast.success(`Deleted ${target.email ?? target.id}.`);
+      setPendingDelete(null);
+      await loadUsers(search);
+      await loadStats();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete user.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const mutateRole = async (
     userId: string,
@@ -391,26 +425,37 @@ export default function AdminPage() {
                         )}
                       </td>
                       <td className="py-3 pr-0 text-right">
-                        {userIsAdmin ? (
+                        <div className="flex items-center justify-end gap-1.5">
+                          {userIsAdmin ? (
+                            <button
+                              disabled={isSelf || mutating === `${u.id}:admin:revoke`}
+                              onClick={() => mutateRole(u.id, 'admin', 'revoke')}
+                              title={isSelf ? 'You cannot revoke your own admin role.' : 'Revoke admin'}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+                            >
+                              <ShieldOff className="h-3.5 w-3.5" />
+                              Revoke admin
+                            </button>
+                          ) : (
+                            <button
+                              disabled={mutating === `${u.id}:admin:grant`}
+                              onClick={() => mutateRole(u.id, 'admin', 'grant')}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              <Shield className="h-3.5 w-3.5" />
+                              Make admin
+                            </button>
+                          )}
                           <button
-                            disabled={isSelf || mutating === `${u.id}:admin:revoke`}
-                            onClick={() => mutateRole(u.id, 'admin', 'revoke')}
-                            title={isSelf ? 'You cannot revoke your own admin role.' : 'Revoke admin'}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+                            disabled={isSelf}
+                            onClick={() => setPendingDelete(u)}
+                            title={isSelf ? 'You cannot delete your own account from here.' : 'Delete user'}
+                            aria-label={`Delete ${u.email ?? u.id}`}
+                            className="inline-flex items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 p-1.5 text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-30"
                           >
-                            <ShieldOff className="h-3.5 w-3.5" />
-                            Revoke admin
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
-                        ) : (
-                          <button
-                            disabled={mutating === `${u.id}:admin:grant`}
-                            onClick={() => mutateRole(u.id, 'admin', 'grant')}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-                          >
-                            <Shield className="h-3.5 w-3.5" />
-                            Make admin
-                          </button>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -422,6 +467,40 @@ export default function AdminPage() {
       </main>
 
       <Footer />
+
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setPendingDelete(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this user?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently deletes{' '}
+              <span className="font-medium text-foreground">
+                {pendingDelete?.email ?? pendingDelete?.id}
+              </span>{' '}
+              along with their portfolio snapshots, encryption keys, profile, roles,
+              and feedback rows. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDelete) deleteUser(pendingDelete);
+              }}
+              disabled={deleting}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              {deleting ? 'Deleting…' : 'Yes, delete this user'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

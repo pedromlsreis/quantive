@@ -1,6 +1,7 @@
 // Admin user management:
 //   GET    -> list users with their roles
 //   POST   -> { action: 'grant' | 'revoke', userId, role } mutate roles
+//          -> { action: 'delete', userId } permanently delete a user
 //
 // Auth: caller must be authenticated AND have role='admin' in user_roles.
 // Role mutations also re-check the `is_admin` SQL function — defense in depth.
@@ -107,8 +108,29 @@ serve(async (req) => {
       if (!body) return json({ error: "Invalid body" }, 400);
 
       const { action, userId, role } = body;
-      if (!userId || !role || !ALLOWED_ROLES.has(role)) {
-        return json({ error: "Invalid action, userId, or role" }, 400);
+      if (!userId) return json({ error: "Missing userId" }, 400);
+
+      if (action === "delete") {
+        if (userId === user.id) {
+          return json({ error: "You cannot delete your own account from here." }, 400);
+        }
+        // Mirrors the user-facing delete-account flow: clean up dependent
+        // rows first, then drop the auth user. The FK cascades would catch
+        // anything we miss, but explicit deletes make intent obvious and
+        // help if a future schema changes a cascade rule.
+        await service.from("portfolio_snapshots").delete().eq("user_id", userId);
+        await service.from("feedback").delete().eq("user_id", userId);
+        await service.from("user_roles").delete().eq("user_id", userId);
+        await service.from("user_keys").delete().eq("user_id", userId);
+        await service.from("profiles").delete().eq("user_id", userId);
+
+        const { error: delErr } = await service.auth.admin.deleteUser(userId);
+        if (delErr) return json({ error: delErr.message }, 400);
+        return json({ ok: true });
+      }
+
+      if (!role || !ALLOWED_ROLES.has(role)) {
+        return json({ error: "Invalid role" }, 400);
       }
 
       if (action === "grant") {
