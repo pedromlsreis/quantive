@@ -33,7 +33,7 @@ function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps
 
   if (!formula) {
     return (
-      <div className="rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80">
+      <div className="min-w-0 rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80">
         {inner}
       </div>
     );
@@ -48,7 +48,7 @@ function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps
     >
       <button
         type="button"
-        className="w-full rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary/30"
+        className="min-w-0 w-full rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary/30"
       >
         {inner}
       </button>
@@ -61,7 +61,7 @@ export function KPICards() {
   const { fmt } = useCurrencyFormatter();
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       <KPICard
         label="Net Worth"
         value={fmt(kpis.currentNetWorth)}

@@ -5,7 +5,7 @@ export function DashboardSkeleton() {
       <FilterBarSkeleton />
       <main className="mx-auto w-full max-w-[1400px] flex-1 space-y-8 p-6">
         {/* KPI Cards skeleton */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <div
               key={i}
