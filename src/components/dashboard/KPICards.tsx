@@ -33,7 +33,7 @@ function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps
 
   if (!formula) {
     return (
-      <div className="min-w-0 rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80">
+      <div className="flex h-full min-w-0 flex-col rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80">
         {inner}
       </div>
     );
@@ -43,12 +43,12 @@ function KPICard({ label, value, change, icon, subtitle, formula }: KPICardProps
     <HelpHint
       side="bottom"
       maxWidthClass="max-w-[280px]"
-      triggerWrapperClassName="block"
+      triggerWrapperClassName="block h-full"
       content={formula}
     >
       <button
         type="button"
-        className="min-w-0 w-full rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary/30"
+        className="flex h-full min-w-0 w-full flex-col rounded-xl border border-border bg-card p-5 text-left transition-colors hover:bg-card/80 focus:outline-none focus:ring-2 focus:ring-primary/30"
       >
         {inner}
       </button>
