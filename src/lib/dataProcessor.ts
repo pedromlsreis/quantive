@@ -208,7 +208,7 @@ export async function parsePortfolioExcel(buffer: ArrayBuffer): Promise<Portfoli
     if (sourcesTable) {
       refSources = extractTableRows(refRows, sourcesTable.headerRow, sourcesTable.colIndices).map(r => ({
         idSource: String(r['ID_SOURCE']).trim(),
-        volatType: String(r['VOLAT_TYPE']).trim().toLowerCase(),
+        volatType: String(r['VOLAT_TYPE']).trim(),
         transferableInDays: parseBoolean(r['TRANSFERABLE_IN_DAYS']),
       }));
     }
