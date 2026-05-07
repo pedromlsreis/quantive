@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { FileSpreadsheet, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useUserRole } from '@/hooks/useUserRole';
 
 export function StickyNav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user } = useAuth();
+  const { isAdmin } = useUserRole();
   const location = useLocation();
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export function StickyNav() {
         ]),
     { label: 'Demo', href: '/demo' },
     ...(user ? [{ label: 'Dashboard', href: '/dashboard' }] : []),
+    ...(isAdmin ? [{ label: 'Admin', href: '/admin' }] : []),
   ];
 
   return (
