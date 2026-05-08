@@ -36,7 +36,7 @@ export function StickyNav() {
           { label: 'Features', href: '/#features' },
           { label: 'Pricing', href: '/pricing' },
         ]),
-    { label: 'Demo', href: '/demo' },
+    ...(!user ? [{ label: 'Demo', href: '/demo' }] : []),
     ...(user ? [{ label: 'Dashboard', href: '/dashboard' }] : []),
     ...(isAdmin ? [{ label: 'Admin', href: '/admin' }] : []),
   ];

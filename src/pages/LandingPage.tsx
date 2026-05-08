@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePageMeta } from '@/hooks/usePageMeta';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
@@ -30,12 +31,16 @@ function FeatureCard({ icon: Icon, title, desc }: { icon: LucideIcon; title: str
 
 /* ============================================= */
 export default function LandingPage() {
+  const { user, loading } = useAuth();
+
   usePageMeta({
     title: 'Quantive – See Your Financial Life Clearly',
     description: 'A privacy-first finance cockpit. Upload your spreadsheet, track net worth, analyse allocations, and forecast your future. Free forever.',
     path: '/',
   });
   const { fmt, fmtFull } = useCurrencyFormatter();
+
+  if (!loading && user) return <Navigate to="/dashboard" replace />;
   const previewSnapshots = useMemo(() => toSnapshots(generateMockData()), []);
 
   return (
@@ -63,12 +68,14 @@ export default function LandingPage() {
           >
             Get Started Free
           </Link>
-          <Link
-            to="/demo"
-            className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
-          >
-            Try Demo
-          </Link>
+          {!user && (
+            <Link
+              to="/demo"
+              className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
+            >
+              Try Demo
+            </Link>
+          )}
         </div>
 
         {/* live allocation preview (mock data) */}
@@ -135,14 +142,16 @@ export default function LandingPage() {
         </section>
 
         {/* ───── MID-PAGE CTA ───── */}
-        <section className="flex justify-center border-t border-border/30 px-6 py-14">
-          <Link
-            to="/demo"
-            className="rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105"
-          >
-            Try the Demo — No Sign Up Needed
-          </Link>
-        </section>
+        {!user && (
+          <section className="flex justify-center border-t border-border/30 px-6 py-14">
+            <Link
+              to="/demo"
+              className="rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105"
+            >
+              Try the Demo — No Sign Up Needed
+            </Link>
+          </section>
+        )}
 
         {/* ───── PRIVACY ───── */}
         <section className="border-t border-border/30 px-6 py-20">
@@ -324,12 +333,14 @@ export default function LandingPage() {
             >
               Get Started Free
             </Link>
-            <Link
-              to="/demo"
-              className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
-            >
-              Try Demo
-            </Link>
+            {!user && (
+              <Link
+                to="/demo"
+                className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
+              >
+                Try Demo
+              </Link>
+            )}
           </div>
         </section>
 
