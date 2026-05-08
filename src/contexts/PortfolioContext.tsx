@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData, FactRow, RefSource } from '@/lib/types';
-import { parsePortfolioExcel } from '@/lib/dataProcessor';
 import { generateMockData } from '@/lib/mockData';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -336,6 +335,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const buffer = await file.arrayBuffer();
+      // exceljs (~700 KB) is heavy — load it only when a user actually drops a spreadsheet.
+      const { parsePortfolioExcel } = await import('@/lib/dataProcessor');
       const parsed = await parsePortfolioExcel(buffer);
       setData(parsed);
       setIsMockData(false);

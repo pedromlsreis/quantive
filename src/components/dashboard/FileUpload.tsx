@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { BarChart3, Download, Play, Plus, Upload } from 'lucide-react';
-import { downloadExcelTemplate } from '@/lib/templateGenerator';
 import { AuthButton } from './AuthButton';
 import { WelcomeModal } from './WelcomeModal';
 import { AddMeasurementModal } from './AddMeasurementModal';
@@ -95,7 +94,11 @@ export function FileUpload() {
               {/* Tertiary actions */}
               <div className="mt-3 flex w-full gap-2">
                 <button
-                  onClick={() => { void downloadExcelTemplate(); }}
+                  onClick={async () => {
+                    // exceljs is large; only load it when the user actually requests the template.
+                    const { downloadExcelTemplate } = await import('@/lib/templateGenerator');
+                    await downloadExcelTemplate();
+                  }}
                   className="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                 >
                   <Download className="h-3.5 w-3.5" />

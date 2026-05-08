@@ -17,4 +17,17 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Heavy deps split into their own chunks so they cache independently
+          // from app code (a normal app-only update doesn't invalidate them)
+          // and so the main bundle stays small.
+          libsodium: ["libsodium-wrappers-sumo"],
+          recharts: ["recharts"],
+        },
+      },
+    },
+  },
 });

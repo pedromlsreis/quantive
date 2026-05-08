@@ -4,7 +4,6 @@ import { FileSpreadsheet, Upload, X, Download, Plus, MoreHorizontal } from 'luci
 import { format } from 'date-fns';
 import { HowToUse } from './HowToUse';
 import { AuthButton } from './AuthButton';
-import { exportPortfolioExcel } from '@/lib/exporter';
 import { AddMeasurementModal } from './AddMeasurementModal';
 import { SyncIndicator } from './SyncIndicator';
 import {
@@ -37,6 +36,8 @@ export function DashboardHeader() {
 
   const handleExport = async () => {
     if (!data) return;
+    // exceljs is large; only load it when the user actually exports.
+    const { exportPortfolioExcel } = await import('@/lib/exporter');
     const timestamp = format(new Date(), 'yyyy-MM-dd');
     await exportPortfolioExcel(data, `portfolio_${timestamp}.xlsx`);
   };
