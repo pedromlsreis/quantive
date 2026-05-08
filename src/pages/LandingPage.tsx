@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { usePageMeta } from '@/hooks/usePageMeta';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { AllocationChartsView } from '@/components/dashboard/AllocationCharts';
@@ -29,6 +30,11 @@ function FeatureCard({ icon: Icon, title, desc }: { icon: LucideIcon; title: str
 
 /* ============================================= */
 export default function LandingPage() {
+  usePageMeta({
+    title: 'Quantive – See Your Financial Life Clearly',
+    description: 'A privacy-first finance cockpit. Upload your spreadsheet, track net worth, analyse allocations, and forecast your future. Free forever.',
+    path: '/',
+  });
   const { fmt, fmtFull } = useCurrencyFormatter();
   const previewSnapshots = useMemo(() => toSnapshots(generateMockData()), []);
 

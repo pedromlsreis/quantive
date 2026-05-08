@@ -5,3 +5,5 @@ Disallow: /settings
 Disallow: /admin
 Disallow: /reset-password
 Disallow: /demo
+
+Sitemap: https://usequantive.app/sitemap.xml

@@ -1,7 +1,14 @@
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
+import { usePageMeta } from '@/hooks/usePageMeta';
 
 export default function Impressum() {
+  usePageMeta({
+    title: 'Impressum – Quantive',
+    description: 'Legal notice (Impressum) for Quantive, operated by Pedro Reis in Düsseldorf, Germany.',
+    path: '/impressum',
+  });
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <StickyNav />

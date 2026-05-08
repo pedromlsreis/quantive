@@ -1,8 +1,15 @@
 import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
+import { usePageMeta } from '@/hooks/usePageMeta';
 
 export default function PricingPage() {
+  usePageMeta({
+    title: 'Pricing – Quantive',
+    description: 'Quantive is free forever. Track your net worth, analyse allocations, and forecast your future at no cost. Pro plan coming soon at €90/year.',
+    path: '/pricing',
+  });
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <StickyNav />

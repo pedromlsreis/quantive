@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
+import { usePageMeta } from '@/hooks/usePageMeta';
 import {
   Lock,
   ShieldCheck,
@@ -14,6 +15,12 @@ const DESIGN_DOC_URL = `${REPO_URL}/blob/main/docs/security/encryption.md`;
 const CRYPTO_MODULE_URL = `${REPO_URL}/tree/main/src/lib/crypto`;
 
 export default function SecurityPage() {
+  usePageMeta({
+    title: 'Security & Encryption – Quantive',
+    description: 'Quantive encrypts your financial data on your device using XChaCha20-Poly1305 and Argon2id. The server only ever sees ciphertext. Learn how it works.',
+    path: '/security',
+  });
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <StickyNav />

@@ -1,8 +1,15 @@
 import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
+import { usePageMeta } from '@/hooks/usePageMeta';
 
 export default function PrivacyPolicy() {
+  usePageMeta({
+    title: 'Privacy Policy – Quantive',
+    description: 'Read the Quantive privacy policy. We store only encrypted data, use no third-party trackers, and collect only what is necessary to run the service.',
+    path: '/privacy',
+  });
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <StickyNav />

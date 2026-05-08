@@ -1,8 +1,15 @@
 import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
+import { usePageMeta } from '@/hooks/usePageMeta';
 
 export default function TermsOfService() {
+  usePageMeta({
+    title: 'Terms of Service – Quantive',
+    description: 'Terms of Service for Quantive. Review our usage policies, acceptable use guidelines, and your rights as a user.',
+    path: '/terms',
+  });
+
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <StickyNav />
