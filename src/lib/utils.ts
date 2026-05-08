@@ -6,7 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 const MAX_SOURCE_NAME_LENGTH = 100;
-// Disallow control characters (includes null bytes, newlines, tabs, etc.)
+// Disallow control characters (null bytes, newlines, tabs, DEL, etc.). The
+// control-char range is exactly what we want to detect — eslint flags it on
+// principle, but here it's the explicit intent.
+// eslint-disable-next-line no-control-regex
 const CONTROL_CHAR_RE = /[\x00-\x1F\x7F]/;
 
 export function toTitleCase(s: string): string {

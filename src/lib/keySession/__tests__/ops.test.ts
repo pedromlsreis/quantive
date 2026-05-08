@@ -33,6 +33,24 @@ class InMemoryKeyStore implements KeyStore {
   async hasPortfolioSnapshot(userId: string) {
     return this.snapshotUsers.has(userId);
   }
+  async updatePasswordWrap(args: { user_id: string; kdf_salt: Uint8Array; wrapped_dk_kek: Uint8Array }) {
+    const existing = this.rows.get(args.user_id);
+    if (!existing) throw new Error('row does not exist');
+    this.rows.set(args.user_id, {
+      ...existing,
+      kdf_salt: args.kdf_salt,
+      wrapped_dk_kek: args.wrapped_dk_kek,
+    });
+  }
+  async updateRecoveryWrap(args: { user_id: string; recovery_kdf_salt: Uint8Array; wrapped_dk_recovery: Uint8Array }) {
+    const existing = this.rows.get(args.user_id);
+    if (!existing) throw new Error('row does not exist');
+    this.rows.set(args.user_id, {
+      ...existing,
+      recovery_kdf_salt: args.recovery_kdf_salt,
+      wrapped_dk_recovery: args.wrapped_dk_recovery,
+    });
+  }
 }
 
 describe('detectAndUnlock', () => {

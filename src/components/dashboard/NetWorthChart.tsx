@@ -60,7 +60,12 @@ export function NetWorthChart() {
   // ~6 labels on mobile, ~12 on desktop — reduced to avoid overlap when tilted
   const interval = Math.max(1, Math.floor(chartData.length / 6));
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  type TooltipProps = {
+    active?: boolean;
+    payload?: Array<{ value?: number | null }>;
+    label?: string | number;
+  };
+  const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
     if (!active || !payload || !Array.isArray(payload) || payload.length === 0) return null;
     const item = payload[0];
     if (!item || item.value == null) return null;

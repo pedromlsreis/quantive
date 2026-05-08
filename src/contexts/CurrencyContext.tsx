@@ -43,7 +43,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (isCurrencyCode(saved)) return saved;
-    } catch {}
+    } catch {
+      // localStorage may be disabled (e.g. private browsing); fall through to default.
+    }
     return 'EUR';
   });
 
@@ -70,7 +72,11 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       const remote = data?.preferred_currency;
       if (isCurrencyCode(remote)) {
         setCode(remote);
-        try { localStorage.setItem(STORAGE_KEY, remote); } catch {}
+        try {
+          localStorage.setItem(STORAGE_KEY, remote);
+        } catch {
+          // localStorage may be unavailable; remote value is still applied in-memory.
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -78,7 +84,11 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
   const setCurrency = useCallback((c: CurrencyCode) => {
     setCode(c);
-    try { localStorage.setItem(STORAGE_KEY, c); } catch {}
+    try {
+      localStorage.setItem(STORAGE_KEY, c);
+    } catch {
+      // localStorage may be unavailable; the cloud profile write below still persists.
+    }
     if (user) {
       supabase
         .from('profiles')

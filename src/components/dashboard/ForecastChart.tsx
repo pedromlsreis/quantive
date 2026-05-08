@@ -90,16 +90,22 @@ export function ForecastChart() {
 
   const interval = Math.max(1, Math.floor(chartData.length / 6));
 
-  const ForecastTooltip = ({ active, payload, label }: any) => {
+  type ForecastTooltipPayload = { dataKey?: string; value?: number | null };
+  type ForecastTooltipProps = {
+    active?: boolean;
+    payload?: ForecastTooltipPayload[];
+    label?: string | number;
+  };
+  const ForecastTooltip = ({ active, payload, label }: ForecastTooltipProps) => {
     if (!active || !payload || !Array.isArray(payload) || payload.length === 0) return null;
 
-    const safe = payload.filter((p: any) => p && typeof p.value === 'number');
+    const safe = payload.filter((p) => p && typeof p.value === 'number');
     if (safe.length === 0) return null;
 
-    const actual = safe.find((p: any) => p.dataKey === 'actual');
-    const forecast = safe.find((p: any) => p.dataKey === 'forecast');
-    const upper = safe.find((p: any) => p.dataKey === 'upper');
-    const lower = safe.find((p: any) => p.dataKey === 'lower');
+    const actual = safe.find((p) => p.dataKey === 'actual');
+    const forecast = safe.find((p) => p.dataKey === 'forecast');
+    const upper = safe.find((p) => p.dataKey === 'upper');
+    const lower = safe.find((p) => p.dataKey === 'lower');
 
     return (
       <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>

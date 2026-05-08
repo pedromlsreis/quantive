@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData } from '@/lib/types';
+import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData, FactRow, RefSource } from '@/lib/types';
 import { parsePortfolioExcel } from '@/lib/dataProcessor';
 import { generateMockData } from '@/lib/mockData';
 import { toast } from 'sonner';
@@ -21,21 +21,27 @@ const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
  * Safely parse a date value, returning null for invalid dates.
  * Prevents silent NaN dates from cloud/localStorage.
  */
-function safeDate(val: any): Date | null {
-  const d = val instanceof Date ? val : new Date(val);
+function safeDate(val: unknown): Date | null {
+  const d = val instanceof Date ? val : new Date(val as string | number);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
 /**
  * Parse date and warn on invalid — returns Date or null.
  */
-function safeDateWithWarning(val: any, context: string, index: number): Date | null {
+function safeDateWithWarning(val: unknown, context: string, index: number): Date | null {
   const d = safeDate(val);
   if (!d) {
-    console.warn(`[${context}] Skipping fact #${index}: invalid date "${val}"`);
+    console.warn(`[${context}] Skipping fact #${index}: invalid date "${String(val)}"`);
   }
   return d;
 }
+
+/** The shape we expect a snapshot's parsed JSON to have. Validated lazily — facts/refSources are arrays of unknown until normalised. */
+type RawCloudPortfolio = {
+  facts: Array<Record<string, unknown>>;
+  refSources: RefSource[];
+};
 
 export type SyncStatus = 'idle' | 'syncing' | 'error' | 'synced';
 
@@ -223,13 +229,13 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
         if (rows && rows.length > 0) {
           const row = rows[0] as unknown as SnapshotRow;
-          let cloudData: any;
+          let cloudData: RawCloudPortfolio;
           try {
             const decoded = await decodeSnapshot(row, {
               userId: user.id,
               dataKey: keySession.getDataKey(),
             });
-            cloudData = decoded.data;
+            cloudData = decoded.data as RawCloudPortfolio;
           } catch (e) {
             console.error('[cloud-load] failed to decode snapshot:', e);
             toast.error('Could not decrypt your saved data. Try signing out and back in.');
@@ -237,12 +243,17 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           }
 
           // Validate dates on cloud load, filter out invalid ones
-          const parsedFacts = cloudData.facts
-            .map((f: any, i: number) => {
+          const parsedFacts: FactRow[] = cloudData.facts
+            .map((f, i): FactRow | null => {
               const date = safeDateWithWarning(f.date, 'cloud-load', i);
-              return date ? { ...f, date } : null;
+              if (!date) return null;
+              return {
+                date,
+                idSource: String(f.idSource ?? ''),
+                sourceVl: Number(f.sourceVl ?? 0),
+              };
             })
-            .filter(Boolean);
+            .filter((f): f is FactRow => f !== null);
 
           const skipped = cloudData.facts.length - parsedFacts.length;
           if (skipped > 0) {
@@ -257,11 +268,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          cloudData.facts = parsedFacts;
-          setData(cloudData);
+          const validData: PortfolioData = { facts: parsedFacts, refSources: cloudData.refSources };
+          setData(validData);
           setIsMockData(false);
-          setDefaultDateRange(cloudData);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(cloudData));
+          setDefaultDateRange(validData);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(validData));
           localStorage.setItem(MOCK_FLAG_KEY, 'false'); // mark as real data
         }
       } catch (e) {
@@ -285,15 +296,20 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
       const cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
-        const parsed = JSON.parse(cached);
+        const parsed = JSON.parse(cached) as RawCloudPortfolio;
 
         // Validate dates when loading from localStorage
-        const validFacts = parsed.facts
-          .map((f: any, i: number) => {
+        const validFacts: FactRow[] = parsed.facts
+          .map((f, i): FactRow | null => {
             const date = safeDateWithWarning(f.date, 'local-cache', i);
-            return date ? { ...f, date } : null;
+            if (!date) return null;
+            return {
+              date,
+              idSource: String(f.idSource ?? ''),
+              sourceVl: Number(f.sourceVl ?? 0),
+            };
           })
-          .filter(Boolean);
+          .filter((f): f is FactRow => f !== null);
 
         const skipped = parsed.facts.length - validFacts.length;
         if (skipped > 0) {
@@ -328,9 +344,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       setDefaultDateRange(parsed);
       saveToCloud(parsed);
       toast.success(`Loaded ${parsed.facts.length} records from ${file.name}`);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Failed to parse file:', e);
-      toast.error(e.message || 'Failed to parse Excel file. Check the format and try again.');
+      const msg = e instanceof Error ? e.message : 'Failed to parse Excel file. Check the format and try again.';
+      toast.error(msg);
     } finally {
       setIsLoading(false);
     }
@@ -365,7 +382,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return `${day} ${month} ${year}`;
   };
 
-  const addMeasurement = useCallback((entries: { name: string; value: number; isLiquid?: boolean }[]) => {
+  const addMeasurement = useCallback((entries: { name: string; value: number; isLiquid?: boolean; volatType?: string }[]) => {
     if (entries.length === 0) return;
     entries = entries.map(e => ({ ...e, name: sanitizeSourceName(e.name).value })).filter(e => e.name.length > 0);
 
@@ -377,12 +394,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setData(prev => {
       // If no existing data, create a new dataset
       if (!prev) {
-        const newFacts: any[] = entries.map(e => ({
+        const newFacts: FactRow[] = entries.map(e => ({
           date: now,
           idSource: e.name,
           sourceVl: e.value,
         }));
-        const newRefSources: any[] = entries.map(e => ({
+        const newRefSources: RefSource[] = entries.map(e => ({
           idSource: e.name,
           volatType: e.volatType?.trim() || 'Unknown',
           transferableInDays: e.isLiquid ?? false,
@@ -401,12 +418,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       // If previous data is mock, replace instead of append
       // Clear mock flag and use only the new real entries
       if (isMockData) {
-        const newFacts: any[] = entries.map(e => ({
+        const newFacts: FactRow[] = entries.map(e => ({
           date: now,
           idSource: e.name,
           sourceVl: e.value,
         }));
-        const newRefSources: any[] = entries.map(e => ({
+        const newRefSources: RefSource[] = entries.map(e => ({
           idSource: e.name,
           volatType: e.volatType?.trim() || 'Unknown',
           transferableInDays: e.isLiquid ?? false,

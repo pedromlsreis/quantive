@@ -28,9 +28,17 @@ const SAMPLE: PortfolioData = {
   ],
 };
 
+type UpsertPayload = {
+  user_id: string;
+  data: unknown;
+  encrypted_data: string;
+  nonce: string;
+  enc_version: number;
+};
+
 function makeMockClient() {
-  let lastUpsertPayload: any = null;
-  const upsert = vi.fn().mockImplementation((payload: any) => {
+  let lastUpsertPayload: UpsertPayload | null = null;
+  const upsert = vi.fn().mockImplementation((payload: UpsertPayload) => {
     lastUpsertPayload = payload;
     return Promise.resolve({ error: null });
   });
@@ -92,7 +100,7 @@ describe('upsertEncryptedSnapshot', () => {
     const result = await decodeSnapshot(row, { userId: USER, dataKey: dk });
 
     expect(result.kind).toBe('encrypted');
-    const decoded = result.data as any;
+    const decoded = result.data as { facts: Array<{ idSource: string; sourceVl: number; date: string }> };
     expect(decoded.facts).toHaveLength(2);
     // Dates round-trip as ISO strings (JSON.parse won't revive them; the
     // PortfolioContext re-parses them with safeDate).

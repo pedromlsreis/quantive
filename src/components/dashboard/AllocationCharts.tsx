@@ -88,8 +88,17 @@ export function AllocationChartsView({ snapshots, fmt, fmtFull }: AllocationChar
   const volatData = aggregateByKey(latest.sources, s => toTitleCase(s.volatType));
   const liquidData = aggregateByKey(latest.sources, s => (s.isLiquid ? 'Liquid' : 'Non-Liquid'));
 
-  const TreemapContent = (props: any) => {
-    const { x, y, width, height, name, value, index } = props;
+  type TreemapNodeProps = {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+    name?: string;
+    value?: number;
+    index?: number;
+  };
+  const TreemapContent = (props: TreemapNodeProps) => {
+    const { x = 0, y = 0, width = 0, height = 0, name = '', value = 0, index = 0 } = props;
     if (width < 4 || height < 4) return null;
     const color = TREEMAP_COLORS[index % TREEMAP_COLORS.length];
     const showLabel = width > 60 && height > 35;
@@ -104,7 +113,11 @@ export function AllocationChartsView({ snapshots, fmt, fmtFull }: AllocationChar
     );
   };
 
-  const TreemapTooltip = ({ active, payload }: any) => {
+  type TreemapTooltipProps = {
+    active?: boolean;
+    payload?: Array<{ payload?: { name?: string; value?: number } }>;
+  };
+  const TreemapTooltip = ({ active, payload }: TreemapTooltipProps) => {
     if (!active || !payload || !Array.isArray(payload) || payload.length === 0) return null;
     const first = payload[0];
     if (!first || !first.payload) return null;
@@ -112,7 +125,7 @@ export function AllocationChartsView({ snapshots, fmt, fmtFull }: AllocationChar
     return (
       <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
         <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{d.name}</p>
-        <p style={{ color: '#e8ecf0', fontSize: 14, fontWeight: 700 }}>{fmtFull(d.value)}</p>
+        <p style={{ color: '#e8ecf0', fontSize: 14, fontWeight: 700 }}>{fmtFull(d.value ?? 0)}</p>
       </div>
     );
   };
