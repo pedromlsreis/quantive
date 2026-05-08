@@ -228,12 +228,24 @@ export default function SecurityPage() {
               (only a wrapping derived from it). Save it somewhere offline —
               a printed copy, a safe, or a password manager.
             </p>
-            <p>
+            <p className="mb-3">
               You can set up or rotate the recovery code from{' '}
               <Link to="/settings" className="text-primary hover:underline">
                 Settings → Security
               </Link>
               .
+            </p>
+            <p className="rounded-md border border-amber-400/30 bg-amber-400/5 p-3 text-xs text-foreground/80">
+              <strong className="text-foreground">A note on password reset.</strong>{' '}
+              Resetting your password through the standard email flow rotates
+              your account password, but it cannot rewrap your existing
+              encrypted data — only your old password or your recovery code
+              can do that. If you reset your password and you have a recovery
+              code, we'll prompt you for it on next sign-in to restore access.
+              If you reset your password and you skipped the recovery code,
+              your previously encrypted snapshots become permanently
+              unrecoverable. This is a property of true end-to-end encryption,
+              not a bug.
             </p>
           </section>
 

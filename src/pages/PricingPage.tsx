@@ -51,8 +51,8 @@ export default function PricingPage() {
               Coming Soon
             </span>
             <h2 className="text-lg font-bold text-foreground">Pro</h2>
-            <p className="mt-1 text-3xl font-extrabold text-foreground">€69<span className="text-sm font-normal text-muted-foreground">/year</span></p>
-            <p className="mt-1 text-xs text-muted-foreground">~€5.75/mo · or €9/mo billed monthly</p>
+            <p className="mt-1 text-3xl font-extrabold text-foreground">€90<span className="text-sm font-normal text-muted-foreground">/year</span></p>
+            <p className="mt-1 text-xs text-muted-foreground">~€7.50/mo · or €9/mo billed monthly</p>
 
             <div className="mt-5 space-y-4 text-sm text-muted-foreground">
               <div>
@@ -119,42 +119,12 @@ export default function PricingPage() {
               </div>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const form = e.currentTarget;
-                const data = new FormData(form);
-                const email = String(data.get('email') ?? '').trim();
-                if (!email) return;
-                // TODO: wire to waitlist endpoint
-                form.reset();
-                form.querySelector<HTMLElement>('[data-waitlist-success]')?.removeAttribute('hidden');
-              }}
-              className="mt-6"
+            <Link
+              to="/dashboard"
+              className="mt-6 block rounded-lg bg-primary py-2.5 text-center text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
             >
-              <label htmlFor="pro-waitlist-pricing" className="block text-xs font-medium text-foreground">
-                Join the Pro waitlist
-              </label>
-              <div className="mt-2 flex gap-2">
-                <input
-                  id="pro-waitlist-pricing"
-                  name="email"
-                  type="email"
-                  required
-                  placeholder="you@example.com"
-                  className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
-                >
-                  Notify me
-                </button>
-              </div>
-              <p data-waitlist-success hidden className="mt-2 text-xs text-accent">
-                Thanks — we'll email you when Pro launches.
-              </p>
-            </form>
+              Sign up free — get notified when Pro launches
+            </Link>
             <p className="mt-3 text-center text-[11px] text-muted-foreground">
               Existing free users get their first month of Pro on us.
             </p>

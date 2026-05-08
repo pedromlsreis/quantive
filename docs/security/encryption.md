@@ -361,6 +361,16 @@ If step 3 returns no row, the user is in the legacy plaintext state (pre-#33). T
 
 If the user has no recovery code AND forgot the password, data is unrecoverable. This is communicated upfront at signup (§8.2).
 
+### 8.5 Password reset without recovery — explicit consequence
+
+The Supabase email-based password reset flow rotates the account credential, but it cannot by itself rewrap the user's `wrapped_dk_kek`: the wrap is keyed under the *old* password, and the reset flow never sees the old password. There are exactly three outcomes after a reset:
+
+1. **User has no encrypted snapshots yet** (e.g. fresh account, plaintext-era account that hasn't been migrated). Reset proceeds as a normal password change. Nothing to rewrap.
+2. **User has a recovery code.** On next sign-in, decryption with the new KEK fails; the UI prompts for the recovery code, recovers the DK, and re-wraps it under a fresh KEK derived from the new password (§8.4 step 4).
+3. **User has encrypted snapshots and no recovery code.** The old wrap cannot be opened by the new password, and there is no second wrap to fall back on. The encrypted data is permanently unrecoverable.
+
+Outcome (3) is consistent with the threat model (§3.2.4) but is operationally distinct enough to be called out separately: it can happen even to a user who *remembers* their password but resets "just in case", and our UI must surface this before the reset is confirmed. The reset page in the app shows an explicit warning when the account is in the encrypted-no-recovery state.
+
 ---
 
 ## 9. Encryption / decryption flow

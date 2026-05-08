@@ -8,7 +8,7 @@ export const STRIPE_CONFIG = {
     },
     yearly: {
       price_id: "price_1TKEZRAu9zmnWASMP1nQpiqI",
-      amount: 90, // €90/year (saves €18)
+      amount: 90, // €90/year (~€7.50/mo, saves €18 vs €9 monthly × 12 = €108)
     },
   },
 } as const;

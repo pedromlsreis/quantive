@@ -13,7 +13,7 @@ describe('STRIPE_CONFIG', () => {
     expect(STRIPE_CONFIG.pro.monthly.amount).toBe(9);
   });
 
-  it('yearly price is €90 (2 months free)', () => {
+  it('yearly price is €90 (saves €18 vs €9/mo × 12 = €108, ~2 months free)', () => {
     expect(STRIPE_CONFIG.pro.yearly.amount).toBe(90);
     // Yearly should be cheaper than 12 * monthly
     expect(STRIPE_CONFIG.pro.yearly.amount).toBeLessThan(STRIPE_CONFIG.pro.monthly.amount * 12);

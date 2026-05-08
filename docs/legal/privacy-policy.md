@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: May 6, 2026_
+_Last updated: May 8, 2026_
 
 ## 1. Introduction
 
@@ -8,19 +8,21 @@ Quantive ("we", "our", "us") is committed to protecting your privacy. This Priva
 
 ## 2. Information We Collect
 
-**Account Information:** When you create an account, we collect your email address and an encrypted password.
+**Account Information:** When you create an account, we collect your email address. Your password is processed by Supabase Auth (our auth provider), which stores only a salted hash — never the plaintext password.
 
-**Portfolio Data:** If you upload portfolio spreadsheets, the data is stored in your private account. We do not share, sell, or analyse your financial data for any purpose other than providing you with the service.
+**Portfolio Data:** Any portfolio data you enter or import is end-to-end encrypted in your browser before it reaches our servers (see §4 and the [Security & Encryption](https://usequantive.app/security) page). We see ciphertext only and cannot decrypt it. We do not share, sell, or analyse your financial data.
 
-**Usage Data:** We may collect anonymous usage analytics (page views, feature usage) to improve the product. No personally identifiable information is included.
+**Feedback:** If you submit feedback through the in-app feedback button, we store the message text, the type you selected (e.g. bug, idea), and your account ID so we can follow up. Feedback is not encrypted at rest. Do not include sensitive financial details in feedback messages.
+
+**Server Logs:** Our hosting providers (Supabase, our edge function host) keep short-lived operational logs (IP, request timestamps, error traces) for reliability and abuse prevention. We do not run product analytics — no Google Analytics, Plausible, PostHog, or similar tools are loaded by the site today. If we add privacy-respecting analytics in the future, we will update this policy and announce the change before enabling it.
 
 ## 3. How We Use Your Information
 
 - To provide and maintain the service
 - To authenticate your identity and protect your account
-- To process subscription payments (via Stripe)
-- To send transactional emails (e.g. password resets)
-- To improve the product based on aggregated, anonymous usage patterns
+- To process subscription payments (via Stripe), once paid plans are live
+- To send transactional emails (e.g. password resets, account deletion confirmations)
+- To respond to feedback you submit
 
 ## 4. Data Storage & Security
 
