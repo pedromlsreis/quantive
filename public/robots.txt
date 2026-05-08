@@ -2,5 +2,6 @@ User-agent: *
 Allow: /
 Disallow: /dashboard
 Disallow: /settings
+Disallow: /admin
 Disallow: /reset-password
 Disallow: /demo
