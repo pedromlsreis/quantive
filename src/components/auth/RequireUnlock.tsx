@@ -8,19 +8,32 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
 import { Lock, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 
+// Routes that actually decrypt portfolio data. Marketing, legal, demo, admin,
+// and the reset-password flow don't need an unlocked DK and shouldn't show
+// the modal — reset-password in particular runs its own password+recovery
+// flow, and prompting for the forgotten password there is the bug of bugs.
+const PROTECTED_PATHS = ['/dashboard', '/settings', '/admin'];
+
+function isProtectedPath(pathname: string): boolean {
+  return PROTECTED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
+}
+
 export function RequireUnlock() {
   const { user, signOut } = useAuth();
   const keySession = useKeySession();
+  const location = useLocation();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   // Only show when the user is authed and we don't have a DK loaded.
   if (!user || keySession.status !== 'locked') return null;
+  if (!isProtectedPath(location.pathname)) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
