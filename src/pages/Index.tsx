@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { Footer } from '@/components/Footer';
 import { FileUpload } from '@/components/dashboard/FileUpload';
@@ -15,6 +16,7 @@ import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 import { DemoBanner } from '@/components/dashboard/DemoBanner';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
+import { fadeIn } from '@/lib/motion';
 
 const Index = () => {
   const { data, isLoading, isMockData, snapshots } = usePortfolio();
@@ -23,12 +25,18 @@ const Index = () => {
   if (!data) return <FileUpload />;
 
   return (
-    <div className={`flex flex-col flex-col bg-background${isMockData ? ' pt-9' : ''}`}>
+    <div className={`flex flex-col bg-background${isMockData ? ' pt-9' : ''}`}>
       {isMockData && <DemoBanner />}
       <DashboardHeader />
       <FilterBar />
-      <main className="mx-auto w-full max-w-[1400px] flex-1 animate-fade-in space-y-8 p-6">
+      <motion.main
+        className="mx-auto w-full max-w-[1400px] flex-1 space-y-8 p-6"
+        variants={fadeIn}
+        initial="hidden"
+        animate="visible"
+      >
         {!isMockData && snapshots.length === 1 && <FreshStartNudge />}
+
         <DashboardSection id="performance" title="Performance">
           <KPICards />
           <NetWorthChart />
@@ -51,7 +59,7 @@ const Index = () => {
         <div className="flex justify-center pb-2">
           <FeedbackButton />
         </div>
-      </main>
+      </motion.main>
       <Footer />
     </div>
   );
