@@ -57,12 +57,17 @@
     @apply bg-background text-foreground;
     font-family: 'Space Grotesk', system-ui, sans-serif;
     color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   input[type="date"] {
     color-scheme: dark;
   }
+
 }
+
+/* ─────────── Keyframes ─────────── */
 
 @keyframes hero-glow {
   0%, 100% { transform: scale(1); opacity: 0.2; }
@@ -74,10 +79,44 @@
   50% { opacity: 0.5; }
 }
 
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─────────── Animation classes ─────────── */
+
 .animate-hero-glow {
   animation: hero-glow 6s ease-in-out infinite;
 }
 
 .animate-hero-glow-slow {
   animation: hero-glow-slow 8s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--muted) / 0.6) 50%,
+    hsl(var(--muted)) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* ─────────── Reduced motion ─────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-hero-glow,
+  .animate-hero-glow-slow,
+  .animate-shimmer {
+    animation: none;
+  }
+
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

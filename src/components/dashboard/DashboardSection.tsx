@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
+import { softSpring, collapseContent } from '@/lib/motion';
 
 interface DashboardSectionProps {
   id: string;
@@ -16,18 +18,36 @@ export function DashboardSection({ id, title, children, defaultOpen = true }: Da
       <button
         onClick={() => setOpen(!open)}
         className="group flex w-full items-center gap-3 text-left"
+        aria-expanded={open}
+        aria-controls={`${id}-content`}
       >
         <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70 transition-colors group-hover:text-muted-foreground">
           {title}
         </h2>
         <div className="h-px flex-1 bg-border" />
-        <ChevronDown
-          className={`h-4 w-4 text-muted-foreground/50 transition-transform duration-200 ${
-            open ? 'rotate-0' : '-rotate-90'
-          }`}
-        />
+        <motion.div
+          animate={{ rotate: open ? 0 : -90 }}
+          transition={softSpring}
+        >
+          <ChevronDown className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground/70 transition-colors" />
+        </motion.div>
       </button>
-      {open && <div className="space-y-6 animate-fade-in">{children}</div>}
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            id={`${id}-content`}
+            key="content"
+            variants={collapseContent}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="overflow-hidden space-y-6"
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
