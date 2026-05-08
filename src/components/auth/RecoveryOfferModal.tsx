@@ -15,7 +15,7 @@
  * confirm-by-typing step is a UX safeguard, not a security one.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Lock, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -36,7 +36,12 @@ export function RecoveryOfferModal() {
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const shouldShow = useMemo(() => {
+  // Eligibility for the *initial* offer. Once we've moved past 'offer',
+  // visibility is no longer keyed off this — setupRecovery flips
+  // hasRecovery to true the moment the wrap is provisioned server-side,
+  // which would otherwise unmount the modal before the user ever sees the
+  // 24 words.
+  const shouldOffer = useMemo(() => {
     if (!user) return false;
     if (keySession.status !== 'unlocked-encrypted') return false;
     if (keySession.hasRecovery !== false) return false; // null (unknown) or true (set up)
@@ -47,15 +52,21 @@ export function RecoveryOfferModal() {
     }
   }, [user, keySession.status, keySession.hasRecovery]);
 
-  // Reset internal state when the modal closes (e.g., user logs out).
+  // Reset only on user change (sign-out / account switch). Resetting on
+  // hasRecovery flips would blow away the just-generated code mid-display.
+  const previousUserIdRef = useRef<string | null>(user?.id ?? null);
   useEffect(() => {
-    if (!shouldShow) {
+    const id = user?.id ?? null;
+    if (previousUserIdRef.current !== id) {
       setStep('offer');
       setRecoveryCode(null);
+      previousUserIdRef.current = id;
     }
-  }, [shouldShow]);
+  }, [user?.id]);
 
-  if (!shouldShow || !user) return null;
+  if (!user) return null;
+  if (step === 'offer' && !shouldOffer) return null;
+  if (step === 'done') return null;
 
   const markOffered = () => {
     try {
