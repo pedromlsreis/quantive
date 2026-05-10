@@ -28,6 +28,3 @@ dist-ssr
 .env*
 !.env.example
 supabase/.temp/*
-
-# Internal Master Plans
-docs/internal/*
