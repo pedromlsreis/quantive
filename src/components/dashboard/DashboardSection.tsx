@@ -21,10 +21,17 @@ export function DashboardSection({ id, title, children, defaultOpen = true }: Da
         aria-expanded={open}
         aria-controls={`${id}-content`}
       >
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/70 transition-colors group-hover:text-muted-foreground">
+        <h2 style={{
+          fontSize: 'var(--text-xs)', fontWeight: 500,
+          textTransform: 'uppercase', letterSpacing: '0.06em',
+          color: 'var(--fg-faint)',
+          transition: `color var(--d-fast) var(--ease-soft)`,
+        }}
+          className="group-hover:text-muted-foreground transition-colors"
+        >
           {title}
         </h2>
-        <div className="h-px flex-1 bg-border" />
+        <div style={{ flex: 1, height: 1, background: 'var(--border-raw)' }} />
         <motion.div
           animate={{ rotate: open ? 0 : -90 }}
           transition={softSpring}

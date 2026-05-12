@@ -1,35 +1,48 @@
+import { useRef, useState, useEffect, useMemo } from 'react';
+import { format } from 'date-fns';
+import { Info } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { format } from 'date-fns';
 import { generateForecast } from '@/lib/forecast';
-import { PRIMARY_COLOR, POSITIVE_COLOR, GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
-import { Info } from 'lucide-react';
-import { HelpHint } from "@/components/ui/help-hint";
+import { HelpHint } from '@/components/ui/help-hint';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+const HEIGHT = 320;
+const MARGIN = { top: 32, right: 16, bottom: 32, left: 68 };
+
 const FORECAST_MODEL_DESCRIPTION =
-  'Uses a Compound Annual Growth Rate (CAGR) model fitted to your historical net-worth data. ' +
-  'The CAGR is converted into a monthly growth rate and projected 12 months forward. ' +
-  'The uncertainty band is based on historical deviations from the CAGR trend, widening over time ' +
-  'to reflect increasing uncertainty in longer-term projections.';
+  'Uses a Compound Annual Growth Rate (CAGR) fitted to your historical net-worth data. ' +
+  'The CAGR is projected 12 months forward; the uncertainty band widens over time to ' +
+  'reflect increasing uncertainty in longer-term projections.';
+
+function fmtCompact(v: number, fmt: (n: number) => string): string {
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) return fmt(Math.round(v / 100_000) * 100_000);
+  if (abs >= 1_000)     return fmt(Math.round(v / 1_000) * 1_000);
+  return fmt(v);
+}
 
 export function ForecastChart() {
   const { snapshots } = usePortfolio();
   const { fmt, fmtFull } = useCurrencyFormatter();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(700);
 
-  // Show informational message instead of silently returning null
-  if (snapshots.length === 0) {
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.offsetWidth));
+    ro.observe(el);
+    setW(el.offsetWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  if (!snapshots.length) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
-            <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
-          </div>
-        </div>
-        <div className="flex h-[200px] items-center justify-center rounded-lg border border-dashed">
-          <p className="text-sm text-muted-foreground">No data available yet. Upload your portfolio to see forecasts.</p>
+      <div className="q-card q-card--p-lg">
+        <div className="q-section-head"><h2>Net Worth Forecast</h2></div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, border: '1px dashed var(--border-raw)', borderRadius: 'var(--r-3)' }}>
+          <p style={{ color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)' }}>No data yet — upload your portfolio to see forecasts.</p>
         </div>
       </div>
     );
@@ -37,143 +50,196 @@ export function ForecastChart() {
 
   if (snapshots.length < 3) {
     return (
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center justify-between">
+      <div className="q-card q-card--p-lg">
+        <div className="q-section-head">
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
-            <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
+            <h2>Net Worth Forecast</h2>
+            <div className="q-section-sub">12-month projection with confidence band</div>
           </div>
         </div>
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Forecast requires at least 3 monthly snapshots to generate a trend. You currently have
-            <strong> {snapshots.length}</strong> snapshot{snapshots.length === 1 ? '' : 's'}. Upload more data or
-            wait for additional months to be recorded.
+            Forecast requires at least 3 monthly snapshots. You currently have <strong>{snapshots.length}</strong>.
           </AlertDescription>
         </Alert>
-        <div className="mt-4 flex h-[120px] items-center justify-center rounded-lg border border-dashed">
-          <p className="text-xs text-muted-foreground">
-            {snapshots.length === 1 ? '1 more snapshot needed' : `${3 - snapshots.length} more snapshots needed`}
-          </p>
-        </div>
       </div>
     );
   }
 
+  const history = snapshots;
   const forecastPoints = generateForecast(snapshots, 12);
 
-  const chartData: { date: string; actual: number | null; forecast: number | null; upper: number | null; lower: number | null }[] = snapshots.map(s => ({
-    date: format(s.date, 'MMM yyyy'),
-    actual: Math.round(s.total),
-    forecast: null,
-    upper: null,
-    lower: null,
-  }));
+  // Build combined date domain
+  const allDates = [
+    ...history.map(s => s.date.getTime()),
+    ...forecastPoints.map(f => f.date.getTime()),
+  ];
+  const minDate = Math.min(...allDates);
+  const maxDate = Math.max(...allDates);
+  const innerW = Math.max(100, w - MARGIN.left - MARGIN.right);
+  const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
+  const dateScale = (d: Date) => MARGIN.left + ((d.getTime() - minDate) / (maxDate - minDate)) * innerW;
 
-  if (chartData.length > 0) {
-    const last = chartData[chartData.length - 1];
-    last.forecast = last.actual;
-    last.upper = last.actual;
-    last.lower = last.actual;
-  }
+  const allValues = [
+    ...history.map(s => s.total),
+    ...forecastPoints.map(f => f.upper),
+    ...forecastPoints.map(f => f.lower),
+  ];
+  const minV = Math.min(...allValues) * 0.95;
+  const maxV = Math.max(...allValues) * 1.05;
+  const yScale = (v: number) => MARGIN.top + innerH - ((v - minV) / (maxV - minV)) * innerH;
 
-  forecastPoints.forEach(f => {
-    chartData.push({
-      date: format(f.date, 'MMM yyyy'),
-      actual: null,
-      forecast: Math.round(f.forecast),
-      upper: Math.round(f.upper),
-      lower: Math.round(f.lower),
-    });
-  });
+  const histPath = history.map((s, i) =>
+    `${i === 0 ? 'M' : 'L'} ${dateScale(s.date).toFixed(1)} ${yScale(s.total).toFixed(1)}`
+  ).join(' ');
 
-  const interval = Math.max(1, Math.floor(chartData.length / 6));
+  const joinX = dateScale(history[history.length - 1].date);
+  const joinY = yScale(history[history.length - 1].total);
 
-  type ForecastTooltipPayload = { dataKey?: string; value?: number | null };
-  type ForecastTooltipProps = {
-    active?: boolean;
-    payload?: ForecastTooltipPayload[];
-    label?: string | number;
-  };
-  const ForecastTooltip = ({ active, payload, label }: ForecastTooltipProps) => {
-    if (!active || !payload || !Array.isArray(payload) || payload.length === 0) return null;
+  const medianPath = forecastPoints.length
+    ? `M ${joinX.toFixed(1)} ${joinY.toFixed(1)} ` +
+      forecastPoints.map(f => `L ${dateScale(f.date).toFixed(1)} ${yScale(f.forecast).toFixed(1)}`).join(' ')
+    : '';
 
-    const safe = payload.filter((p) => p && typeof p.value === 'number');
-    if (safe.length === 0) return null;
+  const coneOuterPath = forecastPoints.length
+    ? `M ${joinX.toFixed(1)} ${joinY.toFixed(1)} ` +
+      forecastPoints.map(f => `L ${dateScale(f.date).toFixed(1)} ${yScale(f.upper).toFixed(1)}`).join(' ') +
+      ` L ${dateScale(forecastPoints[forecastPoints.length - 1].date)} ${yScale(forecastPoints[forecastPoints.length - 1].lower)}` +
+      forecastPoints.slice().reverse().map(f => ` L ${dateScale(f.date).toFixed(1)} ${yScale(f.lower).toFixed(1)}`).join('') +
+      ' Z'
+    : '';
 
-    const actual = safe.find((p) => p.dataKey === 'actual');
-    const forecast = safe.find((p) => p.dataKey === 'forecast');
-    const upper = safe.find((p) => p.dataKey === 'upper');
-    const lower = safe.find((p) => p.dataKey === 'lower');
+  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => {
+    const v = minV + (maxV - minV) * (i / 4);
+    return { v, y: yScale(v) };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [minV, maxV, innerH]);
 
-    return (
-      <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
-        <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 4 }}>{label}</p>
-        {actual && actual.value != null && <p style={{ color: PRIMARY_COLOR, fontSize: 14, fontWeight: 700 }}>Actual: {fmtFull(actual.value)}</p>}
-        {forecast && forecast.value != null && <p style={{ color: POSITIVE_COLOR, fontSize: 14, fontWeight: 700 }}>Forecast: {fmtFull(forecast.value)}</p>}
-        {upper && lower && upper.value != null && lower.value != null && (
-          <p style={{ color: AXIS_COLOR, fontSize: 11, marginTop: 2 }}>Range: {fmtFull(lower.value)} – {fmtFull(upper.value)}</p>
-        )}
-      </div>
-    );
-  };
+  // X-axis labels: ~5–6 total
+  const allPoints = [...history, ...forecastPoints.map(f => ({ date: f.date, total: f.forecast }))];
+  const xStep = Math.max(1, Math.floor(allPoints.length / 6));
+  const xTicks = allPoints.filter((_, i) => i % xStep === 0 || i === allPoints.length - 1);
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6" role="img" aria-label="12-month net worth forecast with confidence band based on compound annual growth rate">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="q-card q-card--p-lg">
+      <div className="q-section-head">
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground">Net Worth Forecast</h3>
-          <p className="text-xs text-muted-foreground/70">12-month projection with confidence band</p>
+          <h2>Net Worth Forecast</h2>
+          <div className="q-section-sub">12-month projection with confidence band</div>
         </div>
         <HelpHint side="right" maxWidthClass="max-w-[300px]" content={FORECAST_MODEL_DESCRIPTION}>
           <button
             type="button"
             aria-label="About this forecast model"
-            className="inline-flex cursor-help items-center justify-center text-muted-foreground/50 hover:text-muted-foreground focus:outline-none focus:text-foreground"
+            className="q-icon-btn"
+            style={{ width: 24, height: 24 }}
           >
-            <Info className="mt-0.5 h-3.5 w-3.5" />
+            <Info size={14} />
           </button>
         </HelpHint>
       </div>
-      <div className="flex items-center gap-4 text-xs">
-        <div className="flex items-center gap-1.5">
-          <div className="h-0.5 w-5 rounded" style={{ backgroundColor: PRIMARY_COLOR }} />
-          <span className="text-muted-foreground">Actual</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-0.5 w-5 rounded" style={{ backgroundColor: POSITIVE_COLOR, opacity: 0.7 }} />
-          <span className="text-muted-foreground">Forecast</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-5 rounded" style={{ backgroundColor: POSITIVE_COLOR, opacity: 0.12 }} />
-          <span className="text-muted-foreground">Uncertainty band</span>
-        </div>
+
+      {/* Legend */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: 'var(--fg-subtle)', marginBottom: 8 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 20, height: 2, background: 'var(--accent-raw)', borderRadius: 1, display: 'inline-block' }} />
+          Actual
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 20, height: 2, background: 'var(--accent-raw)', opacity: 0.6, borderRadius: 1, display: 'inline-block', borderTop: '2px dashed var(--accent-raw)' }} />
+          Forecast
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 20, height: 8, background: 'var(--accent-soft-raw)', borderRadius: 2, display: 'inline-block' }} />
+          Confidence band
+        </span>
       </div>
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 40 }}>
-            <defs>
-              <linearGradient id="actualForecastGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={PRIMARY_COLOR} stopOpacity={0.2} />
-                <stop offset="95%" stopColor={PRIMARY_COLOR} stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="forecastGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={POSITIVE_COLOR} stopOpacity={0.15} />
-                <stop offset="95%" stopColor={POSITIVE_COLOR} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />
-            <XAxis dataKey="date" stroke={AXIS_COLOR} fontSize={11} interval={interval} tickMargin={8} angle={-40} textAnchor="end" />
-            <YAxis stroke={AXIS_COLOR} fontSize={11} tickFormatter={(v) => fmt(v)} width={70} />
-            <Tooltip content={<ForecastTooltip />} />
-            <Area type="monotone" dataKey="upper" stroke="none" fill={POSITIVE_COLOR} fillOpacity={0.08} dot={false} connectNulls={false} activeDot={false} />
-            <Area type="monotone" dataKey="lower" stroke="none" fill="hsl(222, 25%, 10%)" fillOpacity={1} dot={false} connectNulls={false} activeDot={false} />
-            <Area type="monotone" dataKey="actual" stroke={PRIMARY_COLOR} fill="url(#actualForecastGradient)" strokeWidth={2} dot={false} connectNulls={false} />
-            <Area type="monotone" dataKey="forecast" stroke={POSITIVE_COLOR} fill="url(#forecastGradient)" strokeWidth={2} strokeDasharray="6 4" dot={false} connectNulls={false} />
-          </AreaChart>
-        </ResponsiveContainer>
+
+      <div ref={wrapRef} className="q-chart-wrap">
+        <svg width={w} height={HEIGHT} style={{ display: 'block', overflow: 'visible' }}>
+          <defs>
+            <linearGradient id="fc-hist-area" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%"   stopColor="var(--accent-raw)" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="var(--accent-raw)" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+
+          {/* Y grid */}
+          {yTicks.map((t, i) => (
+            <g key={i}>
+              <line
+                x1={MARGIN.left} x2={MARGIN.left + innerW}
+                y1={t.y} y2={t.y}
+                stroke="var(--border-soft-raw)" strokeDasharray="2 4" strokeWidth="1"
+              />
+              <text
+                x={MARGIN.left - 10} y={t.y + 3}
+                textAnchor="end" fill="var(--fg-subtle)" fontSize="10"
+                style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono)' }}
+              >
+                {fmtCompact(t.v, fmt)}
+              </text>
+            </g>
+          ))}
+
+          {/* X ticks */}
+          {xTicks.map((pt, i) => (
+            <text key={i} x={dateScale(pt.date)} y={HEIGHT - 8}
+              textAnchor="middle" fill="var(--fg-subtle)" fontSize="10"
+            >
+              {format(pt.date, 'MMM yy')}
+            </text>
+          ))}
+
+          {/* Today divider */}
+          <line x1={joinX} x2={joinX} y1={MARGIN.top} y2={MARGIN.top + innerH}
+            stroke="var(--border-strong-raw)" strokeDasharray="3 3" strokeWidth="1" />
+          <rect x={joinX - 26} y={MARGIN.top - 18} width={52} height={16} rx={3}
+            fill="var(--surface)" stroke="var(--border-raw)" />
+          <text x={joinX} y={MARGIN.top - 7} textAnchor="middle"
+            fill="var(--fg-subtle)" fontSize="10" letterSpacing="0.04em">TODAY</text>
+
+          {/* Confidence cone */}
+          {coneOuterPath && (
+            <path d={coneOuterPath} fill="var(--accent-soft-raw)" opacity="0.5" />
+          )}
+
+          {/* History area */}
+          <path
+            d={`${histPath} L ${joinX} ${MARGIN.top + innerH} L ${MARGIN.left} ${MARGIN.top + innerH} Z`}
+            fill="url(#fc-hist-area)"
+          />
+
+          {/* History line */}
+          <path d={histPath} fill="none" stroke="var(--accent-raw)"
+            strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+
+          {/* Median forecast dashed */}
+          {medianPath && (
+            <path d={medianPath} fill="none" stroke="var(--accent-raw)"
+              strokeWidth="1.5" strokeDasharray="3 3" strokeLinecap="round" />
+          )}
+        </svg>
       </div>
+
+      {/* Summary metrics */}
+      {forecastPoints.length > 0 && (
+        <div style={{ display: 'flex', gap: 24, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-raw)' }}>
+          {[
+            { label: 'Median (12 mo.)', value: forecastPoints[forecastPoints.length - 1].forecast, color: 'var(--accent-raw)' },
+            { label: 'Optimistic (upper)', value: forecastPoints[forecastPoints.length - 1].upper, color: 'var(--positive)' },
+            { label: 'Conservative (lower)', value: forecastPoints[forecastPoints.length - 1].lower, color: 'var(--fg-muted)' },
+          ].map(m => (
+            <div key={m.label}>
+              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', marginBottom: 2 }}>{m.label}</div>
+              <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500, color: m.color, fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
+                {fmtFull(m.value)}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,8 +1,5 @@
-import { motion } from 'framer-motion';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { Footer } from '@/components/Footer';
 import { FileUpload } from '@/components/dashboard/FileUpload';
-import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { FilterBar } from '@/components/dashboard/FilterBar';
 import { KPICards } from '@/components/dashboard/KPICards';
 import { NetWorthChart } from '@/components/dashboard/NetWorthChart';
@@ -16,7 +13,6 @@ import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 import { DemoBanner } from '@/components/dashboard/DemoBanner';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
-import { fadeIn } from '@/lib/motion';
 
 const Index = () => {
   const { data, isLoading, isMockData, snapshots } = usePortfolio();
@@ -25,42 +21,34 @@ const Index = () => {
   if (!data) return <FileUpload />;
 
   return (
-    <div className={`flex flex-col bg-background${isMockData ? ' pt-9' : ''}`}>
+    <div className="flex flex-col gap-8">
       {isMockData && <DemoBanner />}
-      <DashboardHeader />
       <FilterBar />
-      <motion.main
-        className="mx-auto w-full max-w-[1400px] flex-1 space-y-8 p-6"
-        variants={fadeIn}
-        initial="hidden"
-        animate="visible"
-      >
-        {!isMockData && snapshots.length === 1 && <FreshStartNudge />}
 
-        <DashboardSection id="performance" title="Performance">
-          <KPICards />
-          <NetWorthChart />
-          <StackedAreaChart />
-          <YearlyEarnings />
-        </DashboardSection>
+      {!isMockData && snapshots.length === 1 && <FreshStartNudge />}
 
-        <DashboardSection id="allocation" title="Risk & Allocation">
-          <AllocationCharts />
-        </DashboardSection>
+      <DashboardSection id="performance" title="Performance">
+        <KPICards />
+        <NetWorthChart />
+        <StackedAreaChart />
+        <YearlyEarnings />
+      </DashboardSection>
 
-        <DashboardSection id="forecast" title="Forecast">
-          <ForecastChart />
-        </DashboardSection>
+      <DashboardSection id="allocation" title="Risk & Allocation">
+        <AllocationCharts />
+      </DashboardSection>
 
-        <DashboardSection id="milestones" title="Milestones">
-          <MotivationalKPIs />
-        </DashboardSection>
+      <DashboardSection id="forecast" title="Forecast">
+        <ForecastChart />
+      </DashboardSection>
 
-        <div className="flex justify-center pb-2">
-          <FeedbackButton />
-        </div>
-      </motion.main>
-      <Footer />
+      <DashboardSection id="milestones" title="Milestones">
+        <MotivationalKPIs />
+      </DashboardSection>
+
+      <div className="flex justify-center pb-2">
+        <FeedbackButton />
+      </div>
     </div>
   );
 };

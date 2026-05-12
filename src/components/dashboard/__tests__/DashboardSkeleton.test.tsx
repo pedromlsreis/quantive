@@ -17,8 +17,9 @@ describe('DashboardSkeleton', () => {
 
   it('renders KPI card skeletons (4 of them)', () => {
     const { container } = render(<DashboardSkeleton />);
-    const kpiCards = container.querySelectorAll('.rounded-xl.border.border-border.bg-card');
-    // 4 KPI cards + 5 skeleton chart cards = 9 total rounded-xl cards
+    // New design system uses q-card class
+    const kpiCards = container.querySelectorAll('.q-card');
+    // 4 KPI cards + 3 skeleton chart cards = 7 total
     expect(kpiCards.length).toBeGreaterThanOrEqual(4);
   });
 
@@ -30,7 +31,8 @@ describe('DashboardSkeleton', () => {
 
   it('applies shimmer animation class', () => {
     const { container } = render(<DashboardSkeleton />);
-    const shimmerEl = container.querySelector('.animate-shimmer');
+    // New design system uses q-skeleton instead of animate-shimmer
+    const shimmerEl = container.querySelector('.q-skeleton');
     expect(shimmerEl).toBeInTheDocument();
   });
 });
