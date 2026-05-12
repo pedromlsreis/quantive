@@ -686,8 +686,11 @@
 .q-grid--4 { grid-template-columns: repeat(4, 1fr); }
 .q-grid--3 { grid-template-columns: repeat(3, 1fr); }
 .q-grid--2 { grid-template-columns: repeat(2, 1fr); }
-.q-grid--kpi { grid-template-columns: 1.5fr 1fr 1fr 1fr; }
-.q-grid--allocation { grid-template-columns: 1.6fr 1fr; }
+/* minmax(0, Xfr) prevents intrinsic content widths from overriding the fr
+   ratio — without it, short content like "12" collapses the column toward
+   min-content and the 1.5/1/1/1 ratio reads as ~equal widths. */
+.q-grid--kpi { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr); }
+.q-grid--allocation { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
 
 @media (max-width: 960px) {
   .q-grid--4  { grid-template-columns: repeat(2, 1fr); }
