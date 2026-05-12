@@ -2,9 +2,20 @@ import { useRef, useState, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
+import { QTabs } from '@/components/ui/q-tabs';
 
 const HEIGHT = 300;
 const MARGIN = { top: 28, right: 16, bottom: 32, left: 64 };
+
+type Period = '3m' | '6m' | '12m' | '24m' | 'all';
+
+const PERIOD_OPTIONS: { value: Period; label: string }[] = [
+  { value: '3m',  label: '3M'  },
+  { value: '6m',  label: '6M'  },
+  { value: '12m', label: '12M' },
+  { value: '24m', label: '24M' },
+  { value: 'all', label: 'All' },
+];
 
 function fmtCompact(v: number, fmt: (n: number) => string): string {
   const abs = Math.abs(v);
@@ -14,11 +25,12 @@ function fmtCompact(v: number, fmt: (n: number) => string): string {
 }
 
 export function NetWorthChart() {
-  const { snapshots } = usePortfolio();
+  const { snapshots: allSnapshots } = usePortfolio();
   const { fmt, fmtFull } = useCurrencyFormatter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(700);
   const [hover, setHover] = useState<number | null>(null);
+  const [period, setPeriod] = useState<Period>('12m');
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -29,9 +41,15 @@ export function NetWorthChart() {
     return () => ro.disconnect();
   }, []);
 
-  if (!snapshots.length) return null;
+  const snapshots = useMemo(() => {
+    if (period === 'all') return allSnapshots;
+    const months = period === '3m' ? 3 : period === '6m' ? 6 : period === '12m' ? 12 : 24;
+    return allSnapshots.slice(-months);
+  }, [allSnapshots, period]);
 
-  if (snapshots.length < 2) {
+  if (!allSnapshots.length) return null;
+
+  if (allSnapshots.length < 2) {
     return (
       <div className="q-card q-card--p-lg">
         <div className="q-section-head">
@@ -57,7 +75,9 @@ export function NetWorthChart() {
 
   const points = snapshots.map((s, i) => [xScale(i), yScale(s.total)] as [number, number]);
   const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
-  const areaPath = `${linePath} L ${points[points.length - 1][0]} ${MARGIN.top + innerH} L ${points[0][0]} ${MARGIN.top + innerH} Z`;
+  const areaPath = points.length
+    ? `${linePath} L ${points[points.length - 1][0]} ${MARGIN.top + innerH} L ${points[0][0]} ${MARGIN.top + innerH} Z`
+    : '';
 
   const athIdx = values.reduce((mx, v, i) => v > values[mx] ? i : mx, 0);
   let bestMoIdx = -1, bestGain = -Infinity;
@@ -92,6 +112,13 @@ export function NetWorthChart() {
           <h2>Net worth over time</h2>
           <div className="q-section-sub">All sources · Hover to inspect any month</div>
         </div>
+        <QTabs<Period>
+          value={period}
+          onChange={setPeriod}
+          options={PERIOD_OPTIONS}
+          size="sm"
+          ariaLabel="Time period"
+        />
       </div>
 
       <div
@@ -113,7 +140,6 @@ export function NetWorthChart() {
             </linearGradient>
           </defs>
 
-          {/* Y grid + labels */}
           {yTicks.map((t, i) => (
             <g key={i}>
               <line
@@ -132,7 +158,6 @@ export function NetWorthChart() {
             </g>
           ))}
 
-          {/* X ticks */}
           {xTicks.map(({ s, i }) => (
             <text
               key={i}
@@ -143,10 +168,8 @@ export function NetWorthChart() {
             </text>
           ))}
 
-          {/* Gradient area */}
           <path d={areaPath} fill="url(#nw-area-grad)" style={{ animation: 'q-path-fade 600ms ease-out' }} />
 
-          {/* Line */}
           <path
             d={linePath}
             fill="none"
@@ -158,12 +181,12 @@ export function NetWorthChart() {
             pathLength="1"
           />
 
-          {/* ATH / Best month annotations */}
           {[
             { idx: athIdx,    label: 'ATH',      color: 'var(--accent-raw)' },
-            { idx: bestMoIdx, label: 'Best mo.',  color: 'var(--positive)' },
-          ].filter(a => a.idx > 0 && a.idx !== athIdx || a.label === 'ATH').map((a) => (
-            a.idx < 0 ? null : (
+            { idx: bestMoIdx, label: 'Best mo.', color: 'var(--positive)' },
+          ]
+            .filter(a => a.idx > 0 && (a.label !== 'Best mo.' || a.idx !== athIdx))
+            .map((a) => (
               <g key={a.label}>
                 <circle cx={xScale(a.idx)} cy={yScale(values[a.idx])} r="4"
                   fill="var(--bg)" stroke={a.color} strokeWidth="1.5" />
@@ -178,10 +201,8 @@ export function NetWorthChart() {
                   {a.label}
                 </text>
               </g>
-            )
-          ))}
+            ))}
 
-          {/* Hover crosshair */}
           {hover != null && (
             <g>
               <line
@@ -197,7 +218,6 @@ export function NetWorthChart() {
           )}
         </svg>
 
-        {/* Tooltip */}
         {hover != null && (
           <div style={{
             position: 'absolute',

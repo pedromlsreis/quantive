@@ -23,6 +23,7 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const SecurityPage = lazy(() => import("./pages/SecurityPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const ForecastPage = lazy(() => import("./pages/ForecastPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const Impressum = lazy(() => import("./pages/Impressum"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -52,6 +53,7 @@ function AppRoutes() {
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/security" element={<SecurityPage />} />
       <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/forecast" element={<ForecastPage />} />
       <Route path="/admin" element={<AdminPage />} />
       <Route path="/impressum" element={<Impressum />} />
       <Route path="*" element={<NotFound />} />

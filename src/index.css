@@ -476,9 +476,14 @@
 /* ── Main column ────────────────────────────────────────── */
 .q-main { display: flex; flex-direction: column; min-width: 0; }
 
-/* Sidebar overlay is mobile-only — hide entirely on desktop so it does not
-   occupy a grid column in .q-app */
-.q-sidebar-overlay { display: none; }
+/* Sidebar overlay is mobile-only. Always position: fixed so it never
+   participates in the .q-app grid (otherwise it would consume column 1
+   and force .q-main to wrap onto a second row). */
+.q-sidebar-overlay {
+  position: fixed; inset: 0; z-index: 39;
+  background: oklch(0% 0 0 / 0.4);
+  display: none;
+}
 
 .q-topbar-menu-btn { display: none; }
 
@@ -498,7 +503,7 @@
 
 .q-content {
   padding: var(--s-8);
-  max-width: 1440px; width: 100%; margin: 0 auto;
+  max-width: 1680px; width: 100%; margin: 0 auto;
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -682,11 +687,13 @@
 .q-grid--3 { grid-template-columns: repeat(3, 1fr); }
 .q-grid--2 { grid-template-columns: repeat(2, 1fr); }
 .q-grid--kpi { grid-template-columns: 1.5fr 1fr 1fr 1fr; }
+.q-grid--allocation { grid-template-columns: 1.6fr 1fr; }
 
 @media (max-width: 960px) {
   .q-grid--4  { grid-template-columns: repeat(2, 1fr); }
   .q-grid--3  { grid-template-columns: 1fr; }
   .q-grid--kpi { grid-template-columns: repeat(2, 1fr); }
+  .q-grid--allocation { grid-template-columns: 1fr; }
 }
 
 /* ─────────────────────────────────────────────────────────────────

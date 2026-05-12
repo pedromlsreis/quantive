@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
 import { SyncIndicator } from '@/components/dashboard/SyncIndicator';
 import { AuthButton } from '@/components/dashboard/AuthButton';
+import { Wordmark } from '@/components/layout/Brand';
 
 interface NavItem {
   to: string;
@@ -57,16 +58,10 @@ function Sidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) 
         <div className="q-side-brand">
           <button
             onClick={() => navigate('/')}
-            style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+            style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
+            aria-label="Quantive home"
           >
-            <div style={{
-              width: 28, height: 28, borderRadius: 'var(--r-2)',
-              background: 'var(--accent-faint-raw)', border: '1px solid var(--accent-soft-raw)',
-              display: 'grid', placeItems: 'center',
-            }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 700, color: 'var(--accent-raw)' }}>Q</span>
-            </div>
-            <span style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--fg)', letterSpacing: '-0.02em' }}>Quantive</span>
+            <Wordmark size={22} />
           </button>
         </div>
 
@@ -153,9 +148,9 @@ function Topbar({
         <span className="q-topbar-crumb-active">{title}</span>
       </div>
 
-      {/* Search */}
-      <div style={{ flex: 1, maxWidth: 320 }}>
-        <div className="q-input" style={{ height: 32 }}>
+      {/* Search — fills remaining space so actions land flush-right */}
+      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
+        <div className="q-input" style={{ height: 32, maxWidth: 320 }}>
           <span className="q-input-icon">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
@@ -165,7 +160,7 @@ function Topbar({
         </div>
       </div>
 
-      {/* Actions */}
+      {/* Right-aligned actions */}
       <SyncIndicator />
 
       <button

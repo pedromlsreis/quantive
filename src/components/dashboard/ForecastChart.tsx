@@ -3,17 +3,46 @@ import { format } from 'date-fns';
 import { Info } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
-import { generateForecast } from '@/lib/forecast';
+import { generateForecast, type ForecastPoint } from '@/lib/forecast';
 import { HelpHint } from '@/components/ui/help-hint';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { QTabs } from '@/components/ui/q-tabs';
 
-const HEIGHT = 320;
+const HEIGHT = 360;
 const MARGIN = { top: 32, right: 16, bottom: 32, left: 68 };
 
+export type ForecastScenario = 'conservative' | 'base' | 'optimistic';
+export type ForecastHorizon = '1' | '3' | '5';
+
+const SCENARIO_OPTIONS: { value: ForecastScenario; label: string }[] = [
+  { value: 'conservative', label: '5%'   },
+  { value: 'base',         label: '7.2%' },
+  { value: 'optimistic',   label: '10%'  },
+];
+
+const HORIZON_OPTIONS: { value: ForecastHorizon; label: string }[] = [
+  { value: '1', label: '1y' },
+  { value: '3', label: '3y' },
+  { value: '5', label: '5y' },
+];
+
+const SCENARIO_CAGR: Record<ForecastScenario, number> = {
+  conservative: 0.05,
+  base:         0.072,
+  optimistic:   0.10,
+};
+
 const FORECAST_MODEL_DESCRIPTION =
-  'Uses a Compound Annual Growth Rate (CAGR) fitted to your historical net-worth data. ' +
-  'The CAGR is projected 12 months forward; the uncertainty band widens over time to ' +
-  'reflect increasing uncertainty in longer-term projections.';
+  'Projects net worth at a chosen annualised CAGR (5% / 7.2% / 10%) starting from the latest ' +
+  'snapshot. The confidence cone widens with √t based on historical residual variance — ' +
+  'longer horizons are inherently less certain.';
+
+interface ForecastChartProps {
+  scenario?: ForecastScenario;
+  horizon?: ForecastHorizon;
+  onScenarioChange?: (s: ForecastScenario) => void;
+  onHorizonChange?: (h: ForecastHorizon) => void;
+}
 
 function fmtCompact(v: number, fmt: (n: number) => string): string {
   const abs = Math.abs(v);
@@ -22,11 +51,79 @@ function fmtCompact(v: number, fmt: (n: number) => string): string {
   return fmt(v);
 }
 
-export function ForecastChart() {
+/**
+ * Generate forecast points with a user-chosen CAGR. Mirrors the band-widening
+ * heuristic from {@link generateForecast} but uses an override instead of a
+ * fitted CAGR so users can compare conservative/base/optimistic scenarios.
+ */
+function generateScenarioForecast(
+  snapshots: { date: Date; total: number }[],
+  monthsForward: number,
+  annualRate: number,
+): ForecastPoint[] {
+  if (snapshots.length < 2) return [];
+  const sorted = [...snapshots].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const last = sorted[sorted.length - 1];
+  const first = sorted[0];
+
+  const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+
+  // Compute residual stdDev against the fitted (historical) CAGR for confidence cone width.
+  const totalMonths =
+    (last.date.getFullYear() - first.date.getFullYear()) * 12 +
+    (last.date.getMonth() - first.date.getMonth());
+  const histCagr = totalMonths > 0 && first.total > 0 && last.total > 0
+    ? Math.pow(last.total / first.total, 12 / totalMonths) - 1
+    : annualRate;
+  const histMonthly = Math.pow(1 + histCagr, 1 / 12) - 1;
+  const residuals: number[] = [];
+  for (const s of sorted) {
+    const m =
+      (s.date.getFullYear() - first.date.getFullYear()) * 12 +
+      (s.date.getMonth() - first.date.getMonth());
+    residuals.push(s.total - first.total * Math.pow(1 + histMonthly, m));
+  }
+  const stdDev =
+    residuals.length > 1
+      ? Math.sqrt(residuals.reduce((sum, r) => sum + r * r, 0) / (residuals.length - 1))
+      : 0;
+
+  const points: ForecastPoint[] = [];
+  for (let m = 1; m <= monthsForward; m++) {
+    const futureDate = new Date(last.date);
+    futureDate.setMonth(futureDate.getMonth() + m);
+    const predicted = last.total * Math.pow(1 + monthlyRate, m);
+    const spread = stdDev * 1.96 * Math.sqrt(1 + m / 3);
+    points.push({
+      date: futureDate,
+      forecast: Math.max(0, predicted),
+      upper: Math.max(0, predicted + spread),
+      lower: Math.max(0, predicted - spread),
+    });
+  }
+  return points;
+}
+
+export function ForecastChart({
+  scenario: scenarioProp,
+  horizon: horizonProp,
+  onScenarioChange,
+  onHorizonChange,
+}: ForecastChartProps = {}) {
   const { snapshots } = usePortfolio();
-  const { fmt, fmtFull } = useCurrencyFormatter();
+  const { fmt } = useCurrencyFormatter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(700);
+
+  // Allow controlled OR uncontrolled use.
+  const [scenarioState, setScenarioState] = useState<ForecastScenario>('base');
+  const [horizonState, setHorizonState] = useState<ForecastHorizon>('3');
+  const scenario = scenarioProp ?? scenarioState;
+  const horizon = horizonProp ?? horizonState;
+  const setScenario = (s: ForecastScenario) =>
+    onScenarioChange ? onScenarioChange(s) : setScenarioState(s);
+  const setHorizon = (h: ForecastHorizon) =>
+    onHorizonChange ? onHorizonChange(h) : setHorizonState(h);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -37,10 +134,16 @@ export function ForecastChart() {
     return () => ro.disconnect();
   }, []);
 
+  const months = Number(horizon) * 12;
+  const forecastPoints = useMemo(
+    () => generateScenarioForecast(snapshots, months, SCENARIO_CAGR[scenario]),
+    [snapshots, months, scenario],
+  );
+
   if (!snapshots.length) {
     return (
       <div className="q-card q-card--p-lg">
-        <div className="q-section-head"><h2>Net Worth Forecast</h2></div>
+        <div className="q-section-head"><h2>Trajectory</h2></div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, border: '1px dashed var(--border-raw)', borderRadius: 'var(--r-3)' }}>
           <p style={{ color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)' }}>No data yet — upload your portfolio to see forecasts.</p>
         </div>
@@ -53,8 +156,8 @@ export function ForecastChart() {
       <div className="q-card q-card--p-lg">
         <div className="q-section-head">
           <div>
-            <h2>Net Worth Forecast</h2>
-            <div className="q-section-sub">12-month projection with confidence band</div>
+            <h2>Trajectory</h2>
+            <div className="q-section-sub">History (solid) and projection (dashed) with confidence bands</div>
           </div>
         </div>
         <Alert>
@@ -68,13 +171,7 @@ export function ForecastChart() {
   }
 
   const history = snapshots;
-  const forecastPoints = generateForecast(snapshots, 12);
-
-  // Build combined date domain
-  const allDates = [
-    ...history.map(s => s.date.getTime()),
-    ...forecastPoints.map(f => f.date.getTime()),
-  ];
+  const allDates = [...history.map(s => s.date.getTime()), ...forecastPoints.map(f => f.date.getTime())];
   const minDate = Math.min(...allDates);
   const maxDate = Math.max(...allDates);
   const innerW = Math.max(100, w - MARGIN.left - MARGIN.right);
@@ -91,7 +188,7 @@ export function ForecastChart() {
   const yScale = (v: number) => MARGIN.top + innerH - ((v - minV) / (maxV - minV)) * innerH;
 
   const histPath = history.map((s, i) =>
-    `${i === 0 ? 'M' : 'L'} ${dateScale(s.date).toFixed(1)} ${yScale(s.total).toFixed(1)}`
+    `${i === 0 ? 'M' : 'L'} ${dateScale(s.date).toFixed(1)} ${yScale(s.total).toFixed(1)}`,
   ).join(' ');
 
   const joinX = dateScale(history[history.length - 1].date);
@@ -110,13 +207,11 @@ export function ForecastChart() {
       ' Z'
     : '';
 
-  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => {
+  const yTicks = Array.from({ length: 5 }, (_, i) => {
     const v = minV + (maxV - minV) * (i / 4);
     return { v, y: yScale(v) };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [minV, maxV, innerH]);
+  });
 
-  // X-axis labels: ~5–6 total
   const allPoints = [...history, ...forecastPoints.map(f => ({ date: f.date, total: f.forecast }))];
   const xStep = Math.max(1, Math.floor(allPoints.length / 6));
   const xTicks = allPoints.filter((_, i) => i % xStep === 0 || i === allPoints.length - 1);
@@ -125,35 +220,32 @@ export function ForecastChart() {
     <div className="q-card q-card--p-lg">
       <div className="q-section-head">
         <div>
-          <h2>Net Worth Forecast</h2>
-          <div className="q-section-sub">12-month projection with confidence band</div>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            Trajectory
+            <HelpHint side="right" maxWidthClass="max-w-[300px]" content={FORECAST_MODEL_DESCRIPTION}>
+              <button type="button" aria-label="About this forecast model" className="q-icon-btn" style={{ width: 20, height: 20 }}>
+                <Info size={12} />
+              </button>
+            </HelpHint>
+          </h2>
+          <div className="q-section-sub">History (solid) and projection (dashed) with confidence bands</div>
         </div>
-        <HelpHint side="right" maxWidthClass="max-w-[300px]" content={FORECAST_MODEL_DESCRIPTION}>
-          <button
-            type="button"
-            aria-label="About this forecast model"
-            className="q-icon-btn"
-            style={{ width: 24, height: 24 }}
-          >
-            <Info size={14} />
-          </button>
-        </HelpHint>
-      </div>
-
-      {/* Legend */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, fontSize: 11, color: 'var(--fg-subtle)', marginBottom: 8 }}>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 20, height: 2, background: 'var(--accent-raw)', borderRadius: 1, display: 'inline-block' }} />
-          Actual
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 20, height: 2, background: 'var(--accent-raw)', opacity: 0.6, borderRadius: 1, display: 'inline-block', borderTop: '2px dashed var(--accent-raw)' }} />
-          Forecast
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 20, height: 8, background: 'var(--accent-soft-raw)', borderRadius: 2, display: 'inline-block' }} />
-          Confidence band
-        </span>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <QTabs<ForecastScenario>
+            value={scenario}
+            onChange={setScenario}
+            options={SCENARIO_OPTIONS}
+            size="sm"
+            ariaLabel="Scenario CAGR"
+          />
+          <QTabs<ForecastHorizon>
+            value={horizon}
+            onChange={setHorizon}
+            options={HORIZON_OPTIONS}
+            size="sm"
+            ariaLabel="Forecast horizon"
+          />
+        </div>
       </div>
 
       <div ref={wrapRef} className="q-chart-wrap">
@@ -165,29 +257,20 @@ export function ForecastChart() {
             </linearGradient>
           </defs>
 
-          {/* Y grid */}
           {yTicks.map((t, i) => (
             <g key={i}>
-              <line
-                x1={MARGIN.left} x2={MARGIN.left + innerW}
-                y1={t.y} y2={t.y}
-                stroke="var(--border-soft-raw)" strokeDasharray="2 4" strokeWidth="1"
-              />
-              <text
-                x={MARGIN.left - 10} y={t.y + 3}
-                textAnchor="end" fill="var(--fg-subtle)" fontSize="10"
-                style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono)' }}
-              >
+              <line x1={MARGIN.left} x2={MARGIN.left + innerW} y1={t.y} y2={t.y}
+                stroke="var(--border-soft-raw)" strokeDasharray="2 4" strokeWidth="1" />
+              <text x={MARGIN.left - 10} y={t.y + 3} textAnchor="end" fill="var(--fg-subtle)" fontSize="10"
+                style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono)' }}>
                 {fmtCompact(t.v, fmt)}
               </text>
             </g>
           ))}
 
-          {/* X ticks */}
           {xTicks.map((pt, i) => (
             <text key={i} x={dateScale(pt.date)} y={HEIGHT - 8}
-              textAnchor="middle" fill="var(--fg-subtle)" fontSize="10"
-            >
+              textAnchor="middle" fill="var(--fg-subtle)" fontSize="10">
               {format(pt.date, 'MMM yy')}
             </text>
           ))}
@@ -200,46 +283,23 @@ export function ForecastChart() {
           <text x={joinX} y={MARGIN.top - 7} textAnchor="middle"
             fill="var(--fg-subtle)" fontSize="10" letterSpacing="0.04em">TODAY</text>
 
-          {/* Confidence cone */}
-          {coneOuterPath && (
-            <path d={coneOuterPath} fill="var(--accent-soft-raw)" opacity="0.5" />
-          )}
+          {coneOuterPath && <path d={coneOuterPath} fill="var(--accent-soft-raw)" opacity="0.5" />}
 
-          {/* History area */}
           <path
             d={`${histPath} L ${joinX} ${MARGIN.top + innerH} L ${MARGIN.left} ${MARGIN.top + innerH} Z`}
             fill="url(#fc-hist-area)"
           />
-
-          {/* History line */}
           <path d={histPath} fill="none" stroke="var(--accent-raw)"
             strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
 
-          {/* Median forecast dashed */}
           {medianPath && (
             <path d={medianPath} fill="none" stroke="var(--accent-raw)"
               strokeWidth="1.5" strokeDasharray="3 3" strokeLinecap="round" />
           )}
         </svg>
       </div>
-
-      {/* Summary metrics */}
-      {forecastPoints.length > 0 && (
-        <div style={{ display: 'flex', gap: 24, marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border-raw)' }}>
-          {[
-            { label: 'Median (12 mo.)', value: forecastPoints[forecastPoints.length - 1].forecast, color: 'var(--accent-raw)' },
-            { label: 'Optimistic (upper)', value: forecastPoints[forecastPoints.length - 1].upper, color: 'var(--positive)' },
-            { label: 'Conservative (lower)', value: forecastPoints[forecastPoints.length - 1].lower, color: 'var(--fg-muted)' },
-          ].map(m => (
-            <div key={m.label}>
-              <div style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', marginBottom: 2 }}>{m.label}</div>
-              <div style={{ fontSize: 'var(--text-lg)', fontWeight: 500, color: m.color, fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
-                {fmtFull(m.value)}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
+
+export { generateScenarioForecast };

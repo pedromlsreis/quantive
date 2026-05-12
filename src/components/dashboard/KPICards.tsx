@@ -1,46 +1,38 @@
+import { useMemo } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { formatPercent } from '@/lib/formatters';
 import { HelpHint } from '@/components/ui/help-hint';
-
-interface KPICardProps {
-  label: string;
-  value: string;
-  change?: number;
-  subtitle?: string;
-  formula?: string;
-  size?: 'xl' | 'lg';
-}
+import { generateForecast } from '@/lib/forecast';
 
 function DeltaBadge({ value }: { value: number }) {
+  if (!Number.isFinite(value) || value === 0) {
+    return <span style={{ color: 'var(--fg-subtle)' }}>—</span>;
+  }
   const pos = value >= 0;
   return (
     <span className={`q-delta ${pos ? 'q-delta--pos' : 'q-delta--neg'}`}>
-      {pos ? '▲' : '▼'} {formatPercent(Math.abs(value))}
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+        {pos ? (
+          <path d="M2 7l3-3 3 3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        ) : (
+          <path d="M2 3l3 3 3-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        )}
+      </svg>
+      <span className="num">{formatPercent(Math.abs(value))}</span>
     </span>
   );
 }
 
-function KPICard({ label, value, change, subtitle, formula, size = 'lg' }: KPICardProps) {
-  const content = (
-    <div className="q-metric">
-      <div className="q-metric-eyebrow">{label}</div>
-      <div className={`q-metric-value q-metric-value--${size} num`}>{value}</div>
-      <div className="q-metric-meta">
-        {change !== undefined && change !== 0 && <DeltaBadge value={change} />}
-        {subtitle && <span className="q-metric-sub">{subtitle}</span>}
-      </div>
-    </div>
-  );
-
-  const card = (
-    <div className="q-card q-card--p-lg q-card--interactive h-full">
-      {content}
-    </div>
-  );
-
+function CardShell({
+  children,
+  formula,
+}: {
+  children: React.ReactNode;
+  formula?: string;
+}) {
+  const card = <div className="q-card q-card--p-lg q-card--interactive h-full">{children}</div>;
   if (!formula) return card;
-
   return (
     <HelpHint side="bottom" maxWidthClass="max-w-[280px]" content={formula}>
       {card}
@@ -48,43 +40,112 @@ function KPICard({ label, value, change, subtitle, formula, size = 'lg' }: KPICa
   );
 }
 
+function fmtCompact(v: number, fmt: (n: number) => string): string {
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000) return fmt(Math.round(v / 100_000) / 10) + 'M';
+  if (abs >= 1_000)     return fmt(Math.round(v / 100) / 10).replace(/\.0$/, '') + 'k';
+  return fmt(v);
+}
+
 export function KPICards() {
-  const { kpis } = usePortfolio();
-  const { fmt } = useCurrencyFormatter();
+  const { kpis, snapshots } = usePortfolio();
+  const { fmt, fmtFull } = useCurrencyFormatter();
+
+  // ── Liquid Assets in € (kpis only exposes %), derived from latest snapshot ──
+  const liquidValue = useMemo(() => {
+    if (!snapshots.length) return 0;
+    const latest = snapshots[snapshots.length - 1];
+    return latest.sources.filter((s) => s.isLiquid).reduce((sum, s) => sum + s.value, 0);
+  }, [snapshots]);
+
+  // ── Distinct categories proxy (volatility types) ──
+  const categoryCount = useMemo(() => {
+    if (!snapshots.length) return 0;
+    const latest = snapshots[snapshots.length - 1];
+    const set = new Set(
+      latest.sources
+        .map((s) => s.volatType)
+        .filter((v) => v && v.toLowerCase() !== 'unknown'),
+    );
+    return set.size;
+  }, [snapshots]);
+
+  // ── 5-year forecast (median) using historical CAGR ──
+  const forecast5y = useMemo(() => {
+    if (snapshots.length < 2) return { value: 0, cagr: 0 };
+    const points = generateForecast(snapshots, 60);
+    const last = points[points.length - 1];
+    const first = snapshots[0];
+    const latest = snapshots[snapshots.length - 1];
+    const months =
+      (latest.date.getFullYear() - first.date.getFullYear()) * 12 +
+      (latest.date.getMonth() - first.date.getMonth());
+    const cagr =
+      months > 0 && first.total > 0 && latest.total > 0
+        ? (Math.pow(latest.total / first.total, 12 / months) - 1) * 100
+        : 0;
+    return { value: last?.forecast ?? 0, cagr };
+  }, [snapshots]);
 
   return (
     <div className="q-grid q-grid--kpi q-stagger">
-      <KPICard
-        label="Net Worth"
-        value={fmt(kpis.currentNetWorth)}
-        change={kpis.momChange}
-        subtitle="vs. last month"
-        formula="Sum of all source values at the latest snapshot. MoM % = (current − 1 month ago) ÷ 1 month ago × 100."
-        size="xl"
-      />
-      <KPICard
-        label="Year-over-Year"
-        value={fmt(kpis.yoyNetWorth)}
-        change={kpis.yoyChange}
-        subtitle="Net worth 12 months ago"
-        formula="(Current net worth − net worth 12 months ago) ÷ net worth 12 months ago × 100."
-      />
-      <KPICard
-        label="Sources"
-        value={String(kpis.sourceCount)}
-        subtitle="Distinct sources tracked"
-        formula="Count of distinct sources in the latest snapshot."
-      />
-      <KPICard
-        label="Liquid Assets"
-        value={`${kpis.liquidPercent.toFixed(0)}%`}
-        subtitle={
-          kpis.volatilityDataAvailable
-            ? `${kpis.volatilePercent.toFixed(0)}% volatile`
-            : 'volatility data unavailable'
-        }
-        formula="Liquid % = total value of transferable-in-days sources ÷ net worth × 100."
-      />
+      {/* Card 1 — Net Worth (1.5fr) */}
+      <CardShell formula="Sum of all source values at the latest snapshot. MoM and YoY % vs. matched historical snapshots.">
+        <div className="q-metric">
+          <div className="q-metric-eyebrow">Net Worth</div>
+          <div className="q-metric-value q-metric-value--xl num">{fmtFull(kpis.currentNetWorth)}</div>
+          <div className="q-metric-meta">
+            <DeltaBadge value={kpis.momChange} />
+            <span className="q-metric-sub">vs. last month</span>
+            <span style={{ color: 'var(--fg-faint)' }}>·</span>
+            <DeltaBadge value={kpis.yoyChange} />
+            <span className="q-metric-sub">YoY</span>
+          </div>
+        </div>
+      </CardShell>
+
+      {/* Card 2 — Liquid Assets */}
+      <CardShell formula="Total value of sources flagged as transferable-in-days. Caption shows what fraction of net worth that represents.">
+        <div className="q-metric">
+          <div className="q-metric-eyebrow">Liquid Assets</div>
+          <div className="q-metric-value q-metric-value--lg num">
+            {fmtCompact(liquidValue, fmt)}
+          </div>
+          <div className="q-metric-meta">
+            <span className="q-metric-sub">{kpis.liquidPercent.toFixed(0)}% of assets</span>
+          </div>
+        </div>
+      </CardShell>
+
+      {/* Card 3 — Sources */}
+      <CardShell formula="Distinct sources tracked in the latest snapshot, grouped by their volatility category.">
+        <div className="q-metric">
+          <div className="q-metric-eyebrow">Sources</div>
+          <div className="q-metric-value q-metric-value--lg num">{kpis.sourceCount}</div>
+          <div className="q-metric-meta">
+            <span className="q-metric-sub">
+              across {categoryCount} {categoryCount === 1 ? 'category' : 'categories'}
+            </span>
+          </div>
+        </div>
+      </CardShell>
+
+      {/* Card 4 — Forecast (5y) */}
+      <CardShell formula="Median 5-year projection from a CAGR fitted to your full history. See the Forecast page for scenarios and confidence bands.">
+        <div className="q-metric">
+          <div className="q-metric-eyebrow">Forecast (5y)</div>
+          <div className="q-metric-value q-metric-value--lg num">
+            {forecast5y.value > 0 ? fmtCompact(forecast5y.value, fmt) : '—'}
+          </div>
+          <div className="q-metric-meta">
+            {forecast5y.cagr > 0 ? (
+              <span className="q-badge q-badge--accent">CAGR {forecast5y.cagr.toFixed(1)}%</span>
+            ) : (
+              <span className="q-metric-sub">Need more history</span>
+            )}
+          </div>
+        </div>
+      </CardShell>
     </div>
   );
 }
