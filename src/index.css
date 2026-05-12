@@ -476,6 +476,10 @@
 /* ── Main column ────────────────────────────────────────── */
 .q-main { display: flex; flex-direction: column; min-width: 0; }
 
+/* Sidebar overlay is mobile-only — hide entirely on desktop so it does not
+   occupy a grid column in .q-app */
+.q-sidebar-overlay { display: none; }
+
 .q-topbar-menu-btn { display: none; }
 
 .q-topbar {
