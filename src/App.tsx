@@ -39,7 +39,7 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const APP_SHELL_PATHS = ['/dashboard', '/allocations', '/forecast', '/sources', '/settings'];
+const APP_SHELL_PATHS = ['/dashboard', '/allocations', '/forecast', '/sources', '/settings', '/admin'];
 
 function AppRoutes() {
   const location = useLocation();
