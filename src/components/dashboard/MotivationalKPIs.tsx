@@ -151,24 +151,31 @@ export function MotivationalKPIs() {
         {/* ATH Tracker */}
         <StatCard
           icon={<Trophy className="h-4 w-4 text-primary" />}
-          label="All-Time High"
+          label="All-time high"
           value={fmtFull(ath)}
           meta={athDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
           extra={
             isAtATH ? (
-              <div className="flex items-center gap-1.5 rounded-lg bg-accent/10 px-2.5 py-1.5 text-xs font-semibold text-accent">
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 'var(--s-1-5)',
+                borderRadius: 'var(--r-2)',
+                background: 'color-mix(in oklch, var(--accent-raw) 12%, transparent)',
+                padding: '6px 10px',
+                fontSize: 'var(--text-xs)', fontWeight: 600,
+                color: 'var(--accent-raw)',
+              }}>
                 <Rocket className="h-3.5 w-3.5" />
-                You're at your ATH right now!
+                You're at your all-time high right now!
               </div>
             ) : (
               <div>
-                <div className="mb-1.5 flex justify-between text-xs text-muted-foreground">
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)', marginBottom: 'var(--s-1)' }}>
                   <span>{(athProximity * 100).toFixed(1)}% of ATH</span>
                   <span>{fmtFull(ath - latest.total)} to go</span>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
+                <div style={{ height: 6, width: '100%', overflow: 'hidden', borderRadius: 9999, background: 'color-mix(in oklch, var(--fg) 10%, transparent)' }}>
                   <motion.div
-                    className="h-1.5 rounded-full bg-primary"
+                    style={{ height: 6, borderRadius: 9999, background: 'var(--accent-raw)' }}
                     variants={progressFill(Math.min(athProximity * 100, 100), 0.3)}
                     initial="hidden"
                     animate="visible"
@@ -182,7 +189,7 @@ export function MotivationalKPIs() {
         {/* Best Month */}
         <StatCard
           icon={<CalendarHeart className="h-4 w-4 text-primary" />}
-          label="Best Month Ever"
+          label="Best month"
           value={<span style={{ color: POSITIVE_COLOR }}>+{fmtFull(bestMonth.gain)}</span>}
           meta={bestMonthLabel}
         />
@@ -190,7 +197,7 @@ export function MotivationalKPIs() {
         {/* Total Wealth Created */}
         <StatCard
           icon={<Rocket className="h-4 w-4 text-primary" />}
-          label="Total Wealth Created"
+          label="Total wealth created"
           value={
             <span style={{ color: totalCreated >= 0 ? POSITIVE_COLOR : undefined }}>
               {totalCreated >= 0 ? '+' : ''}{fmtFull(totalCreated)}
@@ -202,44 +209,46 @@ export function MotivationalKPIs() {
 
       {/* Milestones */}
       {(editingMilestones || reached.length > 0 || nextMilestone) && (
-        <div className="mt-6">
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs font-semibold text-muted-foreground">Milestones</p>
+        <div style={{ marginTop: 'var(--s-6)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--s-3)' }}>
+            <p style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--fg-muted)', margin: 0 }}>Milestones</p>
             <button
               onClick={() => setEditingMilestones(!editingMilestones)}
-              className="text-xs text-primary transition-colors hover:text-primary/80"
+              className="q-btn q-btn--ghost q-btn--sm"
+              style={{ fontSize: 'var(--text-xs)' }}
             >
-              {editingMilestones ? 'Done' : 'Customize'}
+              {editingMilestones ? 'Done' : 'Customise'}
             </button>
           </div>
 
           <AnimatePresence>
             {editingMilestones && (
               <motion.div
-                className="mb-3 flex items-center gap-2"
+                style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-3)' }}
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
                 transition={{ duration: 0.18 }}
               >
-                <input
-                  type="number"
-                  aria-label="New milestone threshold"
-                  value={newMilestone}
-                  onChange={e => setNewMilestone(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAddMilestone(); }}
-                  placeholder="e.g. 50000"
-                  className="w-32 rounded-lg border border-border bg-secondary/50 px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                />
+                <label className="q-input" style={{ width: 128 }}>
+                  <input
+                    type="number"
+                    aria-label="New milestone threshold"
+                    value={newMilestone}
+                    onChange={e => setNewMilestone(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddMilestone(); }}
+                    placeholder="e.g. 50000"
+                  />
+                </label>
                 <button
                   onClick={handleAddMilestone}
-                  className="rounded-lg bg-primary/10 px-2.5 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
+                  className="q-btn q-btn--secondary q-btn--sm"
                 >
                   Add
                 </button>
                 <button
                   onClick={handleResetMilestones}
-                  className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+                  className="q-btn q-btn--ghost q-btn--sm"
                 >
                   Reset
                 </button>
@@ -257,7 +266,15 @@ export function MotivationalKPIs() {
               <motion.div
                 key={m}
                 variants={staggerItem}
-                className="group relative flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-xs font-semibold text-accent"
+                style={{
+                  position: 'relative', display: 'flex', alignItems: 'center', gap: 'var(--s-1)',
+                  borderRadius: 9999,
+                  border: '1px solid color-mix(in oklch, var(--accent-raw) 30%, transparent)',
+                  background: 'color-mix(in oklch, var(--accent-raw) 12%, transparent)',
+                  padding: '6px 12px',
+                  fontSize: 'var(--text-xs)', fontWeight: 600,
+                  color: 'var(--accent-raw)',
+                }}
               >
                 <Flag className="h-3 w-3" />
                 {fmtMilestone(m)}
@@ -265,7 +282,8 @@ export function MotivationalKPIs() {
                   <button
                     aria-label={`Remove milestone ${fmtMilestone(m)}`}
                     onClick={() => handleRemoveMilestone(m)}
-                    className="ml-0.5 -mr-1 rounded-full p-0.5 text-accent/60 hover:bg-accent/20 hover:text-accent"
+                    className="q-icon-btn"
+                    style={{ width: 16, height: 16, marginLeft: 2, marginRight: -4, color: 'inherit', opacity: 0.6 }}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>
@@ -276,13 +294,21 @@ export function MotivationalKPIs() {
             {nextMilestone && (
               <motion.div
                 variants={staggerItem}
-                className="flex items-center gap-2 rounded-full border border-border bg-secondary/40 px-3 py-1.5 text-xs text-muted-foreground"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 'var(--s-2)',
+                  borderRadius: 9999,
+                  border: '1px solid var(--border-raw)',
+                  background: 'color-mix(in oklch, var(--fg) 5%, transparent)',
+                  padding: '6px 12px',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--fg-muted)',
+                }}
               >
                 <Flag className="h-3 w-3 shrink-0" />
                 <span>{fmtMilestone(nextMilestone)}</span>
-                <div className="h-1 w-14 overflow-hidden rounded-full bg-secondary">
+                <div style={{ height: 4, width: 56, overflow: 'hidden', borderRadius: 9999, background: 'color-mix(in oklch, var(--fg) 10%, transparent)' }}>
                   <motion.div
-                    className="h-1 rounded-full bg-primary/60"
+                    style={{ height: 4, borderRadius: 9999, background: 'color-mix(in oklch, var(--accent-raw) 60%, transparent)' }}
                     variants={progressFill(progressToNext, 0.4)}
                     initial="hidden"
                     animate="visible"
@@ -292,7 +318,8 @@ export function MotivationalKPIs() {
                   <button
                     aria-label={`Remove milestone ${fmtMilestone(nextMilestone)}`}
                     onClick={() => handleRemoveMilestone(nextMilestone)}
-                    className="-mr-1 rounded-full p-0.5 text-muted-foreground/60 hover:bg-secondary hover:text-muted-foreground"
+                    className="q-icon-btn"
+                    style={{ width: 16, height: 16, marginRight: -4, opacity: 0.6 }}
                   >
                     <X className="h-2.5 w-2.5" />
                   </button>

@@ -209,7 +209,7 @@ export function FilterBar() {
           options={[
           { value: 'all', label: 'All' },
           { value: 'liquid', label: 'Liquid' },
-          { value: 'non-liquid', label: 'Non-Liquid' }]
+          { value: 'non-liquid', label: 'Non-liquid' }]
           }
           onChange={(v) => updateFilters({ liquidFilter: v as FilterState['liquidFilter'] })} />
       </div>

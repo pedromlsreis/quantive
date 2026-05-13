@@ -128,7 +128,7 @@ const SourcesPage = () => {
                         <div>
                           <div style={{ fontWeight: 500 }}>{s.name}</div>
                           <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
-                            {s.isLiquid ? 'Liquid' : 'Non-Liquid'}
+                            {s.isLiquid ? 'Liquid' : 'Non-liquid'}
                           </div>
                         </div>
                       </div>

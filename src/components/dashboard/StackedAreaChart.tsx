@@ -77,7 +77,7 @@ export function StackedAreaChart() {
 
   return (
     <div className="rounded-xl border border-border bg-card p-6" role="img" aria-label="Stacked area chart showing how each financial source contributes to total net worth over time">
-      <h3 className="mb-4 text-sm font-medium text-muted-foreground">Source Breakdown Over Time</h3>
+      <h3 className="mb-4 text-sm font-medium text-muted-foreground">Source breakdown over time</h3>
       <div className="h-[350px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 40 }}>

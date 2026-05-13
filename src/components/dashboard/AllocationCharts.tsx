@@ -107,7 +107,7 @@ export function AllocationChartsView({ snapshots, fmt }: AllocationChartsViewPro
     if (view === 'vol') {
       return aggregateBy(sources, (s) => toTitleCase(s.volatType));
     }
-    return aggregateBy(sources, (s) => (s.isLiquid ? 'Liquid' : 'Non-Liquid'));
+    return aggregateBy(sources, (s) => (s.isLiquid ? 'Liquid' : 'Non-liquid'));
   })();
 
   return (

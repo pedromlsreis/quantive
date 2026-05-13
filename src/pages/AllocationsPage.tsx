@@ -57,7 +57,7 @@ const AllocationsPage = () => {
       positiveSources,
       totalAssets,
       byVolatility: aggregateBy(latest.sources, (s) => toTitleCase(s.volatType)),
-      byLiquidity:  aggregateBy(latest.sources, (s) => (s.isLiquid ? 'Liquid' : 'Non-Liquid')),
+      byLiquidity:  aggregateBy(latest.sources, (s) => (s.isLiquid ? 'Liquid' : 'Non-liquid')),
       byCategory:   aggregateBy(latest.sources, (s) => toTitleCase(s.volatType)),
     };
   }, [snapshots]);

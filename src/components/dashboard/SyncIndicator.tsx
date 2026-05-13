@@ -1,29 +1,39 @@
+import type { CSSProperties } from 'react';
 import { CloudOff, Loader2, Check } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useAuth } from '@/contexts/AuthContext';
 
-const PILL_BASE = 'flex items-center gap-1.5 rounded-md px-2 py-1 text-xs';
+const pillBase: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  borderRadius: 'var(--r-2)',
+  padding: '3px 8px',
+  fontSize: 'var(--text-xs)',
+  lineHeight: 1,
+  cursor: 'default',
+};
 
-const VARIANTS = {
+const VARIANTS: Record<'syncing' | 'synced' | 'error', { style: CSSProperties; icon: React.ReactNode; label: string; title: string }> = {
   syncing: {
-    className: `${PILL_BASE} bg-secondary text-muted-foreground`,
+    style: { ...pillBase, background: 'color-mix(in oklch, var(--fg) 8%, transparent)', color: 'var(--fg-muted)' },
     icon: <Loader2 className="h-3 w-3 animate-spin" />,
     label: 'Syncing',
     title: 'Syncing',
   },
   synced: {
-    className: `${PILL_BASE} bg-emerald-500/10 text-emerald-400`,
+    style: { ...pillBase, background: 'color-mix(in oklch, var(--positive) 15%, transparent)', color: 'var(--positive)' },
     icon: <Check className="h-3 w-3" />,
     label: 'Synced',
     title: 'Synced',
   },
   error: {
-    className: `${PILL_BASE} bg-destructive/10 text-destructive transition-colors hover:bg-destructive/20`,
+    style: { ...pillBase, background: 'color-mix(in oklch, var(--negative) 15%, transparent)', color: 'var(--negative)', cursor: 'pointer' },
     icon: <CloudOff className="h-3 w-3" />,
     label: 'Sync failed — Retry',
     title: 'Sync failed — tap to retry',
   },
-} as const;
+};
 
 export function SyncIndicator() {
   const { syncStatus, retrySync } = usePortfolio();
@@ -36,7 +46,7 @@ export function SyncIndicator() {
 
   if (syncStatus === 'error') {
     return (
-      <button onClick={retrySync} className={variant.className} title={variant.title} aria-label={variant.title}>
+      <button onClick={retrySync} style={variant.style} title={variant.title} aria-label={variant.title}>
         {variant.icon}
         <span className="hidden sm:inline">{variant.label}</span>
       </button>
@@ -44,7 +54,7 @@ export function SyncIndicator() {
   }
 
   return (
-    <span className={variant.className} title={variant.title} aria-label={variant.title}>
+    <span style={variant.style} title={variant.title} aria-label={variant.title}>
       {variant.icon}
       <span className="hidden sm:inline">{variant.label}</span>
     </span>
