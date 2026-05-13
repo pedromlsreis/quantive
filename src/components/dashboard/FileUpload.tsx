@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { BarChart3, Download, Play, Plus, Upload } from 'lucide-react';
-import { AuthButton } from './AuthButton';
 import { WelcomeModal } from './WelcomeModal';
 import { AddMeasurementModal } from './AddMeasurementModal';
 import { staggerContainer, staggerItem, fadeIn } from '@/lib/motion';
@@ -30,9 +29,6 @@ export function FileUpload() {
     <main className="flex flex-1 flex-col bg-background min-h-screen">
       <WelcomeModal />
       <AddMeasurementModal open={addOpen} onOpenChange={setAddOpen} />
-      <div className="flex justify-end px-6 py-3">
-        <AuthButton />
-      </div>
 
       <div className="flex flex-1 items-center justify-center p-8">
         {isLoading ? (
