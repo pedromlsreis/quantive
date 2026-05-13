@@ -344,14 +344,14 @@ function Topbar({
         aria-label="Quantive home"
         style={{
           background: 'none', border: 0, padding: 0, cursor: 'pointer',
-          color: 'var(--accent-raw)', display: 'inline-flex', alignItems: 'center',
+          color: 'var(--fg-faint)', display: 'inline-flex', alignItems: 'center',
         }}
       >
         <Monogram size={20} />
       </button>
 
-      {/* Breadcrumb */}
-      <div className="q-topbar-crumbs">
+      {/* Breadcrumb — fixed width so the search bar doesn't shift between pages */}
+      <div className="q-topbar-crumbs" style={{ width: 180, flexShrink: 0 }}>
         <span>Personal</span>
         <span className="q-topbar-crumb-sep">›</span>
         <span className="q-topbar-crumb-active">{title}</span>
