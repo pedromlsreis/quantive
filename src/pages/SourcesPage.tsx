@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, MoreHorizontal, Search, Pencil } from 'lucide-react';
+import { MoreHorizontal, Search, Pencil } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FileUpload } from '@/components/dashboard/FileUpload';
 import { Sparkline } from '@/components/charts/Sparkline';
-import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -22,7 +21,6 @@ const SourcesPage = () => {
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState(() => searchParams.get('q') ?? '');
-  const [addOpen, setAddOpen] = useState(false);
 
   const [editingVolat, setEditingVolat] = useState<string | null>(null);
   const [volatDraft, setVolatDraft] = useState('');
@@ -92,26 +90,16 @@ const SourcesPage = () => {
             {latest.sources.length} accounts and assets tracked
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <div style={{ width: 240 }}>
-            <label className="q-input" style={{ height: 32 }}>
-              <span className="q-input-icon"><Search size={14} /></span>
-              <input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search sources"
-                aria-label="Search sources"
-              />
-            </label>
-          </div>
-          <button
-            className="q-btn q-btn--primary q-btn--sm"
-            onClick={() => setAddOpen(true)}
-            aria-label="Add measurement"
-          >
-            <Plus size={14} />
-            <span>Add measurement</span>
-          </button>
+        <div style={{ width: 240 }}>
+          <label className="q-input" style={{ height: 32 }}>
+            <span className="q-input-icon"><Search size={14} /></span>
+            <input
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Search sources"
+              aria-label="Search sources"
+            />
+          </label>
         </div>
       </div>
 
@@ -217,7 +205,6 @@ const SourcesPage = () => {
         </div>
       </div>
 
-      <AddMeasurementModal open={addOpen} onOpenChange={setAddOpen} />
     </div>
   );
 };
