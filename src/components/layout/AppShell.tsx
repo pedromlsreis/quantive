@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PieChart, TrendingUp, Database, Settings,
-  Plus, Menu, LogOut, Shield, MessageSquarePlus, ChevronUp,
+  Plus, Menu, LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
 import { SyncIndicator } from '@/components/dashboard/SyncIndicator';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
+import { AuthModal } from '@/components/auth/AuthModal';
 import { Monogram, Wordmark } from '@/components/layout/Brand';
 
 interface NavItem {
@@ -153,14 +154,55 @@ function UserMenu({
   );
 }
 
+function SignedOutMenu({
+  onSignIn,
+  onFeedback,
+}: {
+  onSignIn: () => void;
+  onFeedback: () => void;
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <button
+        type="button"
+        onClick={onSignIn}
+        className="q-side-user"
+        style={{
+          width: '100%', border: 0, background: 'transparent',
+          textAlign: 'left', cursor: 'pointer',
+        }}
+      >
+        <div className="q-avatar" aria-hidden="true">
+          <User size={14} />
+        </div>
+        <div className="q-side-user-meta" style={{ flex: 1 }}>
+          <span className="q-side-user-name">Signed out</span>
+          <span className="q-side-user-mail">Sign in to sync</span>
+        </div>
+        <LogIn size={14} style={{ color: 'var(--fg-faint)', flexShrink: 0 }} />
+      </button>
+      <button
+        type="button"
+        onClick={onFeedback}
+        className="q-nav-item"
+      >
+        <MessageSquarePlus size={15} />
+        <span>Suggest a feature</span>
+      </button>
+    </div>
+  );
+}
+
 function Sidebar({
   isOpen,
   onClose,
   onFeedback,
+  onSignIn,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onFeedback: () => void;
+  onSignIn: () => void;
 }) {
   const { user, signOut } = useAuth();
   const { clearData } = usePortfolio();
@@ -249,7 +291,7 @@ function Sidebar({
               All snapshots encrypted on-device with XChaCha20-Poly1305 before sync.
             </div>
           </div>
-          {user && (
+          {user ? (
             <UserMenu
               displayName={displayName}
               email={user.email}
@@ -257,6 +299,11 @@ function Sidebar({
               isAdmin={isAdmin}
               onNavigate={(to) => { onClose(); navigate(to); }}
               onSignOut={handleSignOut}
+              onFeedback={() => { onClose(); onFeedback(); }}
+            />
+          ) : (
+            <SignedOutMenu
+              onSignIn={onSignIn}
               onFeedback={() => { onClose(); onFeedback(); }}
             />
           )}
@@ -340,6 +387,7 @@ function Topbar({
 export function AppShell({ children, pathname }: { children: React.ReactNode; pathname: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const [feedbackTrigger, setFeedbackTrigger] = useState(0);
 
   return (
@@ -348,6 +396,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onFeedback={() => setFeedbackTrigger(n => n + 1)}
+        onSignIn={() => { setSidebarOpen(false); setAuthOpen(true); }}
       />
 
       <div className="q-main">
@@ -363,6 +412,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
 
       <AddMeasurementModal open={addOpen} onOpenChange={setAddOpen} />
       <FeedbackLauncher trigger={feedbackTrigger} />
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode="signin" />
     </div>
   );
 }
@@ -380,7 +430,7 @@ function FeedbackLauncher({ trigger }: { trigger: number }) {
     btn?.click();
   }, [trigger]);
   return (
-    <div ref={ref} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', pointerEvents: 'none' }} aria-hidden="true">
+    <div ref={ref} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
       <FeedbackButton />
     </div>
   );
