@@ -38,7 +38,6 @@ export function WelcomeModal() {
         setVisible(true);
       }
     } catch {
-      // Storage unavailable — show welcome on every visit
       setVisible(true);
     }
   }, []);
@@ -48,7 +47,6 @@ export function WelcomeModal() {
       try {
         localStorage.setItem(STORAGE_KEY, 'true');
       } catch (e) {
-        // Storage unavailable (e.g. private browsing) — warn but don't crash
         console.warn('[WelcomeModal] Failed to persist dismissal preference:', e);
       }
     }
@@ -58,56 +56,57 @@ export function WelcomeModal() {
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
-      <div className="relative mx-4 w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
-        <button
-          onClick={handleClose}
-          className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-          <BarChart3 className="h-6 w-6 text-primary" />
+    <div className="q-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+      <div className="q-modal" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+        <div className="q-modal-head">
+          <div>
+            <div className="q-modal-title" id="welcome-title">Welcome to Quantive</div>
+            <div className="q-modal-sub">Your personal dashboard to track, analyse, and forecast your net worth.</div>
+          </div>
+          <button type="button" onClick={handleClose} className="q-icon-btn" aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        <h2 className="mb-1 text-lg font-bold text-foreground">Welcome to Quantive</h2>
-        <p className="mb-5 text-sm text-muted-foreground">
-          Your personal dashboard to track, analyse, and forecast your net worth.
-        </p>
+        <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 48, height: 48, borderRadius: 'var(--r-3)',
+            background: 'var(--accent-faint-raw)', flexShrink: 0,
+          }}>
+            <BarChart3 className="h-6 w-6 text-primary" />
+          </div>
 
-        <div className="space-y-4">
           {highlights.map((item, i) => (
-            <div key={i} className="flex gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                {item.icon}
-              </div>
+            <div key={i} style={{ display: 'flex', gap: 'var(--s-3)' }}>
+              <div className="q-insight-icon">{item.icon}</div>
               <div>
-                <p className="text-sm font-medium text-foreground">{item.title}</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">{item.description}</p>
+                <p style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)', margin: 0 }}>{item.title}</p>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', lineHeight: 1.5, marginTop: 'var(--s-1)', marginBottom: 0 }}>{item.description}</p>
               </div>
             </div>
           ))}
-        </div>
 
-        <div className="mt-6 flex items-center gap-2">
-          <Checkbox
-            id="welcome-dismiss"
-            checked={dontShowAgain}
-            onCheckedChange={(checked) => setDontShowAgain(checked === true)}
-          />
-          <label htmlFor="welcome-dismiss" className="text-xs text-muted-foreground cursor-pointer select-none">
-            Don't show this again
+          <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', cursor: 'pointer', userSelect: 'none' }}>
+            <Checkbox
+              id="welcome-dismiss"
+              checked={dontShowAgain}
+              onCheckedChange={(checked) => setDontShowAgain(checked === true)}
+            />
+            <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>Don't show this again</span>
           </label>
         </div>
 
-        <button
-          onClick={handleClose}
-          className="mt-4 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          Get started
-        </button>
+        <div className="q-modal-foot">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="q-btn q-btn--primary q-btn--md"
+            style={{ width: '100%' }}
+          >
+            Get started
+          </button>
+        </div>
       </div>
     </div>
   );

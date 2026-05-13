@@ -8,7 +8,6 @@ import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, type NumberFormat } from '@/contexts/PreferencesContext';
 import { supabase } from '@/integrations/supabase/client';
 import { RecoveryCodeDisplay } from '@/components/auth/RecoveryCodeDisplay';
-import { Switch } from '@/components/ui/switch';
 import {
   Pencil,
   Check,
@@ -42,6 +41,21 @@ const NUMBER_FORMAT_OPTIONS: { value: NumberFormat; label: string; sample: strin
   { value: 'eu',   label: 'European',              sample: '1.234.567,89' },
   { value: 'in',   label: 'Indian',                sample: '12,34,567.89' },
 ];
+
+const fieldLabel: React.CSSProperties = {
+  display: 'block',
+  fontSize: 'var(--text-xs)',
+  fontWeight: 500,
+  color: 'var(--fg-muted)',
+  marginBottom: 'var(--s-1)',
+};
+
+const prefRow: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: 'var(--s-6)',
+};
 
 export default function SettingsPage() {
   const { user, signOut, updatePassword } = useAuth();
@@ -190,60 +204,67 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl">
-      <header className="mb-8">
+      <header style={{ marginBottom: 'var(--s-8)' }}>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-sm)', color: 'var(--fg-subtle)' }}>
           Personalise your workspace, manage data, and control account security.
         </p>
       </header>
 
       {/* Profile */}
       {user && (
-        <section className="mb-8 rounded-xl border border-border bg-card/50 p-6">
-          <h2 className="mb-4 text-base font-semibold text-foreground">Profile</h2>
-          <div className="space-y-4">
+        <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
+          <div className="q-section-head">
+            <h2>Profile</h2>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Email</label>
-              <p className="text-sm text-foreground">{user.email}</p>
+              <p style={fieldLabel}>Email</p>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>{user.email}</p>
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Display name</label>
+              <p style={fieldLabel}>Display name</p>
               {editing ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    placeholder="Enter display name"
-                    className="w-full max-w-xs rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                    autoFocus
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleSave();
-                      if (e.key === 'Escape') setEditing(false);
-                    }}
-                  />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+                  <label className="q-input" style={{ flex: 1, maxWidth: 300 }}>
+                    <input
+                      type="text"
+                      value={draft}
+                      onChange={e => setDraft(e.target.value)}
+                      placeholder="Enter display name"
+                      autoFocus
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleSave();
+                        if (e.key === 'Escape') setEditing(false);
+                      }}
+                    />
+                  </label>
                   <button
+                    type="button"
                     onClick={handleSave}
                     disabled={saving || !draft.trim()}
-                    className="rounded-lg p-2 text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                    className="q-icon-btn"
+                    style={{ color: 'var(--accent-raw)', opacity: saving || !draft.trim() ? 0.4 : 1 }}
                     title="Save"
                   >
                     <Check className="h-4 w-4" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => setEditing(false)}
-                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary"
+                    className="q-icon-btn"
                     title="Cancel"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <p className="text-sm text-foreground">{displayName || '—'}</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>{displayName || '—'}</p>
                   <button
+                    type="button"
                     onClick={() => { setDraft(displayName || ''); setEditing(true); }}
-                    className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    className="q-icon-btn"
                     title="Edit display name"
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -256,108 +277,134 @@ export default function SettingsPage() {
       )}
 
       {/* Preferences */}
-      <section className="mb-8 rounded-xl border border-border bg-card/50 p-6">
-        <h2 className="mb-4 text-base font-semibold text-foreground">Preferences</h2>
+      <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
+        <div className="q-section-head">
+          <h2>Preferences</h2>
+        </div>
 
-        <div className="space-y-6">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-6)' }}>
           {/* Display currency */}
-          <div className="flex items-start justify-between gap-6">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
+          <div style={prefRow}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
                 <Wallet className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Display currency</span>
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Display currency</span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
                 All balances are shown in this currency. Source values must already be in it — no conversion is applied.
               </p>
             </div>
-            <select
-              value={currency.code}
-              onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-              className="h-9 w-44 shrink-0 rounded-lg border border-border bg-secondary/50 px-3 text-sm text-foreground focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-            >
-              {allCurrencies.map((c) => (
-                <option key={c.code} value={c.code}>
-                  {c.symbol === c.code ? c.code : `${c.symbol} ${c.code}`}
-                </option>
-              ))}
-            </select>
+            <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
+              <select
+                value={currency.code}
+                onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+              >
+                {allCurrencies.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.symbol === c.code ? c.code : `${c.symbol} ${c.code}`}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {/* Number format */}
-          <div className="flex items-start justify-between gap-6">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
+          <div style={prefRow}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
                 <Hash className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Number format</span>
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Number format</span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
                 How separators and decimals appear across the app.
               </p>
             </div>
-            <select
-              value={numberFormat}
-              onChange={(e) => setNumberFormat(e.target.value as NumberFormat)}
-              className="h-9 w-44 shrink-0 rounded-lg border border-border bg-secondary/50 px-3 text-sm text-foreground focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-            >
-              {NUMBER_FORMAT_OPTIONS.map(opt => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label} — {opt.sample}
-                </option>
-              ))}
-            </select>
+            <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
+              <select
+                value={numberFormat}
+                onChange={(e) => setNumberFormat(e.target.value as NumberFormat)}
+              >
+                {NUMBER_FORMAT_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label} — {opt.sample}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {/* Privacy mode */}
-          <div className="flex items-start justify-between gap-6">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
+          <div style={prefRow}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
                 <EyeOff className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Privacy mode</span>
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Privacy mode</span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
                 Blur monetary values throughout the app. Hover any value to peek.
               </p>
             </div>
-            <Switch checked={privacyMode} onCheckedChange={setPrivacyMode} />
+            <button
+              type="button"
+              className={`q-toggle${privacyMode ? ' is-on' : ''}`}
+              onClick={() => setPrivacyMode(!privacyMode)}
+              aria-checked={privacyMode}
+              role="switch"
+            >
+              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
+            </button>
           </div>
 
           {/* Email summaries — coming soon */}
-          <div className="flex items-start justify-between gap-6 opacity-70">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
+          <div style={{ ...prefRow, opacity: 0.7 }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
                 <Mail className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium text-foreground">Email summaries</span>
-                <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Email summaries</span>
+                <span className="q-badge q-badge--accent" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                   Coming soon
                 </span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
                 Monthly digest of net-worth movement, allocation drift, and forecast updates.
               </p>
             </div>
-            <Switch checked={false} disabled aria-label="Email summaries (coming soon)" />
+            <button
+              type="button"
+              className="q-toggle"
+              disabled
+              aria-checked={false}
+              role="switch"
+              aria-label="Email summaries (coming soon)"
+              style={{ opacity: 0.4, cursor: 'not-allowed' }}
+            >
+              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
+            </button>
           </div>
         </div>
       </section>
 
       {/* Data */}
-      <section className="mb-8 rounded-xl border border-border bg-card/50 p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <Database className="h-4 w-4 text-primary" />
-          <h2 className="text-base font-semibold text-foreground">Your data</h2>
+      <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
+        <div className="q-section-head">
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+            <Database className="h-4 w-4 text-primary" />
+            Your data
+          </h2>
         </div>
-        <div className="flex items-start justify-between gap-6">
-          <div className="min-w-0">
-            <p className="text-sm text-foreground">Export to Excel</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+        <div style={prefRow}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>Export to Excel</p>
+            <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
               Download a full workbook of your snapshots and per-source values.
             </p>
           </div>
           <button
+            type="button"
             onClick={handleExport}
             disabled={!data || exporting}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+            className="q-btn q-btn--secondary q-btn--sm"
+            style={{ flexShrink: 0, opacity: !data || exporting ? 0.5 : 1 }}
           >
             <Download className="h-3.5 w-3.5" />
             {exporting ? 'Exporting…' : 'Export'}
@@ -367,42 +414,42 @@ export default function SettingsPage() {
 
       {/* Security */}
       {user && (
-        <section className="mb-8 rounded-xl border border-border bg-card/50 p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <h2 className="text-base font-semibold text-foreground">Security</h2>
+        <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
+          <div className="q-section-head">
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              Security
+            </h2>
           </div>
 
-          <div className="space-y-5">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                End-to-end encryption
-              </label>
+              <p style={fieldLabel}>End-to-end encryption</p>
               {keySession.status === 'unlocked-encrypted' ? (
-                <p className="text-sm text-foreground">
-                  <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
-                    Enabled
-                  </span>{' '}
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
+                  <span className="q-badge q-badge--accent">Enabled</span>{' '}
                   XChaCha20-Poly1305 + Argon2id.
                 </p>
               ) : (
-                <p className="text-sm text-muted-foreground">
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>
                   Locked — sign out and sign in to manage encryption settings.
                 </p>
               )}
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Recovery code</label>
+              <p style={fieldLabel}>Recovery code</p>
               {keySession.hasRecovery === true ? (
                 <div>
-                  <p className="mb-2 text-sm text-foreground">
+                  <p style={{ marginBottom: 'var(--s-2)', fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
                     Configured. Generate a new one to invalidate the old.
                   </p>
                   <button
+                    type="button"
                     onClick={handleSetUpRecovery}
                     disabled={provisioningRecovery || keySession.status !== 'unlocked-encrypted'}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+                    className="q-btn q-btn--ghost q-btn--sm"
+                    style={{ opacity: provisioningRecovery || keySession.status !== 'unlocked-encrypted' ? 0.5 : 1 }}
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
                     {provisioningRecovery ? 'Generating…' : 'Rotate recovery code'}
@@ -410,59 +457,66 @@ export default function SettingsPage() {
                 </div>
               ) : keySession.hasRecovery === false ? (
                 <div>
-                  <p className="mb-2 text-sm text-foreground">
+                  <p style={{ marginBottom: 'var(--s-2)', fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
                     Not configured. Without one, a forgotten password means permanent loss of your encrypted data.
                   </p>
                   <button
+                    type="button"
                     onClick={handleSetUpRecovery}
                     disabled={provisioningRecovery || keySession.status !== 'unlocked-encrypted'}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                    className="q-btn q-btn--primary q-btn--sm"
+                    style={{ opacity: provisioningRecovery || keySession.status !== 'unlocked-encrypted' ? 0.5 : 1 }}
                   >
                     <KeyRound className="h-3.5 w-3.5" />
                     {provisioningRecovery ? 'Generating…' : 'Set up recovery code'}
                   </button>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Loading…</p>
+                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>Loading…</p>
               )}
             </div>
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Change password</label>
+              <p style={fieldLabel}>Change password</p>
               {!changingPassword ? (
                 <button
+                  type="button"
                   onClick={() => setChangingPassword(true)}
                   disabled={keySession.status !== 'unlocked-encrypted'}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+                  className="q-btn q-btn--ghost q-btn--sm"
+                  style={{ opacity: keySession.status !== 'unlocked-encrypted' ? 0.5 : 1 }}
                 >
                   Change password
                 </button>
               ) : (
-                <form onSubmit={handleChangePassword} className="space-y-2">
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    placeholder="New password"
-                    minLength={6}
-                    required
-                    autoFocus
-                    className="w-full max-w-xs rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                  />
-                  <input
-                    type="password"
-                    value={newPasswordConfirm}
-                    onChange={e => setNewPasswordConfirm(e.target.value)}
-                    placeholder="Confirm new password"
-                    minLength={6}
-                    required
-                    className="w-full max-w-xs rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                  />
-                  <div className="flex gap-2">
+                <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
+                  <label className="q-input" style={{ maxWidth: 300 }}>
+                    <input
+                      type="password"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      placeholder="New password"
+                      minLength={6}
+                      required
+                      autoFocus
+                    />
+                  </label>
+                  <label className="q-input" style={{ maxWidth: 300 }}>
+                    <input
+                      type="password"
+                      value={newPasswordConfirm}
+                      onChange={e => setNewPasswordConfirm(e.target.value)}
+                      placeholder="Confirm new password"
+                      minLength={6}
+                      required
+                    />
+                  </label>
+                  <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
                     <button
                       type="submit"
                       disabled={submittingPassword}
-                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                      className="q-btn q-btn--primary q-btn--sm"
+                      style={{ opacity: submittingPassword ? 0.5 : 1 }}
                     >
                       {submittingPassword ? 'Changing…' : 'Change password'}
                     </button>
@@ -473,7 +527,7 @@ export default function SettingsPage() {
                         setNewPassword('');
                         setNewPasswordConfirm('');
                       }}
-                      className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      className="q-btn q-btn--ghost q-btn--sm"
                     >
                       Cancel
                     </button>
@@ -487,14 +541,21 @@ export default function SettingsPage() {
 
       {/* Danger zone */}
       {user && (
-        <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
-          <h2 className="mb-2 text-base font-semibold text-destructive">Danger Zone</h2>
-          <p className="mb-4 text-sm text-muted-foreground">
+        <section
+          className="q-card q-card--p-lg"
+          style={{ borderColor: 'var(--negative)', background: 'var(--negative-bg)' }}
+        >
+          <div className="q-section-head">
+            <h2 style={{ color: 'var(--negative)' }}>Danger zone</h2>
+          </div>
+          <p style={{ marginBottom: 'var(--s-4)', fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>
             Permanently delete your account and all associated data. This action cannot be undone.
           </p>
           <button
+            type="button"
             onClick={() => setDeleteOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-destructive/90"
+            className="q-btn q-btn--sm"
+            style={{ background: 'var(--negative)', color: 'white', gap: 'var(--s-2)' }}
           >
             <Trash2 className="h-4 w-4" />
             Delete my account
@@ -503,20 +564,30 @@ export default function SettingsPage() {
       )}
 
       {showRecoveryCode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="relative mx-4 w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-              <KeyRound className="h-6 w-6 text-primary" />
+        <div className="q-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="recovery-title">
+          <div className="q-modal">
+            <div className="q-modal-head">
+              <div>
+                <div className="q-modal-title" id="recovery-title">Your recovery code</div>
+                <div className="q-modal-sub">
+                  Save these 24 words somewhere safe. Anyone with these words can unlock your data — we won't show them again.
+                </div>
+              </div>
             </div>
-            <h2 className="mb-1 text-lg font-bold text-foreground">Your recovery code</h2>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Save these 24 words somewhere safe. Anyone with these words can unlock your data — we won't show them again.
-            </p>
-            <RecoveryCodeDisplay
-              code={showRecoveryCode}
-              onConfirmed={() => setShowRecoveryCode(null)}
-              onSkipConfirm={() => setShowRecoveryCode(null)}
-            />
+            <div className="q-modal-body">
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 48, height: 48, borderRadius: 'var(--r-3)',
+                background: 'var(--accent-faint-raw)', marginBottom: 'var(--s-4)',
+              }}>
+                <KeyRound className="h-6 w-6 text-primary" />
+              </div>
+              <RecoveryCodeDisplay
+                code={showRecoveryCode}
+                onConfirmed={() => setShowRecoveryCode(null)}
+                onSkipConfirm={() => setShowRecoveryCode(null)}
+              />
+            </div>
           </div>
         </div>
       )}

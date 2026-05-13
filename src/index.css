@@ -309,6 +309,10 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 @keyframes q-bar-grow {
   from { transform: scaleX(0); }
   to   { transform: scaleX(1); }
@@ -431,7 +435,7 @@
   font-size: var(--text-xs);
   color: var(--fg-faint);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   padding: var(--s-3) var(--s-3) var(--s-2);
 }
 .q-nav-item {
@@ -626,6 +630,34 @@
 }
 .q-delta--pos { background: var(--positive-bg); color: var(--positive); }
 .q-delta--neg { background: var(--negative-bg); color: var(--negative); }
+
+/* ─────────────────────────────────────────────────────────────────
+   Toggle (design-system switch)
+   ─────────────────────────────────────────────────────────────────*/
+.q-toggle {
+  display: inline-flex; align-items: center; gap: var(--s-3);
+  border: 0; background: transparent; cursor: pointer; padding: 4px;
+  color: var(--fg); font-family: inherit;
+}
+.q-toggle-track {
+  width: 32px; height: 18px; border-radius: var(--r-pill);
+  background: var(--border-raw); position: relative;
+  transition: background var(--d-fast) var(--ease-soft);
+  border: 1px solid var(--border-strong-raw);
+  flex-shrink: 0;
+}
+.q-toggle.is-on .q-toggle-track { background: var(--accent-raw); border-color: var(--accent-raw); }
+.q-toggle-thumb {
+  position: absolute; top: 1px; left: 1px;
+  width: 14px; height: 14px;
+  background: var(--surface);
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  transition: transform var(--d-fast) var(--ease-spring);
+}
+.q-toggle.is-on .q-toggle-thumb { transform: translateX(14px); background: oklch(98% 0 0); }
+.q-toggle-label { font-size: var(--text-sm); display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.q-toggle-sub { font-size: var(--text-xs); color: var(--fg-subtle); }
 
 /* ─────────────────────────────────────────────────────────────────
    Tabs
