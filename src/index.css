@@ -513,6 +513,9 @@
 
 .q-topbar-brand { display: inline-flex; align-items: center; }
 
+/* Sign-in affordance — mobile topbar only */
+.q-topbar-signin { display: none; }
+
 .q-topbar {
   display: flex; align-items: center; gap: var(--s-4);
   padding: calc(14px * var(--density)) var(--s-8);
@@ -878,6 +881,8 @@
   .q-topbar-search { display: none; }
   .q-topbar-add { padding: 6px 8px; }
   .q-topbar-add .q-topbar-add-label { display: none; }
+  .q-topbar-signin { display: inline-flex; }
+  .q-topbar-signin-label { display: none; }
 
   /* Leave room for the bottom tab bar so content isn't hidden. */
   .q-content { padding: var(--s-4) var(--s-4) var(--s-6); }

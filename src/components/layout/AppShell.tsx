@@ -318,12 +318,15 @@ function Topbar({
   pathname,
   onMenuClick,
   onAdd,
+  onSignIn,
 }: {
   pathname: string;
   onMenuClick: () => void;
   onAdd: () => void;
+  onSignIn: () => void;
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const title = PAGE_TITLES[pathname] ?? 'Overview';
 
   return (
@@ -364,6 +367,19 @@ function Topbar({
       {/* Right-aligned actions */}
       <SyncIndicator />
 
+      {/* Mobile-only sign-in button — shown only when signed out */}
+      {!user && (
+        <button
+          type="button"
+          className="q-btn q-btn--secondary q-btn--sm q-topbar-signin"
+          onClick={onSignIn}
+          aria-label="Sign in"
+        >
+          <LogIn size={14} />
+          <span className="q-topbar-signin-label">Sign in</span>
+        </button>
+      )}
+
       <button
         className="q-btn q-btn--primary q-btn--sm q-topbar-add"
         onClick={onAdd}
@@ -396,6 +412,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
           pathname={pathname}
           onMenuClick={() => setSidebarOpen(true)}
           onAdd={() => setAddOpen(true)}
+          onSignIn={() => setAuthOpen(true)}
         />
         <div className="q-content q-screen">
           {children}
