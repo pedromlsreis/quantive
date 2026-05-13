@@ -1,26 +1,28 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
+import { usePreferences, type NumberFormat } from '@/contexts/PreferencesContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Footer } from '@/components/Footer';
-import { StickyNav } from '@/components/landing/StickyNav';
 import { RecoveryCodeDisplay } from '@/components/auth/RecoveryCodeDisplay';
 import { Switch } from '@/components/ui/switch';
-import { HelpHint } from '@/components/ui/help-hint';
 import {
   Pencil,
   Check,
   X,
   Trash2,
-  ArrowLeft,
   ShieldCheck,
   KeyRound,
   RotateCcw,
   Wallet,
-  Layers,
+  Hash,
+  EyeOff,
+  Mail,
+  Download,
+  Database,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -34,11 +36,19 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+const NUMBER_FORMAT_OPTIONS: { value: NumberFormat; label: string; sample: string }[] = [
+  { value: 'auto', label: 'Auto (match currency)', sample: 'Locale-default' },
+  { value: 'us',   label: 'US-style',              sample: '1,234,567.89' },
+  { value: 'eu',   label: 'European',              sample: '1.234.567,89' },
+  { value: 'in',   label: 'Indian',                sample: '12,34,567.89' },
+];
+
 export default function SettingsPage() {
   const { user, signOut, updatePassword } = useAuth();
   const keySession = useKeySession();
-  const { clearData, data, updateRefSource } = usePortfolio();
+  const { clearData, data } = usePortfolio();
   const { currency, setCurrency, allCurrencies } = useCurrency();
+  const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode } = usePreferences();
   const navigate = useNavigate();
 
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -48,15 +58,15 @@ export default function SettingsPage() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // Recovery code setup/rotate flow state.
   const [showRecoveryCode, setShowRecoveryCode] = useState<string | null>(null);
   const [provisioningRecovery, setProvisioningRecovery] = useState(false);
 
-  // Change-password flow state.
   const [changingPassword, setChangingPassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [submittingPassword, setSubmittingPassword] = useState(false);
+
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -98,9 +108,7 @@ export default function SettingsPage() {
       const { recoveryCode } = await keySession.setupRecovery(user.id);
       setShowRecoveryCode(recoveryCode);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : 'Failed to set up recovery code.',
-      );
+      toast.error(e instanceof Error ? e.message : 'Failed to set up recovery code.');
     } finally {
       setProvisioningRecovery(false);
     }
@@ -123,22 +131,13 @@ export default function SettingsPage() {
     }
     setSubmittingPassword(true);
     try {
-      // Auth first: if this fails, nothing has changed and the user retries.
       const { error: authErr } = await updatePassword(newPassword);
       if (authErr) {
         toast.error(authErr);
         return;
       }
-      // Wrap second: rotate the at-rest wrap so the new password unlocks
-      // the same DK on next sign-in.
-      const { error: rewrapErr } = await keySession.rewrapForNewPassword(
-        user.id,
-        newPassword,
-      );
+      const { error: rewrapErr } = await keySession.rewrapForNewPassword(user.id, newPassword);
       if (rewrapErr) {
-        // Auth has rotated but the wrap hasn't. The user's data is now
-        // accessible only via the recovery code (or a successful retry).
-        // Tell them clearly.
         toast.error(
           'Password updated, but the encryption wrap could not be rotated. Please retry, or use your recovery code on next sign-in.',
         );
@@ -150,6 +149,23 @@ export default function SettingsPage() {
       setNewPasswordConfirm('');
     } finally {
       setSubmittingPassword(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!data) {
+      toast.error('No data to export.');
+      return;
+    }
+    setExporting(true);
+    try {
+      const { exportPortfolioExcel } = await import('@/lib/exporter');
+      const timestamp = format(new Date(), 'yyyy-MM-dd');
+      await exportPortfolioExcel(data, `portfolio_${timestamp}.xlsx`);
+    } catch {
+      toast.error('Export failed.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -173,31 +189,23 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <StickyNav />
+    <div className="mx-auto w-full max-w-3xl">
+      <header className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Personalise your workspace, manage data, and control account security.
+        </p>
+      </header>
 
-      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-20">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to dashboard
-        </button>
-
-        <h1 className="mb-8 text-2xl font-bold text-foreground">Settings</h1>
-
-        {/* Profile section */}
-        {user && (
-        <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
+      {/* Profile */}
+      {user && (
+        <section className="mb-8 rounded-xl border border-border bg-card/50 p-6">
           <h2 className="mb-4 text-base font-semibold text-foreground">Profile</h2>
-
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Email</label>
               <p className="text-sm text-foreground">{user.email}</p>
             </div>
-
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Display name</label>
               {editing ? (
@@ -245,27 +253,28 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
-        )}
+      )}
 
-        {/* Preferences */}
-        <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-primary" />
-            <h2 className="text-base font-semibold text-foreground">Preferences</h2>
-          </div>
+      {/* Preferences */}
+      <section className="mb-8 rounded-xl border border-border bg-card/50 p-6">
+        <h2 className="mb-4 text-base font-semibold text-foreground">Preferences</h2>
 
-          <div>
-            <label htmlFor="currency-select" className="mb-1 block text-xs font-medium text-muted-foreground">
-              Display currency
-            </label>
-            <p className="mb-2 text-xs text-muted-foreground/80">
-              All balances are shown in this currency. Source values must already be in this currency — no conversion is applied.
-            </p>
+        <div className="space-y-6">
+          {/* Display currency */}
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Display currency</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                All balances are shown in this currency. Source values must already be in it — no conversion is applied.
+              </p>
+            </div>
             <select
-              id="currency-select"
               value={currency.code}
               onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-              className="w-full max-w-xs rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+              className="h-9 w-44 shrink-0 rounded-lg border border-border bg-secondary/50 px-3 text-sm text-foreground focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
             >
               {allCurrencies.map((c) => (
                 <option key={c.code} value={c.code}>
@@ -274,26 +283,97 @@ export default function SettingsPage() {
               ))}
             </select>
           </div>
-        </section>
 
-        {/* Sources */}
-        {data && data.refSources.length > 0 && (
-          <SourcesSection
-            refSources={data.refSources}
-            onUpdate={updateRefSource}
-          />
-        )}
+          {/* Number format */}
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Hash className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Number format</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                How separators and decimals appear across the app.
+              </p>
+            </div>
+            <select
+              value={numberFormat}
+              onChange={(e) => setNumberFormat(e.target.value as NumberFormat)}
+              className="h-9 w-44 shrink-0 rounded-lg border border-border bg-secondary/50 px-3 text-sm text-foreground focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
+            >
+              {NUMBER_FORMAT_OPTIONS.map(opt => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label} — {opt.sample}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        {/* Security */}
-        {user && (
-        <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
+          {/* Privacy mode */}
+          <div className="flex items-start justify-between gap-6">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <EyeOff className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Privacy mode</span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Blur monetary values throughout the app. Hover any value to peek.
+              </p>
+            </div>
+            <Switch checked={privacyMode} onCheckedChange={setPrivacyMode} />
+          </div>
+
+          {/* Email summaries — coming soon */}
+          <div className="flex items-start justify-between gap-6 opacity-70">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Email summaries</span>
+                <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+                  Coming soon
+                </span>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Monthly digest of net-worth movement, allocation drift, and forecast updates.
+              </p>
+            </div>
+            <Switch checked={false} disabled aria-label="Email summaries (coming soon)" />
+          </div>
+        </div>
+      </section>
+
+      {/* Data */}
+      <section className="mb-8 rounded-xl border border-border bg-card/50 p-6">
+        <div className="mb-4 flex items-center gap-2">
+          <Database className="h-4 w-4 text-primary" />
+          <h2 className="text-base font-semibold text-foreground">Your data</h2>
+        </div>
+        <div className="flex items-start justify-between gap-6">
+          <div className="min-w-0">
+            <p className="text-sm text-foreground">Export to Excel</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Download a full workbook of your snapshots and per-source values.
+            </p>
+          </div>
+          <button
+            onClick={handleExport}
+            disabled={!data || exporting}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+          >
+            <Download className="h-3.5 w-3.5" />
+            {exporting ? 'Exporting…' : 'Export'}
+          </button>
+        </div>
+      </section>
+
+      {/* Security */}
+      {user && (
+        <section className="mb-8 rounded-xl border border-border bg-card/50 p-6">
           <div className="mb-4 flex items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-primary" />
             <h2 className="text-base font-semibold text-foreground">Security</h2>
           </div>
 
           <div className="space-y-5">
-            {/* Encryption status */}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 End-to-end encryption
@@ -312,11 +392,8 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Recovery code */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Recovery code
-              </label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Recovery code</label>
               {keySession.hasRecovery === true ? (
                 <div>
                   <p className="mb-2 text-sm text-foreground">
@@ -324,10 +401,7 @@ export default function SettingsPage() {
                   </p>
                   <button
                     onClick={handleSetUpRecovery}
-                    disabled={
-                      provisioningRecovery ||
-                      keySession.status !== 'unlocked-encrypted'
-                    }
+                    disabled={provisioningRecovery || keySession.status !== 'unlocked-encrypted'}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
                   >
                     <RotateCcw className="h-3.5 w-3.5" />
@@ -337,15 +411,11 @@ export default function SettingsPage() {
               ) : keySession.hasRecovery === false ? (
                 <div>
                   <p className="mb-2 text-sm text-foreground">
-                    Not configured. Without one, a forgotten password means
-                    permanent loss of your encrypted data.
+                    Not configured. Without one, a forgotten password means permanent loss of your encrypted data.
                   </p>
                   <button
                     onClick={handleSetUpRecovery}
-                    disabled={
-                      provisioningRecovery ||
-                      keySession.status !== 'unlocked-encrypted'
-                    }
+                    disabled={provisioningRecovery || keySession.status !== 'unlocked-encrypted'}
                     className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                   >
                     <KeyRound className="h-3.5 w-3.5" />
@@ -357,11 +427,8 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Change password */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                Change password
-              </label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Change password</label>
               {!changingPassword ? (
                 <button
                   onClick={() => setChangingPassword(true)}
@@ -416,10 +483,10 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
-        )}
+      )}
 
-        {/* Danger zone */}
-        {user && (
+      {/* Danger zone */}
+      {user && (
         <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-6">
           <h2 className="mb-2 text-base font-semibold text-destructive">Danger Zone</h2>
           <p className="mb-4 text-sm text-muted-foreground">
@@ -433,24 +500,17 @@ export default function SettingsPage() {
             Delete my account
           </button>
         </section>
-        )}
-      </main>
+      )}
 
-      <Footer />
-
-      {/* Recovery code display (shown after Set up / Rotate). */}
       {showRecoveryCode && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="relative mx-4 w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
               <KeyRound className="h-6 w-6 text-primary" />
             </div>
-            <h2 className="mb-1 text-lg font-bold text-foreground">
-              Your recovery code
-            </h2>
+            <h2 className="mb-1 text-lg font-bold text-foreground">Your recovery code</h2>
             <p className="mb-4 text-sm text-muted-foreground">
-              Save these 24 words somewhere safe. Anyone with these words can
-              unlock your data — we won't show them again.
+              Save these 24 words somewhere safe. Anyone with these words can unlock your data — we won't show them again.
             </p>
             <RecoveryCodeDisplay
               code={showRecoveryCode}
@@ -483,115 +543,5 @@ export default function SettingsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-}
-
-interface SourcesSectionProps {
-  refSources: { idSource: string; volatType: string; transferableInDays: boolean }[];
-  onUpdate: (idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => void;
-}
-
-function SourcesSection({ refSources, onUpdate }: SourcesSectionProps) {
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-
-  const sorted = [...refSources].sort((a, b) => a.idSource.localeCompare(b.idSource));
-  const unknownCount = refSources.filter(s => s.volatType.toLowerCase() === 'unknown').length;
-
-  const draftFor = (s: { idSource: string; volatType: string }) =>
-    drafts[s.idSource] !== undefined ? drafts[s.idSource] : (s.volatType.toLowerCase() === 'unknown' ? '' : s.volatType);
-
-  const commitVolat = (idSource: string, currentValue: string) => {
-    const next = (drafts[idSource] ?? '').trim();
-    const original = currentValue.toLowerCase() === 'unknown' ? '' : currentValue;
-    if (next === original) {
-      setDrafts(prev => {
-        const { [idSource]: _, ...rest } = prev;
-        return rest;
-      });
-      return;
-    }
-    onUpdate(idSource, { volatType: next });
-    setDrafts(prev => {
-      const { [idSource]: _, ...rest } = prev;
-      return rest;
-    });
-  };
-
-  return (
-    <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
-      <div className="mb-1 flex items-center gap-2">
-        <Layers className="h-4 w-4 text-primary" />
-        <h2 className="text-base font-semibold text-foreground">Sources</h2>
-      </div>
-      <p className="mb-4 text-xs text-muted-foreground/80">
-        Edit how each source is classified. Volatility is free text — use any label that fits (e.g. <span className="font-mono">Stable</span>, <span className="font-mono">Volatile</span>, <span className="font-mono">Highly Volatile</span>).
-        {unknownCount > 0 && (
-          <> {' '}
-            <span className="text-foreground">{unknownCount} {unknownCount === 1 ? 'source has' : 'sources have'} unknown volatility.</span>
-          </>
-        )}
-      </p>
-
-      <div className="mb-2 flex items-center gap-2 px-0.5 text-xs font-medium text-muted-foreground">
-        <span className="flex-1">Source</span>
-        <HelpHint
-          maxWidthClass="max-w-[280px]"
-          content={<>Free-text classification of how much this source's value fluctuates. Use any label you like (e.g. <span className="font-mono">Stable</span>, <span className="font-mono">Volatile</span>, <span className="font-mono">Highly Volatile</span>). Leave blank for Unknown. Drives the "% volatile" KPI.</>}
-        >
-          <button
-            type="button"
-            className="w-40 cursor-help text-left underline decoration-dotted underline-offset-4 focus:outline-none focus:text-foreground"
-          >
-            Volatility
-          </button>
-        </HelpHint>
-        <HelpHint
-          maxWidthClass="max-w-[280px]"
-          content={<>Whether this source can be transferred to cash within a few days (e.g. a savings account vs. a pension plan). Drives the "% liquid" KPI.</>}
-        >
-          <button
-            type="button"
-            className="w-14 cursor-help text-center underline decoration-dotted underline-offset-4 focus:outline-none focus:text-foreground"
-          >
-            Liquid
-          </button>
-        </HelpHint>
-      </div>
-
-      <div className="max-h-[40vh] space-y-2 overflow-y-auto pr-1">
-        {sorted.map(s => (
-          <div key={s.idSource} className="flex items-center gap-2">
-            <span className="flex-1 truncate rounded-lg bg-secondary/30 px-3 py-2 text-sm text-foreground" title={s.idSource}>
-              {s.idSource}
-            </span>
-            <input
-              type="text"
-              value={draftFor(s)}
-              placeholder="Unknown"
-              onChange={e => setDrafts(prev => ({ ...prev, [s.idSource]: e.target.value }))}
-              onBlur={() => commitVolat(s.idSource, s.volatType)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                if (e.key === 'Escape') {
-                  setDrafts(prev => {
-                    const { [s.idSource]: _, ...rest } = prev;
-                    return rest;
-                  });
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              className="w-40 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-            />
-            <div className="flex w-14 items-center justify-center">
-              <Switch
-                checked={s.transferableInDays}
-                onCheckedChange={(checked) => onUpdate(s.idSource, { isLiquid: checked })}
-                className="scale-90"
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }

@@ -27,7 +27,7 @@ vi.mock('framer-motion', async () => {
     tags.map(tag => [
       tag,
       React.forwardRef(({ children, ...props }: Record<string, unknown>, ref: unknown) =>
-        React.createElement(tag as string, { ...props, ref }, children)
+        React.createElement(tag as string, { ...props, ref }, children as React.ReactNode)
       ),
     ])
   );

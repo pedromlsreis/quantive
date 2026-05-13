@@ -3,6 +3,22 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────
+   Privacy mode — blur monetary values site-wide. Reveal on hover so
+   the user can briefly check a number without disabling the toggle.
+   ─────────────────────────────────────────────────────────────────*/
+.privacy-mode .num,
+.privacy-mode .q-metric-value,
+.privacy-mode .q-table td.num {
+  filter: blur(8px);
+  transition: filter 160ms ease;
+}
+.privacy-mode .num:hover,
+.privacy-mode .q-metric-value:hover,
+.privacy-mode .q-table td.num:hover {
+  filter: blur(0);
+}
+
+/* ─────────────────────────────────────────────────────────────────
    Quantive — Design Tokens  |  "Sterling Emerald" locked theme
    Dark · Emerald · Mono · Comfortable density · Soft radius
    ─────────────────────────────────────────────────────────────────*/
@@ -485,7 +501,17 @@
   display: none;
 }
 
-.q-topbar-menu-btn { display: none; }
+.q-topbar .q-topbar-menu-btn {
+  display: none;
+  width: 32px; height: 32px;
+  align-items: center; justify-content: center;
+  border-radius: var(--r-2); border: 1px solid transparent;
+  background: transparent; color: var(--fg-muted); cursor: pointer;
+  transition: all var(--d-fast) var(--ease-soft);
+}
+.q-topbar .q-topbar-menu-btn:hover { background: var(--surface-soft); color: var(--fg); }
+
+.q-topbar-brand { display: inline-flex; align-items: center; }
 
 .q-topbar {
   display: flex; align-items: center; gap: var(--s-4);
@@ -804,7 +830,7 @@
   }
   .q-sidebar-overlay.is-open { display: block; }
   .q-topbar { padding: 12px var(--s-4); }
-  .q-topbar-menu-btn { display: inline-grid; }
+  .q-topbar .q-topbar-menu-btn { display: inline-flex; }
   .q-content { padding: var(--s-4); }
   .q-grid--kpi { grid-template-columns: repeat(2, 1fr); }
   .q-grid--3 { grid-template-columns: 1fr 1fr; }

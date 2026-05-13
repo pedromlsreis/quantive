@@ -39,7 +39,12 @@ function CardShell({
   const card = <div className="q-card q-card--p-lg h-full">{children}</div>;
   if (!formula) return card;
   return (
-    <HelpHint side="bottom" maxWidthClass="max-w-[280px]" content={formula}>
+    <HelpHint
+      side="bottom"
+      maxWidthClass="max-w-[280px]"
+      content={formula}
+      triggerWrapperClassName="block h-full"
+    >
       {card}
     </HelpHint>
   );

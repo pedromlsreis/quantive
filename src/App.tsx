@@ -9,6 +9,7 @@ import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { KeySessionProvider } from "@/contexts/KeySessionContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
+import { PreferencesProvider } from "@/contexts/PreferencesContext";
 import { EmailConfirmationBanner } from "@/components/auth/EmailConfirmationBanner";
 import { RequireUnlock } from "@/components/auth/RequireUnlock";
 import { RecoveryOfferModal } from "@/components/auth/RecoveryOfferModal";
@@ -89,6 +90,7 @@ const App = () => (
         <AuthProvider>
           <KeySessionProvider>
             <CurrencyProvider>
+              <PreferencesProvider>
               <PortfolioProvider>
                 <BrowserRouter>
                   <RequireUnlock />
@@ -96,6 +98,7 @@ const App = () => (
                   <AppRoutes />
                 </BrowserRouter>
               </PortfolioProvider>
+              </PreferencesProvider>
             </CurrencyProvider>
           </KeySessionProvider>
         </AuthProvider>

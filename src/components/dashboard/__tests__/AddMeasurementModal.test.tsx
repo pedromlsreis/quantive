@@ -49,7 +49,7 @@ function setup(open = true, overrides: { data?: unknown; addMeasurement?: Return
   vi.mocked(usePortfolio).mockReturnValue({
     data: overrides.data !== undefined ? overrides.data : null,
     addMeasurement,
-  } as ReturnType<typeof usePortfolio>);
+  } as unknown as ReturnType<typeof usePortfolio>);
 
   vi.mocked(useCurrency).mockReturnValue({
     currency: { code: 'EUR', symbol: '€' },
