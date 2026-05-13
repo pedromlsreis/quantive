@@ -92,7 +92,7 @@ function UserMenu({
           style={{
             color: 'var(--fg-faint)',
             transform: open ? 'rotate(0deg)' : 'rotate(180deg)',
-            transition: 'transform 160ms ease',
+            transition: `transform var(--d-fast) var(--ease-out)`,
             flexShrink: 0,
           }}
         />
@@ -112,6 +112,7 @@ function UserMenu({
             boxShadow: 'var(--shadow-lg)',
             padding: 4,
             zIndex: 50,
+            animation: `q-fade-in var(--d-fast) var(--ease-out)`,
           }}
         >
           <button

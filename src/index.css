@@ -940,7 +940,7 @@
     background: oklch(0% 0 0 / 0.4); backdrop-filter: blur(4px);
     display: none;
   }
-  .q-sidebar-overlay.is-open { display: block; }
+  .q-sidebar-overlay.is-open { display: block; animation: q-fade-in var(--d-fast) var(--ease-out); }
 
   /* Streamline the topbar: keep brand + menu, hide breadcrumbs and
      search; collapse "Add measurement" to an icon-only button. */

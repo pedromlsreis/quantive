@@ -36,15 +36,10 @@ export function RecoveryOfferModal() {
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Eligibility for the *initial* offer. Once we've moved past 'offer',
-  // visibility is no longer keyed off this — setupRecovery flips
-  // hasRecovery to true the moment the wrap is provisioned server-side,
-  // which would otherwise unmount the modal before the user ever sees the
-  // 24 words.
   const shouldOffer = useMemo(() => {
     if (!user) return false;
     if (keySession.status !== 'unlocked-encrypted') return false;
-    if (keySession.hasRecovery !== false) return false; // null (unknown) or true (set up)
+    if (keySession.hasRecovery !== false) return false;
     try {
       return localStorage.getItem(offeredKey(user.id)) === null;
     } catch {
@@ -52,8 +47,6 @@ export function RecoveryOfferModal() {
     }
   }, [user, keySession.status, keySession.hasRecovery]);
 
-  // Reset only on user change (sign-out / account switch). Resetting on
-  // hasRecovery flips would blow away the just-generated code mid-display.
   const previousUserIdRef = useRef<string | null>(user?.id ?? null);
   useEffect(() => {
     const id = user?.id ?? null;
@@ -113,76 +106,86 @@ export function RecoveryOfferModal() {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[55] flex items-center justify-center bg-background/80 backdrop-blur-sm">
-      <div className="relative mx-4 w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-2xl">
-        <button
-          onClick={close}
-          className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-          <Lock className="h-6 w-6 text-primary" />
+    <div
+      className="q-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="recovery-offer-title"
+      style={{ zIndex: 55 }}
+    >
+      <div className="q-modal">
+        <div className="q-modal-head">
+          <div>
+            <div className="q-modal-title" id="recovery-offer-title">
+              {step === 'offer' ? 'Set up a recovery code' : 'Your recovery code'}
+            </div>
+            <div className="q-modal-sub">
+              {step === 'offer'
+                ? 'Your data is end-to-end encrypted. If you forget your password, we cannot recover it for you.'
+                : "Save these 24 words somewhere safe — we'll only show them once. Anyone with these words can unlock your data."}
+            </div>
+          </div>
+          <button type="button" onClick={close} className="q-icon-btn" aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        {step === 'offer' && (
-          <>
-            <h2 className="mb-1 text-lg font-bold text-foreground">
-              Set up a recovery code
-            </h2>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Your data is end-to-end encrypted. If you forget your password,
-              we cannot recover it for you. A 24-word recovery code is the
-              one way to regain access.
-            </p>
+        <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 48, height: 48, borderRadius: 'var(--r-3)',
+            background: 'var(--accent-faint-raw)', flexShrink: 0,
+          }}>
+            <Lock className="h-6 w-6 text-primary" />
+          </div>
 
-            <div className="mb-5 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300">
-              <p className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <span>
-                  Without a recovery code, a forgotten password means
-                  permanent loss of your encrypted data.
-                </span>
-              </p>
+          {step === 'offer' && (
+            <div style={{
+              borderRadius: 'var(--r-2)',
+              border: '1px solid color-mix(in oklch, var(--warning) 35%, transparent)',
+              background: 'color-mix(in oklch, var(--warning) 12%, transparent)',
+              padding: 'var(--s-3)',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--warning)',
+              display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)',
+            }}>
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" style={{ marginTop: 1 }} />
+              <span>
+                Without a recovery code, a forgotten password means permanent loss of your encrypted data.
+              </span>
             </div>
+          )}
 
-            <div className="flex gap-2">
-              <button
-                onClick={handleSkip}
-                disabled={submitting}
-                className="flex-1 rounded-lg border border-border bg-card px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
-              >
-                Skip for now
-              </button>
-              <button
-                onClick={handleSetUp}
-                disabled={submitting}
-                className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-              >
-                {submitting ? 'Generating…' : 'Set up now'}
-              </button>
-            </div>
-          </>
-        )}
-
-        {step === 'display' && recoveryCode && (
-          <>
-            <h2 className="mb-1 text-lg font-bold text-foreground">
-              Your recovery code
-            </h2>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Save these 24 words somewhere safe — we'll only show them once.
-              Anyone with these words can unlock your data.
-            </p>
-
+          {step === 'display' && recoveryCode && (
             <RecoveryCodeDisplay
               code={recoveryCode}
               onConfirmed={finishDisplay}
               onSkipConfirm={finishDisplay}
             />
-          </>
+          )}
+        </div>
+
+        {step === 'offer' && (
+          <div className="q-modal-foot" style={{ justifyContent: 'stretch', gap: 'var(--s-2)' }}>
+            <button
+              type="button"
+              onClick={handleSkip}
+              disabled={submitting}
+              className="q-btn q-btn--ghost q-btn--md"
+              style={{ flex: 1, opacity: submitting ? 0.5 : 1 }}
+            >
+              Skip for now
+            </button>
+            <button
+              type="button"
+              onClick={handleSetUp}
+              disabled={submitting}
+              className="q-btn q-btn--primary q-btn--md"
+              style={{ flex: 1, opacity: submitting ? 0.5 : 1 }}
+            >
+              {submitting ? 'Generating…' : 'Set up now'}
+            </button>
+          </div>
         )}
       </div>
     </div>,
