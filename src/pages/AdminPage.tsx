@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
   Users,
   Database as DatabaseIcon,
   CreditCard,
@@ -13,8 +12,6 @@ import {
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { StickyNav } from '@/components/landing/StickyNav';
-import { Footer } from '@/components/Footer';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
@@ -205,19 +202,8 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <StickyNav />
-
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-20">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="mb-6 flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to dashboard
-        </button>
-
-        <div className="mb-8 flex items-center justify-between">
+    <div className="mx-auto w-full max-w-5xl">
+      <div className="mb-8 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-primary" />
@@ -464,9 +450,6 @@ export default function AdminPage() {
             </table>
           </div>
         </section>
-      </main>
-
-      <Footer />
 
       <AlertDialog
         open={!!pendingDelete}
