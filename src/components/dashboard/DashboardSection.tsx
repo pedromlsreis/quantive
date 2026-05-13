@@ -16,27 +16,20 @@ export function DashboardSection({ id, title, children, defaultOpen = true }: Da
   return (
     <section id={id} className="space-y-6">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className="group flex w-full items-center gap-3 text-left"
+        className="q-section-eyebrow"
         aria-expanded={open}
         aria-controls={`${id}-content`}
       >
-        <h2 style={{
-          fontSize: 'var(--text-xs)', fontWeight: 500,
-          textTransform: 'uppercase', letterSpacing: '0.06em',
-          color: 'var(--fg-faint)',
-          transition: `color var(--d-fast) var(--ease-soft)`,
-        }}
-          className="group-hover:text-muted-foreground transition-colors"
-        >
-          {title}
-        </h2>
-        <div style={{ flex: 1, height: 1, background: 'var(--border-raw)' }} />
+        <h2 className="q-section-eyebrow-label">{title}</h2>
+        <div className="q-section-eyebrow-rule" />
         <motion.div
+          className="q-section-eyebrow-chev"
           animate={{ rotate: open ? 0 : -90 }}
           transition={softSpring}
         >
-          <ChevronDown className="h-4 w-4 text-muted-foreground/50 group-hover:text-muted-foreground/70 transition-colors" />
+          <ChevronDown className="h-4 w-4" />
         </motion.div>
       </button>
 

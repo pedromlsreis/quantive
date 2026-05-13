@@ -37,37 +37,49 @@ function MultiSelect({
         onClick={() => setOpen(!open)}
         aria-label="Filter by sources"
         aria-expanded={open}
-        className="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 text-sm transition-colors hover:bg-secondary px-[12px] py-[6px] text-muted-foreground">
-        
+        className="q-btn q-btn--secondary q-btn--sm">
+
         {label}
         {selected.length > 0 &&
-        <span className="rounded-full bg-primary/20 px-1.5 text-xs text-primary">
+        <span className="q-badge q-badge--accent" style={{ padding: '0 6px' }}>
             {selected.length}
           </span>
         }
-        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        <ChevronDown className="h-3.5 w-3.5" />
       </button>
       {open &&
-      <div className="absolute left-0 top-full z-50 mt-1 w-56 rounded-lg border border-border bg-popover p-2 shadow-xl">
+      <div
+        className="absolute left-0 top-full z-50 w-56"
+        style={{
+          marginTop: 'var(--s-1)',
+          background: 'var(--bg-elev-1)',
+          border: '1px solid var(--border-raw)',
+          borderRadius: 'var(--r-3)',
+          padding: 'var(--s-2)',
+          boxShadow: 'var(--shadow-md)',
+        }}>
           {selected.length > 0 &&
         <button
           onClick={() => onChange([])}
-          className="mb-1 flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary">
-          
+          className="mb-1 flex w-full items-center gap-2 px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary"
+          style={{ borderRadius: 'var(--r-2)' }}>
+
               <X className="h-3 w-3" /> Clear all
             </button>
         }
           {options.map((option) =>
         <label
           key={option}
-          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-secondary">
-          
+          className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-sm hover:bg-secondary"
+          style={{ borderRadius: 'var(--r-2)' }}>
+
               <input
             type="checkbox"
             checked={selected.includes(option)}
             onChange={() => toggle(option)}
-            className="rounded border-border accent-primary" />
-          
+            className="border-border accent-primary"
+            style={{ borderRadius: 'var(--r-1)' }} />
+
               {option}
             </label>
         )}
@@ -83,14 +95,18 @@ function ToggleFilter({
   onChange
 }: {value: string;options: {value: string;label: string;}[];onChange: (v: string) => void;}) {
   return (
-    <div className="flex items-center gap-0.5 rounded-lg border border-border bg-secondary/50 p-0.5" role="radiogroup" aria-label="Filter by type">
+    <div
+      className="flex items-center gap-0.5 border bg-secondary/50 p-0.5"
+      style={{ borderRadius: 'var(--r-3)', borderColor: 'var(--border-raw)' }}
+      role="radiogroup" aria-label="Filter by type">
       {options.map((opt) =>
       <button
         key={opt.value}
         onClick={() => onChange(opt.value)}
         role="radio"
         aria-checked={value === opt.value}
-        className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+        style={{ borderRadius: 'var(--r-2)' }}
+        className={`px-3 py-1.5 text-xs font-medium transition-colors ${
         value === opt.value ?
         'bg-primary text-primary-foreground' :
         'text-muted-foreground hover:text-foreground'}`

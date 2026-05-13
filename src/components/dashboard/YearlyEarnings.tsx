@@ -48,38 +48,40 @@ export function YearlyEarnings() {
   const perDayLabel = currency.symbol === 'NOK' ? 'kr/day' : `${currency.symbol}/day`;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <h3 className="mb-4 text-sm font-medium text-muted-foreground">Earnings Per Year</h3>
+    <div className="q-card q-card--p-lg">
+      <div className="q-section-head">
+        <h2>Earnings per year</h2>
+      </div>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="q-table">
           <thead>
-            <tr className="border-b border-border text-xs text-muted-foreground">
-              <th className="pb-2 text-left font-medium">Year</th>
-              <th className="hidden pb-2 text-right font-medium sm:table-cell">Start</th>
-              <th className="hidden pb-2 text-right font-medium sm:table-cell">End</th>
-              <th className="pb-2 text-right font-medium">Gain</th>
-              <th className="pb-2 text-right font-medium">%</th>
-              <th className="pb-2 text-right font-medium">{perDayLabel}</th>
+            <tr>
+              <th>Year</th>
+              <th className="hidden sm:table-cell" style={{ textAlign: 'right' }}>Start</th>
+              <th className="hidden sm:table-cell" style={{ textAlign: 'right' }}>End</th>
+              <th style={{ textAlign: 'right' }}>Gain</th>
+              <th style={{ textAlign: 'right' }}>%</th>
+              <th style={{ textAlign: 'right' }}>{perDayLabel}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map(row => {
               const isPositive = row.gain >= 0;
               const Icon = row.gain === 0 ? Minus : isPositive ? TrendingUp : TrendingDown;
-              const colorClass = row.gain === 0 ? 'text-muted-foreground' : isPositive ? 'text-accent' : 'text-destructive';
+              const color = row.gain === 0 ? 'var(--fg-muted)' : isPositive ? 'var(--positive)' : 'var(--negative)';
               return (
-                <tr key={row.year} className="border-b border-border/50 last:border-0">
-                  <td className="py-2.5 font-semibold text-foreground">{row.year}</td>
-                  <td className="hidden py-2.5 text-right text-muted-foreground sm:table-cell">{fmtFull(row.startValue)}</td>
-                  <td className="hidden py-2.5 text-right text-foreground sm:table-cell">{fmtFull(row.endValue)}</td>
-                  <td className={`py-2.5 text-right font-semibold ${colorClass}`}>
-                    <span className="inline-flex items-center gap-1">
+                <tr key={row.year}>
+                  <td style={{ fontWeight: 500 }}>{row.year}</td>
+                  <td className="num hidden sm:table-cell" style={{ color: 'var(--fg-muted)' }}>{fmtFull(row.startValue)}</td>
+                  <td className="num hidden sm:table-cell">{fmtFull(row.endValue)}</td>
+                  <td className="num" style={{ color, fontWeight: 500 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-1)' }}>
                       <Icon className="h-3 w-3" />
                       {isPositive ? '+' : ''}{fmt(row.gain)}
                     </span>
                   </td>
-                  <td className={`py-2.5 text-right font-medium ${colorClass}`}>{isPositive ? '+' : ''}{row.gainPct.toFixed(1)}%</td>
-                  <td className={`py-2.5 text-right font-medium ${colorClass}`}>{isPositive ? '+' : ''}{fmt(row.perDay)}</td>
+                  <td className="num" style={{ color, fontWeight: 500 }}>{isPositive ? '+' : ''}{row.gainPct.toFixed(1)}%</td>
+                  <td className="num" style={{ color, fontWeight: 500 }}>{isPositive ? '+' : ''}{fmt(row.perDay)}</td>
                 </tr>
               );
             })}

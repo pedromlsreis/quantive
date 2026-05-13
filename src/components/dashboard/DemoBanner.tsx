@@ -25,20 +25,20 @@ export function DemoBanner() {
       aria-label="Demo data notice"
       style={{
         position: 'fixed',
-        bottom: 16,
-        right: 16,
+        bottom: 'var(--s-4)',
+        right: 'var(--s-4)',
         zIndex: 40,
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 8,
+        gap: 'var(--s-2)',
         height: 32,
-        padding: '0 6px 0 12px',
+        padding: '0 6px 0 var(--s-3)',
         background: 'var(--bg-elev-1)',
         border: '1px solid var(--border-raw)',
-        borderRadius: 'var(--r-pill, 999px)',
+        borderRadius: 'var(--r-pill)',
         boxShadow: 'var(--shadow-md)',
         color: 'var(--fg-muted)',
-        fontSize: 12,
+        fontSize: 'var(--text-xs)',
         fontWeight: 500,
       }}
     >

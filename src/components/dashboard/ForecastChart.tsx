@@ -9,7 +9,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { QTabs } from '@/components/ui/q-tabs';
 
 const HEIGHT = 360;
-const MARGIN = { top: 32, right: 16, bottom: 32, left: 68 };
+// Tokens (px values from index.css): s-4=16, s-8=32. Left gutter is sized
+// for compact-formatted EUR figures (e.g. "€1.2M") + tick padding.
+const MARGIN = { top: 32, right: 16, bottom: 32, left: 64 };
 
 export type ForecastScenario = 'conservative' | 'base' | 'optimistic';
 export type ForecastHorizon = '1' | '3' | '5';
@@ -167,7 +169,7 @@ export function ForecastChart({
     <div className="q-card q-card--p-lg">
       <div className="q-section-head">
         <div>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
             Trajectory
             <HelpHint side="right" maxWidthClass="max-w-[300px]" content={FORECAST_MODEL_DESCRIPTION}>
               <button type="button" aria-label="About this forecast model" className="q-icon-btn" style={{ width: 20, height: 20 }}>
@@ -177,7 +179,7 @@ export function ForecastChart({
           </h2>
           <div className="q-section-sub">History (solid) and projection (dashed) with confidence bands</div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
           <QTabs<ForecastScenario>
             value={scenario}
             onChange={setScenario}

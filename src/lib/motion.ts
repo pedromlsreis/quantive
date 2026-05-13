@@ -14,14 +14,18 @@ export const softSpring: Transition = {
   damping: 28,
 };
 
+// Curves mirror tokens.css: --ease-out = cubic-bezier(0.22, 1, 0.36, 1).
+// Durations mirror --d-base (240ms) and --d-fast (160ms).
+export const EASE_OUT: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
 export const easeOut: Transition = {
-  duration: 0.25,
-  ease: [0.16, 1, 0.3, 1],
+  duration: 0.24,
+  ease: EASE_OUT,
 };
 
 export const fastEaseOut: Transition = {
-  duration: 0.18,
-  ease: [0.16, 1, 0.3, 1],
+  duration: 0.16,
+  ease: EASE_OUT,
 };
 
 // ─── Base variants ─────────────────────────────────────────────────────────
@@ -119,7 +123,7 @@ export const errorBanner: Variants = {
     opacity: 1,
     height: 'auto',
     transition: {
-      height: { duration: 0.18, ease: [0.16, 1, 0.3, 1] },
+      height: { duration: 0.16, ease: EASE_OUT },
       opacity: { duration: 0.15 },
     },
   },
@@ -136,6 +140,6 @@ export const progressFill = (targetWidth: number, delay = 0.2): Variants => ({
   hidden: { width: '0%' },
   visible: {
     width: `${targetWidth}%`,
-    transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1], delay },
+    transition: { duration: 0.8, ease: EASE_OUT, delay },
   },
 });

@@ -30,8 +30,9 @@ export function HowToUse() {
   return (
     <>
       <button
+        type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="q-icon-btn"
         aria-label="How to use"
         title="How to use"
       >
@@ -39,38 +40,44 @@ export function HowToUse() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative mx-4 w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
-            <button
-              onClick={() => setOpen(false)}
-              className="absolute right-4 top-4 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
+        <div className="q-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="howto-title">
+          <div className="q-modal" style={{ maxHeight: '85vh' }}>
+            <div className="q-modal-head">
+              <div>
+                <div className="q-modal-title" id="howto-title">How to use</div>
+                <div className="q-modal-sub">Get the most out of Quantive.</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="q-icon-btn"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
 
-            <h2 className="mb-1 text-lg font-bold text-foreground">How to use</h2>
-            <p className="mb-5 text-sm text-muted-foreground">Get the most out of your Quantive.</p>
-
-            <div className="space-y-4">
+            <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
               {steps.map((step, i) => (
-                <div key={i} className="flex gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                    {step.icon}
-                  </div>
+                <div key={i} style={{ display: 'flex', gap: 'var(--s-3)' }}>
+                  <div className="q-insight-icon">{step.icon}</div>
                   <div>
-                    <p className="text-sm font-medium text-foreground">{step.title}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{step.description}</p>
+                    <p style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)', margin: 0 }}>{step.title}</p>
+                    <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', lineHeight: 1.5, marginTop: 'var(--s-1)' }}>{step.description}</p>
                   </div>
                 </div>
               ))}
             </div>
 
-            <button
-              onClick={() => setOpen(false)}
-              className="mt-6 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              Got it
-            </button>
+            <div className="q-modal-foot">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="q-btn q-btn--primary q-btn--md"
+              >
+                Got it
+              </button>
+            </div>
           </div>
         </div>
       )}

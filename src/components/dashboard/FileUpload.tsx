@@ -46,12 +46,17 @@ export function FileUpload() {
           >
             <motion.div
               variants={staggerItem}
-              className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20"
+              className="mb-6 flex h-16 w-16 items-center justify-center text-primary ring-1 ring-primary/20"
+              style={{ background: 'var(--accent-faint-raw)', borderRadius: 'var(--r-5)' }}
             >
               <Monogram size={32} />
             </motion.div>
 
-            <motion.h1 variants={staggerItem} className="mb-2 text-2xl font-bold text-foreground">
+            <motion.h1
+              variants={staggerItem}
+              className="mb-2 text-foreground"
+              style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-2xl)', fontWeight: 500, letterSpacing: '-0.02em' }}
+            >
               Quantive
             </motion.h1>
             <motion.p variants={staggerItem} className="mb-8 text-center text-sm text-muted-foreground leading-relaxed">
@@ -61,7 +66,8 @@ export function FileUpload() {
             <motion.button
               variants={staggerItem}
               onClick={() => setAddOpen(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+              className="q-btn q-btn--primary q-btn--lg"
+              style={{ width: '100%' }}
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.98 }}
             >
@@ -77,11 +83,12 @@ export function FileUpload() {
 
             <motion.div
               variants={staggerItem}
-              className={`relative flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed p-7 transition-all duration-200 ${
+              className={`relative flex w-full flex-col items-center justify-center border-2 border-dashed p-7 transition-all duration-200 ${
                 isDragging
                   ? 'border-primary bg-primary/5 scale-[1.01]'
                   : 'border-border hover:border-primary/30 hover:bg-card/40'
               }`}
+              style={{ borderRadius: 'var(--r-4)' }}
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
               onDrop={handleDrop}
@@ -89,10 +96,15 @@ export function FileUpload() {
               <Upload className="mb-2.5 h-5 w-5 text-muted-foreground/70" />
               <p className="mb-3.5 text-center text-xs text-muted-foreground leading-relaxed">
                 Drop an{' '}
-                <code className="rounded bg-secondary px-1.5 py-0.5 text-xs font-medium text-primary">.xlsx</code>
+                <code
+                  className="bg-secondary px-1.5 py-0.5 text-xs font-medium text-primary"
+                  style={{ borderRadius: 'var(--r-1)', fontFamily: 'var(--font-mono)' }}
+                >.xlsx</code>
                 {' '}file here, or
               </p>
-              <label className="cursor-pointer rounded-lg border border-border bg-card px-4 py-2 text-xs font-medium text-foreground transition-colors hover:bg-secondary hover:border-primary/20 focus-within:ring-2 focus-within:ring-primary/30">
+              <label
+                className="q-btn q-btn--secondary q-btn--sm cursor-pointer focus-within:ring-2 focus-within:ring-primary/30"
+              >
                 Browse files
                 <input
                   type="file"
@@ -109,14 +121,14 @@ export function FileUpload() {
                   const { downloadExcelTemplate } = await import('@/lib/templateGenerator');
                   await downloadExcelTemplate();
                 }}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                className="q-btn q-btn--ghost q-btn--sm flex-1"
               >
                 <Download className="h-3.5 w-3.5" />
                 Download template
               </button>
               <button
                 onClick={loadMockData}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                className="q-btn q-btn--ghost q-btn--sm flex-1"
               >
                 <Play className="h-3.5 w-3.5" />
                 Try demo
