@@ -197,6 +197,7 @@ export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
   return (
     <div
       ref={rootRef}
+      className="q-topbar-search"
       style={{ position: 'relative', flex: 1, display: 'flex', justifyContent: 'flex-start' }}
     >
       <label

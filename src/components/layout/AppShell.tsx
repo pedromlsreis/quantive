@@ -14,6 +14,7 @@ import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { Monogram, Wordmark } from '@/components/layout/Brand';
 import { GlobalSearch } from '@/components/layout/GlobalSearch';
+import { MobileTabBar } from '@/components/layout/MobileTabBar';
 
 interface NavItem {
   to: string;
@@ -364,12 +365,12 @@ function Topbar({
       <SyncIndicator />
 
       <button
-        className="q-btn q-btn--primary q-btn--sm"
+        className="q-btn q-btn--primary q-btn--sm q-topbar-add"
         onClick={onAdd}
         aria-label="Add measurement"
       >
         <Plus size={14} />
-        <span>Add measurement</span>
+        <span className="q-topbar-add-label">Add measurement</span>
       </button>
     </div>
   );
@@ -399,6 +400,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
         <div className="q-content q-screen">
           {children}
         </div>
+        <MobileTabBar />
       </div>
 
       <AddMeasurementModal open={addOpen} onOpenChange={setAddOpen} />

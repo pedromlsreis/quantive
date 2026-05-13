@@ -813,6 +813,46 @@
 .q-activity-meta { font-size: var(--text-xs); color: var(--fg-subtle); }
 
 /* ─────────────────────────────────────────────────────────────────
+   Mobile bottom tab bar — hidden on desktop, shown via @media below.
+   Mirrors the prototype's q-mobile-tabbar pattern, but lives inside
+   the app's main column rather than a faux phone frame.
+   ─────────────────────────────────────────────────────────────────*/
+.q-mobile-tabbar {
+  display: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  height: calc(64px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--bg);
+  background: oklch(from var(--bg) l c h / 0.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-raw);
+  justify-content: space-around;
+  align-items: stretch;
+}
+.q-mobile-tab {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: 0;
+  border: 0;
+  cursor: pointer;
+  color: var(--fg-subtle);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+  padding: 6px 4px;
+  transition: color var(--d-fast) var(--ease-soft);
+}
+.q-mobile-tab:hover { color: var(--fg); }
+.q-mobile-tab.is-active { color: var(--accent-raw); }
+
+/* ─────────────────────────────────────────────────────────────────
    Mobile shell
    ─────────────────────────────────────────────────────────────────*/
 @media (max-width: 768px) {
@@ -829,9 +869,21 @@
     display: none;
   }
   .q-sidebar-overlay.is-open { display: block; }
-  .q-topbar { padding: 12px var(--s-4); }
+
+  /* Streamline the topbar: keep brand + menu, hide breadcrumbs and
+     search; collapse "Add measurement" to an icon-only button. */
+  .q-topbar { padding: 10px var(--s-4); gap: var(--s-3); }
   .q-topbar .q-topbar-menu-btn { display: inline-flex; }
-  .q-content { padding: var(--s-4); }
+  .q-topbar-crumbs { display: none; }
+  .q-topbar-search { display: none; }
+  .q-topbar-add { padding: 6px 8px; }
+  .q-topbar-add .q-topbar-add-label { display: none; }
+
+  /* Leave room for the bottom tab bar so content isn't hidden. */
+  .q-content { padding: var(--s-4) var(--s-4) var(--s-6); }
   .q-grid--kpi { grid-template-columns: repeat(2, 1fr); }
   .q-grid--3 { grid-template-columns: 1fr 1fr; }
+
+  /* Reveal the bottom tab bar. */
+  .q-mobile-tabbar { display: flex; }
 }
