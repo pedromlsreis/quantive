@@ -13,6 +13,7 @@ import { SyncIndicator } from '@/components/dashboard/SyncIndicator';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 import { AuthModal } from '@/components/auth/AuthModal';
 import { Monogram, Wordmark } from '@/components/layout/Brand';
+import { GlobalSearch } from '@/components/layout/GlobalSearch';
 
 interface NavItem {
   to: string;
@@ -357,16 +358,7 @@ function Topbar({
       </div>
 
       {/* Search — fills remaining space so actions land flush-right */}
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start' }}>
-        <div className="q-input" style={{ height: 32, maxWidth: 320 }}>
-          <span className="q-input-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-          </span>
-          <input placeholder="Search sources, snapshots…" />
-        </div>
-      </div>
+      <GlobalSearch onAdd={onAdd} />
 
       {/* Right-aligned actions */}
       <SyncIndicator />

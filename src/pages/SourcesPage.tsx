@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, MoreHorizontal, Search } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
@@ -13,8 +14,24 @@ const SourcesPage = () => {
   const { data, isLoading, snapshots } = usePortfolio();
   const { fmtFull } = useCurrencyFormatter();
   const { currency } = useCurrency();
-  const [filter, setFilter] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [filter, setFilter] = useState(() => searchParams.get('q') ?? '');
   const [addOpen, setAddOpen] = useState(false);
+
+  // Sync filter ← URL when navigated to with a different ?q=
+  useEffect(() => {
+    const q = searchParams.get('q') ?? '';
+    setFilter((prev) => (prev === q ? prev : q));
+  }, [searchParams]);
+
+  // Strip ?q= once the user clears or edits the input so the URL stays clean.
+  useEffect(() => {
+    const current = searchParams.get('q') ?? '';
+    if (filter === current) return;
+    const next = new URLSearchParams(searchParams);
+    if (filter) next.set('q', filter); else next.delete('q');
+    setSearchParams(next, { replace: true });
+  }, [filter, searchParams, setSearchParams]);
 
   const latest = snapshots.length ? snapshots[snapshots.length - 1] : null;
 
