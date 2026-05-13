@@ -68,12 +68,12 @@ beforeEach(() => {
 describe('AddMeasurementModal', () => {
   it('renders the modal when open', () => {
     setup();
-    expect(screen.getByText('Add New Measurement')).toBeInTheDocument();
+    expect(screen.getByText('Add measurement')).toBeInTheDocument();
   });
 
   it('does not render when closed', () => {
     setup(false);
-    expect(screen.queryByText('Add New Measurement')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add measurement')).not.toBeInTheDocument();
   });
 
   it('Save button is disabled when no source name is filled', () => {
