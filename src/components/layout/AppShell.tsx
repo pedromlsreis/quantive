@@ -165,6 +165,14 @@ function SignedOutMenu({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       <button
         type="button"
+        onClick={onFeedback}
+        className="q-nav-item"
+      >
+        <MessageSquarePlus size={15} />
+        <span>Suggest a feature</span>
+      </button>
+      <button
+        type="button"
         onClick={onSignIn}
         className="q-side-user"
         style={{
@@ -176,18 +184,9 @@ function SignedOutMenu({
           <User size={14} />
         </div>
         <div className="q-side-user-meta" style={{ flex: 1 }}>
-          <span className="q-side-user-name">Signed out</span>
-          <span className="q-side-user-mail">Sign in to sync</span>
+          <span className="q-side-user-name">Sign in to sync</span>
         </div>
         <LogIn size={14} style={{ color: 'var(--fg-faint)', flexShrink: 0 }} />
-      </button>
-      <button
-        type="button"
-        onClick={onFeedback}
-        className="q-nav-item"
-      >
-        <MessageSquarePlus size={15} />
-        <span>Suggest a feature</span>
       </button>
     </div>
   );
