@@ -11,7 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
 import { SyncIndicator } from '@/components/dashboard/SyncIndicator';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
-import { Wordmark } from '@/components/layout/Brand';
+import { Monogram, Wordmark } from '@/components/layout/Brand';
 
 interface NavItem {
   to: string;
@@ -290,14 +290,17 @@ function Topbar({
         <Menu size={16} />
       </button>
 
-      {/* Quantive logo */}
+      {/* Quantive monogram */}
       <button
         onClick={() => navigate('/')}
         className="q-topbar-brand"
         aria-label="Quantive home"
-        style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
+        style={{
+          background: 'none', border: 0, padding: 0, cursor: 'pointer',
+          color: 'var(--accent-raw)', display: 'inline-flex', alignItems: 'center',
+        }}
       >
-        <Wordmark size={20} />
+        <Monogram size={20} />
       </button>
 
       {/* Breadcrumb */}
