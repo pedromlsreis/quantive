@@ -40,8 +40,8 @@ export default function LandingPage() {
   });
   const { fmt } = useCurrencyFormatter();
 
-  if (!loading && user) return <Navigate to="/dashboard" replace />;
   const previewSnapshots = useMemo(() => toSnapshots(generateMockData()), []);
+  if (!loading && user) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

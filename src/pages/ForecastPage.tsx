@@ -3,10 +3,10 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import {
   ForecastChart,
-  generateScenarioForecast,
   type ForecastScenario,
   type ForecastHorizon,
 } from '@/components/dashboard/ForecastChart';
+import { generateScenarioForecast } from '@/lib/scenarioForecast';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FileUpload } from '@/components/dashboard/FileUpload';
 

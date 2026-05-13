@@ -28,7 +28,8 @@ function binaryLayout(items: TreemapItem[], x: number, y: number, w: number, h: 
       return;
     }
     const sum = arr.reduce((s, it) => s + it.value, 0);
-    let half = sum / 2, acc = 0, splitIdx = 0;
+    const half = sum / 2;
+    let acc = 0, splitIdx = 0;
     for (let i = 0; i < arr.length; i++) {
       acc += arr[i].value;
       if (acc >= half) { splitIdx = Math.max(1, i + 1); break; }

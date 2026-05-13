@@ -86,11 +86,10 @@ export function NetWorthChart() {
     if (g > bestGain) { bestGain = g; bestMoIdx = i; }
   }
 
-  const yTicks = useMemo(() => Array.from({ length: 5 }, (_, i) => {
+  const yTicks = Array.from({ length: 5 }, (_, i) => {
     const v = minV + (maxV - minV) * (i / 4);
     return { v, y: yScale(v) };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [minV, maxV, innerH]);
+  });
 
   const xTicks = snapshots
     .map((s, i) => ({ s, i }))
