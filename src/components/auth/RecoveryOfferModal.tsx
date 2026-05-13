@@ -17,6 +17,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { AlertTriangle, Lock, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,6 +36,7 @@ export function RecoveryOfferModal() {
   const [step, setStep] = useState<'offer' | 'display' | 'done'>('offer');
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const trapRef = useFocusTrap<HTMLDivElement>(true);
 
   const shouldOffer = useMemo(() => {
     if (!user) return false;
@@ -113,7 +115,7 @@ export function RecoveryOfferModal() {
       aria-labelledby="recovery-offer-title"
       style={{ zIndex: 55 }}
     >
-      <div className="q-modal">
+      <div ref={trapRef} className="q-modal">
         <div className="q-modal-head">
           <div>
             <div className="q-modal-title" id="recovery-offer-title">

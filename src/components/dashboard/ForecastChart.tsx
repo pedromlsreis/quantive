@@ -197,7 +197,7 @@ export function ForecastChart({
         </div>
       </div>
 
-      <div ref={wrapRef} className="q-chart-wrap">
+      <div ref={wrapRef} className="q-chart-wrap" role="img" aria-label="Net worth forecast chart showing projected trajectory with confidence bands">
         <svg width={w} height={HEIGHT} style={{ display: 'block', overflow: 'visible' }}>
           <defs>
             <linearGradient id="fc-hist-area" x1="0" x2="0" y1="0" y2="1">

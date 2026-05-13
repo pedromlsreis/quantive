@@ -255,7 +255,7 @@ function Sidebar({
         </div>
 
         {/* Primary nav */}
-        <nav className="q-nav">
+        <nav className="q-nav" aria-label="Main navigation">
           <div className="q-nav-section-title">Workspace</div>
           {PRIMARY_NAV.map((item) => (
             <NavLink
@@ -401,6 +401,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
 
   return (
     <div className="q-app">
+      <a href="#main-content" className="skip-link">Skip to main content</a>
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -415,9 +416,9 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
           onAdd={() => setAddOpen(true)}
           onSignIn={() => setAuthOpen(true)}
         />
-        <div className="q-content q-screen">
+        <main id="main-content" className="q-content q-screen">
           {children}
-        </div>
+        </main>
         <MobileTabBar />
       </div>
 

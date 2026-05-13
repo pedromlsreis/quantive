@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
@@ -22,6 +23,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
   const [password, setPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   const handleClose = () => {
     setEmail('');
@@ -95,7 +97,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
       aria-labelledby="auth-modal-title"
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
-      <div className="q-modal">
+      <div ref={trapRef} className="q-modal">
         <div className="q-modal-head">
           <div>
             <div className="q-modal-title" id="auth-modal-title">

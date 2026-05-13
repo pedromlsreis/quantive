@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useNavigate } from 'react-router-dom';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
@@ -70,6 +71,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
 
   const [saving, setSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   const updateEntries = (newEntries: SourceEntry[]) => {
     setEntries(newEntries);
@@ -198,6 +200,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
           />
 
           <motion.div
+            ref={trapRef}
             className="q-modal relative"
             style={{ width: 'min(560px, calc(100vw - 32px))' }}
             variants={modalContent}
@@ -353,6 +356,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                           onClick={() => handleToggleLiquid(index)}
                           disabled={entry.isSeeded}
                           aria-checked={entry.isLiquid}
+                          aria-label="Liquid"
                           role="switch"
                           style={{ opacity: entry.isSeeded ? 0.4 : 1, cursor: entry.isSeeded ? 'not-allowed' : undefined }}
                         >

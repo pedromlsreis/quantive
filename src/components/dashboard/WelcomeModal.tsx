@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, BarChart3, Shield, Sparkles } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 const STORAGE_KEY = 'finance-cockpit-welcome-dismissed';
 
@@ -30,6 +31,7 @@ const highlights = [
 export function WelcomeModal() {
   const [visible, setVisible] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  const trapRef = useFocusTrap<HTMLDivElement>(visible);
 
   useEffect(() => {
     try {
@@ -57,7 +59,7 @@ export function WelcomeModal() {
 
   return (
     <div className="q-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
-      <div className="q-modal" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
+      <div ref={trapRef} className="q-modal" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
         <div className="q-modal-head">
           <div>
             <div className="q-modal-title" id="welcome-title">Welcome to Quantive</div>

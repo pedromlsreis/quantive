@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { HelpCircle, X, Plus, Filter, TrendingUp, CloudUpload } from 'lucide-react';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 const steps = [
   {
@@ -26,6 +27,7 @@ const steps = [
 
 export function HowToUse() {
   const [open, setOpen] = useState(false);
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   return (
     <>
@@ -41,7 +43,7 @@ export function HowToUse() {
 
       {open && (
         <div className="q-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="howto-title">
-          <div className="q-modal" style={{ maxHeight: '85vh' }}>
+          <div ref={trapRef} className="q-modal" style={{ maxHeight: '85vh' }}>
             <div className="q-modal-head">
               <div>
                 <div className="q-modal-title" id="howto-title">How to use</div>

@@ -232,6 +232,23 @@
   .mono { font-family: var(--font-mono); }
   .serif { font-family: var(--font-serif); }
 
+  /* Skip-to-main link (keyboard only) */
+  .skip-link {
+    position: absolute;
+    left: var(--s-4);
+    top: -120px;
+    z-index: 9999;
+    padding: var(--s-2) var(--s-4);
+    background: var(--accent-raw);
+    color: var(--accent-fg-raw);
+    border-radius: var(--r-2);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    text-decoration: none;
+    transition: top var(--d-fast) var(--ease-out);
+  }
+  .skip-link:focus { top: var(--s-2); }
+
   /* Focus ring */
   :focus-visible {
     outline: 2px solid var(--accent-raw);

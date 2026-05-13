@@ -349,6 +349,7 @@ export default function SettingsPage() {
               className={`q-toggle${privacyMode ? ' is-on' : ''}`}
               onClick={() => setPrivacyMode(!privacyMode)}
               aria-checked={privacyMode}
+              aria-label="Privacy mode"
               role="switch"
             >
               <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>

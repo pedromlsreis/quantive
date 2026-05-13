@@ -124,6 +124,8 @@ export function NetWorthChart() {
         ref={wrapRef}
         className="q-chart-wrap"
         style={{ userSelect: 'none' }}
+        role="img"
+        aria-label="Net worth over time chart"
       >
         <svg
           width={w}
