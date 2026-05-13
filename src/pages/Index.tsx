@@ -6,7 +6,6 @@ import { AllocationCharts } from '@/components/dashboard/AllocationCharts';
 import { YearlyEarnings } from '@/components/dashboard/YearlyEarnings';
 import { MotivationalKPIs } from '@/components/dashboard/MotivationalKPIs';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
-import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 import { DemoBanner } from '@/components/dashboard/DemoBanner';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
@@ -36,9 +35,6 @@ const Index = () => {
         <MotivationalKPIs />
       </DashboardSection>
 
-      <div className="flex justify-center pb-2">
-        <FeedbackButton />
-      </div>
     </div>
   );
 };
