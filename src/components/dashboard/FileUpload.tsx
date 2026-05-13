@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { BarChart3, Download, Play, Plus, Upload } from 'lucide-react';
+import { Download, Play, Plus, Upload } from 'lucide-react';
 import { WelcomeModal } from './WelcomeModal';
 import { AddMeasurementModal } from './AddMeasurementModal';
+import { Monogram } from '@/components/layout/Brand';
 import { staggerContainer, staggerItem, fadeIn } from '@/lib/motion';
 
 export function FileUpload() {
@@ -26,7 +27,10 @@ export function FileUpload() {
   }, [loadFile]);
 
   return (
-    <main className="flex flex-1 flex-col bg-background min-h-screen">
+    <main
+      className="flex flex-1 flex-col bg-background"
+      style={{ minHeight: 'calc(100dvh - var(--q-topbar-h) - var(--q-tabbar-h))' }}
+    >
       <WelcomeModal />
       <AddMeasurementModal open={addOpen} onOpenChange={setAddOpen} />
 
@@ -42,9 +46,9 @@ export function FileUpload() {
           >
             <motion.div
               variants={staggerItem}
-              className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 ring-1 ring-primary/20"
+              className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20"
             >
-              <BarChart3 className="h-8 w-8 text-primary" />
+              <Monogram size={32} />
             </motion.div>
 
             <motion.h1 variants={staggerItem} className="mb-2 text-2xl font-bold text-foreground">
