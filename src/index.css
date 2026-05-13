@@ -886,4 +886,12 @@
 
   /* Reveal the bottom tab bar. */
   .q-mobile-tabbar { display: flex; }
+
+  /* Responsive tables: drop secondary columns so the essential ones
+     (name, value, actions) fit without horizontal scroll. Volatility
+     remains editable through the row's action menu. */
+  .q-table--responsive th[data-col="secondary"],
+  .q-table--responsive td[data-col="secondary"] { display: none; }
+  .q-table--responsive th,
+  .q-table--responsive td { padding-left: var(--s-3); padding-right: var(--s-3); }
 }

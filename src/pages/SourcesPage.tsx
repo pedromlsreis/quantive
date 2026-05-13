@@ -106,13 +106,13 @@ const SourcesPage = () => {
       {/* Table */}
       <div className="q-card q-card--p-none" style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table className="q-table">
+          <table className="q-table q-table--responsive">
             <thead>
               <tr>
                 <th>Source</th>
-                <th>Type</th>
-                <th>Currency</th>
-                <th>Last 12 mo.</th>
+                <th data-col="secondary">Type</th>
+                <th data-col="secondary">Currency</th>
+                <th data-col="secondary">Last 12 mo.</th>
                 <th className="num">Value</th>
                 <th aria-label="Actions" />
               </tr>
@@ -133,7 +133,7 @@ const SourcesPage = () => {
                         </div>
                       </div>
                     </td>
-                    <td style={{ width: 180 }}>
+                    <td data-col="secondary" style={{ width: 180 }}>
                       {isEditing ? (
                         <label className="q-input" style={{ height: 28, padding: '0 var(--s-2)' }}>
                           <input
@@ -156,10 +156,10 @@ const SourcesPage = () => {
                         <span className="q-badge q-badge--neutral">{toTitleCase(s.volatType)}</span>
                       )}
                     </td>
-                    <td>
+                    <td data-col="secondary">
                       <span className="mono" style={{ fontSize: 12, color: 'var(--fg-muted)' }}>{currency.code}</span>
                     </td>
-                    <td style={{ width: 100 }}>
+                    <td data-col="secondary" style={{ width: 100 }}>
                       {series.length > 1
                         ? <Sparkline values={series} positive={positive} width={80} height={24} />
                         : <span style={{ color: 'var(--fg-faint)', fontSize: 11 }}>—</span>}
