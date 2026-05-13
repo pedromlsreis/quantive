@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, MoreHorizontal, Search } from 'lucide-react';
+import { Plus, MoreHorizontal, Search, Pencil } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { useCurrency } from '@/contexts/CurrencyContext';
@@ -8,15 +8,37 @@ import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FileUpload } from '@/components/dashboard/FileUpload';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { toTitleCase } from '@/lib/utils';
 
 const SourcesPage = () => {
-  const { data, isLoading, snapshots } = usePortfolio();
+  const { data, isLoading, snapshots, updateRefSource } = usePortfolio();
   const { fmtFull } = useCurrencyFormatter();
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState(() => searchParams.get('q') ?? '');
   const [addOpen, setAddOpen] = useState(false);
+
+  const [editingVolat, setEditingVolat] = useState<string | null>(null);
+  const [volatDraft, setVolatDraft] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  const startEditVolat = (idSource: string, current: string) => {
+    setEditingVolat(idSource);
+    setVolatDraft(current.toLowerCase() === 'unknown' ? '' : current);
+  };
+
+  const commitVolat = (idSource: string, current: string) => {
+    const next = volatDraft.trim();
+    const original = current.toLowerCase() === 'unknown' ? '' : current;
+    if (next !== original) updateRefSource(idSource, { volatType: next });
+    setEditingVolat(null);
+  };
 
   // Sync filter ← URL when navigated to with a different ?q=
   useEffect(() => {
@@ -32,6 +54,10 @@ const SourcesPage = () => {
     if (filter) next.set('q', filter); else next.delete('q');
     setSearchParams(next, { replace: true });
   }, [filter, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (editingVolat) editInputRef.current?.focus();
+  }, [editingVolat]);
 
   const latest = snapshots.length ? snapshots[snapshots.length - 1] : null;
 
@@ -104,43 +130,81 @@ const SourcesPage = () => {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ source: s, series, positive }, i) => (
-                <tr key={s.name + i}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ width: 4, height: 28, borderRadius: 2, background: `var(--series-${(i % 8) + 1})`, flexShrink: 0 }} />
-                      <div>
-                        <div style={{ fontWeight: 500 }}>{s.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
-                          {toTitleCase(s.volatType)} · {s.isLiquid ? 'Liquid' : 'Non-Liquid'}
+              {rows.map(({ source: s, series, positive }, i) => {
+                const isEditing = editingVolat === s.name;
+                return (
+                  <tr key={s.name + i}>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <span style={{ width: 4, height: 28, borderRadius: 2, background: `var(--series-${(i % 8) + 1})`, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontWeight: 500 }}>{s.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
+                            {s.isLiquid ? 'Liquid' : 'Non-Liquid'}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span className="q-badge q-badge--neutral">{toTitleCase(s.volatType)}</span>
-                  </td>
-                  <td>
-                    <span className="mono" style={{ fontSize: 12, color: 'var(--fg-muted)' }}>{currency.code}</span>
-                  </td>
-                  <td style={{ width: 100 }}>
-                    {series.length > 1
-                      ? <Sparkline values={series} positive={positive} width={80} height={24} />
-                      : <span style={{ color: 'var(--fg-faint)', fontSize: 11 }}>—</span>}
-                  </td>
-                  <td className="num" style={{
-                    color: s.value < 0 ? 'var(--negative)' : 'var(--fg)',
-                    fontFamily: 'var(--font-mono)',
-                  }}>
-                    {fmtFull(s.value)}
-                  </td>
-                  <td style={{ width: 40 }}>
-                    <button className="q-icon-btn" aria-label="More actions">
-                      <MoreHorizontal size={14} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td style={{ width: 180 }}>
+                      {isEditing ? (
+                        <label className="q-input" style={{ height: 28, padding: '0 var(--s-2)' }}>
+                          <input
+                            ref={editInputRef}
+                            value={volatDraft}
+                            placeholder="Unknown"
+                            onChange={(e) => setVolatDraft(e.target.value)}
+                            onBlur={() => commitVolat(s.name, s.volatType)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                              if (e.key === 'Escape') {
+                                setEditingVolat(null);
+                                (e.target as HTMLInputElement).blur();
+                              }
+                            }}
+                            aria-label={`Volatility for ${s.name}`}
+                          />
+                        </label>
+                      ) : (
+                        <span className="q-badge q-badge--neutral">{toTitleCase(s.volatType)}</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="mono" style={{ fontSize: 12, color: 'var(--fg-muted)' }}>{currency.code}</span>
+                    </td>
+                    <td style={{ width: 100 }}>
+                      {series.length > 1
+                        ? <Sparkline values={series} positive={positive} width={80} height={24} />
+                        : <span style={{ color: 'var(--fg-faint)', fontSize: 11 }}>—</span>}
+                    </td>
+                    <td className="num" style={{
+                      color: s.value < 0 ? 'var(--negative)' : 'var(--fg)',
+                      fontFamily: 'var(--font-mono)',
+                    }}>
+                      {fmtFull(s.value)}
+                    </td>
+                    <td style={{ width: 40 }}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="q-icon-btn" aria-label={`Actions for ${s.name}`}>
+                            <MoreHorizontal size={14} />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem onSelect={() => startEditVolat(s.name, s.volatType)}>
+                            <Pencil className="mr-2 h-3.5 w-3.5" />
+                            Edit volatility…
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={() => updateRefSource(s.name, { isLiquid: !s.isLiquid })}
+                          >
+                            {s.isLiquid ? 'Mark as non-liquid' : 'Mark as liquid'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                );
+              })}
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--s-8)', color: 'var(--fg-subtle)' }}>
