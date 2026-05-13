@@ -45,31 +45,31 @@ function TopSourcesBars({
   const ceiling = total || 1;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
       {sorted.map((d, i) => {
         const pct = (d.value / ceiling) * 100;
         return (
-          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)' }}>
                 <span style={{ color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {d.name}
                 </span>
-                <span style={{ color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontSize: 11, flexShrink: 0, marginLeft: 8 }}>
+                <span className="num" style={{ color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', flexShrink: 0, marginLeft: 'var(--s-2)' }}>
                   {fmt(d.value)}
-                  <span style={{ color: 'var(--fg-faint)', marginLeft: 8 }}>
+                  <span style={{ color: 'var(--fg-faint)', marginLeft: 'var(--s-2)' }}>
                     {pct.toFixed(1)}%
                   </span>
                 </span>
               </div>
-              <div style={{ marginTop: 4, height: 4, borderRadius: 2, background: 'var(--surface-strong)', overflow: 'hidden' }}>
+              <div style={{ marginTop: 'var(--s-1)', height: 4, borderRadius: 'var(--r-1)', background: 'var(--surface-strong)', overflow: 'hidden' }}>
                 <div
                   style={{
                     height: '100%',
                     background: `var(--series-${(i % 8) + 1})`,
                     width: `${pct}%`,
-                    borderRadius: 2,
-                    animation: `q-bar-grow 800ms cubic-bezier(0.22,1,0.36,1) ${i * 60}ms backwards`,
+                    borderRadius: 'var(--r-1)',
+                    animation: `q-bar-grow var(--d-slow) var(--ease-out) ${i * 60}ms backwards`,
                     transformOrigin: 'left center',
                   }}
                 />
@@ -140,9 +140,7 @@ export function AllocationChartsView({ snapshots, fmt }: AllocationChartsViewPro
             <div className="q-section-sub">By current value</div>
           </div>
         </div>
-        <div style={{ marginTop: 8 }}>
-          <TopSourcesBars sources={sources} fmt={fmt} />
-        </div>
+        <TopSourcesBars sources={sources} fmt={fmt} />
       </div>
     </div>
   );

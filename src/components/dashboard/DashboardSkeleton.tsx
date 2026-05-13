@@ -1,4 +1,4 @@
-function Skel({ w, h, r }: { w?: number | string; h?: number | string; r?: number }) {
+function Skel({ w, h, r }: { w?: number | string; h?: number | string; r?: number | string }) {
   return (
     <div
       className="q-skeleton"
@@ -18,9 +18,9 @@ export function DashboardSkeleton() {
       {/* KPI row */}
       <div className="q-grid q-grid--kpi">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="q-card q-card--p-lg" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div key={i} className="q-card q-card--p-lg" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
             <Skel w={80} h={10} />
-            <Skel w="60%" h={32} r={4} />
+            <Skel w="60%" h={32} r="var(--r-1)" />
             <Skel w={100} h={10} />
           </div>
         ))}
@@ -28,12 +28,12 @@ export function DashboardSkeleton() {
 
       {/* Chart cards */}
       {[320, 300, 280].map((h, i) => (
-        <div key={i} className="q-card q-card--p-lg" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div key={i} className="q-card q-card--p-lg" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Skel w={120} h={14} />
-            <Skel w={80} h={24} r={6} />
+            <Skel w={80} h={24} r="var(--r-2)" />
           </div>
-          <Skel w="100%" h={h} r={8} />
+          <Skel w="100%" h={h} r="var(--r-3)" />
         </div>
       ))}
     </div>

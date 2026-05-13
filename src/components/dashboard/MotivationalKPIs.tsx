@@ -46,19 +46,23 @@ interface StatCardProps {
 function StatCard({ icon, label, value, meta, extra }: StatCardProps) {
   return (
     <motion.div
-      className="flex flex-col rounded-xl border border-border bg-secondary/20 p-5"
+      className="q-card q-card--p-md"
+      style={{ display: 'flex', flexDirection: 'column' }}
       variants={staggerItem}
       whileHover={{ scale: 1.008, transition: springTransition }}
     >
-      <div className="mb-3 flex items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-3)' }}>
+        <div
+          className="q-insight-icon"
+          style={{ width: 28, height: 28, borderRadius: 'var(--r-2)' }}
+        >
           {icon}
         </div>
-        <span className="text-sm font-medium text-muted-foreground">{label}</span>
+        <span className="q-metric-eyebrow">{label}</span>
       </div>
-      <p className="text-xl font-bold tabular-nums text-foreground">{value}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{meta}</p>
-      {extra && <div className="mt-3">{extra}</div>}
+      <p className="q-metric-value q-metric-value--md num">{value}</p>
+      <p className="q-metric-sub" style={{ marginTop: 'var(--s-1)' }}>{meta}</p>
+      {extra && <div style={{ marginTop: 'var(--s-3)' }}>{extra}</div>}
     </motion.div>
   );
 }
@@ -133,8 +137,10 @@ export function MotivationalKPIs() {
   const progressToNext = nextMilestone ? Math.min((latest.total / nextMilestone) * 100, 100) : 100;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-6">
-      <h3 className="mb-5 text-sm font-semibold text-muted-foreground">Your Journey</h3>
+    <div className="q-card q-card--p-lg">
+      <div className="q-section-head">
+        <h2>Your journey</h2>
+      </div>
 
       <motion.div
         className="grid grid-cols-1 gap-4 md:grid-cols-3"
