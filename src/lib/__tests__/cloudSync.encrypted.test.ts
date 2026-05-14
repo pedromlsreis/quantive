@@ -100,13 +100,14 @@ describe('upsertEncryptedSnapshot', () => {
     const result = await decodeSnapshot(row, { userId: USER, dataKey: dk });
 
     expect(result.kind).toBe('encrypted');
-    const decoded = result.data as { facts: Array<{ idSource: string; sourceVl: number; date: string }> };
+    const decoded = result.data as { facts: Array<{ idSource: string; sourceVl: number; date: string; currency: string }> };
     expect(decoded.facts).toHaveLength(2);
     // Dates round-trip as ISO strings (JSON.parse won't revive them; the
     // PortfolioContext re-parses them with safeDate).
     expect(decoded.facts[0].idSource).toBe('CGD');
     expect(decoded.facts[0].sourceVl).toBe(1234.56);
     expect(decoded.facts[0].date).toBe('2024-01-15T00:00:00.000Z');
+    expect(decoded.facts[0].currency).toBe('EUR');
   });
 
   it('throws when supabase returns an error', async () => {

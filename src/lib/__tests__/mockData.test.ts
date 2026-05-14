@@ -46,4 +46,10 @@ describe('generateMockData', () => {
       expect(f.sourceVl).toBeGreaterThan(0);
     });
   });
+
+  it('every fact is denominated in EUR (the storage default for mock data)', () => {
+    data.facts.forEach(f => {
+      expect(f.currency).toBe('EUR');
+    });
+  });
 });

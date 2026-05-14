@@ -6,14 +6,7 @@
 
 import ExcelJS from 'exceljs';
 import { FactRow, RefSource, PortfolioData } from './types';
-import type { CurrencyCode } from '@/contexts/CurrencyContext';
-
-const SUPPORTED_CURRENCIES: ReadonlySet<CurrencyCode> = new Set(['EUR', 'USD', 'GBP', 'NOK']);
-function coerceCurrency(value: unknown): CurrencyCode {
-  if (value === undefined || value === null || value === '') return 'EUR';
-  const upper = String(value).trim().toUpperCase();
-  return SUPPORTED_CURRENCIES.has(upper as CurrencyCode) ? (upper as CurrencyCode) : 'EUR';
-}
+import { coerceCurrency } from './fxConvert';
 
 /**
  * Normalize ExcelJS cell values to primitives. ExcelJS returns rich objects

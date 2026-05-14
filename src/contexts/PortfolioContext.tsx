@@ -14,13 +14,7 @@ import {
 } from '@/lib/cloudSync';
 import { useCurrency, type CurrencyCode } from './CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
-
-// Currencies the app knows how to value. Anything else loaded from old data
-// or a malformed Excel gets coerced to EUR (the historical default).
-const SUPPORTED_CURRENCIES: ReadonlySet<CurrencyCode> = new Set(['EUR', 'USD', 'GBP', 'NOK']);
-function coerceCurrency(value: unknown): CurrencyCode {
-  return SUPPORTED_CURRENCIES.has(value as CurrencyCode) ? (value as CurrencyCode) : 'EUR';
-}
+import { coerceCurrency } from '@/lib/fxConvert';
 
 const STORAGE_KEY = 'portfolio-data';
 const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
