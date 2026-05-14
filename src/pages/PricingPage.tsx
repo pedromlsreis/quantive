@@ -109,11 +109,16 @@ export default function PricingPage() {
                 <ul className="mt-2 space-y-2">
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>Excel &amp; CSV export</span>
+                    <span>Excel export</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>PDF wealth report (one-page summary for advisors or annual review)</span>
+                    <span>
+                      PDF wealth report (one-page summary for advisors or annual review)
+                      <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        In development
+                      </span>
+                    </span>
                   </li>
                 </ul>
               </div>

@@ -45,7 +45,7 @@ const STRUCTURED_DATA = {
           price: '90',
           priceCurrency: 'EUR',
           description:
-            'Pro — full history, forecasting engine, exports, PDF reports',
+            'Pro — full history, forecasting engine, Excel export, priority support',
         },
       ],
     },
@@ -105,7 +105,7 @@ const STRUCTURED_DATA = {
           name: 'What is included in Quantive Pro?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, milestone tracking, benchmark comparisons (S&P 500, MSCI World, inflation), Excel/CSV export, PDF wealth reports, and priority support.',
+            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, Excel export, and priority support. Milestone tracking, benchmark comparisons (S&P 500, MSCI World, inflation), and a PDF wealth report are in development and will be included as they ship.',
           },
         },
         {
@@ -149,7 +149,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "What's included in Quantive Pro?",
-    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, milestone and goal tracking, benchmark comparisons (vs. S&P 500, MSCI World, inflation), Excel/CSV export, PDF wealth reports, and priority support.',
+    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, and Excel export. Milestone and goal tracking, benchmark comparisons (vs. S&P 500, MSCI World, inflation), and a PDF wealth report are in development and will be included as they ship. Priority support is included.',
   },
   {
     q: 'What if I lose access to my account?',
@@ -423,7 +423,7 @@ export default function LandingPage() {
             <div className="lp-feat-col-num">02 — ALLOCATION ANALYSIS</div>
             <h3 className="lp-feat-col-title">Know your risk exposure</h3>
             <p className="lp-feat-col-desc">
-              Visualise how your wealth is spread across asset classes, liquidity tiers, and volatility buckets — at a glance.
+              Visualise how your wealth is spread across liquidity tiers and volatility buckets — at a glance.
             </p>
           </div>
           <div className="lp-feat-col">
@@ -507,7 +507,7 @@ export default function LandingPage() {
               <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.lock}</div>
               <div className="lp-privacy-title">End-to-end encrypted</div>
               <p className="lp-privacy-desc">
-                AES-256 with a key derived from your passphrase. Your data is locked before it syncs.
+                XChaCha20-Poly1305, key derived from your password via Argon2id. Your data is locked before it syncs.
               </p>
             </div>
             <div className="lp-privacy-item">
@@ -526,9 +526,9 @@ export default function LandingPage() {
             </div>
             <div className="lp-privacy-item">
               <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.download}</div>
-              <div className="lp-privacy-title">Excel import &amp; export</div>
+              <div className="lp-privacy-title">Your data, your way</div>
               <p className="lp-privacy-desc">
-                Bring your history in, or take it out. Your data is never held hostage.
+                Import your existing spreadsheet for free. Excel export comes with Pro. Your data is never held hostage.
               </p>
             </div>
           </div>
@@ -644,8 +644,12 @@ export default function LandingPage() {
                 <span className="lp-price-soon">In development</span>
               </li>
               <li className="lp-price-sec-head">Get your data out</li>
-              <li><span className="lp-price-check">✓</span>Excel &amp; CSV export</li>
-              <li><span className="lp-price-check">✓</span>PDF wealth report — for advisors or annual review</li>
+              <li><span className="lp-price-check">✓</span>Excel export</li>
+              <li>
+                <span className="lp-price-check">✓</span>
+                PDF wealth report — for advisors or annual review
+                <span className="lp-price-soon">In development</span>
+              </li>
               <li className="lp-price-sec-head">Support</li>
               <li><span className="lp-price-check">✓</span>Priority support — 24h response</li>
             </ul>
