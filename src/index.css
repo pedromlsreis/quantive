@@ -962,6 +962,7 @@
     --q-tabbar-h: calc(64px + env(safe-area-inset-bottom, 0px));
   }
   .q-app { grid-template-columns: 1fr; }
+  .q-main { min-height: 100dvh; }
   .q-sidebar {
     position: fixed; top: 0; bottom: 0; left: 0; z-index: 40;
     transform: translateX(-100%); transition: transform var(--d-base) var(--ease-out);
@@ -986,13 +987,13 @@
   .q-topbar-signin { display: inline-flex; }
   .q-topbar-signin-label { display: none; }
 
-  /* Leave room for the bottom tab bar so content isn't hidden. */
-  .q-content { padding: var(--s-4) var(--s-4) var(--s-6); }
+  /* Leave room for the fixed bottom tab bar so content isn't hidden behind it. */
+  .q-content { flex: 1; padding: var(--s-4) var(--s-4) calc(var(--q-tabbar-h) + var(--s-4)); }
   .q-grid--kpi { grid-template-columns: repeat(2, 1fr); }
   .q-grid--3 { grid-template-columns: 1fr 1fr; }
 
-  /* Reveal the bottom tab bar. */
-  .q-mobile-tabbar { display: flex; }
+  /* Reveal the bottom tab bar, fixed to viewport bottom on all pages. */
+  .q-mobile-tabbar { display: flex; position: fixed; left: 0; right: 0; }
 
   /* Responsive tables: drop secondary columns so the essential ones
      (name, value, actions) fit without horizontal scroll. Volatility
