@@ -17,3 +17,7 @@ verify_jwt = false
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.fx-ingest]
+verify_jwt = false
+
