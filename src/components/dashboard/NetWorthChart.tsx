@@ -25,7 +25,7 @@ function fmtCompact(v: number, fmt: (n: number) => string): string {
 }
 
 export function NetWorthChart() {
-  const { snapshots: allSnapshots } = usePortfolio();
+  const { allSnapshots } = usePortfolio();
   const { fmt, fmtFull } = useCurrencyFormatter();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(700);
@@ -44,7 +44,9 @@ export function NetWorthChart() {
   const snapshots = useMemo(() => {
     if (period === 'all') return allSnapshots;
     const months = period === '3m' ? 3 : period === '6m' ? 6 : period === '12m' ? 12 : 24;
-    return allSnapshots.slice(-months);
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - months);
+    return allSnapshots.filter(s => s.date >= cutoff);
   }, [allSnapshots, period]);
 
   if (!allSnapshots.length) return null;

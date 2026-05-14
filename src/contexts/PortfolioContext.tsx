@@ -63,6 +63,8 @@ interface PortfolioContextType {
   isMockData: boolean;
   syncStatus: SyncStatus;
   retrySync: () => void;
+  /** All snapshots, unaffected by date-range filter — used by NetWorthChart for its own period selector. */
+  allSnapshots: Snapshot[];
 }
 
 const defaultFilters: FilterState = {
@@ -603,6 +605,27 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       }));
   }, [filteredFacts]);
 
+  const allSnapshots = useMemo<Snapshot[]>(() => {
+    const grouped = new Map<number, EnrichedFact[]>();
+    enrichedFacts.forEach(f => {
+      const key = f.date.getTime();
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key)!.push(f);
+    });
+    return Array.from(grouped.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([ts, facts]) => ({
+        date: new Date(ts),
+        total: facts.reduce((sum, f) => sum + f.sourceVl, 0),
+        sources: facts.map(f => ({
+          name: f.idSource,
+          value: f.sourceVl,
+          volatType: f.volatType,
+          isLiquid: f.isLiquid,
+        })),
+      }));
+  }, [enrichedFacts]);
+
   const kpis = useMemo<KPIData>(() => {
     if (snapshots.length === 0) return defaultKpis;
 
@@ -645,6 +668,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     filters,
     updateFilters,
     snapshots,
+    allSnapshots,
     kpis,
     allSources,
     allVolatTypes,

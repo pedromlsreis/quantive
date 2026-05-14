@@ -328,6 +328,7 @@ function Topbar({
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isMockData } = usePortfolio();
   const title = PAGE_TITLES[pathname] ?? 'Overview';
 
   return (
@@ -383,8 +384,10 @@ function Topbar({
 
       <button
         className="q-btn q-btn--primary q-btn--sm q-topbar-add"
-        onClick={onAdd}
-        aria-label="Add measurement"
+        onClick={isMockData ? undefined : onAdd}
+        disabled={isMockData}
+        aria-label={isMockData ? 'Add measurement (unavailable in demo)' : 'Add measurement'}
+        title={isMockData ? 'Sign up to add your own measurements' : undefined}
       >
         <Plus size={14} />
         <span className="q-topbar-add-label">Add measurement</span>

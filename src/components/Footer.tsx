@@ -7,9 +7,9 @@ export function Footer() {
         <span className="whitespace-nowrap">© {new Date().getFullYear()} Quantive — All rights reserved.</span>
         <span className="whitespace-nowrap">
           <span className="mx-1.5">·</span>
-          <Link to="/privacy" className="transition-colors hover:text-primary">Privacy</Link>
-          <span className="mx-1.5">·</span>
           <Link to="/security" className="transition-colors hover:text-primary">Security</Link>
+          <span className="mx-1.5">·</span>
+          <Link to="/privacy" className="transition-colors hover:text-primary">Privacy</Link>
           <span className="mx-1.5">·</span>
           <Link to="/terms" className="transition-colors hover:text-primary">Terms</Link>
           <span className="mx-1.5">·</span>

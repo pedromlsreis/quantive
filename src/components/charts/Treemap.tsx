@@ -60,9 +60,10 @@ interface TreemapProps {
   data: TreemapItem[];
   width?: number;
   height?: number;
+  fmt?: (v: number) => string;
 }
 
-export function Treemap({ data, width = 700, height = 360 }: TreemapProps) {
+export function Treemap({ data, width = 700, height = 360, fmt }: TreemapProps) {
   const [hovered, setHovered] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -158,7 +159,7 @@ export function Treemap({ data, width = 700, height = 360 }: TreemapProps) {
                   fontFamily: 'var(--font-mono)',
                   fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {pct.toFixed(1)}%
+                  {fmt ? fmt(c.value) : `${pct.toFixed(1)}%`}
                 </div>
               )}
             </div>

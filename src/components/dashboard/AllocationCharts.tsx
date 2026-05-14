@@ -129,7 +129,7 @@ export function AllocationChartsView({ snapshots, fmt }: AllocationChartsViewPro
             ariaLabel="Allocation grouping"
           />
         </div>
-        <Treemap data={treemapData} height={320} />
+        <Treemap data={treemapData} height={320} fmt={fmt} />
       </div>
 
       {/* Top sources card (1fr) */}

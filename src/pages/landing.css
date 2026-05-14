@@ -257,6 +257,13 @@
   overflow: hidden;
 }
 .lp-privacy-head { padding: 52px 52px 0; }
+.lp-security-link {
+  display: inline-block; margin-top: 18px;
+  font-size: 13px; font-weight: 500;
+  color: var(--accent-raw); text-decoration: none;
+  transition: opacity var(--d-fast) var(--ease-out);
+}
+.lp-security-link:hover { opacity: 0.75; }
 .lp-privacy-grid {
   display: grid; grid-template-columns: repeat(4, 1fr);
   border-top: 1px solid oklch(28% 0.018 155);
