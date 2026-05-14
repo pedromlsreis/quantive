@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { usePageMeta } from '@/hooks/usePageMeta';
+import './landing.css';
 
 export default function PricingPage() {
   usePageMeta({
@@ -128,7 +129,7 @@ export default function PricingPage() {
 
             <Link
               to="/dashboard"
-              className="mt-6 block rounded-lg bg-primary py-2.5 text-center text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
+              className="lp-price-cta lp-price-cta--pro mt-6"
             >
               Sign up free — get notified when Pro launches
             </Link>

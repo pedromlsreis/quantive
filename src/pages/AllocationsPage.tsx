@@ -90,7 +90,7 @@ const AllocationsPage = () => {
           </div>
           <QTabs<View> value={view} onChange={setView} options={VIEW_OPTIONS} size="sm" ariaLabel="View mode" />
         </div>
-        {view === 'treemap' && <Treemap data={treemapData} height={360} />}
+        {view === 'treemap' && <Treemap data={treemapData} height={260} />}
         {view === 'bars' && (
           <AllocationBars
             data={positiveSources

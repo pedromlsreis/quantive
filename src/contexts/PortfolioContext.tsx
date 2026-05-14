@@ -362,7 +362,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     // flag as mock so localStorage cache is cleared on next visit
     localStorage.setItem(MOCK_FLAG_KEY, 'true');
     // Do NOT save mock data to STORAGE_KEY — it's ephemeral
-    toast.success('Loaded demo data');
+    // (No toast: the persistent DemoBanner already signals that demo data is loaded.)
   }, [setDefaultDateRange]);
 
   const clearData = useCallback(() => {
