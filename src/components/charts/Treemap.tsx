@@ -15,10 +15,11 @@ interface Cell extends TreemapItem {
   idx: number;
 }
 
-// Binary slice-and-dice layout (locked per design spec)
+// Binary slice-and-dice layout (locked per design spec).
+// Splits use ratios (leftSum / sum) at every level, so absolute values
+// don't need rescaling — preserving the original value lets us render it.
 function binaryLayout(items: TreemapItem[], x: number, y: number, w: number, h: number): Cell[] {
   const result: Cell[] = [];
-  const total = items.reduce((s, it) => s + it.value, 0) || 1;
   let idx = 0;
 
   function rec(arr: TreemapItem[], x: number, y: number, w: number, h: number, horizontal: boolean) {
@@ -49,10 +50,7 @@ function binaryLayout(items: TreemapItem[], x: number, y: number, w: number, h: 
     }
   }
 
-  // Scale items so total area == w*h
-  const area = w * h;
-  const scaled = items.map(it => ({ ...it, value: it.value * area / total }));
-  rec(scaled, x, y, w, h, w >= h);
+  rec(items, x, y, w, h, w >= h);
   return result;
 }
 

@@ -643,7 +643,7 @@ export default function LandingPage() {
               <li><span className="lp-price-check">✓</span>Priority support — 24h response</li>
             </ul>
             <Link to="/dashboard" className="lp-price-cta lp-price-cta--pro">
-              Sign up free — get notified at launch
+              Sign up free — get notified when Pro launches
             </Link>
             <p className="lp-price-foot">Existing free users get their first month on us.</p>
           </div>

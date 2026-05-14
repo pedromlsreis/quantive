@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PieChart, TrendingUp, Database, Settings,
-  Plus, Menu, LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User,
+  Plus, Menu, LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User, UserPlus,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
@@ -384,13 +384,14 @@ function Topbar({
 
       <button
         className="q-btn q-btn--primary q-btn--sm q-topbar-add"
-        onClick={isMockData ? undefined : onAdd}
-        disabled={isMockData}
-        aria-label={isMockData ? 'Add measurement (unavailable in demo)' : 'Add measurement'}
-        title={isMockData ? 'Sign up to add your own measurements' : undefined}
+        onClick={isMockData ? onSignIn : onAdd}
+        aria-label={isMockData ? 'Sign up to track your own portfolio' : 'Add measurement'}
+        title={isMockData ? 'Sign up to track your own portfolio' : undefined}
       >
-        <Plus size={14} />
-        <span className="q-topbar-add-label">Add measurement</span>
+        {isMockData ? <UserPlus size={14} /> : <Plus size={14} />}
+        <span className="q-topbar-add-label">
+          {isMockData ? 'Sign up to track yours' : 'Add measurement'}
+        </span>
       </button>
     </div>
   );
