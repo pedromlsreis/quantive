@@ -89,6 +89,9 @@ const SourcesPage = () => {
           <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
             {latest.sources.length} accounts and assets tracked
           </p>
+          <p style={{ color: 'var(--fg-faint)', fontSize: 12, margin: '4px 0 0', maxWidth: 620 }}>
+            Tag each source as volatile (e.g. stocks, crypto) or stable (e.g. savings, bonds) to power volatility insights. Not sure? Leave it as unknown — you can change it any time.
+          </p>
         </div>
         <div style={{ width: 240 }}>
           <label className="q-input" style={{ height: 32 }}>
@@ -139,7 +142,7 @@ const SourcesPage = () => {
                           <input
                             ref={editInputRef}
                             value={volatDraft}
-                            placeholder="Unknown"
+                            placeholder="e.g. Volatile, Stable"
                             onChange={(e) => setVolatDraft(e.target.value)}
                             onBlur={() => commitVolat(s.name, s.volatType)}
                             onKeyDown={(e) => {
