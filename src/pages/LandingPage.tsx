@@ -1,356 +1,697 @@
-import { useMemo } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageMeta } from '@/hooks/usePageMeta';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
-import { AllocationChartsView } from '@/components/dashboard/AllocationCharts';
-import { generateMockData, toSnapshots } from '@/lib/mockData';
-import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
-import {
-  Eye, Brain, TrendingUp, Plus,
-  LineChart, PieChart, Compass, Globe,
-  Search, Target,
-  ShieldCheck, WifiOff, Lock, Download,
-  Briefcase, BarChart3, Sparkles,
-  type LucideIcon,
-} from 'lucide-react';
+import './landing.css';
 
-/* ---------- tiny reusable card ---------- */
-function FeatureCard({ icon: Icon, title, desc }: { icon: LucideIcon; title: string; desc: string }) {
+/* ── JSON-LD structured data (AEO) ─────────────────────────── */
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'WebSite',
+      '@id': 'https://usequantive.app/#website',
+      url: 'https://usequantive.app/',
+      name: 'Quantive',
+      description:
+        'Privacy-first personal finance cockpit for tracking net worth and forecasting wealth.',
+    },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Quantive',
+      applicationCategory: 'FinanceApplication',
+      operatingSystem: 'Web',
+      description:
+        'Track net worth, analyse asset allocations, and forecast future wealth — end-to-end encrypted, no bank connection required.',
+      offers: [
+        {
+          '@type': 'Offer',
+          price: '0',
+          priceCurrency: 'EUR',
+          description:
+            'Free forever — unlimited tracking, multi-currency, encrypted cloud sync',
+        },
+        {
+          '@type': 'Offer',
+          price: '90',
+          priceCurrency: 'EUR',
+          description:
+            'Pro — full history, forecasting engine, exports, PDF reports',
+        },
+      ],
+    },
+    {
+      '@type': 'FAQPage',
+      mainEntity: [
+        {
+          '@type': 'Question',
+          name: 'What is Quantive?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "Quantive is a privacy-first personal finance cockpit that lets you track net worth, analyse asset allocations, and forecast future wealth — without connecting to your bank or sharing your financial data.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Is Quantive free to use?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "Yes. Quantive's core features are free forever with no credit card required. A Pro plan with full history, advanced forecasting, and export features is coming at €90/year.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'How does Quantive protect my financial data?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: "All data is encrypted on your device before it reaches Quantive's servers using end-to-end encryption. Quantive cannot read your financial information — only you hold the key.",
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Does Quantive connect to my bank?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually or import them from an existing Excel spreadsheet.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'Can I import my existing spreadsheet?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Yes. Excel import is included in the free plan. Upload your spreadsheet and your historical balance data is preserved in the app.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'What currencies does Quantive support?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Quantive supports EUR, USD, GBP, and NOK as display currencies. You can hold assets in any currency and view your portfolio in your preferred currency.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'What is included in Quantive Pro?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, milestone tracking, benchmark comparisons (S&P 500, MSCI World, inflation), Excel/CSV export, PDF wealth reports, and priority support.',
+          },
+        },
+        {
+          '@type': 'Question',
+          name: 'What if I lose access to my Quantive account?',
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: 'During cloud sync setup, Quantive issues a 24-word recovery phrase (BIP-39 mnemonic). Storing it safely lets you recover your encrypted data if you lose account access.',
+          },
+        },
+      ],
+    },
+  ],
+};
+
+/* ── FAQ data — kept in sync with the JSON-LD above ─────────── */
+const FAQS: Array<{ q: string; a: string }> = [
+  {
+    q: 'What is Quantive?',
+    a: "Quantive is a privacy-first personal finance cockpit. Track net worth, analyse asset allocations, and forecast future wealth — without connecting to your bank or sharing your financial data with anyone.",
+  },
+  {
+    q: 'Is Quantive free to use?',
+    a: 'Yes. Core features are free forever with no credit card required. A Pro plan with full history, advanced forecasting, and export features is coming at €90/year.',
+  },
+  {
+    q: 'How does Quantive protect my financial data?',
+    a: 'All data is encrypted on your device using end-to-end encryption before it ever reaches Quantive’s servers. Quantive cannot read your financial information — only you hold the decryption key.',
+  },
+  {
+    q: 'Does Quantive connect to my bank?',
+    a: 'No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually from the dashboard, or import them from an existing Excel spreadsheet.',
+  },
+  {
+    q: 'Can I import my existing spreadsheet?',
+    a: 'Yes — Excel import is included in the free plan. Upload your existing spreadsheet and your historical balance data is preserved in Quantive.',
+  },
+  {
+    q: 'What currencies does Quantive support?',
+    a: 'Quantive supports EUR, USD, GBP, and NOK as display currencies. You can hold assets in any currency and view your full portfolio in your preferred currency.',
+  },
+  {
+    q: "What's included in Quantive Pro?",
+    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, milestone and goal tracking, benchmark comparisons (vs. S&P 500, MSCI World, inflation), Excel/CSV export, PDF wealth reports, and priority support.',
+  },
+  {
+    q: 'What if I lose access to my account?',
+    a: 'During cloud sync setup, Quantive issues a 24-word recovery phrase (BIP-39 mnemonic). Storing it safely lets you recover your encrypted data even if you lose account access.',
+  },
+];
+
+/* ── Scroll reveal hook ─────────────────────────────────────── */
+function useScrollReveal(rootRef: React.RefObject<HTMLElement>) {
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      root.querySelectorAll('.lp-reveal').forEach((el) => el.classList.add('is-vis'));
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => {
+          if (e.isIntersecting) {
+            e.target.classList.add('is-vis');
+            io.unobserve(e.target);
+          }
+        });
+      },
+      { threshold: 0.07 },
+    );
+    root.querySelectorAll('.lp-reveal').forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [rootRef]);
+}
+
+/* ── Inline SVG: animated hero net worth chart ──────────────── */
+function HeroChart() {
   return (
-    <div className="group rounded-xl border border-border/40 bg-card/50 p-6 transition-all hover:border-primary/30 hover:bg-card">
-      <div
-        className="mb-4 transition-colors"
-        style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          width: 40, height: 40, borderRadius: 'var(--r-2)',
-          background: 'var(--accent-faint-raw)',
-        }}
-      >
-        <Icon className="h-5 w-5 text-primary" />
-      </div>
-      <h3 className="mb-2 text-base font-semibold text-foreground">{title}</h3>
-      <p className="text-sm leading-relaxed text-muted-foreground">{desc}</p>
-    </div>
+    <svg
+      viewBox="0 0 560 130"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      role="img"
+      aria-label="Net worth chart rising from €100k to €134k over two years, with a forecast continuing upward"
+    >
+      <defs>
+        <linearGradient id="lp-hero-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent-raw)" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="var(--accent-raw)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <line x1="44" y1="22" x2="548" y2="22" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
+      <line x1="44" y1="48" x2="548" y2="48" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
+      <line x1="44" y1="74" x2="548" y2="74" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
+      <line x1="44" y1="100" x2="548" y2="100" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
+      <text x="2" y="25" fill="var(--fg-faint)" fontFamily="var(--font-mono)" fontSize="8.5">€140k</text>
+      <text x="2" y="51" fill="var(--fg-faint)" fontFamily="var(--font-mono)" fontSize="8.5">€120k</text>
+      <text x="2" y="77" fill="var(--fg-faint)" fontFamily="var(--font-mono)" fontSize="8.5">€100k</text>
+      <text x="6" y="103" fill="var(--fg-faint)" fontFamily="var(--font-mono)" fontSize="8.5">€80k</text>
+      <line x1="364" y1="8" x2="364" y2="120" stroke="var(--fg-faint)" strokeWidth="0.5" strokeDasharray="2,3" />
+      <text x="367" y="17" fill="var(--fg-faint)" fontFamily="var(--font-mono)" fontSize="8.5">Today</text>
+      <polygon
+        className="lp-c-band"
+        points="364,34 396,22 430,14 464,7 498,2 548,0 548,40 498,36 464,34 430,33 396,32 364,34"
+        fill="var(--accent-raw)"
+        opacity="0.07"
+      />
+      <polygon
+        points="0,74 30,73 60,75 90,70 120,68 155,64 190,61 225,58 260,56 295,52 330,47 364,34 364,120 0,120"
+        fill="url(#lp-hero-grad)"
+      />
+      <polyline
+        className="lp-c-actual"
+        points="0,74 30,73 60,75 90,70 120,68 155,64 190,61 225,58 260,56 295,52 330,47 364,34"
+        stroke="var(--accent-raw)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <polyline
+        className="lp-c-forecast"
+        points="364,34 396,28 430,22 464,16 498,10 548,4"
+        stroke="var(--accent-raw)"
+        strokeWidth="1.5"
+        strokeDasharray="5,4"
+        strokeLinecap="round"
+      />
+      <circle className="lp-c-dot" cx="364" cy="34" r="8" fill="var(--accent-raw)" opacity="0.15" />
+      <circle className="lp-c-dot" cx="364" cy="34" r="4" fill="var(--accent-raw)" />
+    </svg>
   );
 }
 
-/* ============================================= */
+/* ── Inline SVG: small feature-card net worth area chart ────── */
+function FeatureMiniChart() {
+  return (
+    <svg viewBox="0 0 280 110" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs>
+        <linearGradient id="lp-feat-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--accent-raw)" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="var(--accent-raw)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <line x1="0" y1="22" x2="280" y2="22" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
+      <line x1="0" y1="52" x2="280" y2="52" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
+      <line x1="0" y1="82" x2="280" y2="82" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
+      <polygon
+        points="0,82 35,80 70,82 105,74 140,68 175,60 210,50 245,38 280,22 280,100 0,100"
+        fill="url(#lp-feat-grad)"
+      />
+      <polyline
+        points="0,82 35,80 70,82 105,74 140,68 175,60 210,50 245,38 280,22"
+        stroke="var(--accent-raw)"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      <circle cx="280" cy="22" r="4" fill="var(--accent-raw)" />
+      <text x="6" y="14" fill="var(--fg-faint)" fontFamily="var(--font-mono)" fontSize="8">NET WORTH</text>
+      <text x="6" y="26" fill="var(--accent-raw)" fontFamily="var(--font-mono)" fontSize="14" fontWeight="500">€134,054</text>
+      <text x="108" y="14" fill="var(--positive)" fontFamily="var(--font-mono)" fontSize="8">+13.4% ↑</text>
+    </svg>
+  );
+}
+
+/* ── Privacy icons (inline SVG) ─────────────────────────────── */
+const PrivacyIcons = {
+  lock: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="3" y="8" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M6 8V6a3 3 0 0 1 6 0v2" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="9" cy="13" r="1.2" fill="currentColor" />
+    </svg>
+  ),
+  shield: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M9 2 L15 4.5 V9 C15 13 9 16 9 16 C9 16 3 13 3 9 V4.5 Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      <path d="M6 9 L8 11 L12 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  noEye: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M2 2 L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M7 4.5C7.6 4.2 8.3 4 9 4C12.5 4 15 9 15 9C15 9 14.3 10.2 13 11.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M4.5 6C3.3 7.1 3 9 3 9C3 9 5.5 14 9 14C10.3 14 11.5 13.5 12.5 12.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ),
+  download: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M9 2 V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M5.5 8.5 L9 12 L12.5 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 15 H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  ),
+};
+
+/* ============================================================ */
 export default function LandingPage() {
   const { user, loading } = useAuth();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   usePageMeta({
-    title: 'Quantive – See Your Financial Life Clearly',
-    description: 'A privacy-first finance cockpit. Upload your spreadsheet, track net worth, analyse allocations, and forecast your future. Free forever.',
+    title: 'Quantive — See Your Financial Life Clearly',
+    description:
+      'Quantive is a privacy-first finance cockpit. Track net worth, analyse allocations, and forecast your wealth — end-to-end encrypted, no bank connections. Free forever.',
     path: '/',
   });
-  const { fmt } = useCurrencyFormatter();
 
-  const previewSnapshots = useMemo(() => toSnapshots(generateMockData()), []);
+  useScrollReveal(rootRef);
+
+  /* JSON-LD: inject on mount, remove on unmount. */
+  useEffect(() => {
+    const el = document.createElement('script');
+    el.type = 'application/ld+json';
+    el.text = JSON.stringify(STRUCTURED_DATA);
+    document.head.appendChild(el);
+    return () => {
+      document.head.removeChild(el);
+    };
+  }, []);
+
   if (!loading && user) return <Navigate to="/dashboard" replace />;
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div ref={rootRef} className="lp-root flex min-h-screen flex-col">
       <StickyNav />
 
       {/* ───── HERO ───── */}
-      <section className="relative flex flex-col items-center justify-center overflow-hidden px-6 pb-20 pt-32 text-center md:pt-40">
-        {/* animated glow */}
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <div className="h-[500px] w-[500px] animate-hero-glow rounded-full bg-primary/20 blur-[120px]" />
+      <section className="lp-hero" aria-labelledby="lp-hero-h1">
+        <div className="lp-hero-glow" aria-hidden="true" />
+
+        <div className="lp-hero-badge">
+          <span className="lp-hero-badge-dot" aria-hidden="true" />
+          Privacy-first · End-to-end encrypted · Free forever
         </div>
 
-        <h1 className="relative z-10 max-w-3xl text-4xl font-extrabold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-          See your financial life{' '}
-          <span className="text-primary">clearly</span>
+        <h1 className="lp-hero-h1" id="lp-hero-h1">
+          See your financial life
+          <br />
+          <span className="lp-hero-accent">clearly.</span>
         </h1>
-        <p className="relative z-10 mt-5 max-w-xl text-lg text-muted-foreground">
-          Track, analyse, and forecast your net worth across accounts and currencies — end-to-end encrypted, never connected to your bank.
+
+        <p className="lp-hero-sub">
+          Track, analyse, and forecast your net worth across every account and currency — encrypted on your device, never connected to your bank.
         </p>
-        <div className="relative z-10 mt-8 flex flex-wrap justify-center gap-4">
-          <Link
-            to="/dashboard"
-            className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105"
-          >
+
+        <div className="lp-hero-ctas">
+          <Link to="/dashboard" className="lp-btn-primary">
             Get Started Free
           </Link>
-          {!user && (
-            <Link
-              to="/demo"
-              className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
-            >
-              Try Demo
-            </Link>
-          )}
+          <Link to="/demo" className="lp-btn-ghost">
+            Try Demo — No Sign Up
+          </Link>
         </div>
 
-        {/* live allocation preview (mock data) */}
-        <div className="relative z-10 mx-auto mt-24 w-full max-w-4xl text-left">
-          <div className="animate-hero-glow-slow absolute -inset-4 rounded-2xl bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 blur-2xl" />
-          <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 sm:p-6">
-            <AllocationChartsView snapshots={previewSnapshots} fmt={fmt} />
+        <div className="lp-hero-visual lp-reveal">
+          <div className="lp-hero-kpi-row">
+            <div>
+              <div className="lp-hero-kpi-label">NET WORTH · APR 2026</div>
+              <div className="lp-hero-kpi-value num">€134,054</div>
+            </div>
+            <div className="lp-hero-kpi-delta num">+13.4% · 730 days ↑</div>
+          </div>
+          <div className="lp-hero-chart">
+            <HeroChart />
           </div>
         </div>
       </section>
 
-      <div className="mx-auto w-full max-w-[1400px]">
+      {/* ───── TRUST BAND ───── */}
+      <div className="lp-trust-band" role="list" aria-label="Key product properties">
+        <span className="lp-trust-item" role="listitem">End-to-end encrypted</span>
+        <span className="lp-trust-sep" aria-hidden="true">·</span>
+        <span className="lp-trust-item" role="listitem">No bank connections required</span>
+        <span className="lp-trust-sep" aria-hidden="true">·</span>
+        <span className="lp-trust-item" role="listitem">Free forever — no credit card</span>
+        <span className="lp-trust-sep" aria-hidden="true">·</span>
+        <span className="lp-trust-item" role="listitem">Excel import included</span>
+        <span className="lp-trust-sep" aria-hidden="true">·</span>
+        <span className="lp-trust-item" role="listitem">EUR · USD · GBP · NOK</span>
+      </div>
 
-        {/* ───── BENEFITS ───── */}
-        <section className="border-t border-border/30 px-6 py-20">
-          <h2 className="mb-12 text-center text-3xl font-bold text-foreground">Why people love this tool</h2>
-          <div className="mx-auto grid max-w-4xl gap-8 sm:grid-cols-2">
-            {[
-              { icon: Eye, title: 'See your financial life clearly', desc: 'One glance to understand where you stand — net worth, allocations, and trends.' },
-              { icon: Brain, title: 'Make smarter decisions with real data', desc: 'Replace gut feelings with actual numbers. Your spreadsheet, supercharged.' },
-              { icon: TrendingUp, title: 'Know your future, not just your past', desc: 'Forecasting tools that show you where you\'re heading — and how fast.' },
-              { icon: Plus, title: 'Start from zero', desc: 'Add your first measurement in seconds — no template, no formulas, no spreadsheet to maintain.' },
-            ].map((b) => (
-              <FeatureCard key={b.title} {...b} />
-            ))}
-          </div>
-        </section>
-
-        {/* ───── FEATURES ───── */}
-        <section id="features" className="border-t border-border/30 px-6 py-20">
-          <h2 className="mb-4 text-center text-3xl font-bold text-foreground">Powerful features, zero complexity</h2>
-          <p className="mx-auto mb-12 max-w-lg text-center text-muted-foreground">Everything you need to track, analyse, and forecast your wealth.</p>
-          <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { icon: LineChart, title: 'Net Worth Tracking', desc: 'Track your total wealth over time with interactive charts.' },
-              { icon: PieChart, title: 'Allocation Analysis', desc: 'Visualise asset allocation and risk exposure at a glance.' },
-              { icon: Compass, title: 'Forecasting', desc: 'Project future net worth with configurable growth models.' },
-              { icon: Globe, title: 'Multi-Currency', desc: 'Display your wealth in EUR, USD, GBP, or NOK.' },
-            ].map((f) => (
-              <FeatureCard key={f.title} {...f} />
-            ))}
-          </div>
-        </section>
-
-        {/* ───── HOW IT WORKS ───── */}
-        <section className="border-t border-border/30 px-6 py-20">
-          <h2 className="mb-12 text-center text-3xl font-bold text-foreground">How it works</h2>
-          <div className="mx-auto grid max-w-4xl gap-8 sm:grid-cols-3">
-            {[
-              { icon: Plus, step: '1', title: 'Add a measurement', desc: 'Record balances directly from the dashboard. Already track in Excel? Import it instead.' },
-              { icon: Search, step: '2', title: 'Explore your dashboard', desc: 'Charts, KPIs, and allocation breakdowns appear automatically.' },
-              { icon: Target, step: '3', title: 'Track your progress', desc: 'Add new measurements over time and watch your wealth grow.' },
-            ].map(({ icon: Icon, step, title, desc }) => (
-              <div key={step} className="flex flex-col items-center text-center">
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-xl font-bold text-primary">
-                  {step}
-                </div>
-                <Icon className="mb-3 h-6 w-6 text-muted-foreground" />
-                <h3 className="mb-2 text-base font-semibold text-foreground">{title}</h3>
-                <p className="text-sm text-muted-foreground">{desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ───── MID-PAGE CTA ───── */}
-        {!user && (
-          <section className="flex justify-center border-t border-border/30 px-6 py-14">
-            <Link
-              to="/demo"
-              className="rounded-lg bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105"
-            >
-              Try the Demo — No Sign Up Needed
-            </Link>
-          </section>
-        )}
-
-        {/* ───── PRIVACY ───── */}
-        <section className="border-t border-border/30 px-6 py-20">
-          <h2 className="mb-4 text-center text-3xl font-bold text-foreground">Your data stays yours</h2>
-          <p className="mx-auto mb-12 max-w-lg text-center text-muted-foreground">
-            Your data is encrypted on your device before it ever reaches our servers. We literally can't read it.
+      {/* ───── FEATURES ───── */}
+      <section className="lp-sec" id="features" aria-labelledby="lp-feat-h2">
+        <div className="lp-reveal">
+          <span className="lp-eyebrow">Features</span>
+          <h2 className="lp-h2" id="lp-feat-h2">
+            Powerful features,
+            <br />
+            zero complexity.
+          </h2>
+          <p className="lp-sub">
+            Everything you need to track, analyse, and forecast your wealth — nothing you don't.
           </p>
-          <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { icon: Lock, text: 'End-to-end encrypted' },
-              { icon: ShieldCheck, text: 'No bank connections' },
-              { icon: WifiOff, text: 'No tracking, no ads' },
-              { icon: Download, text: 'Excel import included' },
-            ].map(({ icon: Icon, text }) => (
-              <div key={text} className="flex flex-col items-center gap-3 rounded-xl border border-border/40 bg-card/50 p-6 text-center">
-                <Icon className="h-6 w-6 text-accent" />
-                <span className="text-sm font-medium text-foreground">{text}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+        </div>
 
-        {/* ───── WHO IS THIS FOR ───── */}
-        <section className="border-t border-border/30 px-6 py-20">
-          <h2 className="mb-12 text-center text-3xl font-bold text-foreground">Perfect for…</h2>
-          <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { icon: Briefcase, title: 'Young Professionals', desc: 'Building wealth with intention.' },
-              { icon: BarChart3, title: 'Self-Directed Investors', desc: 'Tracking performance across brokers and accounts.' },
-              { icon: Globe, title: 'Globally Mobile', desc: 'Holding wealth across currencies and borders.' },
-              { icon: Sparkles, title: 'Clarity Seekers', desc: 'Who want simplicity over complexity.' },
-            ].map((p) => (
-              <FeatureCard key={p.title} icon={p.icon} title={p.title} desc={p.desc} />
-            ))}
-          </div>
-        </section>
-
-        {/* ───── FOUNDER STORY ───── */}
-        <section className="border-t border-border/30 px-6 py-20">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="mb-6 text-3xl font-bold text-foreground">Built because existing tools weren't enough</h2>
-            <p className="text-muted-foreground leading-relaxed">
-              Every finance app I tried wanted my bank credentials, monetised my data, or buried the basics under features I didn't need.
-              I wanted something simple: track net worth, see clear charts, watch progress over time — and own my data end to end.
-              So everything you enter is encrypted on your device before it syncs. Even we can't read it.
-            </p>
-            <p className="mt-4 text-sm italic text-primary">
-              "A clear view of your net worth — without handing over your bank login or your data."
+        <div className="lp-feat-hero lp-reveal" data-d="1">
+          <div>
+            <div className="lp-feat-num">01 — NET WORTH TRACKING</div>
+            <h3 className="lp-feat-title">Your entire wealth in a single view</h3>
+            <p className="lp-feat-desc">
+              Record any account, asset, or liability. Quantive calculates your total net worth across all sources and currencies — displayed as interactive charts that update the moment you add a new measurement. No formulas. No maintenance.
             </p>
           </div>
-        </section>
+          <div className="lp-feat-card" aria-hidden="true">
+            <FeatureMiniChart />
+          </div>
+        </div>
 
-        {/* ───── PRICING ───── */}
-        <section id="pricing" className="border-t border-border/30 px-6 py-20">
-          <h2 className="mb-4 text-center text-3xl font-bold text-foreground">Simple, transparent pricing</h2>
-          <p className="mx-auto mb-3 max-w-lg text-center text-muted-foreground">
-            Start free, upgrade when you're ready. End-to-end encryption is included on every tier.
-          </p>
-          <p className="mx-auto mb-12 max-w-xl text-center text-sm font-medium text-primary">
-            Sign up free now → get your first month of Pro on us when it launches.
-          </p>
-          <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
-            {/* Free */}
-            <div className="rounded-xl border border-border/40 bg-card/50 p-8">
-              <h3 className="text-lg font-bold text-foreground">Free</h3>
-              <p className="mt-1 text-3xl font-extrabold text-foreground">€0<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
-              <p className="mt-1 text-xs text-muted-foreground">Forever. No credit card required.</p>
-              <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
-                {[
-                  'Net worth tracking with unlimited sources',
-                  'Allocation charts (volatility & liquidity)',
-                  'Multi-currency display (EUR, USD, GBP, NOK)',
-                  'Excel import',
-                  'Manual balance entry',
-                  'End-to-end encrypted cloud sync',
-                  'Rolling 12-month history view',
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <span className="text-accent">✓</span> {f}
-                  </li>
-                ))}
-              </ul>
-              <Link
-                to="/dashboard"
-                className="mt-8 block w-full rounded-lg border border-border bg-secondary py-2.5 text-center text-sm font-medium text-secondary-foreground transition-transform hover:scale-105"
-              >
-                Get Started
-              </Link>
-            </div>
-            {/* Pro */}
-            <div className="relative rounded-xl border-2 border-primary/50 bg-card p-8">
-              <span className="absolute -top-3 right-6 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
-                Coming Soon
-              </span>
-              <h3 className="text-lg font-bold text-foreground">Pro</h3>
-              <p className="mt-1 text-3xl font-extrabold text-foreground">€90<span className="text-sm font-normal text-muted-foreground">/year</span></p>
-              <p className="mt-1 text-xs font-normal text-muted-foreground">~€7.50/mo · or €9/mo billed monthly</p>
+        <div className="lp-feat-strip lp-reveal" data-d="2">
+          <div className="lp-feat-col">
+            <div className="lp-feat-col-num">02 — ALLOCATION ANALYSIS</div>
+            <h3 className="lp-feat-col-title">Know your risk exposure</h3>
+            <p className="lp-feat-col-desc">
+              Visualise how your wealth is spread across asset classes, liquidity tiers, and volatility buckets — at a glance.
+            </p>
+          </div>
+          <div className="lp-feat-col">
+            <div className="lp-feat-col-num">03 — FORECASTING</div>
+            <h3 className="lp-feat-col-title">See where you're heading</h3>
+            <p className="lp-feat-col-desc">
+              Project future net worth using a CAGR model with 95% confidence intervals. Understand your trajectory, and how fast you're getting there.
+            </p>
+          </div>
+          <div className="lp-feat-col">
+            <div className="lp-feat-col-num">04 — MULTI-CURRENCY</div>
+            <h3 className="lp-feat-col-title">One view across currencies</h3>
+            <p className="lp-feat-col-desc">
+              Hold assets in EUR, USD, GBP, or NOK — or all at once. View your full portfolio in the currency that makes sense to you.
+            </p>
+          </div>
+        </div>
+      </section>
 
-              <div className="mt-5 space-y-4 text-sm text-muted-foreground">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Know if you're on track</p>
-                  <ul className="mt-2 space-y-2">
-                    <li className="flex items-start gap-2">
-                      <span className="mt-0.5 text-primary">✓</span>
-                      <span>Full historical view — every snapshot since you started, charted and tabular</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-0.5 text-primary">✓</span>
-                      <span>Forecasting engine — CAGR projection with 95% confidence intervals</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-0.5 text-primary">✓</span>
-                      <span>
-                        Milestone &amp; goal tracking
-                        <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          In development
-                        </span>
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-0.5 text-primary">✓</span>
-                      <span>
-                        Benchmark comparison (vs. inflation, S&amp;P 500, MSCI World)
-                        <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                          In development
-                        </span>
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Get your data out</p>
-                  <ul className="mt-2 space-y-2">
-                    <li className="flex items-start gap-2">
-                      <span className="mt-0.5 text-primary">✓</span>
-                      <span>Excel &amp; CSV export</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="mt-0.5 text-primary">✓</span>
-                      <span>PDF wealth report (one-page summary for advisors or annual review)</span>
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Support</p>
-                  <ul className="mt-2 space-y-2">
-                    <li className="flex items-start gap-2">
-                      <span className="mt-0.5 text-primary">✓</span>
-                      <span>Priority support (24h response)</span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-
-              <Link
-                to="/dashboard"
-                className="mt-6 block rounded-lg bg-primary py-2.5 text-center text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
-              >
-                Sign up free — get notified when Pro launches
-              </Link>
-              <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                Existing free users get their first month of Pro on us.
+      {/* ───── HOW IT WORKS ───── */}
+      <section className="lp-sec lp-sec--bordered" id="how" aria-labelledby="lp-how-h2">
+        <div className="lp-reveal">
+          <span className="lp-eyebrow">How it works</span>
+          <h2 className="lp-h2" id="lp-how-h2">
+            From zero to clarity
+            <br />
+            in three steps.
+          </h2>
+        </div>
+        <div className="lp-steps">
+          <div className="lp-step lp-reveal">
+            <div className="lp-step-num num" aria-hidden="true">01</div>
+            <div>
+              <div className="lp-step-eyebrow">STEP 01</div>
+              <h3 className="lp-step-title">Add a measurement</h3>
+              <p className="lp-step-desc">
+                Record balances directly from the dashboard. Already tracking in Excel? Import it instead — your full history comes with it, no data entry required.
               </p>
             </div>
           </div>
-          <p className="mx-auto mt-8 max-w-lg text-center text-xs text-muted-foreground">
-            A Family tier (shared portfolios for 2 users) is planned. Not yet available.
-          </p>
-        </section>
+          <div className="lp-step lp-reveal">
+            <div className="lp-step-num num" aria-hidden="true">02</div>
+            <div>
+              <div className="lp-step-eyebrow">STEP 02</div>
+              <h3 className="lp-step-title">Explore your dashboard</h3>
+              <p className="lp-step-desc">
+                Charts, KPI cards, allocation breakdowns, and forecasts appear automatically. No setup. No templates. No formulas to maintain.
+              </p>
+            </div>
+          </div>
+          <div className="lp-step lp-reveal">
+            <div className="lp-step-num num" aria-hidden="true">03</div>
+            <div>
+              <div className="lp-step-eyebrow">STEP 03</div>
+              <h3 className="lp-step-title">Track your progress</h3>
+              <p className="lp-step-desc">
+                Add new measurements over time. Watch your net worth grow, your allocation shift, and your forecast update — month by month.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        {/* ───── FOOTER CTA ───── */}
-        <section className="border-t border-border/30 px-6 py-20 text-center">
-          <h2 className="text-3xl font-bold text-foreground">Start tracking your wealth today</h2>
-          <p className="mt-3 text-muted-foreground">Free forever. No credit card required.</p>
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <Link
-              to="/dashboard"
-              className="rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 transition-transform hover:scale-105"
-            >
+      {/* ───── PRIVACY ───── */}
+      <section className="lp-sec" id="privacy" aria-labelledby="lp-priv-h2">
+        <div className="lp-privacy-wrap lp-reveal">
+          <div className="lp-privacy-head">
+            <span className="lp-eyebrow">Privacy &amp; Security</span>
+            <h2 className="lp-h2" id="lp-priv-h2" style={{ maxWidth: 540 }}>
+              Your data stays yours.
+              <br />
+              We literally can't read it.
+            </h2>
+            <p className="lp-sub">
+              All data is encrypted on your device before it ever leaves your browser. No plaintext reaches our servers — ever.
+            </p>
+          </div>
+          <div className="lp-privacy-grid">
+            <div className="lp-privacy-item">
+              <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.lock}</div>
+              <div className="lp-privacy-title">End-to-end encrypted</div>
+              <p className="lp-privacy-desc">
+                AES-256 with a key derived from your passphrase. Your data is locked before it syncs.
+              </p>
+            </div>
+            <div className="lp-privacy-item">
+              <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.shield}</div>
+              <div className="lp-privacy-title">No bank connections</div>
+              <p className="lp-privacy-desc">
+                Quantive never asks for banking credentials or connects to financial institutions.
+              </p>
+            </div>
+            <div className="lp-privacy-item">
+              <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.noEye}</div>
+              <div className="lp-privacy-title">No tracking, no ads</div>
+              <p className="lp-privacy-desc">
+                No third-party analytics. No ad networks. No selling of financial behaviour data.
+              </p>
+            </div>
+            <div className="lp-privacy-item">
+              <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.download}</div>
+              <div className="lp-privacy-title">Excel import &amp; export</div>
+              <p className="lp-privacy-desc">
+                Bring your history in, or take it out. Your data is never held hostage.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ───── WHO IT'S FOR ───── */}
+      <section className="lp-sec" aria-labelledby="lp-who-h2">
+        <div className="lp-hd-center lp-reveal">
+          <span className="lp-eyebrow">Who it's for</span>
+          <h2 className="lp-h2" id="lp-who-h2">
+            Built for people who take
+            <br />
+            their finances seriously.
+          </h2>
+        </div>
+        <div className="lp-personas">
+          <div className="lp-persona lp-reveal">
+            <div className="lp-persona-name">Young professionals</div>
+            <p className="lp-persona-desc">
+              Building wealth intentionally — tracking every raise, investment, and decision against a long-term goal.
+            </p>
+            <span className="lp-persona-tag">Building wealth</span>
+          </div>
+          <div className="lp-persona lp-reveal" data-d="1">
+            <div className="lp-persona-name">Self-directed investors</div>
+            <p className="lp-persona-desc">
+              Managing positions across multiple brokers and asset classes — needing one consolidated view, without sharing credentials anywhere.
+            </p>
+            <span className="lp-persona-tag">Multi-account portfolios</span>
+          </div>
+          <div className="lp-persona lp-reveal" data-d="2">
+            <div className="lp-persona-name">Globally mobile</div>
+            <p className="lp-persona-desc">
+              Holding wealth across currencies, countries, and systems — needing a single cockpit that handles the complexity quietly.
+            </p>
+            <span className="lp-persona-tag">Multi-currency wealth</span>
+          </div>
+          <div className="lp-persona lp-reveal" data-d="3">
+            <div className="lp-persona-name">Clarity seekers</div>
+            <p className="lp-persona-desc">
+              Done maintaining spreadsheets. Wanting the signal without the noise — and without handing over a bank login to get it.
+            </p>
+            <span className="lp-persona-tag">Privacy-first</span>
+          </div>
+        </div>
+      </section>
+
+      {/* ───── FOUNDER ───── */}
+      <div className="lp-founder lp-reveal">
+        <blockquote className="lp-founder-quote">
+          Every finance app I tried wanted my bank credentials, monetised my data, or buried the basics under features I didn't need. I wanted something simple — track net worth, see clear charts, own my data end to end. So I built it.
+        </blockquote>
+        <p className="lp-founder-sig">— Founder, Quantive · usequantive.app</p>
+      </div>
+
+      {/* ───── PRICING ───── */}
+      <section className="lp-sec lp-sec--bordered" id="pricing" aria-labelledby="lp-price-h2">
+        <div className="lp-hd-center lp-reveal">
+          <span className="lp-eyebrow">Pricing</span>
+          <h2 className="lp-h2" id="lp-price-h2">Simple, transparent pricing.</h2>
+          <p className="lp-sub">
+            Start free. Upgrade when you're ready. End-to-end encryption on every tier — always.
+          </p>
+          <p className="lp-price-pre">
+            Sign up free now → get your first month of Pro on us when it launches.
+          </p>
+        </div>
+
+        <div className="lp-pricing">
+          {/* Free */}
+          <div className="lp-price lp-reveal">
+            <div className="lp-price-name">Free</div>
+            <div>
+              <span className="lp-price-val num">€0</span>
+              <span className="lp-price-period"> / forever</span>
+            </div>
+            <div className="lp-price-note">No credit card required.</div>
+            <ul className="lp-price-features">
+              <li><span className="lp-price-check">✓</span>Net worth tracking — unlimited sources</li>
+              <li><span className="lp-price-check">✓</span>Allocation charts (volatility &amp; liquidity)</li>
+              <li><span className="lp-price-check">✓</span>Multi-currency display (EUR, USD, GBP, NOK)</li>
+              <li><span className="lp-price-check">✓</span>Excel import</li>
+              <li><span className="lp-price-check">✓</span>End-to-end encrypted cloud sync</li>
+              <li><span className="lp-price-check">✓</span>Rolling 12-month history view</li>
+            </ul>
+            <Link to="/dashboard" className="lp-price-cta lp-price-cta--free">
               Get Started Free
             </Link>
-            {!user && (
-              <Link
-                to="/demo"
-                className="rounded-lg border border-border bg-secondary px-6 py-3 text-sm font-semibold text-secondary-foreground transition-transform hover:scale-105"
-              >
-                Try Demo
-              </Link>
-            )}
           </div>
-        </section>
 
+          {/* Pro */}
+          <div className="lp-price lp-price--pro lp-reveal" data-d="1">
+            <div className="lp-price-badge">Coming Soon</div>
+            <div className="lp-price-name">Pro</div>
+            <div>
+              <span className="lp-price-val num">€90</span>
+              <span className="lp-price-period"> / year</span>
+            </div>
+            <div className="lp-price-note">~€7.50/mo · or €9/mo billed monthly</div>
+            <ul className="lp-price-features">
+              <li className="lp-price-sec-head">Know if you're on track</li>
+              <li><span className="lp-price-check">✓</span>Full historical view — every snapshot, charted</li>
+              <li><span className="lp-price-check">✓</span>Forecasting engine — CAGR with 95% confidence bands</li>
+              <li>
+                <span className="lp-price-check">✓</span>
+                Milestone &amp; goal tracking
+                <span className="lp-price-soon">In development</span>
+              </li>
+              <li>
+                <span className="lp-price-check">✓</span>
+                Benchmarks (S&amp;P 500, MSCI World, inflation)
+                <span className="lp-price-soon">In development</span>
+              </li>
+              <li className="lp-price-sec-head">Get your data out</li>
+              <li><span className="lp-price-check">✓</span>Excel &amp; CSV export</li>
+              <li><span className="lp-price-check">✓</span>PDF wealth report — for advisors or annual review</li>
+              <li className="lp-price-sec-head">Support</li>
+              <li><span className="lp-price-check">✓</span>Priority support — 24h response</li>
+            </ul>
+            <Link to="/dashboard" className="lp-price-cta lp-price-cta--pro">
+              Sign up free — get notified at launch
+            </Link>
+            <p className="lp-price-foot">Existing free users get their first month on us.</p>
+          </div>
+        </div>
+        <p className="lp-price-postscript">
+          A Family tier (shared portfolios for 2 users) is planned. Not yet available.
+        </p>
+      </section>
+
+      {/* ───── FAQ ───── */}
+      <section className="lp-sec lp-sec--bordered" id="faq" aria-labelledby="lp-faq-h2">
+        <div className="lp-reveal">
+          <span className="lp-eyebrow">FAQ</span>
+          <h2 className="lp-h2" id="lp-faq-h2">
+            Common questions,
+            <br />
+            direct answers.
+          </h2>
+        </div>
+        <div className="lp-faq-list lp-reveal" data-d="1">
+          {FAQS.map((item, i) => {
+            const isOpen = openFaq === i;
+            return (
+              <div key={item.q} className={`lp-faq-item ${isOpen ? 'is-open' : ''}`}>
+                <button
+                  type="button"
+                  className="lp-faq-btn"
+                  aria-expanded={isOpen}
+                  onClick={() => setOpenFaq(isOpen ? null : i)}
+                >
+                  {item.q}
+                  <span className="lp-faq-icon" aria-hidden="true">+</span>
+                </button>
+                <div className="lp-faq-ans">{item.a}</div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ───── FOOTER CTA ───── */}
+      <div className="lp-cta lp-reveal">
+        <div className="lp-cta-glow" aria-hidden="true" />
+        <h2 className="lp-cta-h2">Start tracking your wealth today.</h2>
+        <p className="lp-cta-sub">Free forever. No credit card. No bank logins.</p>
+        <div className="lp-cta-actions">
+          <Link to="/dashboard" className="lp-btn-primary">Get Started Free</Link>
+          <Link to="/demo" className="lp-btn-ghost">Try Demo First</Link>
+        </div>
       </div>
 
       <Footer />
