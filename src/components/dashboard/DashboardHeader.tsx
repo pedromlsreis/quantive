@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { FileSpreadsheet, Upload, X, Download, Plus, MoreHorizontal } from 'lucide-react';
+import { Upload, X, Download, Plus, MoreHorizontal } from 'lucide-react';
+import { Wordmark } from '@/components/layout/Brand';
 import { format } from 'date-fns';
 import { HowToUse } from './HowToUse';
 import { AuthButton } from './AuthButton';
@@ -44,21 +45,15 @@ export function DashboardHeader() {
 
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
-      <a href="/" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-80">
-        <div
-          className="shrink-0"
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 36, height: 36, borderRadius: 'var(--r-2)',
-            background: 'var(--accent-faint-raw)',
-          }}
-        >
-          <FileSpreadsheet className="h-5 w-5 text-primary" />
-        </div>
+      <a
+        href="/"
+        aria-label="Quantive home"
+        className="flex min-w-0 items-center transition-opacity hover:opacity-80"
+      >
         <div className="min-w-0">
-          <h1 className="text-lg font-bold text-foreground">Quantive</h1>
+          <Wordmark size={22} />
           {lastUpdated && (
-            <p className="truncate text-[11px] text-muted-foreground/60">
+            <p className="truncate text-[11px] text-muted-foreground/60" style={{ marginTop: 2, marginLeft: 30 }}>
               Data through {lastUpdated}
             </p>
           )}

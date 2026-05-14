@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { FileSpreadsheet, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
+import { Wordmark } from '@/components/layout/Brand';
 
 export function StickyNav() {
   const [scrolled, setScrolled] = useState(false);
@@ -50,17 +51,8 @@ export function StickyNav() {
         }`}
       >
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4">
-          <Link to="/" className="flex items-center gap-2">
-            <div
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 32, height: 32, borderRadius: 'var(--r-2)',
-                background: 'var(--accent-faint-raw)',
-              }}
-            >
-              <FileSpreadsheet className="h-4 w-4 text-primary" />
-            </div>
-            <span className="text-lg font-bold text-foreground">Quantive</span>
+          <Link to="/" aria-label="Quantive home" className="inline-flex items-center">
+            <Wordmark size={22} />
           </Link>
 
           {/* Desktop */}
