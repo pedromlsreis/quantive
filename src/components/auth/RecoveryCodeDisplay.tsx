@@ -25,7 +25,6 @@ interface Props {
 
 export function RecoveryCodeDisplay({ code, onConfirmed, onSkipConfirm }: Props) {
   const [confirmInput, setConfirmInput] = useState('');
-  // Random index for the confirm word, stable for the lifetime of this component.
   const [confirmIndex] = useState(() => Math.floor(Math.random() * 24));
 
   const handleCopy = async () => {
@@ -68,63 +67,91 @@ export function RecoveryCodeDisplay({ code, onConfirmed, onSkipConfirm }: Props)
 
   return (
     <>
-      <div className="mb-3 grid grid-cols-3 gap-2 rounded-lg border border-border bg-secondary/30 p-3 sm:grid-cols-4">
+      <div
+        className="grid grid-cols-3 sm:grid-cols-4"
+        style={{
+          gap: 'var(--s-2)',
+          borderRadius: 'var(--r-2)',
+          border: '1px solid var(--border-raw)',
+          background: 'color-mix(in oklch, var(--fg) 5%, transparent)',
+          padding: 'var(--s-3)',
+          marginBottom: 'var(--s-3)',
+        }}
+      >
         {code.split(' ').map((word, i) => (
           <div
             key={i}
-            className="flex items-baseline gap-1.5 rounded bg-background/40 px-2 py-1 font-mono text-xs text-foreground"
+            style={{
+              display: 'flex', alignItems: 'baseline', gap: 6,
+              borderRadius: 'var(--r-1)',
+              background: 'var(--surface)',
+              padding: '4px 8px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--text-xs)',
+              color: 'var(--fg)',
+            }}
           >
-            <span className="text-muted-foreground/60">{i + 1}</span>
+            <span style={{ color: 'var(--fg-faint)' }}>{i + 1}</span>
             <span>{word}</span>
           </div>
         ))}
       </div>
 
-      <div className="mb-5 flex gap-2">
+      <div style={{ display: 'flex', gap: 'var(--s-2)', marginBottom: 'var(--s-5)' }}>
         <button
           onClick={handleCopy}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground transition-colors hover:bg-secondary"
+          className="q-btn q-btn--secondary q-btn--sm"
+          style={{ flex: 1 }}
         >
           <Copy className="h-3.5 w-3.5" />
           Copy
         </button>
         <button
           onClick={handleDownload}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground transition-colors hover:bg-secondary"
+          className="q-btn q-btn--secondary q-btn--sm"
+          style={{ flex: 1 }}
         >
           <Download className="h-3.5 w-3.5" />
           Download .txt
         </button>
       </div>
 
-      <div className="mb-3">
-        <label className="mb-1.5 block text-xs font-medium text-foreground">
+      <div style={{ marginBottom: 'var(--s-3)' }}>
+        <label
+          htmlFor="recovery-confirm-word"
+          style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}
+        >
           Confirm: type word #{confirmIndex + 1}
         </label>
-        <input
-          type="text"
-          value={confirmInput}
-          onChange={(e) => setConfirmInput(e.target.value)}
-          placeholder={`word ${confirmIndex + 1}`}
-          className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-2.5 font-mono text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-          autoComplete="off"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-        />
+        <label className="q-input">
+          <input
+            id="recovery-confirm-word"
+            type="text"
+            value={confirmInput}
+            onChange={(e) => setConfirmInput(e.target.value)}
+            placeholder={`word ${confirmIndex + 1}`}
+            style={{ fontFamily: 'var(--font-mono)' }}
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+        </label>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
         <button
           onClick={handleConfirm}
           disabled={!confirmInput.trim()}
-          className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          className="q-btn q-btn--primary q-btn--md"
+          style={{ width: '100%', opacity: !confirmInput.trim() ? 0.5 : 1 }}
         >
           Confirm
         </button>
         <button
           onClick={onSkipConfirm}
-          className="text-center text-xs text-muted-foreground hover:text-foreground"
+          className="q-btn q-btn--ghost q-btn--sm"
+          style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}
         >
           I'll save it later — close anyway
         </button>

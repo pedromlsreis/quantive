@@ -17,7 +17,7 @@ export function AuthButton() {
     <>
       <button
         onClick={() => navigate('/settings')}
-        className="flex items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="q-icon-btn"
         aria-label="Settings"
         title="Settings"
       >
@@ -25,7 +25,7 @@ export function AuthButton() {
       </button>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center justify-center gap-1.5 rounded-lg bg-primary/10 px-3 py-2 text-sm text-primary transition-colors hover:bg-primary/20"
+        className="q-btn q-btn--secondary q-btn--md"
       >
         <User className="h-4 w-4" />
         <span className="hidden sm:inline">Sign in</span>

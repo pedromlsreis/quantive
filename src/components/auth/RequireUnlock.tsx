@@ -13,6 +13,7 @@ import { Lock, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 // Routes that actually decrypt portfolio data. Marketing, legal, demo, admin,
 // and the reset-password flow don't need an unlocked DK and shouldn't show
@@ -30,6 +31,7 @@ export function RequireUnlock() {
   const location = useLocation();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const trapRef = useFocusTrap<HTMLDivElement>(true);
 
   // Only show when the user is authed and we don't have a DK loaded.
   if (!user || keySession.status !== 'locked') return null;
@@ -42,8 +44,6 @@ export function RequireUnlock() {
     try {
       const { error } = await keySession.unlock(user.id, password);
       if (error) {
-        // We don't echo the underlying message — too easy to leak the
-        // distinction between "wrong password" and "transient network".
         toast.error('Could not unlock. Check your password and try again.');
         return;
       }
@@ -59,43 +59,60 @@ export function RequireUnlock() {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/90 backdrop-blur-sm">
-      <div className="relative mx-4 w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-          <Lock className="h-6 w-6 text-primary" />
-        </div>
+    <div
+      className="q-modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="require-unlock-title"
+      style={{ zIndex: 60 }}
+    >
+      <div ref={trapRef} className="q-modal" style={{ maxWidth: 384 }}>
+        <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 48, height: 48, borderRadius: 'var(--r-3)',
+            background: 'var(--accent-faint-raw)', flexShrink: 0,
+          }}>
+            <Lock className="h-6 w-6 text-primary" />
+          </div>
 
-        <h2 className="mb-1 text-lg font-bold text-foreground">Unlock your data</h2>
-        <p className="mb-5 text-sm text-muted-foreground">
-          Your portfolio is end-to-end encrypted. Enter your password to decrypt it on this device.
-        </p>
+          <div>
+            <div className="q-modal-title" id="require-unlock-title">Unlock your data</div>
+            <div className="q-modal-sub" style={{ marginTop: 4 }}>
+              Your portfolio is end-to-end encrypted. Enter your password to decrypt it on this device.
+            </div>
+          </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-            required
-            autoFocus
-          />
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+            <label className="q-input">
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                autoFocus
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={submitting || !password.trim()}
+              className="q-btn q-btn--primary q-btn--md"
+              style={{ width: '100%', opacity: submitting || !password.trim() ? 0.5 : 1 }}
+            >
+              {submitting ? 'Unlocking…' : 'Unlock'}
+            </button>
+          </form>
+
           <button
-            type="submit"
-            disabled={submitting || !password.trim()}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            onClick={handleSignOut}
+            className="q-btn q-btn--ghost q-btn--sm"
+            style={{ width: '100%', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}
           >
-            {submitting ? 'Unlocking…' : 'Unlock'}
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out instead
           </button>
-        </form>
-
-        <button
-          onClick={handleSignOut}
-          className="mt-4 flex w-full items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          Sign out instead
-        </button>
+        </div>
       </div>
     </div>,
     document.body,

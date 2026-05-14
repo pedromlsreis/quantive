@@ -163,28 +163,44 @@ const ResetPassword = () => {
 
   if (linkState === 'checking') {
     return (
-      <div className="flex flex-1 items-center justify-center bg-background p-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 'var(--s-8)' }}>
+        <div
+          style={{
+            width: 32, height: 32, borderRadius: '50%',
+            border: '4px solid var(--accent-raw)',
+            borderTopColor: 'transparent',
+            animation: 'spin 1s linear infinite',
+          }}
+        />
       </div>
     );
   }
 
+  const heroIcon = (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      width: 48, height: 48, borderRadius: 'var(--r-3)',
+      background: 'var(--accent-faint-raw)',
+      marginBottom: 'var(--s-4)',
+    }}>
+      <KeyRound className="h-6 w-6 text-primary" />
+    </div>
+  );
+
   if (linkState === 'invalid') {
     return (
-      <div className="flex flex-1 items-center justify-center bg-background p-8">
-        <div className="w-full max-w-sm text-center">
-          <div className="mb-4 flex justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-              <KeyRound className="h-6 w-6 text-primary" />
-            </div>
-          </div>
-          <h1 className="mb-2 text-lg font-bold text-foreground">Invalid or expired reset link</h1>
-          <p className="mb-5 text-sm text-muted-foreground">
+      <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 'var(--s-8)' }}>
+        <div className="q-card q-card--p-lg" style={{ width: '100%', maxWidth: 384, textAlign: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>{heroIcon}</div>
+          <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--fg)', marginBottom: 'var(--s-2)' }}>
+            Invalid or expired reset link
+          </h1>
+          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)', marginBottom: 'var(--s-5)' }}>
             This link is invalid or has expired. Reset links are single-use and time-limited — please request a new one.
           </p>
           <button
             onClick={() => navigate('/')}
-            className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="q-btn q-btn--primary q-btn--md"
           >
             Back to home
           </button>
@@ -194,25 +210,33 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-background p-8">
-      <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10">
-          <KeyRound className="h-6 w-6 text-primary" />
-        </div>
-        <h1 className="mb-1 text-lg font-bold text-foreground">Set new password</h1>
-        <p className="mb-5 text-sm text-muted-foreground">
+    <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 'var(--s-8)' }}>
+      <div className="q-card q-card--p-lg" style={{ width: '100%', maxWidth: 448 }}>
+        {heroIcon}
+        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--fg)', marginBottom: 4 }}>
+          Set new password
+        </h1>
+        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)', marginBottom: 'var(--s-5)' }}>
           {encMode === 'with-recovery'
             ? 'Enter your new password and your 24-word recovery code below.'
             : 'Enter your new password below.'}
         </p>
 
         {encMode === 'encrypted-no-recovery' && (
-          <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-            <p className="mb-1.5 flex items-start gap-2 font-medium">
+          <div style={{
+            borderRadius: 'var(--r-2)',
+            border: '1px solid color-mix(in oklch, var(--negative) 40%, transparent)',
+            background: 'color-mix(in oklch, var(--negative) 10%, transparent)',
+            padding: 'var(--s-3)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--negative)',
+            marginBottom: 'var(--s-4)',
+          }}>
+            <p style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)', fontWeight: 500, margin: 0, marginBottom: 6 }}>
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               Your encrypted data cannot be recovered.
             </p>
-            <p className="leading-relaxed">
+            <p style={{ lineHeight: 1.5, margin: 0 }}>
               You didn't set up a recovery code. Resetting your password will
               leave your saved portfolio permanently inaccessible. The
               account will keep working — but past data will be lost.
@@ -220,48 +244,52 @@ const ResetPassword = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
-          <input
-            type="password"
-            placeholder="New password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-            required
-            minLength={6}
-          />
-          <input
-            type="password"
-            placeholder="Confirm password"
-            value={confirm}
-            onChange={e => setConfirm(e.target.value)}
-            className="w-full rounded-lg border border-border bg-secondary/50 px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-            required
-            minLength={6}
-          />
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+          <label className="q-input">
+            <input
+              type="password"
+              placeholder="New password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              minLength={6}
+            />
+          </label>
+          <label className="q-input">
+            <input
+              type="password"
+              placeholder="Confirm password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              required
+              minLength={6}
+            />
+          </label>
 
           {encMode === 'with-recovery' && (
-            <textarea
-              placeholder="Your 24-word recovery code"
-              value={recoveryCode}
-              onChange={e => setRecoveryCode(e.target.value)}
-              rows={3}
-              className="w-full resize-none rounded-lg border border-border bg-secondary/50 px-4 py-2.5 font-mono text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
-              autoComplete="off"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              required
-            />
+            <label className="q-input q-input--textarea">
+              <textarea
+                placeholder="Your 24-word recovery code"
+                value={recoveryCode}
+                onChange={e => setRecoveryCode(e.target.value)}
+                rows={3}
+                style={{ resize: 'none', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}
+                autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                required
+              />
+            </label>
           )}
 
           {encMode === 'encrypted-no-recovery' && (
-            <label className="flex cursor-pointer items-start gap-2 text-xs text-muted-foreground">
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)', cursor: 'pointer', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
               <input
                 type="checkbox"
                 checked={acceptDataLoss}
                 onChange={e => setAcceptDataLoss(e.target.checked)}
-                className="mt-0.5"
+                style={{ marginTop: 2 }}
               />
               I understand my encrypted portfolio data will be permanently lost.
             </label>
@@ -275,7 +303,8 @@ const ResetPassword = () => {
               encMode === 'unknown' ||
               (encMode === 'encrypted-no-recovery' && !acceptDataLoss)
             }
-            className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            className="q-btn q-btn--primary q-btn--md"
+            style={{ width: '100%' }}
           >
             {submitButtonLabel(submitting, linkState)}
           </button>
