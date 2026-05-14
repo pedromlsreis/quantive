@@ -13,11 +13,17 @@ export interface CurrencyConfig {
   locale: string;
 }
 
+// Non-finite (NaN/Infinity) means upstream couldn't resolve a value — typically
+// a missing FX rate. Render an em-dash so the gap is visible rather than
+// silently showing "NaN" or a misleading zero.
+const MISSING = '—';
+
 /**
  * Format a number as abbreviated currency (e.g. €12.3k, $1.2M).
  * Uses "kr" instead of "NOK" for Norwegian Krone.
  */
 export function formatCurrency(value: number, symbol: string): string {
+  if (!Number.isFinite(value)) return MISSING;
   const s = symbol === 'NOK' ? 'kr' : symbol;
   if (Math.abs(value) >= 1_000_000) {
     return `${s}${(value / 1_000_000).toFixed(1)}M`;
@@ -33,6 +39,7 @@ export function formatCurrency(value: number, symbol: string): string {
  * Uses the browser's Intl.NumberFormat for locale-correct output.
  */
 export function formatFullCurrency(value: number, code: CurrencyCode, locale: string): string {
+  if (!Number.isFinite(value)) return MISSING;
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: code,
@@ -45,6 +52,7 @@ export function formatFullCurrency(value: number, code: CurrencyCode, locale: st
  * Format a number as a percentage with sign (e.g. "+5.2%", "-3.1%").
  */
 export function formatPercent(value: number): string {
+  if (!Number.isFinite(value)) return MISSING;
   const sign = value > 0 ? '+' : '';
   return `${sign}${value.toFixed(1)}%`;
 }
@@ -54,6 +62,7 @@ export function formatPercent(value: number): string {
  * No currency symbol — use for axis labels and raw numeric display.
  */
 export function formatNumber(value: number): string {
+  if (!Number.isFinite(value)) return MISSING;
   if (Math.abs(value) >= 1_000_000) {
     return `${(value / 1_000_000).toFixed(1)}M`;
   }
@@ -68,6 +77,7 @@ export function formatNumber(value: number): string {
  * Uses whole numbers without decimals for clean badge display.
  */
 export function formatMilestone(value: number, symbol: string): string {
+  if (!Number.isFinite(value)) return MISSING;
   const s = symbol === 'NOK' ? 'kr' : symbol;
   if (value >= 1_000_000) return `${s}${value / 1_000_000}M`;
   if (value >= 1_000) return `${s}${value / 1_000}k`;

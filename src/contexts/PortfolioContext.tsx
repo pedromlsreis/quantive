@@ -12,6 +12,8 @@ import {
   upsertEncryptedSnapshot,
   type SnapshotRow,
 } from '@/lib/cloudSync';
+import { useCurrency } from './CurrencyContext';
+import { useFxRates } from '@/hooks/useFxRates';
 
 const STORAGE_KEY = 'portfolio-data';
 const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
@@ -118,6 +120,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [isMockData, setIsMockData] = useState(false);
   const { user } = useAuth();
   const keySession = useKeySession();
+  const { currency: displayCurrency } = useCurrency();
+  // All stored facts are denominated in EUR. We convert to the display
+  // currency at the rate valid on each snapshot's own date — historical
+  // values use historical rates, not today's. Missing rates surface as NaN
+  // and render as "—" via the formatters.
+  const { convertAt: fxConvertAt } = useFxRates(displayCurrency.code);
 
   // Track pending cloud save when email is not yet confirmed
   const pendingCloudSaveRef = useRef<PortfolioData | null>(null);
@@ -593,17 +601,21 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     return Array.from(grouped.entries())
       .sort(([a], [b]) => a - b)
-      .map(([ts, facts]) => ({
-        date: new Date(ts),
-        total: facts.reduce((sum, f) => sum + f.sourceVl, 0),
-        sources: facts.map(f => ({
+      .map(([ts, facts]) => {
+        const snapDate = new Date(ts);
+        const sources = facts.map(f => ({
           name: f.idSource,
-          value: f.sourceVl,
+          value: fxConvertAt(f.sourceVl, snapDate),
           volatType: f.volatType,
           isLiquid: f.isLiquid,
-        })),
-      }));
-  }, [filteredFacts]);
+        }));
+        return {
+          date: snapDate,
+          total: sources.reduce((sum, s) => sum + s.value, 0),
+          sources,
+        };
+      });
+  }, [filteredFacts, fxConvertAt]);
 
   const allSnapshots = useMemo<Snapshot[]>(() => {
     const grouped = new Map<number, EnrichedFact[]>();
@@ -614,17 +626,21 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     });
     return Array.from(grouped.entries())
       .sort(([a], [b]) => a - b)
-      .map(([ts, facts]) => ({
-        date: new Date(ts),
-        total: facts.reduce((sum, f) => sum + f.sourceVl, 0),
-        sources: facts.map(f => ({
+      .map(([ts, facts]) => {
+        const snapDate = new Date(ts);
+        const sources = facts.map(f => ({
           name: f.idSource,
-          value: f.sourceVl,
+          value: fxConvertAt(f.sourceVl, snapDate),
           volatType: f.volatType,
           isLiquid: f.isLiquid,
-        })),
-      }));
-  }, [enrichedFacts]);
+        }));
+        return {
+          date: snapDate,
+          total: sources.reduce((sum, s) => sum + s.value, 0),
+          sources,
+        };
+      });
+  }, [enrichedFacts, fxConvertAt]);
 
   const kpis = useMemo<KPIData>(() => {
     if (snapshots.length === 0) return defaultKpis;

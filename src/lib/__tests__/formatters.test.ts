@@ -20,6 +20,11 @@ describe('formatCurrency', () => {
   it('handles NOK symbol as kr', () => {
     expect(formatCurrency(5_000, 'NOK')).toBe('kr5.0k');
   });
+
+  it('renders em-dash for non-finite values (missing FX rate)', () => {
+    expect(formatCurrency(NaN, '€')).toBe('—');
+    expect(formatCurrency(Infinity, '$')).toBe('—');
+  });
 });
 
 describe('formatFullCurrency', () => {
@@ -37,6 +42,10 @@ describe('formatFullCurrency', () => {
     const result = formatFullCurrency(999.99, 'GBP', 'en-GB');
     expect(result).toContain('999.99');
   });
+
+  it('renders em-dash for NaN', () => {
+    expect(formatFullCurrency(NaN, 'EUR', 'de-DE')).toBe('—');
+  });
 });
 
 describe('formatPercent', () => {
@@ -50,6 +59,10 @@ describe('formatPercent', () => {
 
   it('no sign for zero', () => {
     expect(formatPercent(0)).toBe('0.0%');
+  });
+
+  it('renders em-dash for NaN', () => {
+    expect(formatPercent(NaN)).toBe('—');
   });
 });
 

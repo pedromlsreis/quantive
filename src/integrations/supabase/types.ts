@@ -63,6 +63,27 @@ export type Database = {
         }
         Relationships: []
       }
+      fx_rates: {
+        Row: {
+          created_at: string
+          currency: string
+          date: string
+          rate_to_base: number
+        }
+        Insert: {
+          created_at?: string
+          currency: string
+          date: string
+          rate_to_base: number
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          date?: string
+          rate_to_base?: number
+        }
+        Relationships: []
+      }
       portfolio_snapshots: {
         Row: {
           data: Json | null

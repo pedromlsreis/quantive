@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { useNavigate } from 'react-router-dom';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrency } from '@/contexts/CurrencyContext';
-import { X, Plus, Trash2, Settings, AlertCircle } from 'lucide-react';
+import { X, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { HelpHint } from '@/components/ui/help-hint';
 import { sanitizeSourceName } from '@/lib/utils';
@@ -36,8 +34,6 @@ function saveDraft(entries: SourceEntry[]) {
 
 export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { data, addMeasurement } = usePortfolio();
-  const { currency } = useCurrency();
-  const navigate = useNavigate();
 
   const [entries, setEntries] = useState<SourceEntry[]>(() => {
     if (data && data.facts.length > 0) {
@@ -210,19 +206,16 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
                   <div className="q-modal-title" id="add-measurement-title">Add measurement</div>
-                  <button
-                    type="button"
-                    onClick={() => { onOpenChange(false); navigate('/settings'); }}
-                    title="Change currency in preferences"
+                  <span
                     className="q-badge q-badge--neutral"
-                    style={{ cursor: 'pointer', border: '1px solid var(--border-raw)' }}
+                    title="All values are stored in EUR. Pick any display currency in Settings."
+                    style={{ border: '1px solid var(--border-raw)' }}
                   >
-                    <span style={{ color: 'var(--fg)', fontWeight: 500 }}>{currency.symbol}</span>
-                    <span>{currency.code}</span>
-                    <Settings size={10} style={{ opacity: 0.5 }} />
-                  </button>
+                    <span style={{ color: 'var(--fg)', fontWeight: 500 }}>€</span>
+                    <span>EUR</span>
+                  </span>
                 </div>
-                <div className="q-modal-sub">Record your balances for {today}.</div>
+                <div className="q-modal-sub">Record your balances for {today}. Values are stored in EUR.</div>
               </div>
               <button
                 type="button"
