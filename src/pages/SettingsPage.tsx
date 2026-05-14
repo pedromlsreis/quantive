@@ -35,11 +35,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-const NUMBER_FORMAT_OPTIONS: { value: NumberFormat; label: string; sample: string }[] = [
-  { value: 'auto', label: 'Auto (match currency)', sample: 'Locale-default' },
-  { value: 'us',   label: 'US-style',              sample: '1,234,567.89' },
-  { value: 'eu',   label: 'European',              sample: '1.234.567,89' },
-  { value: 'in',   label: 'Indian',                sample: '12,34,567.89' },
+const NUMBER_FORMAT_OPTIONS: { value: NumberFormat; label: string; sample?: string }[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'us',   label: 'US-style',  sample: '1,234,567.89' },
+  { value: 'eu',   label: 'European',  sample: '1.234.567,89' },
+  { value: 'in',   label: 'Indian',    sample: '12,34,567.89' },
 ];
 
 const fieldLabel: React.CSSProperties = {
@@ -326,7 +326,7 @@ export default function SettingsPage() {
               >
                 {NUMBER_FORMAT_OPTIONS.map(opt => (
                   <option key={opt.value} value={opt.value}>
-                    {opt.label} — {opt.sample}
+                    {opt.sample ? `${opt.label} — ${opt.sample}` : opt.label}
                   </option>
                 ))}
               </select>
