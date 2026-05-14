@@ -51,7 +51,13 @@ export function StickyNav() {
       >
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 32, height: 32, borderRadius: 'var(--r-2)',
+                background: 'var(--accent-faint-raw)',
+              }}
+            >
               <FileSpreadsheet className="h-4 w-4 text-primary" />
             </div>
             <span className="text-lg font-bold text-foreground">Quantive</span>

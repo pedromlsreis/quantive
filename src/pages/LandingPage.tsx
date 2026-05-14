@@ -20,7 +20,14 @@ import {
 function FeatureCard({ icon: Icon, title, desc }: { icon: LucideIcon; title: string; desc: string }) {
   return (
     <div className="group rounded-xl border border-border/40 bg-card/50 p-6 transition-all hover:border-primary/30 hover:bg-card">
-      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
+      <div
+        className="mb-4 transition-colors"
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          width: 40, height: 40, borderRadius: 'var(--r-2)',
+          background: 'var(--accent-faint-raw)',
+        }}
+      >
         <Icon className="h-5 w-5 text-primary" />
       </div>
       <h3 className="mb-2 text-base font-semibold text-foreground">{title}</h3>

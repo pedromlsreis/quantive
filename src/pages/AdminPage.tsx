@@ -303,7 +303,13 @@ export default function AdminPage() {
                   className="rounded-lg border border-border/50 bg-background/40 p-3"
                 >
                   <div className="mb-1 flex items-center justify-between text-xs">
-                    <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+                    <span style={{
+                      borderRadius: 'var(--r-1)',
+                      background: 'var(--accent-faint-raw)',
+                      padding: '2px 6px',
+                      fontWeight: 500,
+                      color: 'var(--accent-raw)',
+                    }}>
                       {f.type}
                     </span>
                     <span className="text-muted-foreground">{fmtDate(f.created_at)}</span>
@@ -331,20 +337,20 @@ export default function AdminPage() {
                 loadUsers(search);
               }}
             >
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <label className="q-input" style={{ width: 224 }}>
+                <Search className="q-input-icon h-3.5 w-3.5" />
                 <input
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by email…"
-                  className="w-56 rounded-lg border border-border bg-secondary/50 py-1.5 pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground/60 focus:border-primary/40 focus:outline-none focus:ring-1 focus:ring-primary/20"
                 />
-              </div>
+              </label>
               <button
                 type="submit"
                 disabled={usersLoading}
-                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+                className="q-btn q-btn--secondary q-btn--sm"
+                style={{ opacity: usersLoading ? 0.5 : 1 }}
               >
                 Search
               </button>
@@ -402,7 +408,14 @@ export default function AdminPage() {
                             {u.roles.map((r) => (
                               <span
                                 key={r.role}
-                                className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary"
+                                style={{
+                                  borderRadius: 'var(--r-1)',
+                                  background: 'var(--accent-faint-raw)',
+                                  padding: '2px 6px',
+                                  fontSize: 'var(--text-xs)',
+                                  fontWeight: 500,
+                                  color: 'var(--accent-raw)',
+                                }}
                               >
                                 {r.role}
                               </span>
@@ -417,7 +430,7 @@ export default function AdminPage() {
                               disabled={isSelf || mutating === `${u.id}:admin:revoke`}
                               onClick={() => mutateRole(u.id, 'admin', 'revoke')}
                               title={isSelf ? 'You cannot revoke your own admin role.' : 'Revoke admin'}
-                              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary disabled:opacity-40"
+                              className="q-btn q-btn--secondary q-btn--sm"
                             >
                               <ShieldOff className="h-3.5 w-3.5" />
                               Revoke admin
@@ -426,7 +439,7 @@ export default function AdminPage() {
                             <button
                               disabled={mutating === `${u.id}:admin:grant`}
                               onClick={() => mutateRole(u.id, 'admin', 'grant')}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                              className="q-btn q-btn--primary q-btn--sm"
                             >
                               <Shield className="h-3.5 w-3.5" />
                               Make admin
@@ -437,7 +450,13 @@ export default function AdminPage() {
                             onClick={() => setPendingDelete(u)}
                             title={isSelf ? 'You cannot delete your own account from here.' : 'Delete user'}
                             aria-label={`Delete ${u.email ?? u.id}`}
-                            className="inline-flex items-center justify-center rounded-lg border border-destructive/30 bg-destructive/5 p-1.5 text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-30"
+                            className="q-icon-btn"
+                            style={{
+                              border: '1px solid color-mix(in oklch, var(--negative) 30%, transparent)',
+                              background: 'color-mix(in oklch, var(--negative) 5%, transparent)',
+                              color: 'var(--negative)',
+                              opacity: isSelf ? 0.3 : 1,
+                            }}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
