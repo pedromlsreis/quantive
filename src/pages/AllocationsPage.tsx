@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Check, Hourglass } from 'lucide-react';
+import { Check, Snowflake } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
@@ -148,7 +148,7 @@ const AllocationsPage = () => {
                     <td>
                       {s.isLiquid
                         ? <Check     size={14} style={{ color: 'var(--positive)' }} aria-label="Liquid" />
-                        : <Hourglass size={14} style={{ color: 'var(--fg-faint)' }} aria-label="Non-liquid — takes time to convert" />}
+                        : <Snowflake size={14} style={{ color: 'var(--fg-faint)' }} aria-label="Non-liquid — frozen, slow to convert" />}
                     </td>
                     <td className="num" style={{
                       color: s.value < 0 ? 'var(--negative)' : 'var(--fg)',
