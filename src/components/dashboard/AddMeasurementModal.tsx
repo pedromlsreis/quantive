@@ -296,27 +296,20 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                           aria-label="Source value"
                         />
                       </label>
-                      <select
-                        value={entry.currency}
-                        onChange={e => handleCurrencyChange(index, e.target.value as CurrencyCode)}
-                        aria-label="Currency"
-                        title="Currency this balance is recorded in"
-                        style={{
-                          width: 72, flexShrink: 0,
-                          borderRadius: 'var(--r-2)',
-                          border: '1px solid var(--border-raw)',
-                          background: 'var(--surface)',
-                          padding: '6px var(--s-2)',
-                          fontSize: 'var(--text-sm)',
-                          color: 'var(--fg)',
-                          fontFamily: 'inherit',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {allCurrencies.map(c => (
-                          <option key={c.code} value={c.code}>{c.code}</option>
-                        ))}
-                      </select>
+                      <label className="q-input" style={{ width: 96, flexShrink: 0 }}>
+                        <select
+                          value={entry.currency}
+                          onChange={e => handleCurrencyChange(index, e.target.value as CurrencyCode)}
+                          aria-label="Currency"
+                          title="Currency this balance is recorded in"
+                        >
+                          {allCurrencies.map(c => (
+                            <option key={c.code} value={c.code} title={c.name}>
+                              {c.code} — {c.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                       <button
                         type="button"
                         onClick={() => handleRemoveSource(index)}

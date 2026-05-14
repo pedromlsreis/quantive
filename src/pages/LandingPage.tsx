@@ -4,7 +4,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePageMeta } from '@/hooks/usePageMeta';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
+import { CURRENCY_CODES } from '@/lib/currencies';
 import './landing.css';
+
+// Built from the canonical list so marketing copy can't drift when a new
+// currency is added. Two phrasings: a comma-joined enumeration ("EUR, USD,
+// GBP, …") and a "N+" count phrasing for compact spots.
+const SUPPORTED_LIST = CURRENCY_CODES.join(', ');
+const SUPPORTED_COUNT = CURRENCY_CODES.length;
 
 /* ── JSON-LD structured data (AEO) ─────────────────────────── */
 const STRUCTURED_DATA = {
@@ -90,7 +97,7 @@ const STRUCTURED_DATA = {
           name: 'What currencies does Quantive support?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Quantive supports EUR, USD, GBP, and NOK as display currencies. You can hold assets in any currency and view your portfolio in your preferred currency.',
+            text: `Quantive supports ${SUPPORTED_COUNT} display currencies (${SUPPORTED_LIST}). You can hold assets in any of them and view your portfolio in your preferred currency.`,
           },
         },
         {
@@ -138,7 +145,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'What currencies does Quantive support?',
-    a: 'Quantive supports EUR, USD, GBP, and NOK as display currencies. You can hold assets in any currency and view your full portfolio in your preferred currency.',
+    a: `Quantive supports ${SUPPORTED_COUNT} display currencies (${SUPPORTED_LIST}). You can hold assets in any of them and view your full portfolio in your preferred currency.`,
   },
   {
     q: "What's included in Quantive Pro?",
@@ -381,7 +388,7 @@ export default function LandingPage() {
         <span className="lp-trust-sep" aria-hidden="true">·</span>
         <span className="lp-trust-item" role="listitem">Excel import included</span>
         <span className="lp-trust-sep" aria-hidden="true">·</span>
-        <span className="lp-trust-item" role="listitem">EUR · USD · GBP · NOK</span>
+        <span className="lp-trust-item" role="listitem">{SUPPORTED_COUNT} display currencies</span>
       </div>
 
       {/* ───── FEATURES ───── */}
@@ -430,7 +437,7 @@ export default function LandingPage() {
             <div className="lp-feat-col-num">04 — MULTI-CURRENCY</div>
             <h3 className="lp-feat-col-title">One view across currencies</h3>
             <p className="lp-feat-col-desc">
-              Hold assets in EUR, USD, GBP, or NOK — or all at once. View your full portfolio in the currency that makes sense to you.
+              Hold assets in any of {SUPPORTED_COUNT} currencies ({SUPPORTED_LIST}) — or all at once. View your full portfolio in the currency that makes sense to you.
             </p>
           </div>
         </div>
@@ -603,7 +610,7 @@ export default function LandingPage() {
             <ul className="lp-price-features">
               <li><span className="lp-price-check">✓</span>Net worth tracking — unlimited sources</li>
               <li><span className="lp-price-check">✓</span>Allocation charts (volatility &amp; liquidity)</li>
-              <li><span className="lp-price-check">✓</span>Multi-currency display (EUR, USD, GBP, NOK)</li>
+              <li><span className="lp-price-check">✓</span>Multi-currency display ({SUPPORTED_COUNT} currencies)</li>
               <li><span className="lp-price-check">✓</span>Excel import</li>
               <li><span className="lp-price-check">✓</span>End-to-end encrypted cloud sync</li>
               <li><span className="lp-price-check">✓</span>Rolling 12-month history view</li>

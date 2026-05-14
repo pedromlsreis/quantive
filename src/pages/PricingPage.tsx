@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { usePageMeta } from '@/hooks/usePageMeta';
+import { CURRENCY_CODES } from '@/lib/currencies';
 import './landing.css';
 
 export default function PricingPage() {
@@ -34,7 +35,7 @@ export default function PricingPage() {
               {[
                 'Net worth tracking with unlimited sources',
                 'Allocation charts (volatility & liquidity)',
-                'Multi-currency display (EUR, USD, GBP, NOK)',
+                `Multi-currency display (${CURRENCY_CODES.length} currencies)`,
                 'Excel import',
                 'Manual balance entry',
                 'End-to-end encrypted cloud sync',

@@ -8,11 +8,10 @@
  * EUR has no row — its implied `rate_to_base` is 1.
  */
 
-import type { CurrencyCode } from '@/contexts/CurrencyContext';
+import { BASE_CURRENCY, SUPPORTED_CURRENCIES, type CurrencyCode } from '@/lib/currencies';
 
-export const BASE_CURRENCY: CurrencyCode = 'EUR';
-
-export const SUPPORTED_CURRENCIES: ReadonlySet<CurrencyCode> = new Set(['EUR', 'USD', 'GBP', 'NOK']);
+// Re-exported for legacy import sites; canonical home is src/lib/currencies.ts.
+export { BASE_CURRENCY, SUPPORTED_CURRENCIES };
 
 /**
  * Coerce an unknown value to a CurrencyCode. Trims, uppercases, and validates

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { formatCurrency, formatFullCurrency, formatPercent, formatNumber, formatMilestone } from '@/lib/formatters';
+import { CURRENCIES, CURRENCY_CODES } from '@/lib/currencies';
 
 describe('formatCurrency', () => {
   it('formats millions with M suffix', () => {
@@ -17,8 +18,15 @@ describe('formatCurrency', () => {
     expect(formatCurrency(0, '$')).toBe('$0');
   });
 
-  it('handles NOK symbol as kr', () => {
-    expect(formatCurrency(5_000, 'NOK')).toBe('kr5.0k');
+  it('renders Nordic codes as ISO strings to disambiguate from other "kr" currencies', () => {
+    expect(formatCurrency(5_000, 'NOK')).toBe('NOK5.0k');
+    expect(formatCurrency(5_000, 'SEK')).toBe('SEK5.0k');
+    expect(formatCurrency(5_000, 'DKK')).toBe('DKK5.0k');
+  });
+
+  it('renders prefixed dollar symbols for CAD/AUD', () => {
+    expect(formatCurrency(2_000, 'CA$')).toBe('CA$2.0k');
+    expect(formatCurrency(2_000, 'A$')).toBe('A$2.0k');
   });
 
   it('renders em-dash for non-finite values (missing FX rate)', () => {
@@ -43,8 +51,29 @@ describe('formatFullCurrency', () => {
     expect(result).toContain('999.99');
   });
 
+  it('uses currency-native decimals (JPY has 0, EUR/USD/etc. have 2)', () => {
+    // JPY's smallest unit is the yen — Intl renders no decimals for it.
+    // We verify by absence of "." rather than exact spacing, which varies
+    // by ICU build.
+    const jpy = formatFullCurrency(1234, 'JPY', 'ja-JP');
+    expect(jpy).not.toContain('.');
+    expect(jpy).toContain('1,234');
+  });
+
   it('renders em-dash for NaN', () => {
     expect(formatFullCurrency(NaN, 'EUR', 'de-DE')).toBe('—');
+  });
+
+  // Parameterised: every supported currency must render a non-empty,
+  // non-NaN-looking output. Catches new currencies whose locale doesn't
+  // resolve in the runtime's ICU data, or whose code Intl rejects.
+  it.each(CURRENCY_CODES)('%s renders without errors and includes the amount', (code) => {
+    const { locale } = CURRENCIES[code];
+    const out = formatFullCurrency(1234.56, code, locale);
+    expect(out).toBeTruthy();
+    expect(out).not.toContain('NaN');
+    // Intl strips spaces inconsistently across locales — match digits only.
+    expect(out.replace(/[^\d]/g, '')).toMatch(/1234|1235/); // accounts for rounding
   });
 });
 
@@ -89,7 +118,18 @@ describe('formatMilestone', () => {
     expect(formatMilestone(100_000, '$')).toBe('$100k');
   });
 
-  it('handles NOK', () => {
-    expect(formatMilestone(50_000, 'NOK')).toBe('kr50k');
+  it('renders Nordic codes as ISO strings', () => {
+    expect(formatMilestone(50_000, 'NOK')).toBe('NOK50k');
+    expect(formatMilestone(50_000, 'SEK')).toBe('SEK50k');
+  });
+
+  // Parameterised: each currency's canonical symbol must produce a valid
+  // compact label for thousand and million milestones.
+  it.each(CURRENCY_CODES)('%s milestone labels include the symbol', (code) => {
+    const { symbol } = CURRENCIES[code];
+    expect(formatMilestone(1_000_000, symbol)).toContain(symbol);
+    expect(formatMilestone(1_000_000, symbol)).toContain('M');
+    expect(formatMilestone(100_000, symbol)).toContain(symbol);
+    expect(formatMilestone(100_000, symbol)).toContain('k');
   });
 });

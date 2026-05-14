@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-// Foreign currencies tracked. EUR is the base and has no row by definition.
-// Add a currency here when CurrencyContext gains support for it.
-const SUPPORTED = ["USD", "GBP", "NOK"];
+// We persist *every* currency Frankfurter publishes — no `symbols` filter on
+// the API call. The client decides which currencies to display via
+// `src/lib/currencies.ts`. This keeps the source of truth in one place and
+// means adding a new currency on the client requires no edge function deploy.
 
 const log = (step: string, details?: unknown) => {
   const d = details ? ` - ${JSON.stringify(details)}` : "";
@@ -63,7 +64,6 @@ serve(async (req) => {
       }
     }
 
-    const symbols = SUPPORTED.join(",");
     let rows: Row[];
     let summaryRange: string;
 
@@ -79,9 +79,7 @@ serve(async (req) => {
       }
 
       log("Backfill mode", { from: body.from, to: body.to });
-      const url =
-        `https://api.frankfurter.dev/v1/${body.from}..${body.to}` +
-        `?base=EUR&symbols=${symbols}`;
+      const url = `https://api.frankfurter.dev/v1/${body.from}..${body.to}?base=EUR`;
       const resp = await fetch(url);
       if (!resp.ok) {
         throw new Error(`Frankfurter ${resp.status}: ${await resp.text()}`);
@@ -91,9 +89,7 @@ serve(async (req) => {
       summaryRange = `${payload.start_date}..${payload.end_date}`;
     } else {
       log("Latest mode");
-      const resp = await fetch(
-        `https://api.frankfurter.dev/v1/latest?base=EUR&symbols=${symbols}`,
-      );
+      const resp = await fetch("https://api.frankfurter.dev/v1/latest?base=EUR");
       if (!resp.ok) {
         throw new Error(`Frankfurter ${resp.status}: ${await resp.text()}`);
       }
@@ -111,8 +107,8 @@ serve(async (req) => {
     );
 
     // Chunked upsert: PostgREST has a payload-size limit; a multi-year
-    // backfill across 3 currencies can exceed it. 500 rows/chunk keeps each
-    // request comfortably small.
+    // backfill across ~30 currencies (every Frankfurter symbol) easily
+    // exceeds it. 500 rows/chunk keeps each request comfortably small.
     const CHUNK = 500;
     let written = 0;
     for (let i = 0; i < rows.length; i += CHUNK) {

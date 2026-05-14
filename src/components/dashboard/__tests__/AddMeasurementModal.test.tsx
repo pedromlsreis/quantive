@@ -44,12 +44,10 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { AddMeasurementModal } from '../AddMeasurementModal';
 
-const ALL_CURRENCIES = [
-  { code: 'EUR', symbol: '€', locale: 'de-DE' },
-  { code: 'USD', symbol: '$', locale: 'en-US' },
-  { code: 'GBP', symbol: '£', locale: 'en-GB' },
-  { code: 'NOK', symbol: 'NOK', locale: 'nb-NO' },
-];
+// Import from the canonical module rather than hand-maintaining a list — that
+// way adding a new currency doesn't quietly skip modal coverage.
+import { CURRENCIES, CURRENCY_CODES } from '@/lib/currencies';
+const ALL_CURRENCIES = CURRENCY_CODES.map(c => CURRENCIES[c]);
 
 function setup(open = true, overrides: { data?: unknown; addMeasurement?: ReturnType<typeof vi.fn>; lastCurrencyBySource?: Map<string, string> } = {}) {
   const addMeasurement = overrides.addMeasurement ?? vi.fn();
@@ -158,6 +156,17 @@ describe('AddMeasurementModal', () => {
       ]);
       expect(onOpenChange).toHaveBeenCalledWith(false);
     });
+  });
+
+  it('lists every supported currency in the dropdown', () => {
+    setup();
+    const select = screen.getByLabelText('Currency') as HTMLSelectElement;
+    const optionValues = Array.from(select.options).map(o => o.value);
+    // Canonical list drives the dropdown — adding a code in currencies.ts
+    // should automatically appear here without a separate code change.
+    for (const code of CURRENCY_CODES) {
+      expect(optionValues, `Missing ${code} in modal dropdown`).toContain(code);
+    }
   });
 
   it('persists the chosen currency per row', async () => {

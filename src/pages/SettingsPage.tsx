@@ -300,8 +300,8 @@ export default function SettingsPage() {
                 onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
               >
                 {allCurrencies.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.symbol === c.code ? c.code : `${c.symbol} ${c.code}`}
+                  <option key={c.code} value={c.code} title={c.name}>
+                    {c.symbol === c.code ? c.code : `${c.symbol} ${c.code}`} — {c.name}
                   </option>
                 ))}
               </select>

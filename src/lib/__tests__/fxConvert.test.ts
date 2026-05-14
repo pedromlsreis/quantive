@@ -7,9 +7,10 @@ import {
   toIsoDate,
   type FxRow,
 } from '@/lib/fxConvert';
+import { BASE_CURRENCY, CURRENCY_CODES, type CurrencyCode } from '@/lib/currencies';
 
-// Reference rates used throughout — picked so cross-rate math is verifiable
-// by hand. rate_to_base = EUR per 1 unit of currency.
+// Reference rates used by the hand-written math tests below — picked so the
+// cross-rate verification is checkable by hand.
 //   1 EUR = 1 / 0.93 USD ≈ 1.0753 USD     (USD rate_to_base = 0.93)
 //   1 EUR = 1 / 0.85 GBP ≈ 1.1765 GBP     (GBP rate_to_base = 0.85)
 const RATES: FxRow[] = [
@@ -25,7 +26,11 @@ const RATES: FxRow[] = [
 
 const series = buildSeries(RATES);
 
-describe('convert (FX math)', () => {
+// Foreign currencies (everything except the base). Used to parameterise the
+// "works for every currency" tests below.
+const FOREIGN: CurrencyCode[] = CURRENCY_CODES.filter(c => c !== BASE_CURRENCY) as CurrencyCode[];
+
+describe('convert (FX math, hand-checked)', () => {
   it('same-currency conversion is identity, no rate lookup', () => {
     // Pass an empty series Map — same-currency must still return amount.
     expect(convert(1000, 'EUR', 'EUR', new Date(2026, 4, 13), new Map())).toBe(1000);
@@ -69,11 +74,66 @@ describe('convert (FX math)', () => {
     expect(Number.isNaN(result)).toBe(true);
   });
 
-  it('returns NaN for an unknown currency', () => {
-    // JPY is not in the series — silent fallback to today's USD rate would
-    // be catastrophic; NaN propagation is the right behaviour.
-    const result = convert(1000, 'EUR', 'JPY' as never, new Date(2026, 4, 13), series);
+  it('returns NaN when the target currency has no series loaded', () => {
+    // CNY is not in our supported set; the function correctly bails to NaN
+    // rather than silently using some default rate.
+    const result = convert(1000, 'EUR', 'CNY' as never, new Date(2026, 4, 13), series);
     expect(Number.isNaN(result)).toBe(true);
+  });
+});
+
+// =============================================================================
+// Parameterised coverage: every supported foreign currency must work for the
+// three fundamental conversion directions. If a new currency is added to
+// CURRENCY_CODES without anything else, these tests fail loudly — which is the
+// whole point of the canonical catalog. We seed a synthetic rate per foreign
+// currency on one date.
+// =============================================================================
+
+const DATE = new Date(2026, 4, 13);
+const ISO_DATE = '2026-05-13';
+
+// Spread the synthetic rates over a useful range (0.005 .. 100+) so any code
+// that accidentally truncates or overflows would surface here. Each currency
+// gets a deterministic but distinct rate so cross-rates aren't trivially equal.
+function syntheticRate(ccy: CurrencyCode): number {
+  // Hash-ish: deterministic, bounded, never 1 (which would mask bugs that only
+  // appear when from-rate != to-rate).
+  const seed = [...ccy].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+  return 0.05 + (seed % 41) * 0.07; // ~0.05 .. ~2.85
+}
+
+const allCurrenciesSeries = buildSeries(
+  FOREIGN.map(c => ({ date: ISO_DATE, currency: c, rate_to_base: syntheticRate(c) })),
+);
+
+describe('convert (parameterised over every supported currency)', () => {
+  it.each(FOREIGN)('EUR → %s → EUR round-trip preserves the amount', (ccy) => {
+    const toCcy = convert(1000, 'EUR', ccy, DATE, allCurrenciesSeries);
+    const back  = convert(toCcy, ccy, 'EUR', DATE, allCurrenciesSeries);
+    expect(Number.isFinite(toCcy)).toBe(true);
+    expect(back).toBeCloseTo(1000, 6);
+  });
+
+  it.each(FOREIGN)('%s → EUR uses amount * rate_to_base', (ccy) => {
+    const rate = syntheticRate(ccy);
+    const result = convert(100, ccy, 'EUR', DATE, allCurrenciesSeries);
+    expect(result).toBeCloseTo(100 * rate, 6);
+  });
+
+  // Cross-rate test: pair each foreign currency with the next one in the list
+  // (wrapping at the end). Verifies every currency works as BOTH a source and
+  // a target in a non-base→non-base conversion (the cross-rate path).
+  const crossPairs: Array<[CurrencyCode, CurrencyCode]> = FOREIGN.map(
+    (from, i) => [from, FOREIGN[(i + 1) % FOREIGN.length]] as [CurrencyCode, CurrencyCode],
+  );
+
+  it.each(crossPairs)('%s → %s cross-rate equals amount * rate_from / rate_to', (from, to) => {
+    const rateFrom = syntheticRate(from);
+    const rateTo = syntheticRate(to);
+    const expected = (100 * rateFrom) / rateTo;
+    const actual = convert(100, from, to, DATE, allCurrenciesSeries);
+    expect(actual).toBeCloseTo(expected, 6);
   });
 });
 
@@ -105,11 +165,6 @@ describe('toIsoDate', () => {
 });
 
 describe('coerceCurrency', () => {
-  it('passes through a supported code unchanged', () => {
-    expect(coerceCurrency('USD')).toBe('USD');
-    expect(coerceCurrency('EUR')).toBe('EUR');
-  });
-
   it('uppercases and trims forgiving inputs', () => {
     expect(coerceCurrency('  usd  ')).toBe('USD');
     expect(coerceCurrency('gbp')).toBe('GBP');
@@ -122,8 +177,20 @@ describe('coerceCurrency', () => {
   });
 
   it('falls back to EUR for unsupported currency codes', () => {
-    expect(coerceCurrency('JPY')).toBe('EUR');
+    // CNY, ZAR are not in SUPPORTED_CURRENCIES — they round-trip to EUR.
+    expect(coerceCurrency('CNY')).toBe('EUR');
+    expect(coerceCurrency('ZAR')).toBe('EUR');
     expect(coerceCurrency('XXX')).toBe('EUR');
     expect(coerceCurrency(42)).toBe('EUR'); // numbers etc.
+  });
+
+  // Parameterised: every supported code must round-trip through coerceCurrency
+  // unchanged. Adding a code to CURRENCY_CODES without updating the SET would
+  // fail here (it can't — they share a definition — but the assertion locks
+  // the invariant in).
+  it.each(CURRENCY_CODES)('%s is preserved (single source of truth)', (code) => {
+    expect(coerceCurrency(code)).toBe(code);
+    // Lowercase version also normalises back to the canonical code.
+    expect(coerceCurrency(code.toLowerCase())).toBe(code);
   });
 });

@@ -20,31 +20,32 @@ const MISSING = '—';
 
 /**
  * Format a number as abbreviated currency (e.g. €12.3k, $1.2M).
- * Uses "kr" instead of "NOK" for Norwegian Krone.
+ * The symbol is whatever the CurrencyContext entry says — Nordic codes
+ * (NOK/SEK/DKK) render as their ISO code so "kr" doesn't become ambiguous,
+ * and CAD/AUD use country-prefixed dollar signs (CA$/A$).
  */
 export function formatCurrency(value: number, symbol: string): string {
   if (!Number.isFinite(value)) return MISSING;
-  const s = symbol === 'NOK' ? 'kr' : symbol;
   if (Math.abs(value) >= 1_000_000) {
-    return `${s}${(value / 1_000_000).toFixed(1)}M`;
+    return `${symbol}${(value / 1_000_000).toFixed(1)}M`;
   }
   if (Math.abs(value) >= 1_000) {
-    return `${s}${(value / 1_000).toFixed(1)}k`;
+    return `${symbol}${(value / 1_000).toFixed(1)}k`;
   }
-  return `${s}${value.toFixed(0)}`;
+  return `${symbol}${value.toFixed(0)}`;
 }
 
 /**
- * Format a number as full Intl-formatted currency (e.g. €12,345.67).
- * Uses the browser's Intl.NumberFormat for locale-correct output.
+ * Format a number as full Intl-formatted currency (e.g. €12,345.67, ¥1,234).
+ * Uses the browser's Intl.NumberFormat for locale-correct output. We do NOT
+ * pin min/max fraction digits — Intl picks currency-appropriate defaults
+ * (2 for EUR/USD/etc., 0 for JPY, 3 for KWD/BHD if we ever add them).
  */
 export function formatFullCurrency(value: number, code: CurrencyCode, locale: string): string {
   if (!Number.isFinite(value)) return MISSING;
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: code,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
   }).format(value);
 }
 
@@ -78,8 +79,7 @@ export function formatNumber(value: number): string {
  */
 export function formatMilestone(value: number, symbol: string): string {
   if (!Number.isFinite(value)) return MISSING;
-  const s = symbol === 'NOK' ? 'kr' : symbol;
-  if (value >= 1_000_000) return `${s}${value / 1_000_000}M`;
-  if (value >= 1_000) return `${s}${value / 1_000}k`;
-  return `${s}${value}`;
+  if (value >= 1_000_000) return `${symbol}${value / 1_000_000}M`;
+  if (value >= 1_000) return `${symbol}${value / 1_000}k`;
+  return `${symbol}${value}`;
 }

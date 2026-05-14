@@ -1,21 +1,16 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  CURRENCIES,
+  CURRENCY_CODES,
+  type CurrencyCode,
+  type CurrencyConfig,
+} from '@/lib/currencies';
 
-export type CurrencyCode = 'EUR' | 'USD' | 'GBP' | 'NOK';
-
-interface CurrencyConfig {
-  code: CurrencyCode;
-  symbol: string;
-  locale: string;
-}
-
-const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
-  EUR: { code: 'EUR', symbol: '€', locale: 'de-DE' },
-  USD: { code: 'USD', symbol: '$', locale: 'en-US' },
-  GBP: { code: 'GBP', symbol: '£', locale: 'en-GB' },
-  NOK: { code: 'NOK', symbol: 'NOK', locale: 'nb-NO' },
-};
+// Re-exported for consumers that imported the type from this module historically.
+// Single source of truth lives in src/lib/currencies.ts.
+export type { CurrencyCode, CurrencyConfig };
 
 interface CurrencyContextType {
   currency: CurrencyConfig;
@@ -100,8 +95,12 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
+  // Preserve the curated picker order from CURRENCY_CODES; Object.values would
+  // depend on JS object insertion order which is fine but explicit is safer.
+  const allCurrencies = CURRENCY_CODES.map(c => CURRENCIES[c]);
+
   return (
-    <CurrencyContext.Provider value={{ currency: CURRENCIES[code], setCurrency, allCurrencies: Object.values(CURRENCIES) }}>
+    <CurrencyContext.Provider value={{ currency: CURRENCIES[code], setCurrency, allCurrencies }}>
       {children}
     </CurrencyContext.Provider>
   );
