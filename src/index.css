@@ -769,6 +769,7 @@
    ─────────────────────────────────────────────────────────────────*/
 .q-section-head {
   display: flex; align-items: flex-end; justify-content: space-between;
+  flex-wrap: wrap;
   margin-bottom: var(--s-4); gap: var(--s-4);
 }
 .q-section-head h2 {
@@ -820,9 +821,9 @@
 .q-grid--allocation { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
 
 @media (max-width: 960px) {
-  .q-grid--4  { grid-template-columns: repeat(2, 1fr); }
+  .q-grid--4  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .q-grid--3  { grid-template-columns: 1fr; }
-  .q-grid--kpi { grid-template-columns: repeat(2, 1fr); }
+  .q-grid--kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .q-grid--allocation { grid-template-columns: 1fr; }
 }
 
@@ -989,8 +990,15 @@
 
   /* Leave room for the fixed bottom tab bar so content isn't hidden behind it. */
   .q-content { flex: 1; padding: var(--s-4) var(--s-4) calc(var(--q-tabbar-h) + var(--s-4)); }
-  .q-grid--kpi { grid-template-columns: repeat(2, 1fr); }
+  .q-grid--kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .q-grid--3 { grid-template-columns: 1fr 1fr; }
+
+  /* Scale the headline KPI value down so it fits in a half-width card. */
+  .q-metric-value--xl { font-size: var(--text-2xl); }
+
+  /* Section header: stack title + controls vertically so controls never
+     overflow the card edge on narrow screens. */
+  .q-section-head { flex-direction: column; align-items: flex-start; }
 
   /* Reveal the bottom tab bar, fixed to viewport bottom on all pages. */
   .q-mobile-tabbar { display: flex; position: fixed; left: 0; right: 0; }
