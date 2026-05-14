@@ -18,7 +18,6 @@
 | AAD framing for DK / snapshot / recovery wraps | [aad.test.ts](../../src/lib/crypto/__tests__/aad.test.ts) |
 | BIP-39 round-trip + checksum rejection | [recovery.test.ts](../../src/lib/crypto/__tests__/recovery.test.ts) |
 | New-user provisioning | [keySession/ops.test.ts](../../src/lib/keySession/__tests__/ops.test.ts) |
-| Legacy v0 → v1 lazy migration | [keySession/ops.test.ts](../../src/lib/keySession/__tests__/ops.test.ts) |
 | **Cross-user AAD isolation** (A's wrap can't be unwrapped under B's id) | [keySession/ops.test.ts](../../src/lib/keySession/__tests__/ops.test.ts) |
 | Recovery flow round-trip + **byte-identical DK invariant** | [keySession/recovery.test.ts](../../src/lib/keySession/__tests__/recovery.test.ts) |
 | Change-password rotates wrap; recovery wrap untouched | [keySession/recovery.test.ts](../../src/lib/keySession/__tests__/recovery.test.ts) |
@@ -273,15 +272,16 @@ ALTER TABLE public.portfolio_snapshots
   ADD COLUMN enc_version INT NOT NULL DEFAULT 0;
 
 -- enc_version semantics:
---   0  = legacy plaintext (read from `data` JSONB column; encrypted_data IS NULL)
---   1  = v1 encrypted     (read from `encrypted_data` BYTEA + `nonce`; data IS NULL)
+--   0  = legacy plaintext (historic). No longer readable by the load path;
+--        see §11. The `data` JSONB column still exists in the schema for
+--        backfill/audit but is NULL on every migrated row.
+--   1  = v1 encrypted. Read from `encrypted_data` BYTEA + `nonce`; data IS NULL.
 
--- Invariant (enforced by trigger or app-side; doc'd as TODO):
---   enc_version = 0 ⇔ data IS NOT NULL AND encrypted_data IS NULL AND nonce IS NULL
---   enc_version = 1 ⇔ data IS NULL     AND encrypted_data IS NOT NULL AND nonce IS NOT NULL
+-- Invariant (enforced app-side):
+--   enc_version = 1 ⇔ data IS NULL AND encrypted_data IS NOT NULL AND nonce IS NOT NULL
 ```
 
-After the migration window (§11), unmigrated rows are subject to a separate purge decision (not made in this doc).
+The legacy plaintext column is retained in the schema for forensic reasons only — every supported row has it `NULL`. See §11 for the migration history.
 
 ---
 
@@ -334,7 +334,7 @@ Same as §8.1 but skip steps `f`–`j`. `wrapped_dk_recovery` and `recovery_kdf_
 7. Zero(password)
 ```
 
-If step 3 returns no row, the user is in the legacy plaintext state (pre-#33). Trigger migration flow (§11).
+If step 3 returns no row, treat as an error and abort the load. Pre-#33 plaintext users were all migrated during the rollout window (§11); a missing `user_keys` row today indicates a signup race condition, a partial account-creation failure, or a manual intervention — none of which the client should silently "recover" by falling back to plaintext.
 
 ### 8.4 Recovery (forgotten password)
 
@@ -403,18 +403,17 @@ The `ON CONFLICT (user_id)` upsert depends on the unique constraint added in [#3
 ### 9.2 Load snapshot
 
 ```
-1. SELECT enc_version, data, encrypted_data, nonce
+1. SELECT enc_version, encrypted_data, nonce
    FROM portfolio_snapshots WHERE user_id = auth.uid()
    ORDER BY updated_at DESC LIMIT 1
 
-2. IF enc_version = 0:
-     plaintext = data   // legacy; will be re-encrypted on next save (§11)
-   ELSE IF enc_version = 1:
+2. IF enc_version = 1:
      aad       = build_snapshot_aad(user_uuid, 1)
      plaintext = AEAD_decrypt(key=DK, nonce, ciphertext=encrypted_data, aad)
               // throws if tag mismatch → integrity failure → surface to user
    ELSE:
-     fail with "unsupported encryption version; please update the app"
+     fail with "unsupported snapshot enc_version: N"
+     // includes the historic enc_version=0 plaintext marker — see §11.
 
 3. portfolio = JSON.parse(plaintext)
 ```
@@ -446,26 +445,24 @@ The mnemonic words are joined with single ASCII spaces (BIP-39 normalization rul
 
 ---
 
-## 11. Migration of existing users (lazy)
+## 11. Migration of existing users (lazy) — completed
 
-Existing users have `portfolio_snapshots` rows with `enc_version = 0` and plaintext `data`. We migrate them lazily on next login:
+This section is kept for historical context. The migration described here ran during the `enc_version = 1` rollout window; the code paths it relied on are no longer present in the load flow.
+
+At the rollout of `enc_version = 1`, existing users had `portfolio_snapshots` rows with `enc_version = 0` and plaintext `data`. They were migrated lazily on next login:
 
 ```
 1. After successful login (§8.3) and DK unlock:
      a. SELECT enc_version, data FROM portfolio_snapshots WHERE user_id = ?
      b. IF enc_version = 0:
           - plaintext = data
-          - encrypt and upsert per §9.1 (this writes enc_version=1 and clears `data`)
-2. UI shows a one-time toast: "Your data is now end-to-end encrypted."
+          - encrypt and upsert per §9.1 (writes enc_version=1, clears `data`)
+2. UI showed a one-time toast: "Your data is now end-to-end encrypted."
 ```
 
-If a user never returns, their plaintext row stays at `enc_version = 0` indefinitely. We will revisit this at the 90-day mark post-launch and decide whether to:
+Once the active user base had migrated, the v0 reader was removed from both `decodeSnapshot` (in `src/lib/cloudSync.ts`) and `decryptSnapshot` (in `src/lib/crypto/snapshot.ts`). The `data JSONB` column itself remains in the schema, but is `NULL` on every migrated row. A v0 row encountered today cannot be loaded by the current build — by design.
 
-- (a) leave plaintext indefinitely (worst-case privacy posture continues for inactive accounts),
-- (b) email a one-time "log in to encrypt your data" prompt,
-- (c) purge unmigrated rows after a longer window (e.g., 1 year).
-
-This decision is intentionally deferred until we have data on migration uptake.
+If a stuck v0 row is ever surfaced (an account that signed up before #33, never returned during the rollout window, and is now trying to load), the recovery path is a manual server-side migration — not re-introducing the v0 reader in the client.
 
 ---
 
