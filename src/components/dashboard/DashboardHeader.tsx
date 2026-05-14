@@ -45,7 +45,14 @@ export function DashboardHeader() {
   return (
     <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-4 sm:px-6">
       <a href="/" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-80">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+        <div
+          className="shrink-0"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 36, height: 36, borderRadius: 'var(--r-2)',
+            background: 'var(--accent-faint-raw)',
+          }}
+        >
           <FileSpreadsheet className="h-5 w-5 text-primary" />
         </div>
         <div className="min-w-0">
@@ -62,7 +69,7 @@ export function DashboardHeader() {
 
         <button
           onClick={() => setAddModalOpen(true)}
-          className="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+          className="q-btn q-btn--primary q-btn--md"
           aria-label="Add a new measurement"
         >
           <Plus className="h-4 w-4" />
@@ -72,7 +79,7 @@ export function DashboardHeader() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
-              className="flex items-center justify-center rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className="q-icon-btn"
               aria-label="More actions"
               title="More actions"
             >

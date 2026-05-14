@@ -719,12 +719,15 @@
   border-color: var(--accent-raw); background: var(--surface);
   outline: none; box-shadow: 0 0 0 3px var(--accent-faint-raw);
 }
-.q-input input {
+.q-input input,
+.q-input textarea {
   border: 0; outline: none; background: transparent;
   color: var(--fg); font-family: inherit; font-size: var(--text-sm);
   flex: 1; min-width: 0;
 }
-.q-input input::placeholder { color: var(--fg-faint); }
+.q-input input::placeholder,
+.q-input textarea::placeholder { color: var(--fg-faint); }
+.q-input--textarea { height: auto; align-items: stretch; padding: var(--s-2) var(--s-3); }
 .q-input-icon { display: inline-flex; color: var(--fg-subtle); }
 
 /* ─────────────────────────────────────────────────────────────────
