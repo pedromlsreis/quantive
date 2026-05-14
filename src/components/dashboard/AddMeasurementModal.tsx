@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { X, Plus, Trash2, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { HelpHint } from '@/components/ui/help-hint';
@@ -12,6 +13,7 @@ interface SourceEntry {
   id: string;
   name: string;
   value: string;
+  currency: CurrencyCode;
   isSeeded?: boolean;
   isLiquid: boolean;
   volatType: string;
@@ -33,7 +35,12 @@ function saveDraft(entries: SourceEntry[]) {
 }
 
 export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const { data, addMeasurement } = usePortfolio();
+  const { data, addMeasurement, lastCurrencyBySource } = usePortfolio();
+  const { currency: displayCurrency, allCurrencies } = useCurrency();
+  // New rows default to the user's display currency — that's almost always
+  // what they want to record values in. Seeded rows default to the source's
+  // own last-known currency below.
+  const defaultNewCurrency: CurrencyCode = displayCurrency.code;
 
   const [entries, setEntries] = useState<SourceEntry[]>(() => {
     if (data && data.facts.length > 0) {
@@ -55,14 +62,15 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         id: crypto.randomUUID(),
         name,
         value: value === 0 ? '' : String(value),
+        currency: lastCurrencyBySource.get(name) ?? defaultNewCurrency,
         isSeeded: true,
         isLiquid: liquidMap.get(name) ?? false,
         volatType: volatMap.get(name) ?? '',
       }));
     }
     const draft = loadDraft();
-    if (draft.length > 0) return draft.map(d => ({ ...d, id: crypto.randomUUID(), volatType: d.volatType ?? '' }));
-    return [{ id: crypto.randomUUID(), name: '', value: '', isSeeded: false, isLiquid: false, volatType: '' }];
+    if (draft.length > 0) return draft.map(d => ({ ...d, id: crypto.randomUUID(), volatType: d.volatType ?? '', currency: d.currency ?? defaultNewCurrency }));
+    return [{ id: crypto.randomUUID(), name: '', value: '', currency: defaultNewCurrency, isSeeded: false, isLiquid: false, volatType: '' }];
   });
 
   const [saving, setSaving] = useState(false);
@@ -76,7 +84,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   };
 
   const handleAddSource = () => {
-    updateEntries([...entries, { id: crypto.randomUUID(), name: '', value: '', isSeeded: false, isLiquid: false, volatType: '' }]);
+    updateEntries([...entries, { id: crypto.randomUUID(), name: '', value: '', currency: defaultNewCurrency, isSeeded: false, isLiquid: false, volatType: '' }]);
   };
 
   const handleRemoveSource = (index: number) => {
@@ -105,6 +113,12 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     if (entries[index].isSeeded) return;
     const updated = [...entries];
     updated[index] = { ...updated[index], isLiquid: !updated[index].isLiquid };
+    updateEntries(updated);
+  };
+
+  const handleCurrencyChange = (index: number, code: CurrencyCode) => {
+    const updated = [...entries];
+    updated[index] = { ...updated[index], currency: code };
     updateEntries(updated);
   };
 
@@ -139,7 +153,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         return;
       }
 
-      const measurement: { name: string; value: number; isLiquid: boolean; volatType: string }[] = [];
+      const measurement: { name: string; value: number; currency: CurrencyCode; isLiquid: boolean; volatType: string }[] = [];
       for (const e of validEntries) {
         const raw = e.value.trim();
         let value = 0;
@@ -155,6 +169,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         measurement.push({
           name: sanitizeSourceName(e.name).value,
           value,
+          currency: e.currency,
           isLiquid: e.isLiquid,
           volatType: e.volatType,
         });
@@ -204,18 +219,8 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
             {/* Header */}
             <div className="q-modal-head">
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-                  <div className="q-modal-title" id="add-measurement-title">Add measurement</div>
-                  <span
-                    className="q-badge q-badge--neutral"
-                    title="All values are stored in EUR. Pick any display currency in Settings."
-                    style={{ border: '1px solid var(--border-raw)' }}
-                  >
-                    <span style={{ color: 'var(--fg)', fontWeight: 500 }}>€</span>
-                    <span>EUR</span>
-                  </span>
-                </div>
-                <div className="q-modal-sub">Record your balances for {today}. Values are stored in EUR.</div>
+                <div className="q-modal-title" id="add-measurement-title">Add measurement</div>
+                <div className="q-modal-sub">Record your balances for {today}. Each source carries its own currency.</div>
               </div>
               <button
                 type="button"
@@ -291,6 +296,27 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                           aria-label="Source value"
                         />
                       </label>
+                      <select
+                        value={entry.currency}
+                        onChange={e => handleCurrencyChange(index, e.target.value as CurrencyCode)}
+                        aria-label="Currency"
+                        title="Currency this balance is recorded in"
+                        style={{
+                          width: 72, flexShrink: 0,
+                          borderRadius: 'var(--r-2)',
+                          border: '1px solid var(--border-raw)',
+                          background: 'var(--surface)',
+                          padding: '6px var(--s-2)',
+                          fontSize: 'var(--text-sm)',
+                          color: 'var(--fg)',
+                          fontFamily: 'inherit',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {allCurrencies.map(c => (
+                          <option key={c.code} value={c.code}>{c.code}</option>
+                        ))}
+                      </select>
                       <button
                         type="button"
                         onClick={() => handleRemoveSource(index)}

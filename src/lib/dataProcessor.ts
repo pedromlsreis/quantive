@@ -6,6 +6,14 @@
 
 import ExcelJS from 'exceljs';
 import { FactRow, RefSource, PortfolioData } from './types';
+import type { CurrencyCode } from '@/contexts/CurrencyContext';
+
+const SUPPORTED_CURRENCIES: ReadonlySet<CurrencyCode> = new Set(['EUR', 'USD', 'GBP', 'NOK']);
+function coerceCurrency(value: unknown): CurrencyCode {
+  if (value === undefined || value === null || value === '') return 'EUR';
+  const upper = String(value).trim().toUpperCase();
+  return SUPPORTED_CURRENCIES.has(upper as CurrencyCode) ? (upper as CurrencyCode) : 'EUR';
+}
 
 /**
  * Normalize ExcelJS cell values to primitives. ExcelJS returns rich objects
@@ -167,8 +175,11 @@ function extractTableRows(
  * Parse a portfolio Excel workbook into structured PortfolioData.
  *
  * Expected structure:
- * - **Sheet 1 ("facts")**: Columns DATE, ID_SOURCE, SOURCE_VL
+ * - **Sheet 1 ("facts")**: Columns DATE, ID_SOURCE, SOURCE_VL, optional CURRENCY
  * - **Sheet 2 ("ref")**: Table with ID_SOURCE, VOLAT_TYPE, TRANSFERABLE_IN_DAYS
+ *
+ * CURRENCY column is optional; missing or unrecognised values default to EUR
+ * for backwards compatibility with pre-multi-currency templates.
  *
  * @param buffer - The raw ArrayBuffer of the .xlsx file.
  * @throws Error if no valid data is found.
@@ -192,6 +203,7 @@ export async function parsePortfolioExcel(buffer: ArrayBuffer): Promise<Portfoli
       date: parseDate(row['DATE'] || row['date'] || row['Date']),
       idSource: String(row['ID_SOURCE'] || row['id_source'] || ''),
       sourceVl: Number(row['SOURCE_VL'] || row['source_vl'] || 0),
+      currency: coerceCurrency(row['CURRENCY'] ?? row['currency'] ?? row['Currency']),
     }))
     .filter(f => f.idSource && !isNaN(f.sourceVl) && !isNaN(f.date.getTime()));
 

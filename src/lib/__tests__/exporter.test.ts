@@ -44,8 +44,8 @@ describe('downloadExcelTemplate', () => {
 describe('exportPortfolioExcel', () => {
   const sampleData: PortfolioData = {
     facts: [
-      { date: new Date(2024, 0, 1), idSource: 'Savings', sourceVl: 10000 },
-      { date: new Date(2024, 1, 1), idSource: 'Savings', sourceVl: 10500 },
+      { date: new Date(2024, 0, 1), idSource: 'Savings', sourceVl: 10000, currency: 'EUR' },
+      { date: new Date(2024, 1, 1), idSource: 'Savings', sourceVl: 10500, currency: 'EUR' },
     ],
     refSources: [
       { idSource: 'Savings', volatType: 'Non-Volatile', transferableInDays: true },

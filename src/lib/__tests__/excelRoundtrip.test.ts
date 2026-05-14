@@ -13,10 +13,10 @@ import type { PortfolioData } from '@/lib/types';
 
 const sample: PortfolioData = {
   facts: [
-    { date: new Date(2024, 0, 1), idSource: 'Savings', sourceVl: 10000 },
-    { date: new Date(2024, 1, 1), idSource: 'Savings', sourceVl: 10500.55 },
-    { date: new Date(2024, 0, 1), idSource: 'ETF World', sourceVl: 25000 },
-    { date: new Date(2024, 5, 15), idSource: 'ETF World', sourceVl: 27300.75 },
+    { date: new Date(2024, 0, 1), idSource: 'Savings', sourceVl: 10000, currency: 'EUR' },
+    { date: new Date(2024, 1, 1), idSource: 'Savings', sourceVl: 10500.55, currency: 'EUR' },
+    { date: new Date(2024, 0, 1), idSource: 'ETF World', sourceVl: 25000, currency: 'USD' },
+    { date: new Date(2024, 5, 15), idSource: 'ETF World', sourceVl: 27300.75, currency: 'USD' },
   ],
   refSources: [
     { idSource: 'Savings', volatType: 'Non-Volatile', transferableInDays: true },
@@ -31,7 +31,7 @@ describe('Excel round-trip: export → parse', () => {
     expect(parsed.facts).toHaveLength(sample.facts.length);
   });
 
-  it('preserves fact values byte-equivalently (date, idSource, sourceVl)', async () => {
+  it('preserves fact values byte-equivalently (date, idSource, sourceVl, currency)', async () => {
     const buf = await buildPortfolioWorkbook(sample);
     const parsed = await parsePortfolioExcel(buf);
     parsed.facts.forEach((f, i) => {
@@ -39,7 +39,25 @@ describe('Excel round-trip: export → parse', () => {
       expect(f.idSource).toBe(expected.idSource);
       expect(f.sourceVl).toBeCloseTo(expected.sourceVl, 6);
       expect(f.date.getTime()).toBe(expected.date.getTime());
+      expect(f.currency).toBe(expected.currency);
     });
+  });
+
+  it('defaults missing CURRENCY column to EUR (back-compat with pre-multi-currency files)', async () => {
+    // Hand-built workbook with the original 3-column shape — no CURRENCY column.
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.default.Workbook();
+    const sheet = wb.addWorksheet('facts');
+    sheet.columns = [
+      { header: 'DATE', key: 'date', width: 14 },
+      { header: 'ID_SOURCE', key: 'idSource', width: 20 },
+      { header: 'SOURCE_VL', key: 'sourceVl', width: 14 },
+    ];
+    sheet.addRow({ date: new Date(2024, 0, 1), idSource: 'Legacy', sourceVl: 5000 });
+    const buf = await wb.xlsx.writeBuffer() as ArrayBuffer;
+    const parsed = await parsePortfolioExcel(buf);
+    expect(parsed.facts).toHaveLength(1);
+    expect(parsed.facts[0].currency).toBe('EUR');
   });
 
   it('preserves all refSources with boolean-typed transferableInDays', async () => {
@@ -54,7 +72,7 @@ describe('Excel round-trip: export → parse', () => {
   it('handles fractional currency values', async () => {
     const data: PortfolioData = {
       facts: [
-        { date: new Date(2024, 0, 1), idSource: 'X', sourceVl: 1234.56 },
+        { date: new Date(2024, 0, 1), idSource: 'X', sourceVl: 1234.56, currency: 'EUR' },
       ],
       refSources: [
         { idSource: 'X', volatType: 'Volatile', transferableInDays: true },
@@ -68,9 +86,9 @@ describe('Excel round-trip: export → parse', () => {
   it('handles unicode in idSource (accents, CJK, emoji)', async () => {
     const data: PortfolioData = {
       facts: [
-        { date: new Date(2024, 0, 1), idSource: 'Caixa Geral 💰', sourceVl: 100 },
-        { date: new Date(2024, 0, 1), idSource: 'Crédit Agricole', sourceVl: 200 },
-        { date: new Date(2024, 0, 1), idSource: '日本株式', sourceVl: 300 },
+        { date: new Date(2024, 0, 1), idSource: 'Caixa Geral 💰', sourceVl: 100, currency: 'EUR' },
+        { date: new Date(2024, 0, 1), idSource: 'Crédit Agricole', sourceVl: 200, currency: 'EUR' },
+        { date: new Date(2024, 0, 1), idSource: '日本株式', sourceVl: 300, currency: 'EUR' },
       ],
       refSources: [
         { idSource: 'Caixa Geral 💰', volatType: 'Non-Volatile', transferableInDays: true },
@@ -87,7 +105,7 @@ describe('Excel round-trip: export → parse', () => {
   it('handles empty refSources', async () => {
     const data: PortfolioData = {
       facts: [
-        { date: new Date(2024, 0, 1), idSource: 'X', sourceVl: 100 },
+        { date: new Date(2024, 0, 1), idSource: 'X', sourceVl: 100, currency: 'EUR' },
       ],
       refSources: [],
     };
@@ -102,6 +120,7 @@ describe('Excel round-trip: export → parse', () => {
       date: new Date(2024, 0, 1 + (i % 28)),
       idSource: `Source ${i % 10}`,
       sourceVl: 100 + i * 1.5,
+      currency: 'EUR' as const,
     }));
     const refSources = Array.from({ length: 10 }, (_, i) => ({
       idSource: `Source ${i}`,

@@ -5,6 +5,8 @@
  * through enrichment and display.
  */
 
+import type { CurrencyCode } from '@/contexts/CurrencyContext';
+
 /** A single fact row representing a source's value on a given date. */
 export interface FactRow {
   /** The date of the measurement (normalised to start of day). */
@@ -13,6 +15,13 @@ export interface FactRow {
   idSource: string;
   /** The monetary value of the source on this date. */
   sourceVl: number;
+  /**
+   * The currency in which `sourceVl` was recorded. Each fact is denominated
+   * independently — a single source can hold facts in different currencies
+   * over time (e.g. an account that switched currencies). Conversion happens
+   * at display time via the historical fx_rates table.
+   */
+  currency: CurrencyCode;
 }
 
 /** Reference metadata for a financial source. */

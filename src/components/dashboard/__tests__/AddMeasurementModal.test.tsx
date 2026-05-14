@@ -44,16 +44,26 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { AddMeasurementModal } from '../AddMeasurementModal';
 
-function setup(open = true, overrides: { data?: unknown; addMeasurement?: ReturnType<typeof vi.fn> } = {}) {
+const ALL_CURRENCIES = [
+  { code: 'EUR', symbol: '€', locale: 'de-DE' },
+  { code: 'USD', symbol: '$', locale: 'en-US' },
+  { code: 'GBP', symbol: '£', locale: 'en-GB' },
+  { code: 'NOK', symbol: 'NOK', locale: 'nb-NO' },
+];
+
+function setup(open = true, overrides: { data?: unknown; addMeasurement?: ReturnType<typeof vi.fn>; lastCurrencyBySource?: Map<string, string> } = {}) {
   const addMeasurement = overrides.addMeasurement ?? vi.fn();
   vi.mocked(usePortfolio).mockReturnValue({
     data: overrides.data !== undefined ? overrides.data : null,
     addMeasurement,
+    lastCurrencyBySource: overrides.lastCurrencyBySource ?? new Map(),
   } as unknown as ReturnType<typeof usePortfolio>);
 
   vi.mocked(useCurrency).mockReturnValue({
-    currency: { code: 'EUR', symbol: '€' },
-  } as ReturnType<typeof useCurrency>);
+    currency: { code: 'EUR', symbol: '€', locale: 'de-DE' },
+    allCurrencies: ALL_CURRENCIES,
+    setCurrency: vi.fn(),
+  } as unknown as ReturnType<typeof useCurrency>);
 
   const onOpenChange = vi.fn();
   render(<AddMeasurementModal open={open} onOpenChange={onOpenChange} />);
@@ -144,9 +154,40 @@ describe('AddMeasurementModal', () => {
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledOnce();
       expect(addMeasurement).toHaveBeenCalledWith([
-        expect.objectContaining({ name: 'Savings', value: 5000 }),
+        expect.objectContaining({ name: 'Savings', value: 5000, currency: 'EUR' }),
       ]);
       expect(onOpenChange).toHaveBeenCalledWith(false);
+    });
+  });
+
+  it('persists the chosen currency per row', async () => {
+    const { addMeasurement } = setup();
+    fireEvent.change(screen.getByPlaceholderText('Source name'), { target: { value: 'US Brokerage' } });
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '12000' } });
+    fireEvent.change(screen.getByLabelText('Currency'), { target: { value: 'USD' } });
+    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    await waitFor(() => {
+      expect(addMeasurement).toHaveBeenCalledWith([
+        expect.objectContaining({ name: 'US Brokerage', value: 12000, currency: 'USD' }),
+      ]);
+    });
+  });
+
+  it('seeds a row\'s currency from the source\'s last-known currency', async () => {
+    const seedDate = new Date(2024, 0, 1);
+    const { addMeasurement } = setup(true, {
+      data: {
+        facts: [{ date: seedDate, idSource: 'GBP Savings', sourceVl: 8000, currency: 'GBP' }],
+        refSources: [{ idSource: 'GBP Savings', volatType: 'Non-Volatile', transferableInDays: true }],
+      },
+      lastCurrencyBySource: new Map([['GBP Savings', 'GBP']]),
+    });
+    // Seeded row is pre-filled; just save to confirm the seeded currency rides through.
+    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    await waitFor(() => {
+      expect(addMeasurement).toHaveBeenCalledWith([
+        expect.objectContaining({ name: 'GBP Savings', currency: 'GBP' }),
+      ]);
     });
   });
 
@@ -157,7 +198,7 @@ describe('AddMeasurementModal', () => {
     fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledWith([
-        expect.objectContaining({ value: 1.5 }),
+        expect.objectContaining({ value: 1.5, currency: 'EUR' }),
       ]);
     });
   });

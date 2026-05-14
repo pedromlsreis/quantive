@@ -82,6 +82,7 @@ export function generateMockData(): PortfolioData {
           date: monthDate(y, m),
           idSource: src,
           sourceVl: Math.round(value * 100) / 100,
+          currency: 'EUR',
         });
       }
       monthsElapsed++;

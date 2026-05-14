@@ -12,8 +12,15 @@ import {
   upsertEncryptedSnapshot,
   type SnapshotRow,
 } from '@/lib/cloudSync';
-import { useCurrency } from './CurrencyContext';
+import { useCurrency, type CurrencyCode } from './CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
+
+// Currencies the app knows how to value. Anything else loaded from old data
+// or a malformed Excel gets coerced to EUR (the historical default).
+const SUPPORTED_CURRENCIES: ReadonlySet<CurrencyCode> = new Set(['EUR', 'USD', 'GBP', 'NOK']);
+function coerceCurrency(value: unknown): CurrencyCode {
+  return SUPPORTED_CURRENCIES.has(value as CurrencyCode) ? (value as CurrencyCode) : 'EUR';
+}
 
 const STORAGE_KEY = 'portfolio-data';
 const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
@@ -59,7 +66,7 @@ interface PortfolioContextType {
   loadFile: (file: File) => Promise<void>;
   loadMockData: () => void;
   clearData: () => void;
-  addMeasurement: (entries: { name: string; value: number; isLiquid?: boolean; volatType?: string }[]) => void;
+  addMeasurement: (entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[]) => void;
   updateRefSource: (idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => void;
   isLoading: boolean;
   isMockData: boolean;
@@ -67,6 +74,8 @@ interface PortfolioContextType {
   retrySync: () => void;
   /** All snapshots, unaffected by date-range filter — used by NetWorthChart for its own period selector. */
   allSnapshots: Snapshot[];
+  /** Maps source name → currency of that source's most recent fact. Used by the modal to default new measurements to the same currency. */
+  lastCurrencyBySource: Map<string, CurrencyCode>;
 }
 
 const defaultFilters: FilterState = {
@@ -121,11 +130,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const keySession = useKeySession();
   const { currency: displayCurrency } = useCurrency();
-  // All stored facts are denominated in EUR. We convert to the display
-  // currency at the rate valid on each snapshot's own date — historical
-  // values use historical rates, not today's. Missing rates surface as NaN
-  // and render as "—" via the formatters.
-  const { convertAt: fxConvertAt } = useFxRates(displayCurrency.code);
+  // Each fact carries its own `currency`. We convert per fact at the rate
+  // valid on its snapshot date — historical values use historical rates,
+  // not today's. Missing rates surface as NaN and render as "—" via the
+  // formatters.
+  const { convertAt: fxConvertAt } = useFxRates();
 
   // Track pending cloud save when email is not yet confirmed
   const pendingCloudSaveRef = useRef<PortfolioData | null>(null);
@@ -260,6 +269,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
                 date,
                 idSource: String(f.idSource ?? ''),
                 sourceVl: Number(f.sourceVl ?? 0),
+                currency: coerceCurrency(f.currency),
               };
             })
             .filter((f): f is FactRow => f !== null);
@@ -316,6 +326,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
               date,
               idSource: String(f.idSource ?? ''),
               sourceVl: Number(f.sourceVl ?? 0),
+              currency: coerceCurrency(f.currency),
             };
           })
           .filter((f): f is FactRow => f !== null);
@@ -393,7 +404,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return `${day} ${month} ${year}`;
   };
 
-  const addMeasurement = useCallback((entries: { name: string; value: number; isLiquid?: boolean; volatType?: string }[]) => {
+  const addMeasurement = useCallback((entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[]) => {
     if (entries.length === 0) return;
     entries = entries.map(e => ({ ...e, name: sanitizeSourceName(e.name).value })).filter(e => e.name.length > 0);
 
@@ -409,6 +420,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           date: now,
           idSource: e.name,
           sourceVl: e.value,
+          currency: e.currency,
         }));
         const newRefSources: RefSource[] = entries.map(e => ({
           idSource: e.name,
@@ -433,6 +445,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           date: now,
           idSource: e.name,
           sourceVl: e.value,
+          currency: e.currency,
         }));
         const newRefSources: RefSource[] = entries.map(e => ({
           idSource: e.name,
@@ -462,6 +475,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           date: now,
           idSource: e.name,
           sourceVl: e.value,
+          currency: e.currency,
         }));
 
         // Add any new data sources to refSources
@@ -495,6 +509,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         date: now,
         idSource: e.name,
         sourceVl: e.value,
+        currency: e.currency,
       }));
 
       // Add any new data sources to refSources
@@ -605,7 +620,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const snapDate = new Date(ts);
         const sources = facts.map(f => ({
           name: f.idSource,
-          value: fxConvertAt(f.sourceVl, snapDate),
+          value: fxConvertAt(f.sourceVl, f.currency, displayCurrency.code, snapDate),
           volatType: f.volatType,
           isLiquid: f.isLiquid,
         }));
@@ -615,7 +630,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           sources,
         };
       });
-  }, [filteredFacts, fxConvertAt]);
+  }, [filteredFacts, fxConvertAt, displayCurrency.code]);
 
   const allSnapshots = useMemo<Snapshot[]>(() => {
     const grouped = new Map<number, EnrichedFact[]>();
@@ -630,7 +645,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const snapDate = new Date(ts);
         const sources = facts.map(f => ({
           name: f.idSource,
-          value: fxConvertAt(f.sourceVl, snapDate),
+          value: fxConvertAt(f.sourceVl, f.currency, displayCurrency.code, snapDate),
           volatType: f.volatType,
           isLiquid: f.isLiquid,
         }));
@@ -640,7 +655,22 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           sources,
         };
       });
-  }, [enrichedFacts, fxConvertAt]);
+  }, [enrichedFacts, fxConvertAt, displayCurrency.code]);
+
+  // Most recent currency per source — drives the modal's defaults so a row
+  // pre-seeded for an existing source starts in the same currency it was last
+  // recorded in.
+  const lastCurrencyBySource = useMemo<Map<string, CurrencyCode>>(() => {
+    const acc = new Map<string, { ts: number; ccy: CurrencyCode }>();
+    if (!data) return new Map();
+    for (const f of data.facts) {
+      const key = f.idSource.trim();
+      const ts = f.date.getTime();
+      const prev = acc.get(key);
+      if (!prev || ts > prev.ts) acc.set(key, { ts, ccy: f.currency });
+    }
+    return new Map(Array.from(acc.entries()).map(([k, v]) => [k, v.ccy]));
+  }, [data]);
 
   const kpis = useMemo<KPIData>(() => {
     if (snapshots.length === 0) return defaultKpis;
@@ -698,6 +728,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     isMockData,
     syncStatus,
     retrySync,
+    lastCurrencyBySource,
   };
 
   return (

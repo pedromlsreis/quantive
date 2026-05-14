@@ -159,7 +159,7 @@ describe('saveToCloud retry semantics (integration with retrySync)', () => {
 
   it('manual retry replays the last attempted payload', async () => {
     upsert.mockRejectedValueOnce({ status: 403 });
-    const payloadA: PortfolioData = { facts: [{ date: new Date(0), idSource: 'A', sourceVl: 1 }], refSources: [] };
+    const payloadA: PortfolioData = { facts: [{ date: new Date(0), idSource: 'A', sourceVl: 1, currency: 'EUR' }], refSources: [] };
     const { deps } = makeDeps({ upsert });
 
     // Initial attempt — fails terminally.

@@ -20,9 +20,10 @@ export async function buildPortfolioWorkbook(data: PortfolioData): Promise<Array
     { header: 'DATE', key: 'date', width: 14 },
     { header: 'ID_SOURCE', key: 'idSource', width: 20 },
     { header: 'SOURCE_VL', key: 'sourceVl', width: 14 },
+    { header: 'CURRENCY', key: 'currency', width: 10 },
   ];
   for (const f of data.facts) {
-    factsSheet.addRow({ date: f.date, idSource: f.idSource, sourceVl: f.sourceVl });
+    factsSheet.addRow({ date: f.date, idSource: f.idSource, sourceVl: f.sourceVl, currency: f.currency });
   }
   // Format the DATE column as YYYY-MM-DD for clean Excel display
   factsSheet.getColumn('date').numFmt = 'yyyy-mm-dd';
@@ -49,7 +50,7 @@ export async function buildPortfolioWorkbook(data: PortfolioData): Promise<Array
  * Export the current portfolio data as an Excel (.xlsx) file download.
  *
  * Creates a workbook with two sheets:
- * - **facts**: DATE, ID_SOURCE, SOURCE_VL columns
+ * - **facts**: DATE, ID_SOURCE, SOURCE_VL, CURRENCY columns
  * - **ref**: ID_SOURCE, VOLAT_TYPE, TRANSFERABLE_IN_DAYS columns
  *
  * @param data - The portfolio data to export.

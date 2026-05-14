@@ -57,7 +57,7 @@ describe('enrichFacts', () => {
 
   it('defaults to Unknown / false for unmatched sources', () => {
     const data: PortfolioData = {
-      facts: [{ date: new Date(), idSource: 'Mystery', sourceVl: 100 }],
+      facts: [{ date: new Date(), idSource: 'Mystery', sourceVl: 100, currency: 'EUR' }],
       refSources: [],
     };
     const enriched = enrichFacts(data);

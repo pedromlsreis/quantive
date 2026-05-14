@@ -19,11 +19,12 @@ export async function buildTemplateWorkbook(): Promise<ArrayBuffer> {
     { header: 'DATE', key: 'date', width: 14 },
     { header: 'ID_SOURCE', key: 'idSource', width: 20 },
     { header: 'SOURCE_VL', key: 'sourceVl', width: 14 },
+    { header: 'CURRENCY', key: 'currency', width: 10 },
   ];
-  factsSheet.addRow({ date: new Date(2024, 0, 1), idSource: 'Savings Account', sourceVl: 15000 });
-  factsSheet.addRow({ date: new Date(2024, 0, 1), idSource: 'ETF World', sourceVl: 25000 });
-  factsSheet.addRow({ date: new Date(2024, 1, 1), idSource: 'Savings Account', sourceVl: 15100 });
-  factsSheet.addRow({ date: new Date(2024, 1, 1), idSource: 'ETF World', sourceVl: 25400 });
+  factsSheet.addRow({ date: new Date(2024, 0, 1), idSource: 'Savings Account', sourceVl: 15000, currency: 'EUR' });
+  factsSheet.addRow({ date: new Date(2024, 0, 1), idSource: 'ETF World', sourceVl: 25000, currency: 'USD' });
+  factsSheet.addRow({ date: new Date(2024, 1, 1), idSource: 'Savings Account', sourceVl: 15100, currency: 'EUR' });
+  factsSheet.addRow({ date: new Date(2024, 1, 1), idSource: 'ETF World', sourceVl: 25400, currency: 'USD' });
 
   // Ref sheet with sources reference table
   const refSheet = wb.addWorksheet('ref');
@@ -42,7 +43,7 @@ export async function buildTemplateWorkbook(): Promise<ArrayBuffer> {
  * Download a pre-filled Excel template that users can populate with their own data.
  *
  * The template contains:
- * - **facts sheet**: Example rows with DATE, ID_SOURCE, SOURCE_VL columns
+ * - **facts sheet**: Example rows with DATE, ID_SOURCE, SOURCE_VL, CURRENCY columns
  * - **ref sheet**: Example rows with ID_SOURCE, VOLAT_TYPE, TRANSFERABLE_IN_DAYS columns
  */
 export async function downloadExcelTemplate(): Promise<void> {
