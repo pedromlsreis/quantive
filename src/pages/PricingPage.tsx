@@ -28,11 +28,12 @@ export default function PricingPage() {
 
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
           {/* Free */}
-          <div className="rounded-xl border border-border/40 bg-card/50 p-8">
+          <div className="flex flex-col rounded-xl border border-border/40 bg-card/50 p-8">
             <h2 className="text-lg font-bold text-foreground">Free</h2>
             <p className="mt-1 text-3xl font-extrabold text-foreground">€0<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
             <p className="mt-1 text-xs text-muted-foreground">Forever. No credit card required.</p>
-            <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
+            <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-foreground">See your full picture, today</p>
+            <ul className="mt-2 space-y-3 text-sm text-muted-foreground">
               {[
                 'Net worth tracking with unlimited sources',
                 'Allocation charts (volatility & liquidity)',
@@ -49,7 +50,7 @@ export default function PricingPage() {
             </ul>
             <Link
               to="/dashboard"
-              className="mt-8 block rounded-lg border border-border bg-secondary py-2.5 text-center text-sm font-medium text-secondary-foreground transition-transform hover:scale-105"
+              className="mt-auto block rounded-lg border border-border bg-secondary py-2.5 text-center text-sm font-medium text-secondary-foreground transition-transform hover:scale-105"
               onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'pricing_card' })}
             >
               Get Started
@@ -79,27 +80,27 @@ export default function PricingPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>
-                      Milestone &amp; goal tracking
-                      <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>Milestone &amp; goal tracking</span>
+                      <span className="whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                         In development
                       </span>
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>
-                      Benchmark comparison (vs. inflation, S&amp;P 500, MSCI World)
-                      <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>Benchmark comparison (vs. inflation, S&amp;P 500, MSCI World)</span>
+                      <span className="whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                         In development
                       </span>
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>
-                      Month-by-month summary table
-                      <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>Month-by-month summary table</span>
+                      <span className="whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                         In development
                       </span>
                     </span>
@@ -115,9 +116,9 @@ export default function PricingPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>
-                      PDF wealth report (one-page summary for advisors or annual review)
-                      <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span>PDF wealth report (one-page summary for advisors or annual review)</span>
+                      <span className="whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                         In development
                       </span>
                     </span>

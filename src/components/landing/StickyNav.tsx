@@ -90,8 +90,12 @@ export function StickyNav() {
 
           {/* Mobile toggle */}
           <button
+            type="button"
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="text-foreground md:hidden"
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav-menu"
+            className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -99,14 +103,15 @@ export function StickyNav() {
 
         {/* Mobile menu */}
         {mobileOpen && (
-          <div className="border-b border-border/50 bg-background/95 backdrop-blur-xl md:hidden">
-            <div className="flex flex-col gap-3 px-6 py-4">
+          <div id="mobile-nav-menu" className="border-b border-border/50 bg-background/95 backdrop-blur-xl md:hidden">
+            <div className="flex flex-col gap-1 px-4 py-3">
               {navLinks.map((link) => (
                 'action' in link && link.action ? (
                   <button
                     key={link.label}
+                    type="button"
                     onClick={link.action}
-                    className="text-left text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="rounded-md px-3 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {link.label}
                   </button>
@@ -115,7 +120,7 @@ export function StickyNav() {
                     key={link.label}
                     to={'href' in link ? link.href! : '/'}
                     onClick={() => setMobileOpen(false)}
-                    className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    className="rounded-md px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {link.label}
                   </Link>
@@ -127,7 +132,7 @@ export function StickyNav() {
                   setMobileOpen(false);
                   if (!user) analytics.landingCtaClicked({ cta: 'get_started', location: 'nav' });
                 }}
-                className="mt-2 rounded-lg bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
+                className="mt-2 rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {user ? 'Go to Dashboard' : 'Get Started Free'}
               </Link>

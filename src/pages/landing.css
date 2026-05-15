@@ -482,7 +482,8 @@
 @media (max-width: 860px) {
   .lp-root { --lp-sec-py: 64px; }
   .lp-sec { padding: 64px 24px; }
-  .lp-hero { padding: 96px 24px 60px; }
+  .lp-hero { padding: 96px 24px 80px; }
+  .lp-hero-visual { margin-top: 32px; }
   .lp-trust-band { padding: 12px 24px; justify-content: flex-start; }
   .lp-feat-strip { grid-template-columns: 1fr; }
   .lp-feat-col {
@@ -501,7 +502,10 @@
 }
 @media (max-width: 560px) {
   .lp-hero-h1 { font-size: 2.2rem; }
-  .lp-hero-ctas, .lp-cta-actions { flex-direction: column; align-items: stretch; }
+  .lp-hero-sub { margin-top: 16px; font-size: 16px; }
+  .lp-hero-ctas, .lp-cta-actions { flex-direction: column; align-items: stretch; margin-top: 24px; }
+  .lp-hero-visual { margin-top: 24px; }
+  .lp-hero-chart { padding: 10px; }
   .lp-privacy-grid { grid-template-columns: 1fr; }
   .lp-privacy-item {
     border-right: none !important;
