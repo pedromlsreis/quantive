@@ -6,10 +6,6 @@ vi.mock('@/contexts/PortfolioContext', () => ({
   usePortfolio: vi.fn(),
 }));
 
-vi.mock('@/components/dashboard/AuthButton', () => ({
-  AuthButton: () => <button>Sign in</button>,
-}));
-
 vi.mock('@/components/dashboard/WelcomeModal', () => ({
   WelcomeModal: () => null,
 }));
@@ -22,12 +18,27 @@ vi.mock('@/components/dashboard/AddMeasurementModal', () => ({
 // Framer Motion: render all motion.* as plain HTML elements in tests
 vi.mock('framer-motion', async () => {
   const React = await import('react');
+  const MOTION_PROPS = new Set([
+    'initial', 'animate', 'exit', 'transition', 'variants', 'custom',
+    'whileHover', 'whileTap', 'whileFocus', 'whileDrag', 'whileInView',
+    'layout', 'layoutId', 'layoutDependency', 'layoutScroll', 'layoutRoot',
+    'viewport', 'inherit', 'transformTemplate', 'transformValues',
+    'onAnimationStart', 'onAnimationComplete', 'onUpdate',
+    'onHoverStart', 'onHoverEnd', 'onTapStart', 'onTap', 'onTapCancel',
+    'onViewportEnter', 'onViewportLeave',
+    'onLayoutAnimationStart', 'onLayoutAnimationComplete',
+  ]);
+  const stripMotionProps = (props: Record<string, unknown>) => {
+    const out: Record<string, unknown> = {};
+    for (const k in props) if (!MOTION_PROPS.has(k)) out[k] = props[k];
+    return out;
+  };
   const tags = ['div', 'button', 'h1', 'p', 'span', 'section', 'main', 'nav', 'header', 'article'];
   const motion = Object.fromEntries(
     tags.map(tag => [
       tag,
       React.forwardRef(({ children, ...props }: Record<string, unknown>, ref: unknown) =>
-        React.createElement(tag as string, { ...props, ref }, children as React.ReactNode)
+        React.createElement(tag as string, { ...stripMotionProps(props), ref }, children as React.ReactNode)
       ),
     ])
   );
