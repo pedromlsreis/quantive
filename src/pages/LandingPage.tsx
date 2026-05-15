@@ -5,6 +5,7 @@ import { usePageMeta } from '@/hooks/usePageMeta';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { CURRENCY_CODES } from '@/lib/currencies';
+import { analytics } from '@/lib/analytics';
 import './landing.css';
 
 // Built from the canonical list so marketing copy can't drift when a new
@@ -356,10 +357,18 @@ export default function LandingPage() {
         </p>
 
         <div className="lp-hero-ctas">
-          <Link to="/dashboard" className="lp-btn-primary">
+          <Link
+            to="/dashboard"
+            className="lp-btn-primary"
+            onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'hero' })}
+          >
             Get Started Free
           </Link>
-          <Link to="/demo" className="lp-btn-ghost">
+          <Link
+            to="/demo"
+            className="lp-btn-ghost"
+            onClick={() => analytics.landingCtaClicked({ cta: 'try_demo', location: 'hero' })}
+          >
             Try Demo — No Sign Up
           </Link>
         </div>
@@ -519,9 +528,9 @@ export default function LandingPage() {
             </div>
             <div className="lp-privacy-item">
               <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.noEye}</div>
-              <div className="lp-privacy-title">No tracking, no ads</div>
+              <div className="lp-privacy-title">No ads, no profiling</div>
               <p className="lp-privacy-desc">
-                No third-party analytics. No ad networks. No selling of financial behaviour data.
+                Anonymous product analytics only — counts, not identities. No ad networks, no cross-site tracking, and we never sell your financial data.
               </p>
             </div>
             <div className="lp-privacy-item">
@@ -615,7 +624,11 @@ export default function LandingPage() {
               <li><span className="lp-price-check">✓</span>End-to-end encrypted cloud sync</li>
               <li><span className="lp-price-check">✓</span>Rolling 12-month history view</li>
             </ul>
-            <Link to="/dashboard" className="lp-price-cta lp-price-cta--free">
+            <Link
+              to="/dashboard"
+              className="lp-price-cta lp-price-cta--free"
+              onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'pricing_card' })}
+            >
               Get Started Free
             </Link>
           </div>
@@ -653,7 +666,14 @@ export default function LandingPage() {
               <li className="lp-price-sec-head">Support</li>
               <li><span className="lp-price-check">✓</span>Priority support — 24h response</li>
             </ul>
-            <Link to="/dashboard" className="lp-price-cta lp-price-cta--pro">
+            <Link
+              to="/dashboard"
+              className="lp-price-cta lp-price-cta--pro"
+              onClick={() => {
+                analytics.landingCtaClicked({ cta: 'pro_signup', location: 'pricing_card' });
+                analytics.proGateHit({ feature: 'pricing_card_pro_cta' });
+              }}
+            >
               Sign up free — get notified when Pro launches
             </Link>
             <p className="lp-price-foot">Existing free users get their first month on us.</p>
@@ -701,8 +721,20 @@ export default function LandingPage() {
         <h2 className="lp-cta-h2">Start tracking your wealth today.</h2>
         <p className="lp-cta-sub">Free forever. No credit card. No bank logins.</p>
         <div className="lp-cta-actions">
-          <Link to="/dashboard" className="lp-btn-primary">Get Started Free</Link>
-          <Link to="/demo" className="lp-btn-ghost">Try Demo First</Link>
+          <Link
+            to="/dashboard"
+            className="lp-btn-primary"
+            onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'footer' })}
+          >
+            Get Started Free
+          </Link>
+          <Link
+            to="/demo"
+            className="lp-btn-ghost"
+            onClick={() => analytics.landingCtaClicked({ cta: 'try_demo', location: 'footer' })}
+          >
+            Try Demo First
+          </Link>
         </div>
       </div>
 

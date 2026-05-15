@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useMemo, useCallback, useEf
 import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData, FactRow, RefSource } from '@/lib/types';
 import { generateMockData } from '@/lib/mockData';
 import { toast } from 'sonner';
+import { analytics } from '@/lib/analytics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { useKeySession } from './KeySessionContext';
@@ -191,6 +192,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       isLatest,
       delay: (ms) => new Promise(r => setTimeout(r, ms)),
       onStatus: setSyncStatus,
+      onError: (reason) => analytics.cloudSyncFailed({ reason }),
     });
 
     if (outcome === 'synced') {
@@ -359,10 +361,21 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(MOCK_FLAG_KEY, 'false'); // mark as real data
       setDefaultDateRange(parsed);
       saveToCloud(parsed);
+      analytics.fileUploaded({ rowCount: parsed.facts.length, sourceCount: parsed.refSources.length });
       toast.success(`Loaded ${parsed.facts.length} records from ${file.name}`);
     } catch (e: unknown) {
       console.error('Failed to parse file:', e);
       const msg = e instanceof Error ? e.message : 'Failed to parse Excel file. Check the format and try again.';
+      const reason = !(e instanceof Error)
+        ? 'unknown'
+        : msg.includes('no sheets')
+          ? 'no_sheets'
+          : msg.includes('No data found')
+            ? 'no_data'
+            : msg.includes('No valid fact records')
+              ? 'no_valid_facts'
+              : 'parse_error';
+      analytics.fileUploadFailed({ reason });
       toast.error(msg);
     } finally {
       setIsLoading(false);
@@ -381,6 +394,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   }, [setDefaultDateRange]);
 
   const clearData = useCallback(() => {
+    analytics.dataCleared();
     setData(null);
     setIsMockData(false);
     setFilters(defaultFilters);
@@ -531,6 +545,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       toast.success(`Added measurement with ${entries.length} source${entries.length > 1 ? 's' : ''}`);
       return updatedData;
     });
+    analytics.measurementAdded({ count: entries.length });
   }, [isMockData, saveToCloud, setDefaultDateRange]);
 
   const updateRefSource = useCallback((idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => {

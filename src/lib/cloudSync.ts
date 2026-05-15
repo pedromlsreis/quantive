@@ -110,6 +110,8 @@ export interface AttemptCloudSyncDeps {
   delay: (ms: number) => Promise<void>;
   /** Status sink. Only invoked while isLatest() is true. */
   onStatus: (status: 'syncing' | 'synced' | 'error') => void;
+  /** Optional error categorisation hook. Fires alongside onStatus('error'). */
+  onError?: (reason: 'transient' | 'terminal') => void;
 }
 
 /**
@@ -126,7 +128,7 @@ export async function attemptCloudSync(
   payload: PortfolioData,
   deps: AttemptCloudSyncDeps,
 ): Promise<SyncOutcome | null> {
-  const { upsert, isLatest, delay, onStatus } = deps;
+  const { upsert, isLatest, delay, onStatus, onError } = deps;
   onStatus('syncing');
 
   try {
@@ -136,7 +138,8 @@ export async function attemptCloudSync(
     return 'synced';
   } catch (err) {
     if (!isLatest()) return null;
-    if (isTransientError(err)) {
+    const transient = isTransientError(err);
+    if (transient) {
       try {
         await delay(2000);
         if (!isLatest()) return null;
@@ -148,6 +151,7 @@ export async function attemptCloudSync(
         if (!isLatest()) return null;
       }
     }
+    onError?.(transient ? 'transient' : 'terminal');
     onStatus('error');
     return 'error';
   }

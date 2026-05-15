@@ -1,9 +1,10 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { analytics } from "@/lib/analytics";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -32,6 +33,14 @@ const Impressum = lazy(() => import("./pages/Impressum"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
+
+function PageViewTracker() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    analytics.pageViewed(pathname);
+  }, [pathname]);
+  return null;
+}
 
 const LoadingSpinner = () => (
   <div className="flex flex-1 items-center justify-center bg-background">
@@ -93,6 +102,7 @@ const App = () => (
               <PreferencesProvider>
               <PortfolioProvider>
                 <BrowserRouter>
+                  <PageViewTracker />
                   <RequireUnlock />
                   <RecoveryOfferModal />
                   <AppRoutes />

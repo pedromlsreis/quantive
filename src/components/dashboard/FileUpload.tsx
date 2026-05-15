@@ -6,6 +6,7 @@ import { WelcomeModal } from './WelcomeModal';
 import { AddMeasurementModal } from './AddMeasurementModal';
 import { Monogram } from '@/components/layout/Brand';
 import { staggerContainer, staggerItem, fadeIn } from '@/lib/motion';
+import { analytics } from '@/lib/analytics';
 
 export function FileUpload() {
   const { loadFile, loadMockData, isLoading } = usePortfolio();
@@ -127,7 +128,10 @@ export function FileUpload() {
                 Download template
               </button>
               <button
-                onClick={loadMockData}
+                onClick={() => {
+                  loadMockData();
+                  analytics.demoLoaded({ source: 'in_app_button' });
+                }}
                 className="q-btn q-btn--ghost q-btn--sm flex-1"
               >
                 <Play className="h-3.5 w-3.5" />

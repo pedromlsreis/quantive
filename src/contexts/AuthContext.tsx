@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 import type { SubscriptionStatus } from '@/lib/stripeConfig';
+import { analytics } from '@/lib/analytics';
 
 interface AuthContextType {
   user: User | null;
@@ -90,15 +91,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
       options: { emailRedirectTo: window.location.origin },
     });
+    if (!error) analytics.signedUp();
     return { error: error?.message ?? null };
   };
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error) analytics.signedIn();
     return { error: error?.message ?? null };
   };
 
   const signOut = async () => {
+    analytics.signedOut();
     await supabase.auth.signOut();
   };
 

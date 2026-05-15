@@ -4,6 +4,7 @@ import { Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Wordmark } from '@/components/layout/Brand';
+import { analytics } from '@/lib/analytics';
 
 export function StickyNav() {
   const [scrolled, setScrolled] = useState(false);
@@ -79,6 +80,9 @@ export function StickyNav() {
             <Link
               to="/dashboard"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
+              onClick={() => {
+                if (!user) analytics.landingCtaClicked({ cta: 'get_started', location: 'nav' });
+              }}
             >
               {user ? 'Go to Dashboard' : 'Get Started Free'}
             </Link>
@@ -119,7 +123,10 @@ export function StickyNav() {
               ))}
               <Link
                 to="/dashboard"
-                onClick={() => setMobileOpen(false)}
+                onClick={() => {
+                  setMobileOpen(false);
+                  if (!user) analytics.landingCtaClicked({ cta: 'get_started', location: 'nav' });
+                }}
                 className="mt-2 rounded-lg bg-primary px-4 py-2 text-center text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
               >
                 {user ? 'Go to Dashboard' : 'Get Started Free'}

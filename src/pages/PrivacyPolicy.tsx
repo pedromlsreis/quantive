@@ -6,7 +6,7 @@ import { usePageMeta } from '@/hooks/usePageMeta';
 export default function PrivacyPolicy() {
   usePageMeta({
     title: 'Privacy Policy – Quantive',
-    description: 'Read the Quantive privacy policy. We store only encrypted data, use no third-party trackers, and collect only what is necessary to run the service.',
+    description: 'Read the Quantive privacy policy. We store only encrypted data, use no advertising trackers, and collect only what is necessary to run the service.',
     path: '/privacy',
   });
 
@@ -16,7 +16,7 @@ export default function PrivacyPolicy() {
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-20">
         <h1 className="mb-2 text-3xl font-bold text-foreground">Privacy Policy</h1>
-        <p className="mb-10 text-sm text-muted-foreground">Last updated: May 6, 2026</p>
+        <p className="mb-10 text-sm text-muted-foreground">Last updated: May 15, 2026</p>
 
         <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_strong]:text-foreground">
           <h2>1. Introduction</h2>
@@ -30,7 +30,7 @@ export default function PrivacyPolicy() {
           <h2>2. Information We Collect</h2>
           <p><strong>Account Information:</strong> When you create an account, we collect your email address and an encrypted password.</p>
           <p><strong>Portfolio Data:</strong> If you upload portfolio spreadsheets, the data is stored in your private account. We do not share, sell, or analyse your financial data for any purpose other than providing you with the service.</p>
-          <p><strong>Usage Data:</strong> We may collect anonymous usage analytics (page views, feature usage) to improve the product. No personally identifiable information is included.</p>
+          <p><strong>Usage Data:</strong> We collect anonymous usage analytics (page views, feature usage) to improve the product via PostHog. No personally identifiable information, financial figures, or account details are included in these events.</p>
 
           <h2>3. How We Use Your Information</h2>
           <ul className="list-disc pl-6 space-y-1">
@@ -64,6 +64,7 @@ export default function PrivacyPolicy() {
           <ul className="list-disc pl-6 space-y-1">
             <li><strong>Stripe</strong> — for payment processing. Stripe's privacy policy applies to payment data.</li>
             <li><strong>Supabase</strong> — for authentication and database services.</li>
+            <li><strong>PostHog</strong> — for anonymous product analytics. We track only explicit user actions (page views, feature usage). No personally identifiable information, financial data, or email addresses are ever sent to PostHog. Events are stored on PostHog's EU-hosted infrastructure. See the <a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">PostHog privacy policy</a>.</li>
           </ul>
 
           <h2>6. Data Retention</h2>
@@ -82,10 +83,12 @@ export default function PrivacyPolicy() {
             <li>Withdraw consent at any time</li>
           </ul>
 
-          <h2>8. Cookies</h2>
+          <h2>8. Cookies & local storage</h2>
           <p>
-            We use essential cookies only for authentication and session management.
-            We do not use advertising or tracking cookies.
+            We use essential cookies only for authentication and session management. We do not use advertising cookies, third-party tracking cookies, or cross-site tracking of any kind.
+          </p>
+          <p>
+            PostHog (see §5) stores an anonymous identifier in your browser's <strong>localStorage</strong> — not in a cookie — so events from the same browser can be grouped without us knowing who you are. This identifier is cleared when you sign out and can be cleared at any time by clearing your browser's site data for usequantive.app.
           </p>
 
           <h2>9. Changes to This Policy</h2>

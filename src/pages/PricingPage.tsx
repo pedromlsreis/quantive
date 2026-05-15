@@ -3,6 +3,7 @@ import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { usePageMeta } from '@/hooks/usePageMeta';
 import { CURRENCY_CODES } from '@/lib/currencies';
+import { analytics } from '@/lib/analytics';
 import './landing.css';
 
 export default function PricingPage() {
@@ -49,6 +50,7 @@ export default function PricingPage() {
             <Link
               to="/dashboard"
               className="mt-8 block rounded-lg border border-border bg-secondary py-2.5 text-center text-sm font-medium text-secondary-foreground transition-transform hover:scale-105"
+              onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'pricing_card' })}
             >
               Get Started
             </Link>
@@ -136,6 +138,10 @@ export default function PricingPage() {
             <Link
               to="/dashboard"
               className="lp-price-cta lp-price-cta--pro mt-6"
+              onClick={() => {
+                analytics.landingCtaClicked({ cta: 'pro_signup', location: 'pricing_card' });
+                analytics.proGateHit({ feature: 'pricing_card_pro_cta' });
+              }}
             >
               Sign up free — get notified when Pro launches
             </Link>

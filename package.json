@@ -60,6 +60,7 @@
     "libsodium-wrappers-sumo": "^0.8.4",
     "lucide-react": "^0.462.0",
     "next-themes": "^0.3.0",
+    "posthog-js": "^1.373.4",
     "react": "^18.3.1",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.3.1",
@@ -89,6 +90,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
+    "husky": "^9.1.7",
     "jsdom": "^20.0.3",
     "postcss": "^8.5.6",
     "supabase": "^2.92.1",
@@ -96,7 +98,6 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
-    "vitest": "^3.2.4",
-    "husky": "^9.1.7"
+    "vitest": "^3.2.4"
   }
 }
