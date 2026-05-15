@@ -1,7 +1,11 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
+import { useHistoryFloor } from '@/hooks/useHistoryFloor';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { analytics } from '@/lib/analytics';
 import { QTabs } from '@/components/ui/q-tabs';
 
 const HEIGHT = 300;
@@ -27,6 +31,8 @@ function fmtCompact(v: number, fmt: (n: number) => string): string {
 export function NetWorthChart() {
   const { allSnapshots } = usePortfolio();
   const { fmt, fmtFull } = useCurrencyFormatter();
+  const historyFloor = useHistoryFloor();
+  const isMobile = useIsMobile();
   const wrapRef = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(700);
   const [hover, setHover] = useState<number | null>(null);
@@ -76,14 +82,42 @@ export function NetWorthChart() {
   const yScale = (v: number) => MARGIN.top + innerH - ((v - minV) / (maxV - minV)) * innerH;
 
   const points = snapshots.map((s, i) => [xScale(i), yScale(s.total)] as [number, number]);
-  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join(' ');
-  const areaPath = points.length
-    ? `${linePath} L ${points[points.length - 1][0]} ${MARGIN.top + innerH} L ${points[0][0]} ${MARGIN.top + innerH} Z`
+
+  // Split into ghost (older than floor) and visible (>= floor) ranges.
+  // We render the ghost segment as a low-opacity preview and keep all
+  // chart affordances (hover, markers, area fill) on the visible segment.
+  const firstVisible = historyFloor
+    ? snapshots.findIndex((s) => s.date >= historyFloor)
+    : 0;
+  const visibleStartIdx = firstVisible === -1 ? snapshots.length : firstVisible;
+  const hasGhost = visibleStartIdx > 0;
+  const hasVisible = visibleStartIdx < snapshots.length;
+
+  const buildPath = (start: number, end: number) =>
+    points
+      .slice(start, end + 1)
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
+      .join(' ');
+
+  // Overlap by one point so the visual handoff between ghost and visible is seamless.
+  const ghostPath = hasGhost
+    ? buildPath(0, Math.min(visibleStartIdx, snapshots.length - 1))
+    : '';
+  const visibleLinePath = hasVisible ? buildPath(visibleStartIdx, snapshots.length - 1) : '';
+  const visiblePoints = hasVisible ? points.slice(visibleStartIdx) : [];
+  const areaPath = visiblePoints.length > 1
+    ? `${visibleLinePath} L ${visiblePoints[visiblePoints.length - 1][0]} ${MARGIN.top + innerH} L ${visiblePoints[0][0]} ${MARGIN.top + innerH} Z`
     : '';
 
-  const athIdx = values.reduce((mx, v, i) => v > values[mx] ? i : mx, 0);
+  // Markers and hover ignore the ghost range entirely.
+  let athIdx = visibleStartIdx;
+  if (hasVisible) {
+    for (let i = visibleStartIdx; i < values.length; i++) {
+      if (values[i] > values[athIdx]) athIdx = i;
+    }
+  }
   let bestMoIdx = -1, bestGain = -Infinity;
-  for (let i = 1; i < values.length; i++) {
+  for (let i = Math.max(visibleStartIdx, 1); i < values.length; i++) {
     const g = values[i] - values[i - 1];
     if (g > bestGain) { bestGain = g; bestMoIdx = i; }
   }
@@ -93,15 +127,17 @@ export function NetWorthChart() {
     return { v, y: yScale(v) };
   });
 
+  const targetTicks = isMobile ? 4 : 6;
   const xTicks = snapshots
     .map((s, i) => ({ s, i }))
-    .filter((_, i) => i % Math.max(1, Math.floor(snapshots.length / 6)) === 0 || i === snapshots.length - 1);
+    .filter((_, i) => i % Math.max(1, Math.floor(snapshots.length / targetTicks)) === 0 || i === snapshots.length - 1);
 
   const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left - MARGIN.left;
     const idx = Math.round(x / xStep);
-    if (idx >= 0 && idx < snapshots.length) setHover(idx);
+    if (idx >= visibleStartIdx && idx < snapshots.length) setHover(idx);
+    else setHover(null);
   };
 
   const tooltipX = hover != null ? Math.min(Math.max(0, xScale(hover) - 72), w - 160) : 0;
@@ -111,7 +147,21 @@ export function NetWorthChart() {
       <div className="q-section-head">
         <div>
           <h2>Net worth over time</h2>
-          <div className="q-section-sub">All sources · Hover to inspect any month</div>
+          <div className="q-section-sub">
+            All sources · Hover to inspect any month
+            {hasGhost && (
+              <>
+                {' · '}
+                <Link
+                  to="/pricing"
+                  onClick={() => analytics.proGateHit({ feature: 'history.full' })}
+                  style={{ color: 'var(--accent-raw)', textDecoration: 'none' }}
+                >
+                  Full history with Pro →
+                </Link>
+              </>
+            )}
+          </div>
         </div>
         <QTabs<Period>
           value={period}
@@ -173,8 +223,29 @@ export function NetWorthChart() {
 
           <path d={areaPath} fill="url(#nw-area-grad)" style={{ animation: 'q-path-fade 600ms ease-out' }} />
 
+          {hasGhost && (
+            <>
+              <path
+                d={ghostPath}
+                fill="none"
+                stroke="var(--fg-subtle)"
+                strokeOpacity="0.4"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <line
+                x1={xScale(visibleStartIdx)} x2={xScale(visibleStartIdx)}
+                y1={MARGIN.top} y2={MARGIN.top + innerH}
+                stroke="var(--border-raw)"
+                strokeDasharray="2 3"
+                strokeWidth="1"
+              />
+            </>
+          )}
+
           <path
-            d={linePath}
+            d={visibleLinePath}
             fill="none"
             stroke="var(--accent-raw)"
             strokeWidth="1.75"
@@ -188,7 +259,7 @@ export function NetWorthChart() {
             { idx: athIdx,    label: 'ATH',      color: 'var(--accent-raw)' },
             { idx: bestMoIdx, label: 'Best mo.', color: 'var(--positive)' },
           ]
-            .filter(a => a.idx > 0 && (a.label !== 'Best mo.' || a.idx !== athIdx))
+            .filter(a => hasVisible && a.idx >= visibleStartIdx && a.idx < snapshots.length && (a.label !== 'Best mo.' || a.idx !== athIdx))
             .map((a) => (
               <g key={a.label}>
                 <circle cx={xScale(a.idx)} cy={yScale(values[a.idx])} r="4"

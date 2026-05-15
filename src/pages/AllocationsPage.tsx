@@ -44,7 +44,12 @@ function fmtCompact(v: number, fmt: (n: number) => string): string {
 const AllocationsPage = () => {
   const { data, isLoading, snapshots } = usePortfolio();
   const { fmt, fmtFull } = useCurrencyFormatter();
-  const [view, setView] = useState<View>('treemap');
+  const [view, setView] = useState<View>(() => {
+    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
+      return 'bars';
+    }
+    return 'treemap';
+  });
 
   const aggregates = useMemo(() => {
     if (!snapshots.length) return null;
@@ -172,14 +177,14 @@ const AllocationsPage = () => {
       {/* Full source table */}
       <div className="q-card q-card--p-none" style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table className="q-table">
+          <table className="q-table q-table--responsive">
             <thead>
               <tr>
                 <th>Source</th>
-                <th>Volatility</th>
-                <th>Liquid</th>
+                <th data-col="secondary">Volatility</th>
+                <th data-col="secondary">Liquid</th>
                 <th className="num">Value</th>
-                <th className="num">%</th>
+                <th className="num" data-col="secondary">%</th>
               </tr>
             </thead>
             <tbody>
@@ -189,14 +194,19 @@ const AllocationsPage = () => {
                   <tr key={s.name + i}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ width: 4, height: 22, borderRadius: 2, background: `var(--series-${(i % 8) + 1})`, flexShrink: 0 }} />
-                        <span style={{ fontWeight: 500 }}>{s.name}</span>
+                        <span style={{ width: 4, height: 28, borderRadius: 2, background: `var(--series-${(i % 8) + 1})`, flexShrink: 0 }} />
+                        <div>
+                          <div style={{ fontWeight: 500 }}>{s.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
+                            {toTitleCase(s.volatType)} · {s.isLiquid ? 'Liquid' : 'Non-liquid'} · {pct.toFixed(1)}%
+                          </div>
+                        </div>
                       </div>
                     </td>
-                    <td>
+                    <td data-col="secondary">
                       <span className="q-badge q-badge--neutral">{toTitleCase(s.volatType)}</span>
                     </td>
-                    <td>
+                    <td data-col="secondary">
                       {s.isLiquid
                         ? <Check     size={14} style={{ color: 'var(--positive)' }} aria-label="Liquid" />
                         : <Snowflake size={14} style={{ color: 'var(--fg-faint)' }} aria-label="Non-liquid — frozen, slow to convert" />}
@@ -207,7 +217,7 @@ const AllocationsPage = () => {
                     }}>
                       {fmtFull(s.value)}
                     </td>
-                    <td className="num" style={{ color: 'var(--fg-muted)' }}>
+                    <td className="num" data-col="secondary" style={{ color: 'var(--fg-muted)' }}>
                       {pct.toFixed(1)}%
                     </td>
                   </tr>

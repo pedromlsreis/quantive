@@ -52,7 +52,7 @@ export function Topbar({
         aria-label="Quantive home"
         style={{
           background: 'none', border: 0, padding: 0, cursor: 'pointer',
-          color: 'var(--fg-faint)', display: 'inline-flex', alignItems: 'center',
+          color: 'var(--fg-faint)',
         }}
       >
         <Monogram size={20} />
@@ -75,7 +75,7 @@ export function Topbar({
         <button
           type="button"
           onClick={() => setPrivacyMode(!privacyMode)}
-          className="q-icon-btn"
+          className="q-icon-btn q-topbar-privacy"
           aria-label={privacyMode ? 'Show monetary values' : 'Hide monetary values'}
           aria-pressed={privacyMode}
           title={privacyMode ? 'Show values' : 'Hide values'}

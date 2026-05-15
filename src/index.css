@@ -640,6 +640,20 @@
   transition: border-color var(--d-fast) var(--ease-soft),
               background var(--d-fast) var(--ease-soft);
 }
+/* Preference row: label + description on one side, control on the other.
+   Stacks vertically on mobile so the control gets full width and the
+   description has room to breathe. */
+.q-pref-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-6);
+}
+@media (max-width: 640px) {
+  .q-pref-row { flex-direction: column; gap: var(--s-3); }
+  .q-pref-row > :last-child { width: 100% !important; max-width: none !important; }
+}
+
 .q-card--p-none  { padding: 0; }
 .q-card--p-sm    { padding: var(--s-4); }
 .q-card--p-md    { padding: calc(20px * var(--density)); }
@@ -1003,16 +1017,19 @@
   }
   .q-sidebar-overlay.is-open { display: block; animation: q-fade-in var(--d-fast) var(--ease-out); }
 
-  /* Streamline the topbar: keep brand + menu, hide breadcrumbs and
-     search; collapse "Add measurement" to an icon-only button. */
+  /* Streamline the topbar: keep menu + primary CTA, hide everything else.
+     The brand monogram is duplicated in the sidebar header, the privacy
+     toggle has a less-prominent home in Settings, and sign-in is reachable
+     via the primary CTA (which acts as Sign up when on mock data). */
   .q-topbar { padding: 10px var(--s-4); gap: var(--s-3); }
   .q-topbar .q-topbar-menu-btn { display: inline-flex; }
+  .q-topbar-brand { display: none; }
   .q-topbar-crumbs { display: none; }
   .q-topbar-search { display: none; }
+  .q-topbar-privacy { display: none; }
   .q-topbar-add { padding: 6px 8px; }
   .q-topbar-add .q-topbar-add-label { display: none; }
-  .q-topbar-signin { display: inline-flex; }
-  .q-topbar-signin-label { display: none; }
+  .q-topbar-signin { display: none; }
 
   /* Leave room for the fixed bottom tab bar so content isn't hidden behind it. */
   .q-content { flex: 1; padding: var(--s-4) var(--s-4) calc(var(--q-tabbar-h) + var(--s-4)); }

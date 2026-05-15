@@ -25,7 +25,7 @@ export function DemoBanner() {
       aria-label="Demo data notice"
       style={{
         position: 'fixed',
-        bottom: 'var(--s-4)',
+        bottom: 'calc(var(--s-4) + var(--q-tabbar-h, 0px))',
         right: 'var(--s-4)',
         zIndex: 40,
         display: 'inline-flex',

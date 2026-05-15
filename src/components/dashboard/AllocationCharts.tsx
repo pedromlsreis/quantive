@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Treemap } from '@/components/charts/Treemap';
 import { Snapshot, SourceDetail } from '@/lib/types';
 
@@ -63,7 +64,7 @@ interface AllocationChartsViewProps {
   fmt: (value: number) => string;
 }
 
-export function AllocationChartsView({ snapshots, fmt }: AllocationChartsViewProps) {
+export function AllocationChartsView({ snapshots, fmt, isMobile }: AllocationChartsViewProps & { isMobile?: boolean }) {
   if (!snapshots.length) return null;
 
   const latest = snapshots[snapshots.length - 1];
@@ -73,6 +74,39 @@ export function AllocationChartsView({ snapshots, fmt }: AllocationChartsViewPro
     .filter((s) => s.value > 0)
     .map((s) => ({ id: s.name, name: s.name, value: Math.round(s.value) }));
 
+  const sectionSub = `Snapshot of ${latest.date.toLocaleString('en', { month: 'long', year: 'numeric' })}`;
+  const viewAllLink = (
+    <Link
+      to="/allocations"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 'var(--s-1)',
+        fontSize: 'var(--text-sm)',
+        color: 'var(--accent-raw)',
+        textDecoration: 'none',
+      }}
+    >
+      View all
+      <ArrowRight size={14} aria-hidden="true" />
+    </Link>
+  );
+
+  if (isMobile) {
+    return (
+      <div className="q-card q-card--p-lg">
+        <div className="q-section-head">
+          <div>
+            <h2>Allocation</h2>
+            <div className="q-section-sub">{sectionSub}</div>
+          </div>
+          {viewAllLink}
+        </div>
+        <TopSourcesBars sources={sources} fmt={fmt} />
+      </div>
+    );
+  }
+
   return (
     <div className="q-grid q-grid--allocation">
       {/* Treemap card (1.6fr) */}
@@ -80,24 +114,9 @@ export function AllocationChartsView({ snapshots, fmt }: AllocationChartsViewPro
         <div className="q-section-head">
           <div>
             <h2>Allocation</h2>
-            <div className="q-section-sub">
-              Snapshot of {latest.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
-            </div>
+            <div className="q-section-sub">{sectionSub}</div>
           </div>
-          <Link
-            to="/allocations"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 'var(--s-1)',
-              fontSize: 'var(--text-sm)',
-              color: 'var(--accent-raw)',
-              textDecoration: 'none',
-            }}
-          >
-            View all
-            <ArrowRight size={14} aria-hidden="true" />
-          </Link>
+          {viewAllLink}
         </div>
         <Treemap data={treemapData} height={320} fmt={fmt} />
       </div>
@@ -119,5 +138,6 @@ export function AllocationChartsView({ snapshots, fmt }: AllocationChartsViewPro
 export function AllocationCharts() {
   const { snapshots } = usePortfolio();
   const { fmt } = useCurrencyFormatter();
-  return <AllocationChartsView snapshots={snapshots} fmt={fmt} />;
+  const isMobile = useIsMobile();
+  return <AllocationChartsView snapshots={snapshots} fmt={fmt} isMobile={isMobile} />;
 }

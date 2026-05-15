@@ -4,6 +4,9 @@ import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { UpsellCard } from '@/components/billing/UpsellCard';
+import { analytics } from '@/lib/analytics';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, type NumberFormat } from '@/contexts/PreferencesContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,17 +53,17 @@ const fieldLabel: React.CSSProperties = {
   marginBottom: 'var(--s-1)',
 };
 
-const prefRow: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  justifyContent: 'space-between',
-  gap: 'var(--s-6)',
-};
+/* See .q-pref-row in index.css — class controls layout so a media query
+   can stack rows vertically on mobile (inline styles can't do that). */
+const PREF_ROW_CLASS = 'q-pref-row';
 
 export default function SettingsPage() {
   const { user, signOut, updatePassword } = useAuth();
   const keySession = useKeySession();
   const { clearData, data } = usePortfolio();
+  const { has } = useEntitlements();
+  const canExportExcel = has('export.excel');
+  const canExportCsv = has('export.csv');
   const { currency, setCurrency, allCurrencies } = useCurrency();
   const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode } = usePreferences();
   const navigate = useNavigate();
@@ -169,6 +172,11 @@ export default function SettingsPage() {
   const handleExport = async (fmt: 'xlsx' | 'csv') => {
     if (!data) {
       toast.error('No data to export.');
+      return;
+    }
+    const gated = fmt === 'xlsx' ? !canExportExcel : !canExportCsv;
+    if (gated) {
+      analytics.proGateHit({ feature: fmt === 'xlsx' ? 'export.excel' : 'export.csv' });
       return;
     }
     setExporting(fmt);
@@ -288,7 +296,7 @@ export default function SettingsPage() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-6)' }}>
           {/* Display currency */}
-          <div style={prefRow}>
+          <div className={PREF_ROW_CLASS}>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
                 <Wallet className="h-4 w-4 text-primary" />
@@ -313,7 +321,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Number format */}
-          <div style={prefRow}>
+          <div className={PREF_ROW_CLASS}>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
                 <Hash className="h-4 w-4 text-primary" />
@@ -338,7 +346,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Privacy mode */}
-          <div style={prefRow}>
+          <div className={PREF_ROW_CLASS}>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
                 <EyeOff className="h-4 w-4 text-primary" />
@@ -361,7 +369,7 @@ export default function SettingsPage() {
           </div>
 
           {/* Email summaries — coming soon */}
-          <div style={{ ...prefRow, opacity: 0.7 }}>
+          <div className={PREF_ROW_CLASS} style={{ opacity: 0.7 }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
                 <Mail className="h-4 w-4 text-primary" />
@@ -397,37 +405,45 @@ export default function SettingsPage() {
             Your data
           </h2>
         </div>
-        <div style={prefRow}>
-          <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>Export your data</p>
-            <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-              Excel preserves the full workbook (snapshots, per-source values, reference metadata).
-              CSV flattens the facts sheet for spreadsheets, notebooks, and scripts.
-            </p>
+        {canExportExcel || canExportCsv ? (
+          <div className={PREF_ROW_CLASS}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>Export your data</p>
+              <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
+                Excel preserves the full workbook (snapshots, per-source values, reference metadata).
+                CSV flattens the facts sheet for spreadsheets, notebooks, and scripts.
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--s-2)', flexShrink: 0 }}>
+              {canExportExcel && (
+                <button
+                  type="button"
+                  onClick={() => handleExport('xlsx')}
+                  disabled={!data || exporting !== null}
+                  className="q-btn q-btn--secondary q-btn--sm"
+                  style={{ opacity: !data || exporting !== null ? 0.5 : 1 }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {exporting === 'xlsx' ? 'Exporting…' : 'Excel'}
+                </button>
+              )}
+              {canExportCsv && (
+                <button
+                  type="button"
+                  onClick={() => handleExport('csv')}
+                  disabled={!data || exporting !== null}
+                  className="q-btn q-btn--secondary q-btn--sm"
+                  style={{ opacity: !data || exporting !== null ? 0.5 : 1 }}
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  {exporting === 'csv' ? 'Exporting…' : 'CSV'}
+                </button>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: 'var(--s-2)', flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => handleExport('xlsx')}
-              disabled={!data || exporting !== null}
-              className="q-btn q-btn--secondary q-btn--sm"
-              style={{ opacity: !data || exporting !== null ? 0.5 : 1 }}
-            >
-              <Download className="h-3.5 w-3.5" />
-              {exporting === 'xlsx' ? 'Exporting…' : 'Excel'}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleExport('csv')}
-              disabled={!data || exporting !== null}
-              className="q-btn q-btn--secondary q-btn--sm"
-              style={{ opacity: !data || exporting !== null ? 0.5 : 1 }}
-            >
-              <Download className="h-3.5 w-3.5" />
-              {exporting === 'csv' ? 'Exporting…' : 'CSV'}
-            </button>
-          </div>
-        </div>
+        ) : (
+          <UpsellCard feature="export.excel" compact />
+        )}
       </section>
 
       {/* Security */}
