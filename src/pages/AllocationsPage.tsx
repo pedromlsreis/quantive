@@ -58,7 +58,6 @@ const AllocationsPage = () => {
       totalAssets,
       byVolatility: aggregateBy(latest.sources, (s) => toTitleCase(s.volatType)),
       byLiquidity:  aggregateBy(latest.sources, (s) => (s.isLiquid ? 'Liquid' : 'Non-liquid')),
-      byCategory:   aggregateBy(latest.sources, (s) => toTitleCase(s.volatType)),
     };
   }, [snapshots]);
 
@@ -66,8 +65,23 @@ const AllocationsPage = () => {
   if (!data) return <FileUpload />;
   if (!aggregates) return null;
 
-  const { latest, positiveSources, totalAssets, byVolatility, byLiquidity, byCategory } = aggregates;
+  const { latest, positiveSources, totalAssets, byVolatility, byLiquidity } = aggregates;
   const treemapData = positiveSources.map((s) => ({ id: s.name, name: s.name, value: Math.round(s.value) }));
+
+  // Donut shows the same data as treemap/bars (individual positive sources),
+  // grouped: anything under 1.5% rolls into "Other" so the slice count stays legible.
+  const donutData = (() => {
+    const sorted = [...positiveSources].sort((a, b) => b.value - a.value);
+    const threshold = totalAssets * 0.015;
+    const major = sorted.filter((s) => s.value >= threshold);
+    const minor = sorted.filter((s) => s.value <  threshold);
+    const out = major.map((s) => ({ name: s.name, value: s.value }));
+    if (minor.length) {
+      const otherValue = minor.reduce((sum, s) => sum + s.value, 0);
+      if (otherValue > 0) out.push({ name: `Other (${minor.length})`, value: otherValue });
+    }
+    return out;
+  })();
 
   return (
     <div className="flex flex-col gap-8">
@@ -100,8 +114,45 @@ const AllocationsPage = () => {
           />
         )}
         {view === 'donut' && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
-            <Donut data={byCategory} size={280} thickness={36} />
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 'var(--s-6)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 'var(--s-4) 0',
+            }}
+          >
+            <Donut data={donutData} size={260} thickness={32} />
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', minWidth: 280, maxWidth: 420, flex: '1 1 280px' }}>
+              {donutData.map((d, i) => {
+                const pct = totalAssets > 0 ? (d.value / totalAssets) * 100 : 0;
+                return (
+                  <li key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', fontSize: 'var(--text-sm)' }}>
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 10,
+                        height: 10,
+                        borderRadius: 2,
+                        background: `var(--series-${(i % 8) + 1})`,
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span style={{ color: 'var(--fg)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {d.name}
+                    </span>
+                    <span className="num" style={{ color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
+                      {fmt(d.value)}
+                    </span>
+                    <span className="num" style={{ color: 'var(--fg-faint)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', width: 48, textAlign: 'right' }}>
+                      {pct.toFixed(1)}%
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
       </div>

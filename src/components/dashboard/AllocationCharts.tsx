@@ -1,33 +1,9 @@
-import { useState } from 'react';
+import { ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { Treemap } from '@/components/charts/Treemap';
-import { QTabs } from '@/components/ui/q-tabs';
 import { Snapshot, SourceDetail } from '@/lib/types';
-import { toTitleCase } from '@/lib/utils';
-
-type AllocView = 'category' | 'vol' | 'liq';
-
-const VIEW_OPTIONS: { value: AllocView; label: string }[] = [
-  { value: 'category', label: 'By category'   },
-  { value: 'vol',      label: 'By volatility' },
-  { value: 'liq',      label: 'By liquidity'  },
-];
-
-function aggregateBy(
-  sources: SourceDetail[],
-  keyFn: (s: SourceDetail) => string,
-): { id: string; name: string; value: number }[] {
-  const groups = new Map<string, number>();
-  sources.forEach((s) => {
-    const key = keyFn(s);
-    groups.set(key, (groups.get(key) || 0) + s.value);
-  });
-  return Array.from(groups.entries())
-    .filter(([, v]) => v > 0)
-    .map(([name, value]) => ({ id: name, name, value }))
-    .sort((a, b) => b.value - a.value);
-}
 
 function TopSourcesBars({
   sources,
@@ -88,27 +64,14 @@ interface AllocationChartsViewProps {
 }
 
 export function AllocationChartsView({ snapshots, fmt }: AllocationChartsViewProps) {
-  const [view, setView] = useState<AllocView>('category');
-
   if (!snapshots.length) return null;
 
   const latest = snapshots[snapshots.length - 1];
   const sources = latest.sources;
 
-  // Build treemap data based on view. "By category" = one cell per source,
-  // since SourceDetail has no separate category field — each source IS its
-  // own bucket from the user's spreadsheet perspective.
-  const treemapData = (() => {
-    if (view === 'category') {
-      return sources
-        .filter((s) => s.value > 0)
-        .map((s) => ({ id: s.name, name: s.name, value: Math.round(s.value) }));
-    }
-    if (view === 'vol') {
-      return aggregateBy(sources, (s) => toTitleCase(s.volatType));
-    }
-    return aggregateBy(sources, (s) => (s.isLiquid ? 'Liquid' : 'Non-liquid'));
-  })();
+  const treemapData = sources
+    .filter((s) => s.value > 0)
+    .map((s) => ({ id: s.name, name: s.name, value: Math.round(s.value) }));
 
   return (
     <div className="q-grid q-grid--allocation">
@@ -121,13 +84,20 @@ export function AllocationChartsView({ snapshots, fmt }: AllocationChartsViewPro
               Snapshot of {latest.date.toLocaleString('en', { month: 'long', year: 'numeric' })}
             </div>
           </div>
-          <QTabs<AllocView>
-            value={view}
-            onChange={setView}
-            options={VIEW_OPTIONS}
-            size="sm"
-            ariaLabel="Allocation grouping"
-          />
+          <Link
+            to="/allocations"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--s-1)',
+              fontSize: 'var(--text-sm)',
+              color: 'var(--accent-raw)',
+              textDecoration: 'none',
+            }}
+          >
+            View all
+            <ArrowRight size={14} aria-hidden="true" />
+          </Link>
         </div>
         <Treemap data={treemapData} height={320} fmt={fmt} />
       </div>
