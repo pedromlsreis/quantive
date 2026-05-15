@@ -14,7 +14,7 @@ interface YearRow {
 }
 
 export function YearlyEarnings() {
-  const { snapshots } = usePortfolio();
+  const { allSnapshots: snapshots } = usePortfolio();
   const { fmt, fmtFull, currency } = useCurrencyFormatter();
 
   if (snapshots.length < 2) return null;
