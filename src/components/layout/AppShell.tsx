@@ -3,9 +3,11 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PieChart, TrendingUp, Database, Settings,
   Plus, Menu, LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User, UserPlus,
+  Eye, EyeOff,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { usePreferences } from '@/contexts/PreferencesContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
@@ -329,6 +331,7 @@ function Topbar({
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isMockData } = usePortfolio();
+  const { privacyMode, setPrivacyMode } = usePreferences();
   const title = PAGE_TITLES[pathname] ?? 'Overview';
 
   return (
@@ -368,6 +371,17 @@ function Topbar({
 
       {/* Right-aligned actions */}
       <SyncIndicator />
+
+      <button
+        type="button"
+        onClick={() => setPrivacyMode(!privacyMode)}
+        className="q-icon-btn"
+        aria-label={privacyMode ? 'Show monetary values' : 'Hide monetary values'}
+        aria-pressed={privacyMode}
+        title={privacyMode ? 'Show values' : 'Hide values'}
+      >
+        {privacyMode ? <Eye size={16} /> : <EyeOff size={16} />}
+      </button>
 
       {/* Mobile-only sign-in button — shown only when signed out */}
       {!user && (

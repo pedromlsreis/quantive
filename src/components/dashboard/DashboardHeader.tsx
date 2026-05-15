@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { usePreferences } from '@/contexts/PreferencesContext';
-import { Upload, X, Download, Plus, MoreHorizontal, Eye, EyeOff } from 'lucide-react';
+import { Upload, X, Download, Plus, MoreHorizontal } from 'lucide-react';
 import { Wordmark } from '@/components/layout/Brand';
 import { format } from 'date-fns';
 import { HowToUse } from './HowToUse';
@@ -28,7 +27,6 @@ import {
 
 export function DashboardHeader() {
   const { data, clearData, loadFile, snapshots } = usePortfolio();
-  const { privacyMode, setPrivacyMode } = usePreferences();
   const inputRef = useRef<HTMLInputElement>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -70,17 +68,6 @@ export function DashboardHeader() {
       </a>
       <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2">
         <SyncIndicator />
-
-        <button
-          type="button"
-          onClick={() => setPrivacyMode(!privacyMode)}
-          className="q-icon-btn"
-          aria-label={privacyMode ? 'Show monetary values' : 'Hide monetary values'}
-          aria-pressed={privacyMode}
-          title={privacyMode ? 'Show values' : 'Hide values'}
-        >
-          {privacyMode ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-        </button>
 
         <button
           onClick={() => setAddModalOpen(true)}
