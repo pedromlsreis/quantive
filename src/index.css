@@ -557,6 +557,14 @@
 .q-topbar-crumb-sep { color: var(--fg-faint); font-size: 10px; }
 .q-topbar-crumb-active { color: var(--fg); }
 
+/* Intermediate breakpoint: phone-landscape and small tablets in portrait
+   still get the persistent sidebar, but the topbar can't comfortably fit
+   crumbs + search alongside the action cluster. Drop them here. */
+@media (max-width: 960px) {
+  .q-topbar-crumbs { display: none; }
+  .q-topbar-search { display: none; }
+}
+
 .q-content {
   padding: var(--s-8);
   max-width: 1680px; width: 100%; margin: 0 auto;
