@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
+  BASE_CURRENCY,
   CURRENCIES,
   CURRENCY_CODES,
   type CurrencyCode,
@@ -41,7 +42,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // localStorage may be disabled (e.g. private browsing); fall through to default.
     }
-    return 'EUR';
+    return BASE_CURRENCY;
   });
 
   // Avoid re-fetching the profile on every re-render once we've adopted it for this user.

@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePageMeta } from '@/hooks/usePageMeta';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
-import { CURRENCY_CODES } from '@/lib/currencies';
+import { BASE_CURRENCY, CURRENCY_CODES } from '@/lib/currencies';
 import { analytics } from '@/lib/analytics';
 import './landing.css';
 
@@ -37,14 +37,14 @@ const STRUCTURED_DATA = {
         {
           '@type': 'Offer',
           price: '0',
-          priceCurrency: 'EUR',
+          priceCurrency: BASE_CURRENCY,
           description:
             'Free forever — unlimited tracking, multi-currency, encrypted cloud sync',
         },
         {
           '@type': 'Offer',
           price: '90',
-          priceCurrency: 'EUR',
+          priceCurrency: BASE_CURRENCY,
           description:
             'Pro — full history, forecasting engine, Excel export, priority support',
         },

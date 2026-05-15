@@ -45,7 +45,7 @@ export function YearlyEarnings() {
     })
     .reverse();
 
-  const perDayLabel = currency.symbol === 'NOK' ? 'kr/day' : `${currency.symbol}/day`;
+  const perDayLabel = `${currency.symbol}/day`;
 
   return (
     <div className="q-card q-card--p-lg">
