@@ -63,6 +63,7 @@ interface TreemapProps {
 
 export function Treemap({ data, width = 700, height = 360, fmt }: TreemapProps) {
   const [hovered, setHovered] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
   const [mounted, setMounted] = useState(false);
 
   const sorted = useMemo(() => [...data].filter(d => d.value > 0).sort((a, b) => b.value - a.value), [data]);
@@ -74,6 +75,7 @@ export function Treemap({ data, width = 700, height = 360, fmt }: TreemapProps) 
   }, []);
 
   const total = sorted.reduce((s, d) => s + d.value, 0);
+  const hoveredCell = hovered ? layout.find((c) => (c.id ?? c.name) === hovered) : null;
 
   if (!sorted.length) return null;
 
@@ -87,7 +89,14 @@ export function Treemap({ data, width = 700, height = 360, fmt }: TreemapProps) 
         borderRadius: 'var(--r-3)',
         background: 'var(--bg)',
       }}
-      onMouseLeave={() => setHovered(null)}
+      onPointerLeave={() => { setHovered(null); setCursor(null); }}
+      onPointerMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setCursor({
+          x: ((e.clientX - rect.left) / rect.width) * 100,
+          y: ((e.clientY - rect.top) / rect.height) * 100,
+        });
+      }}
     >
       {layout.map((c) => {
         const key = c.id ?? c.name;
@@ -97,10 +106,15 @@ export function Treemap({ data, width = 700, height = 360, fmt }: TreemapProps) 
         const showLabel = c.w > 70 && c.h > 40;
         const showValue = c.w > 90 && c.h > 60;
 
+        const valueLabel = fmt ? fmt(c.value) : `${pct.toFixed(1)}%`;
+        const ariaLabel = `${c.name}: ${valueLabel} (${pct.toFixed(1)}% of total)`;
+
         return (
           <div
             key={key}
-            onMouseEnter={() => setHovered(key)}
+            role="img"
+            aria-label={ariaLabel}
+            onPointerEnter={() => setHovered(key)}
             style={{
               position: 'absolute',
               left: `${(c.x / width) * 100}%`,
@@ -157,13 +171,48 @@ export function Treemap({ data, width = 700, height = 360, fmt }: TreemapProps) 
                   fontFamily: 'var(--font-mono)',
                   fontVariantNumeric: 'tabular-nums',
                 }}>
-                  {fmt ? fmt(c.value) : `${pct.toFixed(1)}%`}
+                  {valueLabel}
                 </div>
               )}
             </div>
           </div>
         );
       })}
+
+      {hoveredCell && cursor && (() => {
+        const pct = (hoveredCell.value / total) * 100;
+        const valueLabel = fmt ? fmt(hoveredCell.value) : `${pct.toFixed(1)}%`;
+        const flipX = cursor.x > 70;
+        const flipY = cursor.y > 80;
+        return (
+          <div
+            role="tooltip"
+            style={{
+              position: 'absolute',
+              left: `${cursor.x}%`,
+              top: `${cursor.y}%`,
+              transform: `translate(${flipX ? 'calc(-100% - 12px)' : '12px'}, ${flipY ? 'calc(-100% - 12px)' : '12px'})`,
+              pointerEvents: 'none',
+              zIndex: 10,
+              background: 'var(--surface-1, oklch(18% 0.005 250))',
+              color: 'var(--fg, oklch(98% 0 0))',
+              border: '1px solid oklch(100% 0 0 / 0.08)',
+              borderRadius: 8,
+              padding: '8px 10px',
+              fontSize: 12,
+              lineHeight: 1.35,
+              boxShadow: '0 8px 24px oklch(0% 0 0 / 0.35)',
+              whiteSpace: 'nowrap',
+              maxWidth: 240,
+            }}
+          >
+            <div style={{ fontWeight: 500, marginBottom: 2 }}>{hoveredCell.name}</div>
+            <div style={{ color: 'var(--fg-muted, oklch(70% 0 0))', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+              {valueLabel} <span style={{ color: 'var(--fg-faint, oklch(55% 0 0))' }}>· {pct.toFixed(1)}%</span>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
