@@ -107,7 +107,7 @@ export default function SecurityPage() {
 
                 {/* Both KEKs unwrap the same DK */}
                 <div className="mt-2 text-muted-foreground text-center">
-                  ↓ both unwrap (XSalsa20) ↓
+                  ↓ both unwrap (XChaCha20-Poly1305) ↓
                 </div>
                 <div className="mt-1 flex flex-col items-center gap-1">
                   <div className="rounded border border-border bg-muted/30 px-3 py-1.5 text-center">
