@@ -9,7 +9,7 @@ const highlights = [
   {
     icon: <Plus className="h-4 w-4 text-primary" />,
     title: 'Start in seconds',
-    description: 'Add a measurement directly from the dashboard — no spreadsheet required. Already track in Excel? Import it instead.',
+    description: 'Add a measurement directly from the dashboard — no upload required. Already keep a spreadsheet? Import it instead.',
   },
   {
     icon: <BarChart3 className="h-4 w-4 text-primary" />,

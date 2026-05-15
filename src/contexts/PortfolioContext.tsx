@@ -365,7 +365,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       toast.success(`Loaded ${parsed.facts.length} records from ${file.name}`);
     } catch (e: unknown) {
       console.error('Failed to parse file:', e);
-      const msg = e instanceof Error ? e.message : 'Failed to parse Excel file. Check the format and try again.';
+      const msg = e instanceof Error ? e.message : 'Failed to parse spreadsheet. Check the format and try again.';
       const reason = !(e instanceof Error)
         ? 'unknown'
         : msg.includes('no sheets')

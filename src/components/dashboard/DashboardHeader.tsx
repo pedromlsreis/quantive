@@ -35,12 +35,19 @@ export function DashboardHeader() {
     ? format(snapshots[snapshots.length - 1].date, 'd MMM yyyy')
     : null;
 
-  const handleExport = async () => {
+  const handleExportExcel = async () => {
     if (!data) return;
     // exceljs is large; only load it when the user actually exports.
     const { exportPortfolioExcel } = await import('@/lib/exporter');
     const timestamp = format(new Date(), 'yyyy-MM-dd');
     await exportPortfolioExcel(data, `portfolio_${timestamp}.xlsx`);
+  };
+
+  const handleExportCsv = async () => {
+    if (!data) return;
+    const { exportPortfolioCsv } = await import('@/lib/exporter');
+    const timestamp = format(new Date(), 'yyyy-MM-dd');
+    exportPortfolioCsv(data, `portfolio_${timestamp}.csv`);
   };
 
   return (
@@ -84,9 +91,13 @@ export function DashboardHeader() {
           <DropdownMenuContent align="end" className="w-48">
             {data && (
               <>
-                <DropdownMenuItem onSelect={handleExport}>
+                <DropdownMenuItem onSelect={handleExportExcel}>
                   <Download className="mr-2 h-4 w-4" />
-                  Export
+                  Export to Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={handleExportCsv}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export to CSV
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
               </>
@@ -117,7 +128,7 @@ export function DashboardHeader() {
               <AlertDialogTitle>Clear all data?</AlertDialogTitle>
               <AlertDialogDescription>
                 This will permanently delete your portfolio data, including any cloud-synced
-                snapshots. You can always re-upload your Excel file to start fresh.
+                snapshots. You can always re-upload your spreadsheet to start fresh.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

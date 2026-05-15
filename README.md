@@ -39,7 +39,7 @@ The crypto module (`src/lib/crypto/`, 11 files) is pure TypeScript — no I/O, n
 - Net worth tracking with unlimited sources
 - Full allocation charts — by volatility class, liquidity, and source
 - Multi-currency display — 13 currencies (EUR, USD, GBP, NOK, SEK, DKK, CHF, CAD, AUD, JPY, PLN, BRL, INR); historical snapshots valued at the exchange rate of their original date, not today's rate
-- Excel import and manual balance entry
+- Spreadsheet import and manual balance entry
 - Cloud sync with end-to-end encryption
 - Rolling 12-month history view
 - Demo mode — full dashboard without signing up
@@ -47,7 +47,7 @@ The crypto module (`src/lib/crypto/`, 11 files) is pure TypeScript — no I/O, n
 **Pro (€9/month OR €90/year, ~€7.50/mo)**
 - Full historical view — every snapshot since you started, charted and tabular
 - CAGR-based net worth projection with 95% confidence intervals
-- Excel export — full data portability, any time
+- Excel/CSV export — full data portability, any time
 - Priority support
 
 ---

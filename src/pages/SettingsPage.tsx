@@ -80,7 +80,7 @@ export default function SettingsPage() {
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [submittingPassword, setSubmittingPassword] = useState(false);
 
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState<null | 'xlsx' | 'csv'>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -166,20 +166,24 @@ export default function SettingsPage() {
     }
   };
 
-  const handleExport = async () => {
+  const handleExport = async (fmt: 'xlsx' | 'csv') => {
     if (!data) {
       toast.error('No data to export.');
       return;
     }
-    setExporting(true);
+    setExporting(fmt);
     try {
-      const { exportPortfolioExcel } = await import('@/lib/exporter');
       const timestamp = format(new Date(), 'yyyy-MM-dd');
-      await exportPortfolioExcel(data, `portfolio_${timestamp}.xlsx`);
+      const exporter = await import('@/lib/exporter');
+      if (fmt === 'xlsx') {
+        await exporter.exportPortfolioExcel(data, `portfolio_${timestamp}.xlsx`);
+      } else {
+        exporter.exportPortfolioCsv(data, `portfolio_${timestamp}.csv`);
+      }
     } catch {
       toast.error('Export failed.');
     } finally {
-      setExporting(false);
+      setExporting(null);
     }
   };
 
@@ -395,21 +399,34 @@ export default function SettingsPage() {
         </div>
         <div style={prefRow}>
           <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>Export to Excel</p>
+            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>Export your data</p>
             <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-              Download a full workbook of your snapshots and per-source values.
+              Excel preserves the full workbook (snapshots, per-source values, reference metadata).
+              CSV flattens the facts sheet for spreadsheets, notebooks, and scripts.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={!data || exporting}
-            className="q-btn q-btn--secondary q-btn--sm"
-            style={{ flexShrink: 0, opacity: !data || exporting ? 0.5 : 1 }}
-          >
-            <Download className="h-3.5 w-3.5" />
-            {exporting ? 'Exporting…' : 'Export'}
-          </button>
+          <div style={{ display: 'flex', gap: 'var(--s-2)', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => handleExport('xlsx')}
+              disabled={!data || exporting !== null}
+              className="q-btn q-btn--secondary q-btn--sm"
+              style={{ opacity: !data || exporting !== null ? 0.5 : 1 }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {exporting === 'xlsx' ? 'Exporting…' : 'Excel'}
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExport('csv')}
+              disabled={!data || exporting !== null}
+              className="q-btn q-btn--secondary q-btn--sm"
+              style={{ opacity: !data || exporting !== null ? 0.5 : 1 }}
+            >
+              <Download className="h-3.5 w-3.5" />
+              {exporting === 'csv' ? 'Exporting…' : 'CSV'}
+            </button>
+          </div>
         </div>
       </section>
 

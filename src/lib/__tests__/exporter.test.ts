@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { downloadExcelTemplate } from '@/lib/templateGenerator';
-import { exportPortfolioExcel } from '@/lib/exporter';
+import {
+  buildPortfolioCsv,
+  exportPortfolioCsv,
+  exportPortfolioExcel,
+} from '@/lib/exporter';
 import type { PortfolioData } from '@/lib/types';
 
 // Mock the DOM download mechanism
@@ -63,6 +67,76 @@ describe('exportPortfolioExcel', () => {
     const mock = mockDownload();
     await exportPortfolioExcel(sampleData, 'custom.xlsx');
     expect(mock.clicks).toContain('custom.xlsx');
+    mock.restore();
+  });
+});
+
+describe('buildPortfolioCsv', () => {
+  it('emits a header row followed by one row per fact', () => {
+    const csv = buildPortfolioCsv({
+      facts: [
+        { date: new Date(2024, 0, 1), idSource: 'Savings', sourceVl: 10000, currency: 'EUR' },
+        { date: new Date(2024, 1, 15), idSource: 'Savings', sourceVl: 10500.5, currency: 'EUR' },
+      ],
+      refSources: [],
+    });
+    expect(csv).toBe(
+      'DATE,ID_SOURCE,SOURCE_VL,CURRENCY\r\n' +
+      '2024-01-01,Savings,10000,EUR\r\n' +
+      '2024-02-15,Savings,10500.5,EUR',
+    );
+  });
+
+  it('emits only the header when there are no facts', () => {
+    const csv = buildPortfolioCsv({ facts: [], refSources: [] });
+    expect(csv).toBe('DATE,ID_SOURCE,SOURCE_VL,CURRENCY');
+  });
+
+  it('quotes source names containing commas, quotes, or newlines (RFC 4180)', () => {
+    const csv = buildPortfolioCsv({
+      facts: [
+        { date: new Date(2024, 0, 1), idSource: 'Acme, Inc.', sourceVl: 1, currency: 'EUR' },
+        { date: new Date(2024, 0, 2), idSource: 'He said "hi"', sourceVl: 2, currency: 'EUR' },
+        { date: new Date(2024, 0, 3), idSource: 'line1\nline2', sourceVl: 3, currency: 'EUR' },
+      ],
+      refSources: [],
+    });
+    const rows = csv.split('\r\n');
+    expect(rows[1]).toBe('2024-01-01,"Acme, Inc.",1,EUR');
+    expect(rows[2]).toBe('2024-01-02,"He said ""hi""",2,EUR');
+    expect(rows[3]).toBe('2024-01-03,"line1\nline2",3,EUR');
+  });
+
+  it('renders numbers as plain digits without thousand separators', () => {
+    const csv = buildPortfolioCsv({
+      facts: [
+        { date: new Date(2024, 0, 1), idSource: 'A', sourceVl: 1234567.89, currency: 'USD' },
+      ],
+      refSources: [],
+    });
+    expect(csv).toContain(',1234567.89,');
+  });
+});
+
+describe('exportPortfolioCsv', () => {
+  const sampleData: PortfolioData = {
+    facts: [
+      { date: new Date(2024, 0, 1), idSource: 'Savings', sourceVl: 10000, currency: 'EUR' },
+    ],
+    refSources: [],
+  };
+
+  it('triggers a download with the default filename', () => {
+    const mock = mockDownload();
+    exportPortfolioCsv(sampleData);
+    expect(mock.clicks).toContain('portfolio_export.csv');
+    mock.restore();
+  });
+
+  it('uses a custom filename when provided', () => {
+    const mock = mockDownload();
+    exportPortfolioCsv(sampleData, 'custom.csv');
+    expect(mock.clicks).toContain('custom.csv');
     mock.restore();
   });
 });

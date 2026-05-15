@@ -46,7 +46,7 @@ const STRUCTURED_DATA = {
           price: '90',
           priceCurrency: BASE_CURRENCY,
           description:
-            'Pro — full history, forecasting engine, Excel export, priority support',
+            'Pro — full history, forecasting engine, Excel/CSV export, priority support',
         },
       ],
     },
@@ -82,7 +82,7 @@ const STRUCTURED_DATA = {
           name: 'Does Quantive connect to my bank?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually or import them from an existing Excel spreadsheet.',
+            text: 'No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually or import them from an existing spreadsheet.',
           },
         },
         {
@@ -90,7 +90,7 @@ const STRUCTURED_DATA = {
           name: 'Can I import my existing spreadsheet?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Yes. Excel import is included in the free plan. Upload your spreadsheet and your historical balance data is preserved in the app.',
+            text: 'Yes. Spreadsheet import is included in the free plan. Upload your spreadsheet and your historical balance data is preserved in the app.',
           },
         },
         {
@@ -106,7 +106,7 @@ const STRUCTURED_DATA = {
           name: 'What is included in Quantive Pro?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, Excel export, and priority support. Milestone tracking, benchmark comparisons (S&P 500, MSCI World, inflation), and a PDF wealth report are in development and will be included as they ship.',
+            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, Excel and CSV export, and priority support. Milestone tracking, benchmark comparisons (S&P 500, MSCI World, inflation), and a PDF wealth report are in development and will be included as they ship.',
           },
         },
         {
@@ -138,11 +138,11 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Does Quantive connect to my bank?',
-    a: 'No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually from the dashboard, or import them from an existing Excel spreadsheet.',
+    a: 'No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually from the dashboard, or import them from an existing spreadsheet.',
   },
   {
     q: 'Can I import my existing spreadsheet?',
-    a: 'Yes — Excel import is included in the free plan. Upload your existing spreadsheet and your historical balance data is preserved in Quantive.',
+    a: 'Yes — spreadsheet import is included in the free plan. Upload your existing spreadsheet and your historical balance data is preserved in Quantive.',
   },
   {
     q: 'What currencies does Quantive support?',
@@ -150,7 +150,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "What's included in Quantive Pro?",
-    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, and Excel export. Milestone and goal tracking, benchmark comparisons (vs. S&P 500, MSCI World, inflation), and a PDF wealth report are in development and will be included as they ship. Priority support is included.',
+    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, and Excel and CSV export. Milestone and goal tracking, benchmark comparisons (vs. S&P 500, MSCI World, inflation), and a PDF wealth report are in development and will be included as they ship. Priority support is included.',
   },
   {
     q: 'What if I lose access to my account?',
@@ -395,7 +395,7 @@ export default function LandingPage() {
         <span className="lp-trust-sep" aria-hidden="true">·</span>
         <span className="lp-trust-item" role="listitem">Free forever — no credit card</span>
         <span className="lp-trust-sep" aria-hidden="true">·</span>
-        <span className="lp-trust-item" role="listitem">Excel import included</span>
+        <span className="lp-trust-item" role="listitem">Spreadsheet import included</span>
         <span className="lp-trust-sep" aria-hidden="true">·</span>
         <span className="lp-trust-item" role="listitem">{SUPPORTED_COUNT} display currencies</span>
       </div>
@@ -469,7 +469,7 @@ export default function LandingPage() {
               <div className="lp-step-eyebrow">STEP 01</div>
               <h3 className="lp-step-title">Add a measurement</h3>
               <p className="lp-step-desc">
-                Record balances directly from the dashboard. Already tracking in Excel? Import it instead — your full history comes with it, no data entry required.
+                Record balances directly from the dashboard. Already tracking in a spreadsheet? Import it instead — your full history comes with it, no data entry required.
               </p>
             </div>
           </div>
@@ -537,7 +537,7 @@ export default function LandingPage() {
               <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.download}</div>
               <div className="lp-privacy-title">Your data, your way</div>
               <p className="lp-privacy-desc">
-                Import your existing spreadsheet for free. Excel export comes with Pro. Your data is never held hostage.
+                Import your existing spreadsheet for free. Excel and CSV export come with Pro. Your data is never held hostage.
               </p>
             </div>
           </div>
@@ -620,7 +620,7 @@ export default function LandingPage() {
               <li><span className="lp-price-check">✓</span>Net worth tracking — unlimited sources</li>
               <li><span className="lp-price-check">✓</span>Allocation charts (volatility &amp; liquidity)</li>
               <li><span className="lp-price-check">✓</span>Multi-currency display ({SUPPORTED_COUNT} currencies)</li>
-              <li><span className="lp-price-check">✓</span>Excel import</li>
+              <li><span className="lp-price-check">✓</span>Spreadsheet import</li>
               <li><span className="lp-price-check">✓</span>End-to-end encrypted cloud sync</li>
               <li><span className="lp-price-check">✓</span>Rolling 12-month history view</li>
             </ul>
@@ -657,7 +657,7 @@ export default function LandingPage() {
                 <span className="lp-price-soon">In development</span>
               </li>
               <li className="lp-price-sec-head">Get your data out</li>
-              <li><span className="lp-price-check">✓</span>Excel export</li>
+              <li><span className="lp-price-check">✓</span>Excel/CSV export</li>
               <li>
                 <span className="lp-price-check">✓</span>
                 PDF wealth report — for advisors or annual review

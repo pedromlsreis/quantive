@@ -37,7 +37,7 @@ export default function PricingPage() {
                 'Net worth tracking with unlimited sources',
                 'Allocation charts (volatility & liquidity)',
                 `Multi-currency display (${CURRENCY_CODES.length} currencies)`,
-                'Excel import',
+                'Spreadsheet import',
                 'Manual balance entry',
                 'End-to-end encrypted cloud sync',
                 'Rolling 12-month history view',
@@ -111,7 +111,7 @@ export default function PricingPage() {
                 <ul className="mt-2 space-y-2">
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>Excel export</span>
+                    <span>Excel/CSV export</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>

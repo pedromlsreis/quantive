@@ -1,10 +1,11 @@
 /**
  * @module exporter
- * Exports PortfolioData back to an .xlsx file matching the original template
- * structure, enabling a lossless upload → explore → export round-trip.
+ * Exports PortfolioData back to an .xlsx workbook (lossless round-trip) or a
+ * .csv flattening of the facts sheet (for spreadsheets, notebooks, and scripts).
  */
 
 import ExcelJS from 'exceljs';
+import { format } from 'date-fns';
 import type { PortfolioData } from './types';
 
 /**
@@ -64,6 +65,57 @@ export async function exportPortfolioExcel(
   const blob = new Blob([buf], {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
+  triggerDownload(blob, filename);
+}
+
+const CSV_HEADERS = ['DATE', 'ID_SOURCE', 'SOURCE_VL', 'CURRENCY'] as const;
+
+function csvEscape(value: string): string {
+  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
+/**
+ * Build a CSV string for the facts sheet. RFC 4180: comma-delimited, CRLF row
+ * terminator, double-quote escaping for values containing commas, quotes, or
+ * line breaks. Dates render as ISO `yyyy-MM-dd` and values as plain numbers
+ * without thousand separators so the file imports cleanly into pandas, R, and
+ * Google Sheets. Pure function — no DOM, no I/O.
+ */
+export function buildPortfolioCsv(data: PortfolioData): string {
+  const lines: string[] = [CSV_HEADERS.join(',')];
+  for (const f of data.facts) {
+    lines.push([
+      format(f.date, 'yyyy-MM-dd'),
+      csvEscape(f.idSource),
+      String(f.sourceVl),
+      f.currency,
+    ].join(','));
+  }
+  return lines.join('\r\n');
+}
+
+/**
+ * Export the current portfolio facts as a `.csv` file download.
+ *
+ * Single sheet, RFC 4180. Columns match the Excel facts sheet:
+ * DATE, ID_SOURCE, SOURCE_VL, CURRENCY. A UTF-8 BOM is prepended so Excel
+ * opens non-ASCII source names (e.g. "Caixa Geral") without mojibake; pandas,
+ * R, and Google Sheets all strip the BOM transparently.
+ *
+ * @param data - The portfolio data to export.
+ * @param filename - Download filename (default: "portfolio_export.csv").
+ */
+export function exportPortfolioCsv(
+  data: PortfolioData,
+  filename = 'portfolio_export.csv',
+): void {
+  const blob = new Blob(['﻿', buildPortfolioCsv(data)], {
+    type: 'text/csv;charset=utf-8',
+  });
+  triggerDownload(blob, filename);
+}
+
+function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
