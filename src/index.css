@@ -564,6 +564,13 @@
   justify-content: flex-start;
 }
 
+.q-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-left: auto;
+}
+
 /* Intermediate breakpoint: phone-landscape and small tablets in portrait
    still get the persistent sidebar, but the topbar can't comfortably fit
    crumbs + search alongside the action cluster. Drop them here. */
