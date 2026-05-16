@@ -10,7 +10,7 @@ Lützowstraße 31
 40476 Düsseldorf  
 Germany
 
-**Email:** <hello@usequantive.app>  
+**Email:** <legal@usequantive.app>  
 We respond to email enquiries within 1 business day (Mon–Fri, excluding public holidays in NRW, Germany).
 
 **Kleinunternehmer:** As a small business under § 19 UStG, no VAT is charged and no VAT identification number (USt-IdNr.) is currently issued.

@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { analytics } from "@/lib/analytics";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ConsentBanner } from "@/components/ConsentBanner";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { KeySessionProvider } from "@/contexts/KeySessionContext";
@@ -106,6 +107,7 @@ const App = () => (
                   <RequireUnlock />
                   <RecoveryOfferModal />
                   <AppRoutes />
+                  <ConsentBanner />
                 </BrowserRouter>
               </PortfolioProvider>
               </PreferencesProvider>

@@ -16,7 +16,7 @@ export default function TermsOfService() {
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-20">
         <h1 className="mb-2 text-3xl font-bold text-foreground">Terms of Service</h1>
-        <p className="mb-10 text-sm text-muted-foreground">Last updated: May 6, 2026</p>
+        <p className="mb-10 text-sm text-muted-foreground">Last updated: May 17, 2026</p>
 
         <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_strong]:text-foreground">
           <h2>1. Acceptance of Terms</h2>
@@ -74,12 +74,139 @@ export default function TermsOfService() {
           <p>
             If you wish to exercise your right of withdrawal before the Service has started,
             notify us in writing at{' '}
-            <a href="mailto:hello@usequantive.app" className="text-primary hover:underline">
-              hello@usequantive.app
+            <a href="mailto:legal@usequantive.app" className="text-primary hover:underline">
+              legal@usequantive.app
             </a>{' '}
             within the 14-day period. Upon a valid withdrawal, we will refund all payments
             received from you without undue delay.
           </p>
+
+          <h3 className="mt-6 text-base font-semibold text-foreground">
+            Widerrufsbelehrung (statutory model — German, legally binding)
+          </h3>
+          <p lang="de">
+            <strong>Widerrufsrecht.</strong> Sie haben das Recht, binnen vierzehn Tagen ohne
+            Angabe von Gründen diesen Vertrag zu widerrufen. Die Widerrufsfrist beträgt
+            vierzehn Tage ab dem Tag des Vertragsabschlusses.
+          </p>
+          <p lang="de">
+            Um Ihr Widerrufsrecht auszuüben, müssen Sie uns (Pedro Miguel Lima de Sousa Reis,
+            Lützowstraße 31, 40476 Düsseldorf, Deutschland,{' '}
+            <a href="mailto:legal@usequantive.app" className="text-primary hover:underline">
+              legal@usequantive.app
+            </a>
+            ) mittels einer eindeutigen Erklärung (z. B. ein mit der Post versandter Brief
+            oder eine E-Mail) über Ihren Entschluss, diesen Vertrag zu widerrufen,
+            informieren. Sie können dafür das nachstehende Muster-Widerrufsformular
+            verwenden, das jedoch nicht vorgeschrieben ist.
+          </p>
+          <p lang="de">
+            Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung über die
+            Ausübung des Widerrufsrechts vor Ablauf der Widerrufsfrist absenden.
+          </p>
+          <p lang="de">
+            <strong>Folgen des Widerrufs.</strong> Wenn Sie diesen Vertrag widerrufen, haben
+            wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, unverzüglich und
+            spätestens binnen vierzehn Tagen ab dem Tag zurückzuzahlen, an dem die
+            Mitteilung über Ihren Widerruf dieses Vertrags bei uns eingegangen ist. Für
+            diese Rückzahlung verwenden wir dasselbe Zahlungsmittel, das Sie bei der
+            ursprünglichen Transaktion eingesetzt haben, es sei denn, mit Ihnen wurde
+            ausdrücklich etwas anderes vereinbart; in keinem Fall werden Ihnen wegen dieser
+            Rückzahlung Entgelte berechnet.
+          </p>
+
+          <h3 className="mt-6 text-base font-semibold text-foreground">
+            Withdrawal instructions (non-binding English translation)
+          </h3>
+          <p>
+            You have the right to withdraw from this contract within 14 days without giving
+            any reason. The withdrawal period is 14 days from the day on which the contract
+            is concluded.
+          </p>
+          <p>
+            To exercise your right of withdrawal, you must inform us (Pedro Miguel Lima de
+            Sousa Reis, Lützowstraße 31, 40476 Düsseldorf, Germany,{' '}
+            <a href="mailto:legal@usequantive.app" className="text-primary hover:underline">
+              legal@usequantive.app
+            </a>
+            ) by a clear statement (for example, a letter sent by post or an email) of your
+            decision to withdraw from this contract. You may use the model withdrawal form
+            below, but it is not mandatory.
+          </p>
+          <p>
+            To meet the withdrawal deadline, it is sufficient that you send your
+            communication concerning the exercise of the right of withdrawal before the
+            withdrawal period has expired.
+          </p>
+          <p>
+            <strong>Consequences of withdrawal.</strong> If you withdraw from this contract,
+            we will reimburse all payments received from you without undue delay and no later
+            than 14 days from the day on which we are informed of your decision. We will use
+            the same means of payment that you used for the original transaction, unless
+            expressly agreed otherwise; in no case will you be charged any fees for this
+            reimbursement.
+          </p>
+
+          <h3 className="mt-6 text-base font-semibold text-foreground">
+            Muster-Widerrufsformular (German, legally binding)
+          </h3>
+          <p lang="de" className="italic">
+            (Wenn Sie den Vertrag widerrufen wollen, dann füllen Sie bitte dieses Formular
+            aus und senden Sie es zurück.)
+          </p>
+          <ul lang="de" className="list-none space-y-1 pl-0">
+            <li>
+              — An Pedro Miguel Lima de Sousa Reis, Lützowstraße 31, 40476 Düsseldorf,
+              Deutschland,{' '}
+              <a href="mailto:legal@usequantive.app" className="text-primary hover:underline">
+                legal@usequantive.app
+              </a>
+              :
+            </li>
+            <li>
+              — Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag
+              über die Erbringung der folgenden Dienstleistung (*):
+            </li>
+            <li>— Bestellt am (*) / erhalten am (*):</li>
+            <li>— Name des/der Verbraucher(s):</li>
+            <li>— Anschrift des/der Verbraucher(s):</li>
+            <li>
+              — Unterschrift des/der Verbraucher(s) (nur bei Mitteilung auf Papier):
+            </li>
+            <li>— Datum:</li>
+          </ul>
+          <p lang="de" className="italic text-xs">
+            (*) Unzutreffendes streichen.
+          </p>
+
+          <h3 className="mt-6 text-base font-semibold text-foreground">
+            Model withdrawal form (non-binding English translation)
+          </h3>
+          <p className="italic">
+            (Complete and return this form only if you wish to withdraw from the contract.)
+          </p>
+          <ul className="list-none space-y-1 pl-0">
+            <li>
+              — To Pedro Miguel Lima de Sousa Reis, Lützowstraße 31, 40476 Düsseldorf,
+              Germany,{' '}
+              <a href="mailto:legal@usequantive.app" className="text-primary hover:underline">
+                legal@usequantive.app
+              </a>
+              :
+            </li>
+            <li>
+              — I/We (*) hereby give notice that I/we (*) withdraw from my/our (*) contract
+              for the provision of the following service (*):
+            </li>
+            <li>— Ordered on (*) / received on (*):</li>
+            <li>— Name of consumer(s):</li>
+            <li>— Address of consumer(s):</li>
+            <li>
+              — Signature of consumer(s) (only if this form is notified on paper):
+            </li>
+            <li>— Date:</li>
+          </ul>
+          <p className="italic text-xs">(*) Delete as appropriate.</p>
 
           <h2>7. Data Ownership</h2>
           <p>
@@ -121,16 +248,23 @@ export default function TermsOfService() {
             The place of jurisdiction is Düsseldorf, Germany.
           </p>
 
-          <h2>13. Contact</h2>
+          <h2>13. Consumer dispute resolution (§ 36 VSBG)</h2>
+          <p>
+            We are neither obliged nor willing to participate in alternative dispute
+            resolution before a consumer arbitration board (Verbraucherschlichtungsstelle)
+            under § 36 VSBG.
+          </p>
+
+          <h2>14. Contact</h2>
           <p>
             For questions about these Terms of Service, contact us at{' '}
             <a
-              href="mailto:hello@usequantive.app"
+              href="mailto:legal@usequantive.app"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              hello@usequantive.app
+              legal@usequantive.app
             </a>.
           </p>
         </div>

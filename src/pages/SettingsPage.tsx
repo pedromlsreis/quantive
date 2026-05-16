@@ -26,7 +26,9 @@ import {
   Download,
   Database,
   CreditCard,
+  BarChart3,
 } from 'lucide-react';
+import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/lib/consent';
 import { Link } from 'react-router-dom';
 import { resolvePlan } from '@/lib/billing/plans';
 import { toast } from 'sonner';
@@ -110,6 +112,9 @@ export default function SettingsPage() {
   const [provisioningRecovery, setProvisioningRecovery] = useState(false);
 
   const [changingPassword, setChangingPassword] = useState(false);
+
+  const [analyticsConsent, setAnalyticsConsent] = useState<ConsentState>(() => getConsent());
+  useEffect(() => subscribeConsent(setAnalyticsConsent), []);
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
   const [submittingPassword, setSubmittingPassword] = useState(false);
@@ -442,6 +447,29 @@ export default function SettingsPage() {
               onClick={() => setPrivacyMode(!privacyMode)}
               aria-checked={privacyMode}
               aria-label="Privacy mode"
+              role="switch"
+            >
+              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
+            </button>
+          </div>
+
+          {/* Anonymous analytics */}
+          <div className={PREF_ROW_CLASS}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Anonymous analytics</span>
+              </div>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
+                Share anonymous page views and feature usage with us via PostHog. No financial data, no email addresses, no cross-site tracking. Off by default.
+              </p>
+            </div>
+            <button
+              type="button"
+              className={`q-toggle${analyticsConsent === 'granted' ? ' is-on' : ''}`}
+              onClick={() => setConsent(analyticsConsent === 'granted' ? 'denied' : 'granted')}
+              aria-checked={analyticsConsent === 'granted'}
+              aria-label="Anonymous analytics"
               role="switch"
             >
               <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>

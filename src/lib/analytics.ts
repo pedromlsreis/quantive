@@ -1,9 +1,12 @@
 import posthog from 'posthog-js';
+import { getConsent, subscribeConsent } from './consent';
 
 const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) ?? 'https://eu.i.posthog.com';
 
 const ATTRIBUTION_STORAGE_KEY = 'quantive_utm';
+
+let posthogInitialised = false;
 const UTM_PARAM_NAMES = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
 
 type UtmParam = (typeof UTM_PARAM_NAMES)[number];
@@ -48,11 +51,10 @@ export function clearAttribution(): void {
   }
 }
 
-export function initAnalytics(): void {
+function bootPosthog(): void {
   if (typeof window === 'undefined') return;
   if (!KEY) return;
-
-  captureAttribution();
+  if (posthogInitialised) return;
 
   posthog.init(KEY, {
     api_host: HOST,
@@ -62,10 +64,43 @@ export function initAnalytics(): void {
     disable_session_recording: true,
     persistence: 'localStorage',
   });
+  posthogInitialised = true;
 }
+
+/**
+ * Capture UTM parameters into localStorage as soon as the page loads. This is
+ * first-party-only metadata about which of our own outbound links the user
+ * followed — no third-party network call, no identifier. It is needed before
+ * any consent decision so we don't lose attribution if the user lands and
+ * declines analytics; the data simply stays unused.
+ *
+ * Boot PostHog only if the user has previously granted consent. If they
+ * decline or haven't decided yet, this is a no-op until consent flips.
+ */
+export function initAnalytics(): void {
+  if (typeof window === 'undefined') return;
+  captureAttribution();
+  if (getConsent() === 'granted') bootPosthog();
+}
+
+// React to consent changes within this tab.
+subscribeConsent((state) => {
+  if (state === 'granted') {
+    bootPosthog();
+    if (posthogInitialised) posthog.opt_in_capturing();
+  } else if (state === 'denied') {
+    if (posthogInitialised) {
+      posthog.opt_out_capturing();
+      posthog.reset();
+    }
+  }
+});
 
 function capture(event: string, props?: Record<string, unknown>): void {
   if (typeof window === 'undefined' || !KEY) return;
+  if (getConsent() !== 'granted') return;
+  if (!posthogInitialised) bootPosthog();
+  if (!posthogInitialised) return;
   const attribution = getAttribution();
   posthog.capture(event, { ...attribution, ...props });
 }
@@ -93,8 +128,10 @@ export const analytics = {
   },
   signedOut(): void {
     capture('signed_out');
-    if (typeof window !== 'undefined' && KEY) {
+    if (typeof window !== 'undefined' && KEY && posthogInitialised) {
       posthog.reset();
+      clearAttribution();
+    } else {
       clearAttribution();
     }
   },

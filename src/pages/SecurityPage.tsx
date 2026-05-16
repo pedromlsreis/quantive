@@ -307,6 +307,26 @@ export default function SecurityPage() {
             </ul>
           </section>
 
+          {/* Accessibility */}
+          <section className="rounded-xl border border-border bg-card/50 p-5">
+            <h2 className="mb-2 text-sm font-semibold text-foreground">
+              Accessibility
+            </h2>
+            <p className="text-xs">
+              Quantive aims to follow WCAG 2.1 AA accessibility best practices. As a
+              micro-business under EU criteria, we are not subject to formal
+              accessibility-conformance reporting requirements, but we treat accessibility
+              as a baseline quality bar. If you encounter an issue, please email{' '}
+              <a
+                href="mailto:legal@usequantive.app"
+                className="text-primary hover:underline"
+              >
+                legal@usequantive.app
+              </a>
+              .
+            </p>
+          </section>
+
           {/* Legal stuff */}
           <section className="rounded-xl border border-border bg-card/50 p-5">
             <h2 className="mb-2 text-sm font-semibold text-foreground">

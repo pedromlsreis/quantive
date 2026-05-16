@@ -2,7 +2,7 @@
 
 # Privacy Policy
 
-_Last updated: May 16, 2026_
+_Last updated: May 17, 2026_
 
 ## 1. Introduction
 
@@ -60,9 +60,11 @@ You have the right to:
 
 ## 8. Cookies & local storage
 
-We use essential cookies only for authentication and session management. We do not use advertising cookies, third-party tracking cookies, or cross-site tracking of any kind.
+We use **essential** cookies and localStorage entries only for authentication, session management, and remembering your in-app preferences (display currency, number format, privacy mode). We do not use advertising cookies, third-party tracking cookies, or cross-site tracking of any kind.
 
-PostHog (see §5) stores an anonymous identifier in your browser's **localStorage** — not in a cookie — so events from the same browser can be grouped without us knowing who you are. This identifier is cleared when you sign out and can be cleared at any time by clearing your browser's site data for usequantive.app. Campaign-attribution labels (see §2) are stored in localStorage under the same lifecycle.
+**Anonymous analytics (opt-in).** PostHog (see §5) is loaded _only_ if you explicitly grant consent via the banner shown on your first visit. If you decline — or simply dismiss the banner without choosing — PostHog is never loaded and no analytics identifier is written to your browser. If you grant consent, PostHog stores an anonymous identifier in **localStorage** (not in a cookie) so events from the same browser can be grouped without us knowing who you are.
+
+You can change your choice at any time from Settings → Preferences → Anonymous analytics. Withdrawing consent immediately stops further capture, resets the PostHog identifier, and clears it from localStorage on your next page interaction. Campaign-attribution labels (see §2) are stored in localStorage under the same lifecycle as your consent.
 
 ## 9. Changes to This Policy
 
@@ -70,4 +72,4 @@ We may update this policy from time to time. We will notify you of significant c
 
 ## 10. Contact
 
-For questions about this Privacy Policy, contact us at <hello@usequantive.app>.
+For questions about this Privacy Policy, or to exercise your rights under §7, contact us at <legal@usequantive.app>.

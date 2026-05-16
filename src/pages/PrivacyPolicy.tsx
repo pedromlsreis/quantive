@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-20">
         <h1 className="mb-2 text-3xl font-bold text-foreground">Privacy Policy</h1>
-        <p className="mb-10 text-sm text-muted-foreground">Last updated: May 16, 2026</p>
+        <p className="mb-10 text-sm text-muted-foreground">Last updated: May 17, 2026</p>
 
         <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_strong]:text-foreground">
           <h2>1. Introduction</h2>
@@ -90,10 +90,27 @@ export default function PrivacyPolicy() {
 
           <h2>8. Cookies & local storage</h2>
           <p>
-            We use essential cookies only for authentication and session management. We do not use advertising cookies, third-party tracking cookies, or cross-site tracking of any kind.
+            We use <strong>essential</strong> cookies and localStorage entries only for
+            authentication, session management, and remembering your in-app preferences
+            (display currency, number format, privacy mode). We do not use advertising
+            cookies, third-party tracking cookies, or cross-site tracking of any kind.
           </p>
           <p>
-            PostHog (see §5) stores an anonymous identifier in your browser's <strong>localStorage</strong> — not in a cookie — so events from the same browser can be grouped without us knowing who you are. This identifier is cleared when you sign out and can be cleared at any time by clearing your browser's site data for usequantive.app.
+            <strong>Anonymous analytics (opt-in).</strong> PostHog (see §5) is loaded
+            <em> only</em> if you explicitly grant consent via the banner shown on your
+            first visit. If you decline — or simply dismiss the banner without choosing —
+            PostHog is never loaded and no analytics identifier is written to your
+            browser. If you grant consent, PostHog stores an anonymous identifier in
+            <strong> localStorage</strong> (not in a cookie) so events from the same
+            browser can be grouped without us knowing who you are.
+          </p>
+          <p>
+            You can change your choice at any time from{' '}
+            <Link to="/settings" className="text-primary hover:underline">
+              Settings → Preferences → Anonymous analytics
+            </Link>
+            . Withdrawing consent immediately stops further capture, resets the PostHog
+            identifier, and clears it from localStorage on your next page interaction.
           </p>
 
           <h2>9. Changes to This Policy</h2>
@@ -104,14 +121,14 @@ export default function PrivacyPolicy() {
 
           <h2>10. Contact</h2>
           <p>
-            For questions about this Privacy Policy, contact us at{' '}
+            For questions about this Privacy Policy, or to exercise your rights under §7, contact us at{' '}
             <a
-              href="mailto:hello@usequantive.app"
+              href="mailto:legal@usequantive.app"
               target="_blank"
               rel="noopener noreferrer"
               className="text-primary hover:underline"
             >
-              hello@usequantive.app
+              legal@usequantive.app
             </a>.
           </p>
         </div>

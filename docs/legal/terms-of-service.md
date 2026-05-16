@@ -1,6 +1,6 @@
 # Terms of Service
 
-_Last updated: May 6, 2026_
+_Last updated: May 17, 2026_
 
 ## 1. Acceptance of Terms
 
@@ -37,7 +37,67 @@ If you are a consumer within the European Union, you have the right to withdraw 
 
 **Waiver of the right of withdrawal for digital services:** By completing your subscription purchase, you expressly request that we begin providing the Service immediately. You acknowledge that you thereby lose your right of withdrawal once performance of the Service has begun.
 
-If you wish to exercise your right of withdrawal before the Service has started, notify us in writing at <hello@usequantive.app> within the 14-day period. Upon a valid withdrawal, we will refund all payments received from you without undue delay.
+If you wish to exercise your right of withdrawal before the Service has started, notify us in writing at <legal@usequantive.app> within the 14-day period. Upon a valid withdrawal, we will refund all payments received from you without undue delay.
+
+### Widerrufsbelehrung (statutory model — German, legally binding)
+
+**Widerrufsrecht.** Sie haben das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsabschlusses.
+
+Um Ihr Widerrufsrecht auszuüben, müssen Sie uns (Pedro Miguel Lima de Sousa Reis, Lützowstraße 31, 40476 Düsseldorf, Deutschland, <legal@usequantive.app>) mittels einer eindeutigen Erklärung (z. B. ein mit der Post versandter Brief oder eine E-Mail) über Ihren Entschluss, diesen Vertrag zu widerrufen, informieren. Sie können dafür das nachstehende Muster-Widerrufsformular verwenden, das jedoch nicht vorgeschrieben ist.
+
+Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung über die Ausübung des Widerrufsrechts vor Ablauf der Widerrufsfrist absenden.
+
+**Folgen des Widerrufs.** Wenn Sie diesen Vertrag widerrufen, haben wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, unverzüglich und spätestens binnen vierzehn Tagen ab dem Tag zurückzuzahlen, an dem die Mitteilung über Ihren Widerruf dieses Vertrags bei uns eingegangen ist. Für diese Rückzahlung verwenden wir dasselbe Zahlungsmittel, das Sie bei der ursprünglichen Transaktion eingesetzt haben, es sei denn, mit Ihnen wurde ausdrücklich etwas anderes vereinbart; in keinem Fall werden Ihnen wegen dieser Rückzahlung Entgelte berechnet.
+
+### Withdrawal instructions (non-binding English translation)
+
+You have the right to withdraw from this contract within 14 days without giving any reason. The withdrawal period is 14 days from the day on which the contract is concluded.
+
+To exercise your right of withdrawal, you must inform us (Pedro Miguel Lima de Sousa Reis, Lützowstraße 31, 40476 Düsseldorf, Germany, <legal@usequantive.app>) by a clear statement (for example, a letter sent by post or an email) of your decision to withdraw from this contract. You may use the model withdrawal form below, but it is not mandatory.
+
+To meet the withdrawal deadline, it is sufficient that you send your communication concerning the exercise of the right of withdrawal before the withdrawal period has expired.
+
+**Consequences of withdrawal.** If you withdraw from this contract, we will reimburse all payments received from you without undue delay and no later than 14 days from the day on which we are informed of your decision. We will use the same means of payment that you used for the original transaction, unless expressly agreed otherwise; in no case will you be charged any fees for this reimbursement.
+
+### Muster-Widerrufsformular (German, legally binding)
+
+_(Wenn Sie den Vertrag widerrufen wollen, dann füllen Sie bitte dieses Formular aus und senden Sie es zurück.)_
+
+— An Pedro Miguel Lima de Sousa Reis, Lützowstraße 31, 40476 Düsseldorf, Deutschland, <legal@usequantive.app>:
+
+— Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag über die Erbringung der folgenden Dienstleistung (*):
+
+— Bestellt am (*) / erhalten am (*):
+
+— Name des/der Verbraucher(s):
+
+— Anschrift des/der Verbraucher(s):
+
+— Unterschrift des/der Verbraucher(s) (nur bei Mitteilung auf Papier):
+
+— Datum:
+
+_(*) Unzutreffendes streichen._
+
+### Model withdrawal form (non-binding English translation)
+
+_(Complete and return this form only if you wish to withdraw from the contract.)_
+
+— To Pedro Miguel Lima de Sousa Reis, Lützowstraße 31, 40476 Düsseldorf, Germany, <legal@usequantive.app>:
+
+— I/We (*) hereby give notice that I/we (*) withdraw from my/our (*) contract for the provision of the following service (*):
+
+— Ordered on (*) / received on (*):
+
+— Name of consumer(s):
+
+— Address of consumer(s):
+
+— Signature of consumer(s) (only if this form is notified on paper):
+
+— Date:
+
+_(*) Delete as appropriate._
 
 ## 7. Data Ownership
 
@@ -63,6 +123,10 @@ We may update these terms from time to time. Continued use of the Service after 
 
 These terms are governed by the laws of the Federal Republic of Germany, excluding its conflict-of-law provisions. If you are a consumer in the EU, you also benefit from mandatory protections of your country of residence. The place of jurisdiction is Düsseldorf, Germany.
 
-## 13. Contact
+## 13. Consumer dispute resolution (§ 36 VSBG)
 
-For questions about these Terms of Service, contact us at <hello@usequantive.app>.
+We are neither obliged nor willing to participate in alternative dispute resolution before a consumer arbitration board (Verbraucherschlichtungsstelle) under § 36 VSBG.
+
+## 14. Contact
+
+For questions about these Terms of Service, contact us at <legal@usequantive.app>.

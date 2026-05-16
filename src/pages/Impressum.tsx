@@ -34,8 +34,8 @@ export default function Impressum() {
 
           <p>
             <strong>Email:</strong>{' '}
-            <a href="mailto:hello@usequantive.app" className="text-primary hover:underline">
-              hello@usequantive.app
+            <a href="mailto:legal@usequantive.app" className="text-primary hover:underline">
+              legal@usequantive.app
             </a>
             <br />
             <span className="text-xs">
