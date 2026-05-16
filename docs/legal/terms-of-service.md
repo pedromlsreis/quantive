@@ -41,6 +41,8 @@ If you wish to exercise your right of withdrawal before the Service has started,
 
 ### Widerrufsbelehrung (statutory model — German, legally binding)
 
+<div lang="de">
+
 **Widerrufsrecht.** Sie haben das Recht, binnen vierzehn Tagen ohne Angabe von Gründen diesen Vertrag zu widerrufen. Die Widerrufsfrist beträgt vierzehn Tage ab dem Tag des Vertragsabschlusses.
 
 Um Ihr Widerrufsrecht auszuüben, müssen Sie uns (Pedro Miguel Lima de Sousa Reis, Lützowstraße 31, 40476 Düsseldorf, Deutschland, <legal@usequantive.app>) mittels einer eindeutigen Erklärung (z. B. ein mit der Post versandter Brief oder eine E-Mail) über Ihren Entschluss, diesen Vertrag zu widerrufen, informieren. Sie können dafür das nachstehende Muster-Widerrufsformular verwenden, das jedoch nicht vorgeschrieben ist.
@@ -48,6 +50,8 @@ Um Ihr Widerrufsrecht auszuüben, müssen Sie uns (Pedro Miguel Lima de Sousa Re
 Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung über die Ausübung des Widerrufsrechts vor Ablauf der Widerrufsfrist absenden.
 
 **Folgen des Widerrufs.** Wenn Sie diesen Vertrag widerrufen, haben wir Ihnen alle Zahlungen, die wir von Ihnen erhalten haben, unverzüglich und spätestens binnen vierzehn Tagen ab dem Tag zurückzuzahlen, an dem die Mitteilung über Ihren Widerruf dieses Vertrags bei uns eingegangen ist. Für diese Rückzahlung verwenden wir dasselbe Zahlungsmittel, das Sie bei der ursprünglichen Transaktion eingesetzt haben, es sei denn, mit Ihnen wurde ausdrücklich etwas anderes vereinbart; in keinem Fall werden Ihnen wegen dieser Rückzahlung Entgelte berechnet.
+
+</div>
 
 ### Withdrawal instructions (non-binding English translation)
 
@@ -60,6 +64,8 @@ To meet the withdrawal deadline, it is sufficient that you send your communicati
 **Consequences of withdrawal.** If you withdraw from this contract, we will reimburse all payments received from you without undue delay and no later than 14 days from the day on which we are informed of your decision. We will use the same means of payment that you used for the original transaction, unless expressly agreed otherwise; in no case will you be charged any fees for this reimbursement.
 
 ### Muster-Widerrufsformular (German, legally binding)
+
+<div lang="de">
 
 _(Wenn Sie den Vertrag widerrufen wollen, dann füllen Sie bitte dieses Formular aus und senden Sie es zurück.)_
 
@@ -78,6 +84,8 @@ _(Wenn Sie den Vertrag widerrufen wollen, dann füllen Sie bitte dieses Formular
 — Datum:
 
 _(*) Unzutreffendes streichen._
+
+</div>
 
 ### Model withdrawal form (non-binding English translation)
 
