@@ -9,6 +9,7 @@ import { escapeHtml, sendEmail } from "../_shared/email.ts";
 
 const HANDLED_EVENTS = new Set([
   "customer.subscription.created",
+  "customer.subscription.updated",
   "customer.subscription.deleted",
   "invoice.payment_failed",
 ]);
@@ -92,6 +93,69 @@ async function handleEvent(stripe: Stripe, event: Stripe.Event) {
       break;
     }
 
+    case "customer.subscription.updated": {
+      // We only care about two transitions on update:
+      //   - cancel_at_period_end flipped false → true  (user requested cancellation)
+      //   - cancel_at_period_end flipped true → false  (user reactivated)
+      // Everything else (plan switch, quantity change, etc.) is noise for now.
+      const sub = event.data.object as Stripe.Subscription;
+      const prev = event.data.previous_attributes as
+        | { cancel_at_period_end?: boolean }
+        | undefined;
+      if (!prev || prev.cancel_at_period_end === undefined) break;
+      const wasCancelling = prev.cancel_at_period_end;
+      const isCancelling = sub.cancel_at_period_end;
+      if (wasCancelling === isCancelling) break;
+
+      const { email } = await resolveCustomer(stripe, sub.customer);
+      const endDate = (sub.items.data[0] as unknown as { current_period_end?: number })
+        ?.current_period_end;
+      const endLabel = endDate ? new Date(endDate * 1000).toISOString().slice(0, 10) : "(unknown)";
+
+      if (isCancelling) {
+        const cancelReason =
+          sub.cancellation_details?.reason ??
+          sub.cancellation_details?.feedback ??
+          "(none provided)";
+        await sendEmail({
+          to,
+          subject: `Quantive cancellation requested: ${email ?? sub.customer}`,
+          html: notificationHtml("Cancellation requested", [
+            ["Customer", email ?? "(unknown)"],
+            ["Reason", cancelReason],
+            ["Access until", endLabel],
+            ["Subscription ID", sub.id],
+            ["Customer ID", String(sub.customer)],
+          ]),
+          text: notificationText("Cancellation requested", [
+            ["Customer", email ?? "(unknown)"],
+            ["Reason", cancelReason],
+            ["Access until", endLabel],
+            ["Subscription ID", sub.id],
+            ["Customer ID", String(sub.customer)],
+          ]),
+        });
+      } else {
+        await sendEmail({
+          to,
+          subject: `Quantive cancellation reverted: ${email ?? sub.customer}`,
+          html: notificationHtml("Cancellation reverted", [
+            ["Customer", email ?? "(unknown)"],
+            ["Renews on", endLabel],
+            ["Subscription ID", sub.id],
+            ["Customer ID", String(sub.customer)],
+          ]),
+          text: notificationText("Cancellation reverted", [
+            ["Customer", email ?? "(unknown)"],
+            ["Renews on", endLabel],
+            ["Subscription ID", sub.id],
+            ["Customer ID", String(sub.customer)],
+          ]),
+        });
+      }
+      break;
+    }
+
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
       const { email } = await resolveCustomer(stripe, sub.customer);
@@ -102,14 +166,14 @@ async function handleEvent(stripe: Stripe, event: Stripe.Event) {
 
       await sendEmail({
         to,
-        subject: `Quantive cancellation: ${email ?? sub.customer}`,
-        html: notificationHtml("Subscription cancelled", [
+        subject: `Quantive subscription ended: ${email ?? sub.customer}`,
+        html: notificationHtml("Subscription ended", [
           ["Customer", email ?? "(unknown)"],
           ["Reason", cancelReason],
           ["Subscription ID", sub.id],
           ["Customer ID", String(sub.customer)],
         ]),
-        text: notificationText("Subscription cancelled", [
+        text: notificationText("Subscription ended", [
           ["Customer", email ?? "(unknown)"],
           ["Reason", cancelReason],
           ["Subscription ID", sub.id],

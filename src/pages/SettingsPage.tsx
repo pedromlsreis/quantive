@@ -71,15 +71,25 @@ export default function SettingsPage() {
   const [managingBilling, setManagingBilling] = useState(false);
 
   const handleManageBilling = async () => {
+    // Open a blank tab synchronously on click so popup blockers don't intervene
+    // when we navigate it after the async function call resolves.
+    const portalTab = window.open('', '_blank');
     setManagingBilling(true);
     try {
       const { data: portal, error } = await supabase.functions.invoke('customer-portal');
       if (error || !portal?.url) {
+        portalTab?.close();
         toast.error('Could not open the billing portal. Please try again.');
         return;
       }
-      window.location.href = portal.url;
+      if (portalTab) {
+        portalTab.location.href = portal.url;
+      } else {
+        // Fallback if the browser blocked the popup outright.
+        window.location.href = portal.url;
+      }
     } catch {
+      portalTab?.close();
       toast.error('Could not open the billing portal. Please try again.');
     } finally {
       setManagingBilling(false);
