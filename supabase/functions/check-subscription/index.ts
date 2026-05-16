@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { findStripeCustomer } from "../_shared/stripeCustomer.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,9 +47,9 @@ serve(async (req) => {
     logStep("User authenticated", { userId: user.id, email: user.email });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
-    const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+    const customer = await findStripeCustomer(stripe, user.id, user.email);
 
-    if (customers.data.length === 0) {
+    if (!customer) {
       logStep("No Stripe customer found");
       return new Response(JSON.stringify({ subscribed: false }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -56,24 +57,29 @@ serve(async (req) => {
       });
     }
 
-    const customerId = customers.data[0].id;
-    logStep("Found Stripe customer", { customerId });
+    logStep("Found Stripe customer", { customerId: customer.id });
 
     const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
+      customer: customer.id,
       status: "active",
       limit: 1,
     });
 
     const hasActiveSub = subscriptions.data.length > 0;
-    let productId = null;
-    let subscriptionEnd = null;
+    let productId: string | null = null;
+    let subscriptionEnd: string | null = null;
     let cancelAtPeriodEnd = false;
 
     if (hasActiveSub) {
       const subscription = subscriptions.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-      productId = subscription.items.data[0].price.product;
+      const item = subscription.items.data[0];
+      // In Stripe API 2025-08-27+ the period end moved from the subscription
+      // to the item; the top-level field is now often null on new subscriptions.
+      const itemPeriodEnd = (item as unknown as { current_period_end?: number })?.current_period_end;
+      const subPeriodEnd = (subscription as unknown as { current_period_end?: number }).current_period_end;
+      const periodEndSeconds = itemPeriodEnd ?? subPeriodEnd ?? null;
+      subscriptionEnd = periodEndSeconds ? new Date(periodEndSeconds * 1000).toISOString() : null;
+      productId = (item?.price?.product as string | null) ?? null;
       cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
       logStep("Active subscription found", { subscriptionId: subscription.id, productId, endDate: subscriptionEnd, cancelAtPeriodEnd });
     } else {
