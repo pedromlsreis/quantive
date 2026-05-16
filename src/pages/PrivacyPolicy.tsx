@@ -3,6 +3,7 @@ import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { usePageMeta } from '@/hooks/usePageMeta';
 
+// Keep in sync with docs/legal/privacy-policy.md. Any edit here needs a matching edit there (and vice versa).
 export default function PrivacyPolicy() {
   usePageMeta({
     title: 'Privacy Policy – Quantive',

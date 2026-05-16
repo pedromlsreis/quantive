@@ -1,3 +1,5 @@
+<!-- Keep in sync with the live page at src/pages/PrivacyPolicy.tsx. Any edit here needs a matching edit there (and vice versa). -->
+
 # Privacy Policy
 
 _Last updated: May 16, 2026_
