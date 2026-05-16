@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
@@ -22,31 +22,23 @@ export default function PricingPage() {
 
   const { user, subscription } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [interval, setInterval] = useState<Interval>('yearly');
   const [submitting, setSubmitting] = useState(false);
 
   const proPlan = PLANS.find((p) => p.id === 'pro')!;
-  const price = interval === 'yearly' ? proPlan.prices!.yearly! : proPlan.prices!.monthly!;
   const priceLabel = interval === 'yearly' ? '€90' : '€9';
   const periodLabel = interval === 'yearly' ? '/year' : '/month';
   const caption = interval === 'yearly'
     ? '~€7.50/mo · save €18 vs monthly'
     : 'Or €90/year — save €18';
 
-  const handleSubscribe = async () => {
-    analytics.landingCtaClicked({ cta: 'pro_signup', location: 'pricing_card' });
-    if (!user) {
-      navigate('/dashboard');
-      return;
-    }
-    if (subscription.subscribed) {
-      navigate('/settings');
-      return;
-    }
+  const subscribeWithPlan = useCallback(async (chosenInterval: Interval) => {
+    const chosenPrice = chosenInterval === 'yearly' ? proPlan.prices!.yearly! : proPlan.prices!.monthly!;
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { priceId: price.priceId },
+        body: { priceId: chosenPrice.priceId },
       });
       if (error || !data?.url) {
         toast.error('Could not start checkout. Please try again.');
@@ -58,7 +50,36 @@ export default function PricingPage() {
     } finally {
       setSubmitting(false);
     }
+  }, [proPlan]);
+
+  const handleSubscribe = () => {
+    analytics.landingCtaClicked({ cta: 'pro_signup', location: 'pricing_card' });
+    if (!user) {
+      // Carry the intent through sign-up. Index.tsx bounces back here once
+      // the user authenticates, and the effect below resumes checkout.
+      navigate(`/dashboard?intent=subscribe&plan=${interval}`);
+      return;
+    }
+    if (subscription.subscribed) {
+      navigate('/settings');
+      return;
+    }
+    subscribeWithPlan(interval);
   };
+
+  useEffect(() => {
+    if (!user || subscription.subscribed) return;
+    if (searchParams.get('intent') !== 'subscribe') return;
+    const plan: Interval = searchParams.get('plan') === 'monthly' ? 'monthly' : 'yearly';
+    setInterval(plan);
+    // Clear params so this effect doesn't refire on the next render or if the
+    // user navigates back from a cancelled checkout.
+    const next = new URLSearchParams(searchParams);
+    next.delete('intent');
+    next.delete('plan');
+    setSearchParams(next, { replace: true });
+    subscribeWithPlan(plan);
+  }, [user, subscription.subscribed, searchParams, setSearchParams, subscribeWithPlan]);
 
   const proCtaLabel = !user
     ? 'Sign up to subscribe'
@@ -74,11 +95,8 @@ export default function PricingPage() {
 
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 pb-20 pt-32">
         <h1 className="mb-4 text-center text-4xl font-extrabold text-foreground">Simple, transparent pricing</h1>
-        <p className="mx-auto mb-3 max-w-lg text-center text-muted-foreground">
-          Start free, upgrade when you're ready. End-to-end encryption is included on every tier.
-        </p>
-        <p className="mx-auto mb-14 max-w-xl text-center text-sm font-medium text-primary">
-          Sign up free now → get your first month of Pro on us when it launches.
+        <p className="mx-auto mb-14 max-w-lg text-center text-muted-foreground">
+          Start free. Upgrade when you're ready. End-to-end encryption on every tier — always.
         </p>
 
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
@@ -87,22 +105,41 @@ export default function PricingPage() {
             <h2 className="text-lg font-bold text-foreground">Free</h2>
             <p className="mt-1 text-3xl font-extrabold text-foreground">€0<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
             <p className="mt-1 text-xs text-muted-foreground">Forever. No credit card required.</p>
-            <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-foreground">See your full picture, today</p>
-            <ul className="mt-2 space-y-3 text-sm text-muted-foreground">
-              {[
-                'Net worth tracking with unlimited sources',
-                'Allocation charts (volatility & liquidity)',
-                `Multi-currency display (${CURRENCY_CODES.length} currencies)`,
-                'Spreadsheet import',
-                'Manual balance entry',
-                'End-to-end encrypted cloud sync',
-                'Rolling 12-month history view',
-              ].map((f) => (
-                <li key={f} className="flex items-center gap-2">
-                  <span className="text-accent">✓</span> {f}
-                </li>
-              ))}
-            </ul>
+            <div className="mt-5 space-y-4 text-sm text-muted-foreground">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">See your full picture, today</p>
+                <ul className="mt-2 space-y-2">
+                  {[
+                    'Net worth tracking with unlimited sources',
+                    'Allocation charts (volatility & liquidity)',
+                    `Multi-currency display (${CURRENCY_CODES.length} currencies)`,
+                    'Spreadsheet import',
+                    'Manual balance entry',
+                    'Rolling 12-month history view',
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <span className="mt-0.5 text-accent">✓</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Privacy &amp; control</p>
+                <ul className="mt-2 space-y-2">
+                  {[
+                    'End-to-end encrypted — only you can read your data',
+                    'Privacy mode to blur sensitive numbers',
+                    'Delete your account and data at any time',
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <span className="mt-0.5 text-accent">✓</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
             <Link
               to="/dashboard"
               className="mt-auto block rounded-lg border border-border bg-secondary py-2.5 text-center text-sm font-medium text-secondary-foreground transition-transform hover:scale-105"
@@ -159,28 +196,28 @@ export default function PricingPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span>Milestone &amp; goal tracking</span>
-                      <span className="whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        In development
+                    <span>
+                      Milestone &amp; goal tracking{' '}
+                      <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 align-middle text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Coming soon
                       </span>
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span>Benchmark comparison (vs. inflation, S&amp;P 500, MSCI World)</span>
-                      <span className="whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        In development
+                    <span>
+                      Benchmark comparison (vs. inflation, S&amp;P 500, MSCI World){' '}
+                      <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 align-middle text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Coming soon
                       </span>
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span>Month-by-month summary table</span>
-                      <span className="whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        In development
+                    <span>
+                      Month-by-month summary table{' '}
+                      <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 align-middle text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Coming soon
                       </span>
                     </span>
                   </li>
@@ -195,10 +232,10 @@ export default function PricingPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span>PDF wealth report (one-page summary for advisors or annual review)</span>
-                      <span className="whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        In development
+                    <span>
+                      PDF wealth report (one-page summary for advisors or annual review){' '}
+                      <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 align-middle text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Coming soon
                       </span>
                     </span>
                   </li>

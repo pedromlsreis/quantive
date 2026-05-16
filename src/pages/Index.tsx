@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +16,8 @@ import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
 
 const Index = () => {
   const { data, isLoading, isMockData, snapshots } = usePortfolio();
-  const { checkSubscription } = useAuth();
+  const { user, checkSubscription } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
@@ -27,6 +28,15 @@ const Index = () => {
     next.delete('checkout');
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, checkSubscription]);
+
+  // Logged-out users sent here from /pricing carry an intent param.
+  // The moment they finish signing up, bounce them back so checkout fires.
+  useEffect(() => {
+    if (!user) return;
+    if (searchParams.get('intent') !== 'subscribe') return;
+    const plan = searchParams.get('plan') === 'monthly' ? 'monthly' : 'yearly';
+    navigate(`/pricing?intent=subscribe&plan=${plan}`, { replace: true });
+  }, [user, searchParams, navigate]);
 
   if (isLoading) return <DashboardSkeleton />;
   if (!data) return <FileUpload />;

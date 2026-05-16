@@ -106,7 +106,7 @@ const STRUCTURED_DATA = {
           name: 'What is included in Quantive Pro?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, Excel and CSV export, and priority support. Milestone tracking, benchmark comparisons (S&P 500, MSCI World, inflation), and a PDF wealth report are in development and will be included as they ship.',
+            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, Excel and CSV export, and priority support. Milestone tracking, benchmark comparisons (S&P 500, MSCI World, inflation), and a PDF wealth report are coming soon — included in Pro at no extra cost as they ship.',
           },
         },
         {
@@ -150,7 +150,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "What's included in Quantive Pro?",
-    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, and Excel and CSV export. Milestone and goal tracking, benchmark comparisons (vs. S&P 500, MSCI World, inflation), and a PDF wealth report are in development and will be included as they ship. Priority support is included.',
+    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, and Excel and CSV export. Milestone and goal tracking, benchmark comparisons (vs. S&P 500, MSCI World, inflation), and a PDF wealth report are coming soon — included in Pro at no extra cost as they ship. Priority support is included.',
   },
   {
     q: 'What if I lose access to my account?',
@@ -602,9 +602,6 @@ export default function LandingPage() {
           <p className="lp-sub">
             Start free. Upgrade when you're ready. End-to-end encryption on every tier — always.
           </p>
-          <p className="lp-price-pre">
-            Sign up free now → get your first month of Pro on us when it launches.
-          </p>
         </div>
 
         <div className="lp-pricing">
@@ -617,12 +614,16 @@ export default function LandingPage() {
             </div>
             <div className="lp-price-note">No credit card required.</div>
             <ul className="lp-price-features">
+              <li className="lp-price-sec-head">See your full picture, today</li>
               <li><span className="lp-price-check">✓</span>Net worth tracking — unlimited sources</li>
               <li><span className="lp-price-check">✓</span>Allocation charts (volatility &amp; liquidity)</li>
               <li><span className="lp-price-check">✓</span>Multi-currency display ({SUPPORTED_COUNT} currencies)</li>
               <li><span className="lp-price-check">✓</span>Spreadsheet import</li>
-              <li><span className="lp-price-check">✓</span>End-to-end encrypted cloud sync</li>
               <li><span className="lp-price-check">✓</span>Rolling 12-month history view</li>
+              <li className="lp-price-sec-head">Privacy &amp; control</li>
+              <li><span className="lp-price-check">✓</span>End-to-end encrypted — only you can read your data</li>
+              <li><span className="lp-price-check">✓</span>Privacy mode to blur sensitive numbers</li>
+              <li><span className="lp-price-check">✓</span>Delete your account and data at any time</li>
             </ul>
             <Link
               to="/dashboard"
@@ -635,7 +636,6 @@ export default function LandingPage() {
 
           {/* Pro */}
           <div className="lp-price lp-price--pro lp-reveal" data-d="1">
-            <div className="lp-price-badge">Coming Soon</div>
             <div className="lp-price-name">Pro</div>
             <div>
               <span className="lp-price-val num">€90</span>
@@ -648,35 +648,31 @@ export default function LandingPage() {
               <li><span className="lp-price-check">✓</span>Forecasting engine — CAGR with 95% confidence bands</li>
               <li>
                 <span className="lp-price-check">✓</span>
-                Milestone &amp; goal tracking
-                <span className="lp-price-soon">In development</span>
+                <span>Milestone &amp; goal tracking <span className="lp-price-soon">Coming soon</span></span>
               </li>
               <li>
                 <span className="lp-price-check">✓</span>
-                Benchmarks (S&amp;P 500, MSCI World, inflation)
-                <span className="lp-price-soon">In development</span>
+                <span>Benchmarks (S&amp;P 500, MSCI World, inflation) <span className="lp-price-soon">Coming soon</span></span>
               </li>
               <li className="lp-price-sec-head">Get your data out</li>
               <li><span className="lp-price-check">✓</span>Excel/CSV export</li>
               <li>
                 <span className="lp-price-check">✓</span>
-                PDF wealth report — for advisors or annual review
-                <span className="lp-price-soon">In development</span>
+                <span>PDF wealth report — for advisors or annual review <span className="lp-price-soon">Coming soon</span></span>
               </li>
               <li className="lp-price-sec-head">Support</li>
               <li><span className="lp-price-check">✓</span>Priority support — 24h response</li>
             </ul>
             <Link
-              to="/dashboard"
+              to="/pricing"
               className="lp-price-cta lp-price-cta--pro"
               onClick={() => {
                 analytics.landingCtaClicked({ cta: 'pro_signup', location: 'pricing_card' });
                 analytics.proGateHit({ feature: 'pricing_card_pro_cta' });
               }}
             >
-              Sign up free — get notified when Pro launches
+              See Pro plans
             </Link>
-            <p className="lp-price-foot">Existing free users get their first month on us.</p>
           </div>
         </div>
         <p className="lp-price-postscript">
