@@ -1,5 +1,6 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
+import { useHistoryFloor } from '@/hooks/useHistoryFloor';
 import { formatPercent } from '@/lib/formatters';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
@@ -14,8 +15,13 @@ interface YearRow {
 }
 
 export function YearlyEarnings() {
-  const { allSnapshots: snapshots } = usePortfolio();
+  const { allSnapshots } = usePortfolio();
+  const historyFloor = useHistoryFloor();
   const { fmt, fmtFull, currency } = useCurrencyFormatter();
+
+  const snapshots = historyFloor
+    ? allSnapshots.filter((s) => s.date >= historyFloor)
+    : allSnapshots;
 
   if (snapshots.length < 2) return null;
 

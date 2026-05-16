@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
-import type { SubscriptionStatus } from '@/lib/stripeConfig';
+import type { SubscriptionStatus } from '@/lib/billing/plans';
 import { analytics } from '@/lib/analytics';
 
 interface AuthContextType {
@@ -29,6 +29,7 @@ const defaultSubscription: SubscriptionStatus = {
   subscribed: false,
   productId: null,
   subscriptionEnd: null,
+  cancelAtPeriodEnd: false,
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscribed: data?.subscribed ?? false,
         productId: data?.product_id ?? null,
         subscriptionEnd: data?.subscription_end ?? null,
+        cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
       });
     } catch (err) {
       console.error('Error checking subscription:', err);

@@ -1,17 +1,72 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { usePageMeta } from '@/hooks/usePageMeta';
 import { CURRENCY_CODES } from '@/lib/currencies';
 import { analytics } from '@/lib/analytics';
+import { useAuth } from '@/contexts/AuthContext';
+import { PLANS } from '@/lib/billing/plans';
+import { supabase } from '@/integrations/supabase/client';
 import './landing.css';
+
+type Interval = 'monthly' | 'yearly';
 
 export default function PricingPage() {
   usePageMeta({
     title: 'Pricing – Quantive',
-    description: 'Quantive is free forever. Track your net worth, analyse allocations, and forecast your future at no cost. Pro plan coming soon at €90/year.',
+    description: 'Quantive is free forever, with optional Pro for full history, forecasting, and exports — €9/month or €90/year.',
     path: '/pricing',
   });
+
+  const { user, subscription } = useAuth();
+  const navigate = useNavigate();
+  const [interval, setInterval] = useState<Interval>('yearly');
+  const [submitting, setSubmitting] = useState(false);
+
+  const proPlan = PLANS.find((p) => p.id === 'pro')!;
+  const price = interval === 'yearly' ? proPlan.prices!.yearly! : proPlan.prices!.monthly!;
+  const priceLabel = interval === 'yearly' ? '€90' : '€9';
+  const periodLabel = interval === 'yearly' ? '/year' : '/month';
+  const caption = interval === 'yearly'
+    ? '~€7.50/mo · save €18 vs monthly'
+    : 'Or €90/year — save €18';
+
+  const handleSubscribe = async () => {
+    analytics.landingCtaClicked({ cta: 'pro_signup', location: 'pricing_card' });
+    if (!user) {
+      navigate('/dashboard');
+      return;
+    }
+    if (subscription.subscribed) {
+      navigate('/settings');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
+        body: { priceId: price.priceId },
+      });
+      if (error || !data?.url) {
+        toast.error('Could not start checkout. Please try again.');
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      toast.error('Could not start checkout. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const proCtaLabel = !user
+    ? 'Sign up to subscribe'
+    : subscription.subscribed
+    ? 'Manage subscription'
+    : submitting
+    ? 'Redirecting…'
+    : `Subscribe — ${priceLabel}${periodLabel}`;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -59,12 +114,36 @@ export default function PricingPage() {
 
           {/* Pro */}
           <div className="relative rounded-xl border-2 border-primary/50 bg-card p-8">
-            <span className="absolute -top-3 right-6 rounded-full bg-primary px-3 py-0.5 text-xs font-semibold text-primary-foreground">
-              Coming Soon
-            </span>
+            <div
+              role="radiogroup"
+              aria-label="Billing interval"
+              className="absolute -top-3 right-6 flex overflow-hidden rounded-full border border-primary/40 bg-background text-xs font-medium"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={interval === 'monthly'}
+                onClick={() => setInterval('monthly')}
+                className={`px-3 py-0.5 transition-colors ${interval === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={interval === 'yearly'}
+                onClick={() => setInterval('yearly')}
+                className={`px-3 py-0.5 transition-colors ${interval === 'yearly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                Yearly
+              </button>
+            </div>
             <h2 className="text-lg font-bold text-foreground">Pro</h2>
-            <p className="mt-1 text-3xl font-extrabold text-foreground">€90<span className="text-sm font-normal text-muted-foreground">/year</span></p>
-            <p className="mt-1 text-xs text-muted-foreground">~€7.50/mo · or €9/mo billed monthly</p>
+            <p className="mt-1 text-3xl font-extrabold text-foreground">
+              {priceLabel}
+              <span className="text-sm font-normal text-muted-foreground">{periodLabel}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
 
             <div className="mt-5 space-y-4 text-sm text-muted-foreground">
               <div>
@@ -136,19 +215,30 @@ export default function PricingPage() {
               </div>
             </div>
 
-            <Link
-              to="/dashboard"
-              className="lp-price-cta lp-price-cta--pro mt-6"
-              onClick={() => {
-                analytics.landingCtaClicked({ cta: 'pro_signup', location: 'pricing_card' });
-                analytics.proGateHit({ feature: 'pricing_card_pro_cta' });
-              }}
+            <button
+              type="button"
+              onClick={handleSubscribe}
+              disabled={submitting}
+              className="lp-price-cta lp-price-cta--pro mt-6 w-full"
+              style={{ opacity: submitting ? 0.7 : 1 }}
             >
-              Sign up free — get notified when Pro launches
-            </Link>
-            <p className="mt-3 text-center text-[11px] text-muted-foreground">
-              Existing free users get their first month of Pro on us.
-            </p>
+              {proCtaLabel}
+            </button>
+            {!user && (
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                Sign up first; you'll be able to subscribe from your dashboard.
+              </p>
+            )}
+            {user && !subscription.subscribed && (
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                Secure checkout by Stripe. Cancel anytime.
+              </p>
+            )}
+            {user && subscription.subscribed && (
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                You're already on Pro. Manage your subscription from Settings.
+              </p>
+            )}
           </div>
         </div>
 

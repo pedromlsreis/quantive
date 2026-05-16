@@ -1,4 +1,8 @@
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { FileUpload } from '@/components/dashboard/FileUpload';
 import { KPICards } from '@/components/dashboard/KPICards';
 import { NetWorthChart } from '@/components/dashboard/NetWorthChart';
@@ -12,6 +16,17 @@ import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
 
 const Index = () => {
   const { data, isLoading, isMockData, snapshots } = usePortfolio();
+  const { checkSubscription } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('checkout') !== 'success') return;
+    toast.success('Welcome to Pro! Your subscription is active.', { duration: 6000 });
+    checkSubscription();
+    const next = new URLSearchParams(searchParams);
+    next.delete('checkout');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, checkSubscription]);
 
   if (isLoading) return <DashboardSkeleton />;
   if (!data) return <FileUpload />;

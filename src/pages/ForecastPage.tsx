@@ -9,6 +9,7 @@ import {
 import { generateScenarioForecast } from '@/lib/scenarioForecast';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FileUpload } from '@/components/dashboard/FileUpload';
+import { FeatureGate } from '@/components/billing/FeatureGate';
 
 const SCENARIO_CAGR: Record<ForecastScenario, number> = {
   conservative: 0.05,
@@ -43,7 +44,7 @@ function StatCard({
   );
 }
 
-const ForecastPage = () => {
+const ForecastContent = () => {
   const { data, isLoading, snapshots } = usePortfolio();
   const { fmt } = useCurrencyFormatter();
 
@@ -108,5 +109,11 @@ const ForecastPage = () => {
     </div>
   );
 };
+
+const ForecastPage = () => (
+  <FeatureGate feature="forecasting">
+    <ForecastContent />
+  </FeatureGate>
+);
 
 export default ForecastPage;

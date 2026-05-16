@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { ChevronDown, X } from 'lucide-react';
+import { ChevronDown, Lock, X } from 'lucide-react';
 import { FilterState } from '@/lib/types';
 import { Slider } from '@/components/ui/slider';
 import { format } from 'date-fns';
 import { toTitleCase } from '@/lib/utils';
+import { useHistoryFloor } from '@/hooks/useHistoryFloor';
+import { analytics } from '@/lib/analytics';
 
 function MultiSelect({
   label,
@@ -121,6 +124,7 @@ function ToggleFilter({
 
 function DateRangeSlider() {
   const { filters, updateFilters, dateRange } = usePortfolio();
+  const historyFloor = useHistoryFloor();
 
   // Build monthly ticks from the full data range
   const months = useMemo(() => {
@@ -137,6 +141,14 @@ function DateRangeSlider() {
 
   if (months.length < 2) return null;
 
+  // For free users we cap the slider's left handle to the history floor so older
+  // data is visible on the track (the chart ghosts it) but can't become the active range.
+  const floorIdx = historyFloor
+    ? months.findIndex((m) => m.getFullYear() === historyFloor.getFullYear() && m.getMonth() === historyFloor.getMonth())
+    : -1;
+  const minIdx = floorIdx > 0 ? floorIdx : 0;
+  const hasLock = minIdx > 0;
+
   // Map current filter dates to slider indices
   const startIdx = filters.dateRange[0] ?
   months.findIndex((m) => m.getFullYear() === filters.dateRange[0]!.getFullYear() && m.getMonth() === filters.dateRange[0]!.getMonth()) :
@@ -145,12 +157,17 @@ function DateRangeSlider() {
   months.findIndex((m) => m.getFullYear() === filters.dateRange[1]!.getFullYear() && m.getMonth() === filters.dateRange[1]!.getMonth()) :
   months.length - 1;
 
-  const safeStart = Math.max(0, startIdx === -1 ? 0 : startIdx);
+  const rawStart = Math.max(0, startIdx === -1 ? 0 : startIdx);
+  const safeStart = Math.max(minIdx, rawStart);
   const safeEnd = Math.max(safeStart, endIdx === -1 ? months.length - 1 : endIdx);
 
   const handleChange = (values: number[]) => {
-    const startMonth = months[values[0]];
-    const endMonth = months[values[1]];
+    const clampedStart = Math.max(minIdx, values[0]);
+    if (hasLock && values[0] < minIdx) {
+      analytics.proGateHit({ feature: 'history.full' });
+    }
+    const startMonth = months[clampedStart];
+    const endMonth = months[Math.max(clampedStart, values[1])];
     updateFilters({
       dateRange: [
       new Date(startMonth.getFullYear(), startMonth.getMonth(), 1),
@@ -165,14 +182,42 @@ function DateRangeSlider() {
   return (
     <div className="flex w-full items-center gap-3 sm:w-auto sm:min-w-[280px]" role="group" aria-label="Date range filter">
       <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{startLabel}</span>
-      <Slider
-        min={0}
-        max={months.length - 1}
-        step={1}
-        value={[safeStart, safeEnd]}
-        onValueChange={handleChange}
-        className="flex-1" />
-
+      <div className="relative flex-1">
+        <Slider
+          min={0}
+          max={months.length - 1}
+          step={1}
+          value={[safeStart, safeEnd]}
+          onValueChange={handleChange}
+        />
+        {hasLock && (
+          <Link
+            to="/pricing"
+            aria-label="Available on Pro"
+            title="Earlier history is available on Pro"
+            onClick={() => analytics.proGateHit({ feature: 'history.full' })}
+            style={{
+              position: 'absolute',
+              left: `${(minIdx / (months.length - 1)) * 100}%`,
+              top: '50%',
+              transform: 'translate(-50%, -50%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              background: 'var(--bg-elev-1)',
+              border: '1px solid var(--border-raw)',
+              color: 'var(--fg-subtle)',
+              pointerEvents: 'auto',
+              zIndex: 2,
+            }}
+          >
+            <Lock style={{ width: 8, height: 8 }} />
+          </Link>
+        )}
+      </div>
       <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">{endLabel}</span>
     </div>);
 

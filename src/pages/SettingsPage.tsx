@@ -25,7 +25,10 @@ import {
   Mail,
   Download,
   Database,
+  CreditCard,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { resolvePlan } from '@/lib/billing/plans';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -58,12 +61,30 @@ const fieldLabel: React.CSSProperties = {
 const PREF_ROW_CLASS = 'q-pref-row';
 
 export default function SettingsPage() {
-  const { user, signOut, updatePassword } = useAuth();
+  const { user, signOut, updatePassword, subscription } = useAuth();
   const keySession = useKeySession();
   const { clearData, data } = usePortfolio();
   const { has } = useEntitlements();
   const canExportExcel = has('export.excel');
   const canExportCsv = has('export.csv');
+  const currentPlan = resolvePlan(subscription.subscribed ? subscription.productId : null);
+  const [managingBilling, setManagingBilling] = useState(false);
+
+  const handleManageBilling = async () => {
+    setManagingBilling(true);
+    try {
+      const { data: portal, error } = await supabase.functions.invoke('customer-portal');
+      if (error || !portal?.url) {
+        toast.error('Could not open the billing portal. Please try again.');
+        return;
+      }
+      window.location.href = portal.url;
+    } catch {
+      toast.error('Could not open the billing portal. Please try again.');
+    } finally {
+      setManagingBilling(false);
+    }
+  };
   const { currency, setCurrency, allCurrencies } = useCurrency();
   const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode } = usePreferences();
   const navigate = useNavigate();
@@ -282,6 +303,55 @@ export default function SettingsPage() {
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
                 </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Billing */}
+      {user && (
+        <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
+          <div className="q-section-head">
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+              <CreditCard className="h-4 w-4 text-primary" />
+              Billing
+            </h2>
+          </div>
+          <div className={PREF_ROW_CLASS}>
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
+                Current plan:{' '}
+                <span style={{ fontWeight: 600 }}>{currentPlan.name}</span>
+              </p>
+              {subscription.subscribed && subscription.subscriptionEnd && (
+                <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
+                  {subscription.cancelAtPeriodEnd
+                    ? `Cancels on ${format(new Date(subscription.subscriptionEnd), 'd MMM yyyy')}. You'll keep Pro access until then.`
+                    : `Renews on ${format(new Date(subscription.subscriptionEnd), 'd MMM yyyy')}.`}
+                </p>
+              )}
+              {!subscription.subscribed && (
+                <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
+                  Upgrade to unlock full history, forecasting, and exports.
+                </p>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 'var(--s-2)', flexShrink: 0 }}>
+              {subscription.subscribed ? (
+                <button
+                  type="button"
+                  onClick={handleManageBilling}
+                  disabled={managingBilling}
+                  className="q-btn q-btn--secondary q-btn--sm"
+                  style={{ opacity: managingBilling ? 0.6 : 1 }}
+                >
+                  {managingBilling ? 'Opening…' : 'Manage billing'}
+                </button>
+              ) : (
+                <Link to="/pricing" className="q-btn q-btn--primary q-btn--sm">
+                  Upgrade to Pro
+                </Link>
               )}
             </div>
           </div>

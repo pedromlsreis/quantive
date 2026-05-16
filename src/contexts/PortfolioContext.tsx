@@ -6,6 +6,7 @@ import { analytics } from '@/lib/analytics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { useKeySession } from './KeySessionContext';
+import { useEntitlements } from '@/hooks/useEntitlements';
 import { sanitizeSourceName } from '@/lib/utils';
 import {
   attemptCloudSync,
@@ -123,6 +124,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isMockData, setIsMockData] = useState(false);
   const { user } = useAuth();
+  const { has } = useEntitlements();
   const keySession = useKeySession();
   const { currency: displayCurrency } = useCurrency();
   // Each fact carries its own `currency`. We convert per fact at the rate
@@ -140,18 +142,34 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const requestIdRef = useRef(0);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
 
+  const hasFullHistory = has('history.full');
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
     const dates = parsed.facts.map(f => f.date.getTime());
     if (dates.length === 0) return;
     const maxDate = new Date(Math.max(...dates));
-    const twoYearsAgo = new Date(maxDate);
-    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    // Free tier: default window is the rolling 12 months. Pro: 2 years.
+    const lookbackMonths = hasFullHistory ? 24 : 12;
+    const defaultStart = new Date(maxDate);
+    defaultStart.setMonth(defaultStart.getMonth() - lookbackMonths);
     const minDate = new Date(Math.min(...dates));
     setFilters(prev => ({
       ...prev,
-      dateRange: [twoYearsAgo < minDate ? minDate : twoYearsAgo, maxDate],
+      dateRange: [defaultStart < minDate ? minDate : defaultStart, maxDate],
     }));
-  }, []);
+  }, [hasFullHistory]);
+
+  // Clamp the active filter when entitlements change (e.g. logout, downgrade)
+  // so a previously Pro user doesn't keep seeing older data.
+  useEffect(() => {
+    if (hasFullHistory) return;
+    const floor = new Date();
+    floor.setMonth(floor.getMonth() - 12);
+    floor.setHours(0, 0, 0, 0);
+    setFilters(prev => {
+      if (!prev.dateRange[0] || prev.dateRange[0] >= floor) return prev;
+      return { ...prev, dateRange: [floor, prev.dateRange[1]] };
+    });
+  }, [hasFullHistory]);
 
   // Save data to cloud when user is authenticated AND email confirmed
   const saveToCloud = useCallback(async (portfolioData: PortfolioData) => {
