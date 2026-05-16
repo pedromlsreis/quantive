@@ -16,7 +16,7 @@ export default function PrivacyPolicy() {
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-20">
         <h1 className="mb-2 text-3xl font-bold text-foreground">Privacy Policy</h1>
-        <p className="mb-10 text-sm text-muted-foreground">Last updated: May 15, 2026</p>
+        <p className="mb-10 text-sm text-muted-foreground">Last updated: May 16, 2026</p>
 
         <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_strong]:text-foreground">
           <h2>1. Introduction</h2>
@@ -31,6 +31,7 @@ export default function PrivacyPolicy() {
           <p><strong>Account Information:</strong> When you create an account, we collect your email address and an encrypted password.</p>
           <p><strong>Portfolio Data:</strong> If you upload portfolio spreadsheets, the data is stored in your private account. We do not share, sell, or analyse your financial data for any purpose other than providing you with the service.</p>
           <p><strong>Usage Data:</strong> We collect anonymous usage analytics (page views, feature usage) to improve the product via PostHog. No personally identifiable information, financial figures, or account details are included in these events.</p>
+          <p><strong>Campaign attribution:</strong> If you arrive at the site via a link we publish that includes <code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_term</code>, or <code>utm_content</code> query parameters, those values are stored in your browser's localStorage and attached to subsequent analytics events so we can see which channels bring people to Quantive. These are labels we set in our own outbound links — they contain no information about you. They are cleared when you sign out.</p>
 
           <h2>3. How We Use Your Information</h2>
           <ul className="list-disc pl-6 space-y-1">
@@ -64,7 +65,7 @@ export default function PrivacyPolicy() {
           <ul className="list-disc pl-6 space-y-1">
             <li><strong>Stripe</strong> — for payment processing. Stripe's privacy policy applies to payment data.</li>
             <li><strong>Supabase</strong> — for authentication and database services.</li>
-            <li><strong>PostHog</strong> — for anonymous product analytics. We track only explicit user actions (page views, feature usage). No personally identifiable information, financial data, or email addresses are ever sent to PostHog. Events are stored on PostHog's EU-hosted infrastructure. See the <a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">PostHog privacy policy</a>.</li>
+            <li><strong>PostHog</strong> — for anonymous product analytics. We track only explicit user actions (page views, feature usage) and campaign-attribution labels (see §2). No personally identifiable information, financial data, or email addresses are ever sent to PostHog. Events are stored on PostHog's EU-hosted infrastructure. See the <a href="https://posthog.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">PostHog privacy policy</a>.</li>
           </ul>
 
           <h2>6. Data Retention</h2>
