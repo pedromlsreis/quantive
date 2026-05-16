@@ -54,6 +54,7 @@ serve(async (req) => {
       client_reference_id: user.id,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
+      allow_promotion_codes: true,
       success_url: `${origin}/dashboard?checkout=success`,
       cancel_url: `${origin}/pricing`,
     });
