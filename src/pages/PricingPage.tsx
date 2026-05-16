@@ -105,6 +105,7 @@ export default function PricingPage() {
             <h2 className="text-lg font-bold text-foreground">Free</h2>
             <p className="mt-1 text-3xl font-extrabold text-foreground">€0<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
             <p className="mt-1 text-xs text-muted-foreground">Forever. No credit card required.</p>
+            <p className="mt-1 text-[11px] text-muted-foreground/70">All prices final. No VAT charged under German legislation (§ 19 UStG).</p>
             <div className="mt-5 space-y-4 text-sm text-muted-foreground">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-foreground">See your full picture, today</p>
@@ -181,6 +182,7 @@ export default function PricingPage() {
               <span className="text-sm font-normal text-muted-foreground">{periodLabel}</span>
             </p>
             <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground/70">All prices final. No VAT charged under German legislation (§ 19 UStG).</p>
 
             <div className="mt-5 space-y-4 text-sm text-muted-foreground">
               <div>

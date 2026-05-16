@@ -36,15 +36,23 @@ const STRUCTURED_DATA = {
       offers: [
         {
           '@type': 'Offer',
-          price: '0',
-          priceCurrency: BASE_CURRENCY,
+          priceSpecification: {
+            '@type': 'PriceSpecification',
+            price: '0',
+            priceCurrency: BASE_CURRENCY,
+            valueAddedTaxIncluded: true,
+          },
           description:
             'Free forever — unlimited tracking, multi-currency, encrypted cloud sync',
         },
         {
           '@type': 'Offer',
-          price: '90',
-          priceCurrency: BASE_CURRENCY,
+          priceSpecification: {
+            '@type': 'PriceSpecification',
+            price: '90',
+            priceCurrency: BASE_CURRENCY,
+            valueAddedTaxIncluded: true,
+          },
           description:
             'Pro — full history, forecasting engine, Excel/CSV export, priority support',
         },
@@ -613,6 +621,7 @@ export default function LandingPage() {
               <span className="lp-price-period"> / forever</span>
             </div>
             <div className="lp-price-note">No credit card required.</div>
+            <div className="lp-price-note lp-price-vat">All prices final. No VAT charged under German legislation (§ 19 UStG).</div>
             <ul className="lp-price-features">
               <li className="lp-price-sec-head">See your full picture, today</li>
               <li><span className="lp-price-check">✓</span>Net worth tracking — unlimited sources</li>
@@ -642,6 +651,7 @@ export default function LandingPage() {
               <span className="lp-price-period"> / year</span>
             </div>
             <div className="lp-price-note">~€7.50/mo · or €9/mo billed monthly</div>
+            <div className="lp-price-note lp-price-vat">All prices final. No VAT charged under German legislation (§ 19 UStG).</div>
             <ul className="lp-price-features">
               <li className="lp-price-sec-head">Know if you're on track</li>
               <li><span className="lp-price-check">✓</span>Full historical view — every snapshot, charted</li>
