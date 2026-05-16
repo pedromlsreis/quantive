@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: May 8, 2026_
+_Last updated: May 16, 2026_
 
 ## 1. Introduction
 
@@ -14,7 +14,11 @@ Quantive ("we", "our", "us") is committed to protecting your privacy. This Priva
 
 **Feedback:** If you submit feedback through the in-app feedback button, we store the message text, the type you selected (e.g. bug, idea), and your account ID so we can follow up. Feedback is not encrypted at rest. Do not include sensitive financial details in feedback messages.
 
-**Server Logs:** Our hosting providers (Supabase, our edge function host) keep short-lived operational logs (IP, request timestamps, error traces) for reliability and abuse prevention. We do not run product analytics — no Google Analytics, Plausible, PostHog, or similar tools are loaded by the site today. If we add privacy-respecting analytics in the future, we will update this policy and announce the change before enabling it.
+**Usage Data:** We collect anonymous usage analytics (page views, feature usage) to improve the product via PostHog. No personally identifiable information, financial figures, or account details are included in these events.
+
+**Campaign attribution:** If you arrive at the site via a link we publish that includes `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, or `utm_content` query parameters, those values are stored in your browser's localStorage and attached to subsequent analytics events so we can see which channels bring people to Quantive. These are labels we set in our own outbound links — they contain no information about you. They are cleared when you sign out.
+
+**Server Logs:** Our hosting providers (Supabase, our edge function host) keep short-lived operational logs (IP, request timestamps, error traces) for reliability and abuse prevention.
 
 ## 3. How We Use Your Information
 
@@ -23,6 +27,7 @@ Quantive ("we", "our", "us") is committed to protecting your privacy. This Priva
 - To process subscription payments (via Stripe), once paid plans are live
 - To send transactional emails (e.g. password resets, account deletion confirmations)
 - To respond to feedback you submit
+- To improve the product based on aggregated, anonymous usage patterns
 
 ## 4. Data Storage & Security
 
@@ -36,6 +41,7 @@ We use the following third-party services:
 
 - **Stripe** — for payment processing. Stripe's privacy policy applies to payment data.
 - **Supabase** — for authentication and database services.
+- **PostHog** — for anonymous product analytics. We track only explicit user actions (page views, feature usage) and campaign-attribution labels (see §2). No personally identifiable information, financial data, or email addresses are ever sent to PostHog. Events are stored on PostHog's EU-hosted infrastructure. See the [PostHog privacy policy](https://posthog.com/privacy).
 
 ## 6. Data Retention
 
@@ -50,9 +56,11 @@ You have the right to:
 - Request deletion of your account and data
 - Withdraw consent at any time
 
-## 8. Cookies
+## 8. Cookies & local storage
 
-We use essential cookies only for authentication and session management. We do not use advertising or tracking cookies.
+We use essential cookies only for authentication and session management. We do not use advertising cookies, third-party tracking cookies, or cross-site tracking of any kind.
+
+PostHog (see §5) stores an anonymous identifier in your browser's **localStorage** — not in a cookie — so events from the same browser can be grouped without us knowing who you are. This identifier is cleared when you sign out and can be cleared at any time by clearing your browser's site data for usequantive.app. Campaign-attribution labels (see §2) are stored in localStorage under the same lifecycle.
 
 ## 9. Changes to This Policy
 

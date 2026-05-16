@@ -30,8 +30,10 @@ export default function PrivacyPolicy() {
           <h2>2. Information We Collect</h2>
           <p><strong>Account Information:</strong> When you create an account, we collect your email address and an encrypted password.</p>
           <p><strong>Portfolio Data:</strong> If you upload portfolio spreadsheets, the data is stored in your private account. We do not share, sell, or analyse your financial data for any purpose other than providing you with the service.</p>
+          <p><strong>Feedback:</strong> If you submit feedback through the in-app feedback button, we store the message text, the type you selected (e.g. bug, idea), and your account ID so we can follow up. Feedback is not encrypted at rest. Do not include sensitive financial details in feedback messages.</p>
           <p><strong>Usage Data:</strong> We collect anonymous usage analytics (page views, feature usage) to improve the product via PostHog. No personally identifiable information, financial figures, or account details are included in these events.</p>
           <p><strong>Campaign attribution:</strong> If you arrive at the site via a link we publish that includes <code>utm_source</code>, <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_term</code>, or <code>utm_content</code> query parameters, those values are stored in your browser's localStorage and attached to subsequent analytics events so we can see which channels bring people to Quantive. These are labels we set in our own outbound links — they contain no information about you. They are cleared when you sign out.</p>
+          <p><strong>Server Logs:</strong> Our hosting providers (Supabase, our edge function host) keep short-lived operational logs (IP address, request timestamps, error traces) for reliability and abuse prevention.</p>
 
           <h2>3. How We Use Your Information</h2>
           <ul className="list-disc pl-6 space-y-1">
@@ -39,6 +41,7 @@ export default function PrivacyPolicy() {
             <li>To authenticate your identity and protect your account</li>
             <li>To process subscription payments (via Stripe)</li>
             <li>To send transactional emails (e.g. password resets)</li>
+            <li>To respond to feedback you submit</li>
             <li>To improve the product based on aggregated, anonymous usage patterns</li>
           </ul>
 
