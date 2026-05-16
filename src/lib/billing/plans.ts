@@ -41,10 +41,10 @@ export const PLANS: readonly Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    productIds: ['prod_UIqFAvGC0BpKLw', 'prod_UIqFd052fVxrfi'],
+    productIds: ['prod_UWmA6EYMASerBY'],
     prices: {
-      monthly: { priceId: 'price_1TKEZ8Au9zmnWASMQhAbBuTl', amount: 9, currency: 'EUR' },
-      yearly: { priceId: 'price_1TKEZRAu9zmnWASMP1nQpiqI', amount: 90, currency: 'EUR' },
+      monthly: { priceId: 'price_1TXibk5dFPMz9tjKmeIklZc1', amount: 9, currency: 'EUR' },
+      yearly: { priceId: 'price_1TXid55dFPMz9tjKvVe2bKDk', amount: 90, currency: 'EUR' },
     },
     entitlements: [
       'history.full',
