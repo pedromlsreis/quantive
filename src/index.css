@@ -1007,7 +1007,9 @@
   .q-sidebar {
     position: fixed; top: 0; bottom: 0; left: 0; z-index: 40;
     transform: translateX(-100%); transition: transform var(--d-base) var(--ease-out);
-    width: 260px; height: 100vh;
+    width: min(85vw, 320px); height: 100dvh;
+    padding-top: calc(var(--s-6) + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(var(--s-6) + env(safe-area-inset-bottom, 0px));
   }
   .q-sidebar.is-open { transform: translateX(0); box-shadow: var(--shadow-lg); }
   .q-sidebar-overlay {

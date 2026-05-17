@@ -30,7 +30,7 @@ export function ConsentBanner() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0, transition: easeOut }}
           exit={{ opacity: 0, y: 16, transition: { duration: 0.16, ease: [0.22, 1, 0.36, 1] } }}
-          className="fixed inset-x-3 bottom-3 z-50 mx-auto max-w-3xl rounded-xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur sm:bottom-4 sm:p-5"
+          className="fixed inset-x-3 bottom-3 z-30 mx-auto max-w-3xl rounded-xl border border-border bg-card/95 p-4 shadow-lg backdrop-blur sm:bottom-4 sm:p-5"
         >
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="text-sm text-muted-foreground">
