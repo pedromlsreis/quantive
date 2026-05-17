@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
@@ -100,6 +100,21 @@ export default function SettingsPage() {
   const { currency, setCurrency, allCurrencies } = useCurrency();
   const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode } = usePreferences();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Deep-link support: `/settings#recovery` (e.g. from the sidebar avatar
+  // menu) scrolls to the recovery sub-section once the section has mounted.
+  useEffect(() => {
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    // requestAnimationFrame defers until after layout, so the target div
+    // exists even on the very first paint of the route.
+    const raf = requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [location.hash]);
 
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -579,7 +594,7 @@ export default function SettingsPage() {
               )}
             </div>
 
-            <div>
+            <div id="recovery" style={{ scrollMarginTop: 'calc(var(--q-topbar-h, 0px) + var(--s-4))' }}>
               <p style={fieldLabel}>Recovery code</p>
               {keySession.hasRecovery === true ? (
                 <div>

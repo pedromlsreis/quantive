@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PieChart, TrendingUp, Database, Settings,
-  LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User,
+  LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User, KeyRound,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useKeySession } from '@/contexts/KeySessionContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,6 +40,7 @@ function UserMenu({
   email,
   initial,
   isAdmin,
+  needsRecovery,
   onNavigate,
   onSignOut,
   onFeedback,
@@ -47,6 +49,8 @@ function UserMenu({
   email: string | undefined;
   initial: string;
   isAdmin: boolean;
+  /** True only when keySession has loaded and confirmed no recovery code exists. Null/undefined during load → no warning. */
+  needsRecovery: boolean;
   onNavigate: (to: string) => void;
   onSignOut: () => void;
   onFeedback: () => void;
@@ -71,9 +75,32 @@ function UserMenu({
         className="q-side-user"
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={
+          needsRecovery
+            ? `${displayName || 'You'} — account menu (recovery code not set up)`
+            : `${displayName || 'You'} — account menu`
+        }
         style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}
       >
-        <div className="q-avatar">{initial}</div>
+        <div className="q-avatar" style={{ position: 'relative' }}>
+          {initial}
+          {needsRecovery && (
+            <span
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                top: -2,
+                right: -2,
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                background: 'var(--warning)',
+                border: '2px solid var(--bg)',
+                boxSizing: 'content-box',
+              }}
+            />
+          )}
+        </div>
         <div className="q-side-user-meta" style={{ flex: 1 }}>
           <span className="q-side-user-name">{displayName || 'You'}</span>
           {email && <span className="q-side-user-mail">{email}</span>}
@@ -106,6 +133,20 @@ function UserMenu({
             animation: `q-fade-in var(--d-fast) var(--ease-out)`,
           }}
         >
+          {needsRecovery && (
+            <>
+              <button
+                role="menuitem"
+                onClick={() => { setOpen(false); onNavigate('/settings#recovery'); }}
+                className="q-nav-item"
+                style={{ color: 'var(--warning)' }}
+              >
+                <KeyRound size={15} />
+                <span>Set up recovery code</span>
+              </button>
+              <div style={{ height: 1, background: 'var(--border-raw)', margin: '4px 0' }} />
+            </>
+          )}
           <button
             role="menuitem"
             onClick={() => { setOpen(false); onNavigate('/settings'); }}
@@ -200,7 +241,12 @@ function Sidebar({
   const { user, signOut } = useAuth();
   const { clearData } = usePortfolio();
   const { isAdmin } = useUserRole();
+  const keySession = useKeySession();
   const navigate = useNavigate();
+
+  // Only treat as "needs recovery" when keySession has loaded and confirmed
+  // it's missing. Null/undefined during load → no warning flicker.
+  const needsRecovery = keySession.hasRecovery === false;
 
   const [displayName, setDisplayName] = useState<string | null>(null);
 
@@ -290,6 +336,7 @@ function Sidebar({
               email={user.email}
               initial={initial}
               isAdmin={isAdmin}
+              needsRecovery={needsRecovery}
               onNavigate={(to) => { onClose(); navigate(to); }}
               onSignOut={handleSignOut}
               onFeedback={() => { onClose(); onFeedback(); }}
