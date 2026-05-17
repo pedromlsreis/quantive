@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
-import { X, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { X, Plus, Trash2, AlertCircle, PieChart } from 'lucide-react';
 import { format } from 'date-fns';
 import { HelpHint } from '@/components/ui/help-hint';
 import { sanitizeSourceName } from '@/lib/utils';
@@ -191,6 +191,14 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   const hasValidEntries = entries.some(e => e.name.trim() !== '');
   const today = format(new Date(), 'dd MMM yyyy');
 
+  // Show the classification hint only for users who haven't classified any
+  // source yet — returning users who've already engaged with volat/liquid
+  // know the system and shouldn't be nagged.
+  const userHasClassifiedSources = (data?.refSources ?? [])
+    .some(rs => rs.volatType && rs.volatType !== 'Unknown');
+  const needsClassificationHint = !userHasClassifiedSources &&
+    entries.some(e => !e.isSeeded && e.volatType.trim() === '');
+
   return (
     <AnimatePresence>
       {open && (
@@ -258,6 +266,29 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {needsClassificationHint && (
+                <div
+                  role="note"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 'var(--s-2)',
+                    borderRadius: 'var(--r-2)',
+                    background: 'var(--accent-faint-raw)',
+                    padding: 'var(--s-2) var(--s-3)',
+                    marginBottom: 'var(--s-3)',
+                    fontSize: 'var(--text-xs)',
+                    color: 'var(--accent-raw)',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  <PieChart size={12} style={{ marginTop: 2, flexShrink: 0 }} aria-hidden="true" />
+                  <span>
+                    Set <strong style={{ fontWeight: 600 }}>Volatility</strong> (e.g. Stable, Volatile) and <strong style={{ fontWeight: 600 }}>Liquid</strong> on each source to unlock allocation charts.
+                  </span>
+                </div>
+              )}
 
               <div style={{ maxHeight: '55vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', paddingRight: 2 }}>
                 {entries.map((entry, index) => (
