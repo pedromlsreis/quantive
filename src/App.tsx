@@ -50,6 +50,12 @@ const LoadingSpinner = () => (
   </div>
 );
 
+// Routes that render the in-app shell (sidebar + topbar). All of these
+// currently render encrypted user data, so they also need to appear in
+// PROTECTED_PATHS in src/components/auth/RequireUnlock.tsx. If you add a
+// shell route that doesn't read user data (e.g. a static help page), it's
+// fine to omit it from PROTECTED_PATHS — the two lists express different
+// concerns even though they coincide today.
 const APP_SHELL_PATHS = ['/dashboard', '/allocations', '/forecast', '/sources', '/settings', '/admin'];
 
 function AppRoutes() {

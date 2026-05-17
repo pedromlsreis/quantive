@@ -15,13 +15,27 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
-// Routes that actually decrypt portfolio data. Marketing, legal, demo, admin,
-// and the reset-password flow don't need an unlocked DK and shouldn't show
-// the modal — reset-password in particular runs its own password+recovery
-// flow, and prompting for the forgotten password there is the bug of bugs.
-const PROTECTED_PATHS = ['/dashboard', '/settings', '/admin'];
+// Routes that render decrypted portfolio data and therefore need an unlocked
+// DK in memory. Should mirror the data routes inside AppShell.
+//
+// MAINTENANCE: if you add a new route in src/App.tsx APP_SHELL_PATHS that
+// reads encrypted user data, add it here too. The reciprocal comment lives
+// next to APP_SHELL_PATHS.
+//
+// Exceptions kept off the list on purpose:
+// - reset-password: runs its own password+recovery flow; prompting for the
+//   forgotten password there is the bug of bugs.
+// - Marketing/legal/demo routes: no decryption needed.
+export const PROTECTED_PATHS = [
+  '/dashboard',
+  '/allocations',
+  '/forecast',
+  '/sources',
+  '/settings',
+  '/admin',
+];
 
-function isProtectedPath(pathname: string): boolean {
+export function isProtectedPath(pathname: string): boolean {
   return PROTECTED_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'));
 }
 
