@@ -26,6 +26,12 @@ export default function PricingPage() {
   const [interval, setInterval] = useState<Interval>('yearly');
   const [submitting, setSubmitting] = useState(false);
 
+  // Stripe checkout is gated on email confirmation: paying €90/year against
+  // an unverified email creates support pain (receipts undeliverable, recovery
+  // blocked). When the user confirms, the bounce-back effect below fires
+  // checkout automatically — no need for the user to come back here.
+  const needsEmailConfirmation = !!user && !user.email_confirmed_at;
+
   const proPlan = PLANS.find((p) => p.id === 'pro')!;
   const priceLabel = interval === 'yearly' ? '€90' : '€9';
   const periodLabel = interval === 'yearly' ? '/year' : '/month';
@@ -64,6 +70,15 @@ export default function PricingPage() {
       navigate('/settings');
       return;
     }
+    if (needsEmailConfirmation) {
+      // Persist the intent so the bounce-back effect picks up the right plan
+      // once email_confirmed_at flips. Inline notice (below) explains the wait.
+      const next = new URLSearchParams(searchParams);
+      next.set('intent', 'subscribe');
+      next.set('plan', interval);
+      setSearchParams(next, { replace: true });
+      return;
+    }
     subscribeWithPlan(interval);
   };
 
@@ -72,6 +87,9 @@ export default function PricingPage() {
     if (searchParams.get('intent') !== 'subscribe') return;
     const plan: Interval = searchParams.get('plan') === 'monthly' ? 'monthly' : 'yearly';
     setInterval(plan);
+    // Wait for email confirmation before firing checkout. Once Supabase
+    // surfaces email_confirmed_at, this effect re-runs and the gate clears.
+    if (!user.email_confirmed_at) return;
     // Clear params so this effect doesn't refire on the next render or if the
     // user navigates back from a cancelled checkout.
     const next = new URLSearchParams(searchParams);
@@ -85,6 +103,8 @@ export default function PricingPage() {
     ? 'Sign up to subscribe'
     : subscription.subscribed
     ? 'Manage subscription'
+    : needsEmailConfirmation
+    ? 'Confirm your email to subscribe'
     : submitting
     ? 'Redirecting…'
     : `Subscribe — ${priceLabel}${periodLabel}`;
@@ -257,9 +277,10 @@ export default function PricingPage() {
             <button
               type="button"
               onClick={handleSubscribe}
-              disabled={submitting}
+              disabled={submitting || needsEmailConfirmation}
+              aria-disabled={submitting || needsEmailConfirmation}
               className="lp-price-cta lp-price-cta--pro mt-6 w-full"
-              style={{ opacity: submitting ? 0.7 : 1 }}
+              style={{ opacity: submitting || needsEmailConfirmation ? 0.6 : 1, cursor: needsEmailConfirmation ? 'not-allowed' : undefined }}
             >
               {proCtaLabel}
             </button>
@@ -268,7 +289,25 @@ export default function PricingPage() {
                 Sign up first; you'll be able to subscribe from your dashboard.
               </p>
             )}
-            {user && !subscription.subscribed && (
+            {user && needsEmailConfirmation && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mt-3 rounded-md px-3 py-2 text-[11px] leading-relaxed"
+                style={{
+                  background: 'color-mix(in oklch, var(--warning) 10%, transparent)',
+                  border: '1px solid color-mix(in oklch, var(--warning) 28%, transparent)',
+                  color: 'var(--warning)',
+                }}
+              >
+                <p style={{ fontWeight: 600, margin: 0 }}>Confirm your email first</p>
+                <p style={{ margin: '2px 0 0', opacity: 0.9 }}>
+                  Click the link we sent to <span style={{ fontWeight: 500 }}>{user.email}</span>.
+                  We'll open checkout automatically — no need to come back here.
+                </p>
+              </div>
+            )}
+            {user && !subscription.subscribed && !needsEmailConfirmation && (
               <p className="mt-3 text-center text-[11px] text-muted-foreground">
                 Secure checkout by Stripe. Cancel anytime.
               </p>

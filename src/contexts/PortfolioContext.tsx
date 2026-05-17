@@ -175,8 +175,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const saveToCloud = useCallback(async (portfolioData: PortfolioData) => {
     if (!user) return;
     if (!user.email_confirmed_at) {
-      toast.info('Please confirm your email to enable cloud sync.', { id: 'email-confirm' });
-      // Stash data so we can retry once email is confirmed
+      // EmailConfirmationBanner already conveys this state persistently in
+      // both shell and non-shell routes, with a Resend action. Firing a toast
+      // here on every save attempt is duplicative. Silent stash + retry once
+      // email_confirmed_at flips (see effect below).
       pendingCloudSaveRef.current = portfolioData;
       return;
     }
