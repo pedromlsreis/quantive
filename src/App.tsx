@@ -9,6 +9,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ConsentBanner } from "@/components/ConsentBanner";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthModalProvider } from "@/contexts/AuthModalContext";
 import { KeySessionProvider } from "@/contexts/KeySessionContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { PreferencesProvider } from "@/contexts/PreferencesContext";
@@ -106,7 +107,9 @@ const App = () => (
                   <PageViewTracker />
                   <RequireUnlock />
                   <RecoveryOfferModal />
-                  <AppRoutes />
+                  <AuthModalProvider>
+                    <AppRoutes />
+                  </AuthModalProvider>
                   <ConsentBanner />
                 </BrowserRouter>
               </PortfolioProvider>

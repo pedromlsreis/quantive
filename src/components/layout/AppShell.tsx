@@ -10,7 +10,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
-import { AuthModal } from '@/components/auth/AuthModal';
+import { useAuthModal } from '@/contexts/AuthModalContext';
 import { EmailConfirmationBanner } from '@/components/auth/EmailConfirmationBanner';
 import { Wordmark } from '@/components/layout/Brand';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
@@ -309,8 +309,8 @@ function Sidebar({
 export function AppShell({ children, pathname }: { children: React.ReactNode; pathname: string }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
   const [feedbackTrigger, setFeedbackTrigger] = useState(0);
+  const { openAuth } = useAuthModal();
 
   return (
     <div className="q-app">
@@ -319,7 +319,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onFeedback={() => setFeedbackTrigger(n => n + 1)}
-        onSignIn={() => { setSidebarOpen(false); setAuthOpen(true); }}
+        onSignIn={() => { setSidebarOpen(false); openAuth('signin'); }}
       />
 
       <div className="q-main">
@@ -328,7 +328,8 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
           pathname={pathname}
           onMenuClick={() => setSidebarOpen(true)}
           onAdd={() => setAddOpen(true)}
-          onSignIn={() => setAuthOpen(true)}
+          onSignIn={() => openAuth('signin')}
+          onSignUp={() => openAuth('signup')}
         />
         <main id="main-content" className="q-content q-screen">
           {children}
@@ -338,7 +339,6 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
 
       <AddMeasurementModal open={addOpen} onOpenChange={setAddOpen} />
       <FeedbackLauncher trigger={feedbackTrigger} />
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode="signin" />
     </div>
   );
 }

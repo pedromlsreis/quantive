@@ -21,11 +21,13 @@ export function Topbar({
   onMenuClick,
   onAdd,
   onSignIn,
+  onSignUp,
 }: {
   pathname: string;
   onMenuClick: () => void;
   onAdd: () => void;
   onSignIn: () => void;
+  onSignUp: () => void;
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -98,7 +100,7 @@ export function Topbar({
 
         <button
           className="q-btn q-btn--primary q-btn--sm q-topbar-add"
-          onClick={isMockData ? onSignIn : onAdd}
+          onClick={isMockData ? onSignUp : onAdd}
           aria-label={isMockData ? 'Sign up to track your own portfolio' : 'Add measurement'}
           title={isMockData ? 'Sign up to track your own portfolio' : undefined}
         >

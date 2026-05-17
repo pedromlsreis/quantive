@@ -55,15 +55,17 @@ function setup({
   const onMenuClick = vi.fn();
   const onAdd = vi.fn();
   const onSignIn = vi.fn();
+  const onSignUp = vi.fn();
   render(
     <Topbar
       pathname="/dashboard"
       onMenuClick={onMenuClick}
       onAdd={onAdd}
       onSignIn={onSignIn}
+      onSignUp={onSignUp}
     />,
   );
-  return { setPrivacyMode, onMenuClick, onAdd, onSignIn };
+  return { setPrivacyMode, onMenuClick, onAdd, onSignIn, onSignUp };
 }
 
 beforeEach(() => {
@@ -117,10 +119,11 @@ describe('Topbar — right-aligned action cluster', () => {
   });
 
   it('swaps the add button to a sign-up CTA when viewing mock data', () => {
-    const { onAdd, onSignIn } = setup({ user: null, isMockData: true });
+    const { onAdd, onSignIn, onSignUp } = setup({ user: null, isMockData: true });
     const cta = screen.getByRole('button', { name: /sign up to track your own portfolio/i });
     fireEvent.click(cta);
-    expect(onSignIn).toHaveBeenCalledTimes(1);
+    expect(onSignUp).toHaveBeenCalledTimes(1);
+    expect(onSignIn).not.toHaveBeenCalled();
     expect(onAdd).not.toHaveBeenCalled();
   });
 });

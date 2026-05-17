@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Link } from 'react-router-dom';
@@ -24,6 +24,13 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const trapRef = useFocusTrap<HTMLDivElement>(open);
+
+  // Each open event honours the latest `defaultMode` from the trigger.
+  // Without this, a user who switched to 'signin' inside the modal would
+  // re-open in 'signin' next time even if the new trigger asked for 'signup'.
+  useEffect(() => {
+    if (open) setMode(defaultMode);
+  }, [open, defaultMode]);
 
   const handleClose = () => {
     setEmail('');
