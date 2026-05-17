@@ -1,4 +1,10 @@
 <!doctype html>
+<!-- App UI is deliberately English-only. The legal pages embed German
+     statutory text (§ 19 UStG, Verbraucherschlichtungsstelle, Muster-
+     Widerrufsformular); those blocks are wrapped in `<div lang="de">`
+     inside docs/legal/ so screen readers switch pronunciation correctly.
+     If you ever add a localised UI, swap the static `lang` below for a
+     dynamic value driven by the active route/locale. -->
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
