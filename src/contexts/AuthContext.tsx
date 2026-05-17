@@ -15,6 +15,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
+  resendConfirmation: () => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -120,8 +121,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
+  const resendConfirmation = async () => {
+    if (!user?.email) return { error: 'No email associated with this account.' };
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: user.email,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    return { error: error?.message ?? null };
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, subscription, checkSubscription, signUp, signIn, signOut, resetPassword, updatePassword }}>
+    <AuthContext.Provider value={{ user, session, loading, subscription, checkSubscription, signUp, signIn, signOut, resetPassword, updatePassword, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   );

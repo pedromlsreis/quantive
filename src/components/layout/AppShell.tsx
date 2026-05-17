@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 import { AuthModal } from '@/components/auth/AuthModal';
+import { EmailConfirmationBanner } from '@/components/auth/EmailConfirmationBanner';
 import { Wordmark } from '@/components/layout/Brand';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import { Topbar } from '@/components/layout/Topbar';
@@ -322,6 +323,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
       />
 
       <div className="q-main">
+        <EmailConfirmationBanner />
         <Topbar
           pathname={pathname}
           onMenuClick={() => setSidebarOpen(true)}
