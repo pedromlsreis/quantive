@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Mail } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Check, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -7,6 +7,17 @@ export function EmailConfirmationBanner() {
   const { user, resendConfirmation } = useAuth();
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  // Track the re-enable timer so we can cancel it on unmount and avoid a
+  // setState on an unmounted component (no leak, no React warning).
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current !== null) {
+        clearTimeout(resetTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!user || user.email_confirmed_at) return null;
 
@@ -22,7 +33,10 @@ export function EmailConfirmationBanner() {
     setSent(true);
     toast.success('Confirmation email sent — check your inbox.');
     // Re-enable the action after 30s so users can retry if the email never arrives.
-    setTimeout(() => setSent(false), 30_000);
+    resetTimerRef.current = setTimeout(() => {
+      setSent(false);
+      resetTimerRef.current = null;
+    }, 30_000);
   };
 
   return (
@@ -45,10 +59,10 @@ export function EmailConfirmationBanner() {
         onClick={handleResend}
         disabled={submitting || sent}
         aria-label={sent ? 'Confirmation email sent' : 'Resend confirmation email'}
-        className="inline-flex h-9 items-center rounded-md px-3 text-xs font-semibold underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-60 disabled:no-underline"
+        className="inline-flex h-9 items-center gap-1 rounded-md px-3 text-xs font-semibold underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-60 disabled:no-underline"
         style={{ color: 'var(--warning)' }}
       >
-        {submitting ? 'Sending…' : sent ? 'Sent ✓' : 'Resend email'}
+        {submitting ? 'Sending…' : sent ? (<><Check size={12} aria-hidden="true" />Sent</>) : 'Resend email'}
       </button>
     </div>
   );

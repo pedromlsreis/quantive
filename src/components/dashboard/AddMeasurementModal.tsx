@@ -6,6 +6,7 @@ import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { X, Plus, Trash2, AlertCircle, PieChart } from 'lucide-react';
 import { format } from 'date-fns';
 import { HelpHint } from '@/components/ui/help-hint';
+import { Notice } from '@/components/ui/Notice';
 import { sanitizeSourceName } from '@/lib/utils';
 import { modalOverlay, modalContent, softSpring, errorBanner } from '@/lib/motion';
 
@@ -268,26 +269,12 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
               </AnimatePresence>
 
               {needsClassificationHint && (
-                <div
-                  role="note"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: 'var(--s-2)',
-                    borderRadius: 'var(--r-2)',
-                    background: 'var(--accent-faint-raw)',
-                    padding: 'var(--s-2) var(--s-3)',
-                    marginBottom: 'var(--s-3)',
-                    fontSize: 'var(--text-xs)',
-                    color: 'var(--accent-raw)',
-                    lineHeight: 1.5,
-                  }}
-                >
+                <Notice variant="accent" style={{ marginBottom: 'var(--s-3)' }}>
                   <PieChart size={12} style={{ marginTop: 2, flexShrink: 0 }} aria-hidden="true" />
                   <span>
                     Set <strong style={{ fontWeight: 600 }}>Volatility</strong> (e.g. Stable, Volatile) and <strong style={{ fontWeight: 600 }}>Liquid</strong> on each source to unlock allocation charts.
                   </span>
-                </div>
+                </Notice>
               )}
 
               <div style={{ maxHeight: '55vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', paddingRight: 2 }}>

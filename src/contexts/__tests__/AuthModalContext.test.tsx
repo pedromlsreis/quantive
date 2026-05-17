@@ -10,7 +10,12 @@ vi.mock('@/components/auth/AuthModal', () => ({
     open ? <div data-testid="auth-modal" data-mode={defaultMode} /> : null,
 }));
 
-import { AuthModalProvider, useAuthModal } from '@/contexts/AuthModalContext';
+import {
+  AuthModalProvider,
+  useAuthModal,
+  useAuthModalActions,
+  useAuthModalState,
+} from '@/contexts/AuthModalContext';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <AuthModalProvider>{children}</AuthModalProvider>
@@ -20,7 +25,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe('useAuthModal guard', () => {
+describe('useAuthModal guards', () => {
   it('throws when used outside the provider', () => {
     const { result } = renderHook(() => {
       try { return useAuthModal(); }
@@ -28,6 +33,40 @@ describe('useAuthModal guard', () => {
     });
     expect(result.current).toBeInstanceOf(Error);
     expect((result.current as Error).message).toMatch(/AuthModalProvider/);
+  });
+
+  it('useAuthModalActions throws outside the provider', () => {
+    const { result } = renderHook(() => {
+      try { return useAuthModalActions(); }
+      catch (e) { return e as Error; }
+    });
+    expect(result.current).toBeInstanceOf(Error);
+    expect((result.current as Error).message).toMatch(/AuthModalProvider/);
+  });
+
+  it('useAuthModalState throws outside the provider', () => {
+    const { result } = renderHook(() => {
+      try { return useAuthModalState(); }
+      catch (e) { return e as Error; }
+    });
+    expect(result.current).toBeInstanceOf(Error);
+    expect((result.current as Error).message).toMatch(/AuthModalProvider/);
+  });
+});
+
+describe('AuthModalProvider — split-context referential stability', () => {
+  // The whole point of splitting is that an actions-only consumer doesn't
+  // get a new reference when isOpen flips. Pin that contract so a future
+  // refactor that re-merges the contexts breaks this test.
+  it('useAuthModalActions returns the same reference across isOpen changes', () => {
+    const { result } = renderHook(
+      () => ({ actions: useAuthModalActions(), state: useAuthModalState() }),
+      { wrapper },
+    );
+    const firstActions = result.current.actions;
+    act(() => { result.current.actions.openAuth(); });
+    expect(result.current.state.isOpen).toBe(true);
+    expect(result.current.actions).toBe(firstActions);
   });
 });
 

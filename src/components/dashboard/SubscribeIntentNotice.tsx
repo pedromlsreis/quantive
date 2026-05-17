@@ -1,5 +1,5 @@
 import { Sparkles, X } from 'lucide-react';
-import { useAuthModal } from '@/contexts/AuthModalContext';
+import { useAuthModalActions } from '@/contexts/AuthModalContext';
 import { analytics } from '@/lib/analytics';
 
 type Interval = 'monthly' | 'yearly';
@@ -21,7 +21,7 @@ interface Props {
  * preserving spatial context for the modal's entrance.
  */
 export function SubscribeIntentNotice({ plan, onCancel }: Props) {
-  const { openAuth } = useAuthModal();
+  const { openAuth } = useAuthModalActions();
   const priceLabel = plan === 'yearly' ? '€90/year' : '€9/month';
 
   const handleSignUp = () => {
@@ -49,7 +49,8 @@ export function SubscribeIntentNotice({ plan, onCancel }: Props) {
         <button
           type="button"
           onClick={handleSignUp}
-          className="q-btn q-btn--primary q-btn--sm"
+          className="q-btn q-btn--primary q-btn--md"
+          style={{ minHeight: 44 }}
         >
           Sign up to continue
         </button>
@@ -59,6 +60,7 @@ export function SubscribeIntentNotice({ plan, onCancel }: Props) {
           aria-label="Cancel Pro subscription setup"
           className="q-icon-btn"
           title="Cancel"
+          style={{ minWidth: 44, minHeight: 44 }}
         >
           <X size={14} />
         </button>

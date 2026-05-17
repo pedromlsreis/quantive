@@ -5,6 +5,8 @@ const openAuth = vi.fn();
 
 vi.mock('@/contexts/AuthModalContext', () => ({
   useAuthModal: () => ({ openAuth, closeAuth: vi.fn(), isOpen: false }),
+  useAuthModalActions: () => ({ openAuth, closeAuth: vi.fn() }),
+  useAuthModalState: () => ({ isOpen: false }),
 }));
 
 vi.mock('@/lib/analytics', () => ({

@@ -9,6 +9,7 @@ import { analytics } from '@/lib/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { PLANS } from '@/lib/billing/plans';
 import { supabase } from '@/integrations/supabase/client';
+import { Notice } from '@/components/ui/Notice';
 import './landing.css';
 
 type Interval = 'monthly' | 'yearly';
@@ -97,7 +98,10 @@ export default function PricingPage() {
     next.delete('plan');
     setSearchParams(next, { replace: true });
     subscribeWithPlan(plan);
-  }, [user, subscription.subscribed, searchParams, setSearchParams, subscribeWithPlan]);
+    // user?.email_confirmed_at is included explicitly so the effect re-fires
+    // when Supabase flips the confirmation flag, even if it ever mutates the
+    // user object in place instead of returning a fresh reference.
+  }, [user, user?.email_confirmed_at, subscription.subscribed, searchParams, setSearchParams, subscribeWithPlan]);
 
   const proCtaLabel = !user
     ? 'Sign up to subscribe'
@@ -290,22 +294,24 @@ export default function PricingPage() {
               </p>
             )}
             {user && needsEmailConfirmation && (
-              <div
+              <Notice
+                variant="warning"
                 role="status"
-                aria-live="polite"
-                className="mt-3 rounded-md px-3 py-2 text-[11px] leading-relaxed"
-                style={{
-                  background: 'color-mix(in oklch, var(--warning) 10%, transparent)',
-                  border: '1px solid color-mix(in oklch, var(--warning) 28%, transparent)',
-                  color: 'var(--warning)',
-                }}
+                className="mt-3"
+                style={{ flexDirection: 'column', alignItems: 'stretch', gap: 2, fontSize: '11px' }}
               >
                 <p style={{ fontWeight: 600, margin: 0 }}>Confirm your email first</p>
-                <p style={{ margin: '2px 0 0', opacity: 0.9 }}>
-                  Click the link we sent to <span style={{ fontWeight: 500 }}>{user.email}</span>.
-                  We'll open checkout automatically — no need to come back here.
+                <p style={{ margin: 0, opacity: 0.9 }}>
+                  Click the link we sent to{' '}
+                  <span
+                    style={{ fontWeight: 500, wordBreak: 'break-all' }}
+                    title={user.email}
+                  >
+                    {user.email}
+                  </span>
+                  . We'll open checkout automatically — no need to come back here.
                 </p>
-              </div>
+              </Notice>
             )}
             {user && !subscription.subscribed && !needsEmailConfirmation && (
               <p className="mt-3 text-center text-[11px] text-muted-foreground">

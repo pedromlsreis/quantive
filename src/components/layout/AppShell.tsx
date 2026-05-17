@@ -11,7 +11,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
-import { useAuthModal } from '@/contexts/AuthModalContext';
+import { useAuthModalActions } from '@/contexts/AuthModalContext';
 import { EmailConfirmationBanner } from '@/components/auth/EmailConfirmationBanner';
 import { Wordmark } from '@/components/layout/Brand';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
@@ -357,7 +357,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [feedbackTrigger, setFeedbackTrigger] = useState(0);
-  const { openAuth } = useAuthModal();
+  const { openAuth } = useAuthModalActions();
 
   return (
     <div className="q-app">
