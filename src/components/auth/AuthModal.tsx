@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { LogIn, UserPlus, X, Mail } from 'lucide-react';
+import { LogIn, UserPlus, X, Mail, KeyRound } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 
@@ -160,6 +160,28 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
                   <Link to="/terms" onClick={handleClose} className="text-primary hover:underline">Terms of Service</Link>
                 </span>
               </label>
+            )}
+            {mode === 'forgot' && (
+              <div
+                role="note"
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 'var(--s-2)',
+                  borderRadius: 'var(--r-2)',
+                  border: '1px solid color-mix(in oklch, var(--warning) 30%, transparent)',
+                  background: 'color-mix(in oklch, var(--warning) 10%, transparent)',
+                  padding: 'var(--s-3)',
+                  fontSize: 'var(--text-xs)',
+                  color: 'var(--warning)',
+                  lineHeight: 1.5,
+                }}
+              >
+                <KeyRound className="h-3.5 w-3.5 shrink-0" style={{ marginTop: 2 }} aria-hidden="true" />
+                <span>
+                  Have your 24-word recovery code handy. Without it, encrypted data cannot be recovered.
+                </span>
+              </div>
             )}
             <button
               type="submit"
