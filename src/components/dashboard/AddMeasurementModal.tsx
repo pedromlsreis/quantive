@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { usePortfolio } from '@/contexts/PortfolioContext';
@@ -7,7 +7,7 @@ import { X, Plus, Trash2, AlertCircle, PieChart } from 'lucide-react';
 import { format } from 'date-fns';
 import { HelpHint } from '@/components/ui/help-hint';
 import { Notice } from '@/components/ui/Notice';
-import { sanitizeSourceName } from '@/lib/utils';
+import { sanitizeSourceName, parseLocalizedNumber } from '@/lib/utils';
 import { modalOverlay, modalContent, softSpring, errorBanner } from '@/lib/motion';
 
 interface SourceEntry {
@@ -43,7 +43,11 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   // own last-known currency below.
   const defaultNewCurrency: CurrencyCode = displayCurrency.code;
 
-  const [entries, setEntries] = useState<SourceEntry[]>(() => {
+  // Re-seedable initializer: must read the latest `data` each time it runs.
+  // Pre-fix, this lived inline in `useState` and ran only once on mount —
+  // catastrophically for AppShell's modal instance, which mounts before any
+  // measurement exists and would never re-seed after the first save.
+  const buildInitialEntries = useCallback((): SourceEntry[] => {
     if (data && data.facts.length > 0) {
       const latestDate = Math.max(...data.facts.map(f => f.date.getTime()));
       const latestFacts = data.facts.filter(f => f.date.getTime() === latestDate);
@@ -72,11 +76,25 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     const draft = loadDraft();
     if (draft.length > 0) return draft.map(d => ({ ...d, id: crypto.randomUUID(), volatType: d.volatType ?? '', currency: d.currency ?? defaultNewCurrency }));
     return [{ id: crypto.randomUUID(), name: '', value: '', currency: defaultNewCurrency, isSeeded: false, isLiquid: false, volatType: '' }];
-  });
+  }, [data, defaultNewCurrency, lastCurrencyBySource]);
 
+  const [entries, setEntries] = useState<SourceEntry[]>(buildInitialEntries);
   const [saving, setSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const trapRef = useFocusTrap<HTMLDivElement>(open);
+
+  // Re-seed whenever the modal transitions closed → open. Keeps in-progress
+  // edits while the modal is open, but ensures a fresh open reflects the
+  // current portfolio (matters for the AppShell-mounted instance that was
+  // created before any measurement existed).
+  const prevOpenRef = useRef(open);
+  useEffect(() => {
+    if (open && !prevOpenRef.current) {
+      setEntries(buildInitialEntries());
+      setValidationError(null);
+    }
+    prevOpenRef.current = open;
+  }, [open, buildInitialEntries]);
 
   const updateEntries = (newEntries: SourceEntry[]) => {
     setEntries(newEntries);
@@ -146,10 +164,15 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       }
 
       const names = validEntries.map(e => sanitizeSourceName(e.name).value);
-      const uniqueNames = new Set(names);
+      const seen = new Set<string>();
+      let firstDuplicate: string | null = null;
+      for (const n of names) {
+        if (seen.has(n)) { firstDuplicate = n; break; }
+        seen.add(n);
+      }
 
-      if (uniqueNames.size !== names.length) {
-        setValidationError('Duplicate source names are not allowed');
+      if (firstDuplicate) {
+        setValidationError(`"${firstDuplicate}" appears more than once — keep only one row per source.`);
         setSaving(false);
         return;
       }
@@ -159,10 +182,11 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         const raw = e.value.trim();
         let value = 0;
         if (raw !== '') {
-          const normalized = raw.replace(',', '.');
-          value = parseFloat(normalized);
-          if (!Number.isFinite(value)) {
-            setValidationError(`"${e.name}": invalid number "${raw}"`);
+          const parsed = parseLocalizedNumber(raw);
+          if (typeof parsed === 'number') {
+            value = parsed;
+          } else {
+            setValidationError(`"${e.name}": invalid number ${parsed}`);
             setSaving(false);
             return;
           }
@@ -191,6 +215,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
 
   const hasValidEntries = entries.some(e => e.name.trim() !== '');
   const today = format(new Date(), 'dd MMM yyyy');
+  const isFirstMeasurement = !data || data.facts.length === 0;
 
   // Show the classification hint only for users who haven't classified any
   // source yet — returning users who've already engaged with volat/liquid
@@ -199,6 +224,25 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     .some(rs => rs.volatType && rs.volatType !== 'Unknown');
   const needsClassificationHint = !userHasClassifiedSources &&
     entries.some(e => !e.isSeeded && e.volatType.trim() === '');
+
+  // Pre-compute inline duplicate detection: for each entry, the trimmed name
+  // of the *earlier* entry it collides with (case-insensitive). Only flagged
+  // for the user-typed row, never for the seeded one — the friction is on
+  // the new row, not the existing record.
+  // Submit-time validation in handleSave stays case-sensitive on purpose:
+  // here we surface a soft warning earlier, without changing what counts as
+  // a hard error.
+  const duplicateOf: (string | null)[] = (() => {
+    const seen = new Map<string, string>();
+    return entries.map(e => {
+      const key = e.name.trim().toLowerCase();
+      if (!key) return null;
+      const prior = seen.get(key);
+      if (prior !== undefined) return prior;
+      seen.set(key, e.name.trim());
+      return null;
+    });
+  })();
 
   return (
     <AnimatePresence>
@@ -229,7 +273,11 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
             <div className="q-modal-head">
               <div>
                 <div className="q-modal-title" id="add-measurement-title">Add measurement</div>
-                <div className="q-modal-sub">Record your balances for {today}. Each source carries its own currency.</div>
+                <div className="q-modal-sub">
+                  {isFirstMeasurement
+                    ? <>Add each account or asset you'd like to track — savings, current accounts, brokerage, pension, crypto wallets. One row per account.</>
+                    : <>Record today's balances ({today}). Each row uses its own currency.</>}
+                </div>
               </div>
               <button
                 type="button"
@@ -272,7 +320,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                 <Notice variant="accent" style={{ marginBottom: 'var(--s-3)' }}>
                   <PieChart size={12} style={{ marginTop: 2, flexShrink: 0 }} aria-hidden="true" />
                   <span>
-                    Set <strong style={{ fontWeight: 600 }}>Volatility</strong> (e.g. Stable, Volatile) and <strong style={{ fontWeight: 600 }}>Liquid</strong> on each source to unlock allocation charts.
+                    Tag each row with <strong style={{ fontWeight: 600 }}>volatility</strong> (how much its value swings — savings are <em>stable</em>, stocks are <em>volatile</em>) and whether it's <strong style={{ fontWeight: 600 }}>liquid</strong> (can you withdraw within a few days — savings yes, pension no). This unlocks allocation charts.
                   </span>
                 </Notice>
               )}
@@ -297,7 +345,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                           type="text"
                           value={entry.name}
                           onChange={e => handleChange(index, 'name', e.target.value)}
-                          placeholder="Source name"
+                          placeholder="Account or asset (e.g. Santander savings)"
                           disabled={entry.isSeeded}
                           aria-label="Source name"
                           style={{ opacity: entry.isSeeded ? 0.6 : 1 }}
@@ -340,6 +388,27 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                         <Trash2 size={14} />
                       </button>
                     </div>
+
+                    {duplicateOf[index] && !entry.isSeeded && (
+                      <div
+                        role="status"
+                        aria-live="polite"
+                        style={{
+                          marginTop: 'var(--s-2)',
+                          display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)',
+                          fontSize: 'var(--text-xs)', lineHeight: 1.4,
+                          color: 'var(--warning, var(--negative))',
+                          padding: '6px var(--s-2)',
+                          borderRadius: 'var(--r-1)',
+                          background: 'var(--warning-bg, var(--negative-bg))',
+                        }}
+                      >
+                        <AlertCircle size={12} style={{ marginTop: 2, flexShrink: 0 }} aria-hidden="true" />
+                        <span>
+                          <strong style={{ fontWeight: 600 }}>{duplicateOf[index]}</strong> is already in this measurement — update the row above instead.
+                        </span>
+                      </div>
+                    )}
 
                     <div style={{ marginTop: 'var(--s-2)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '20px 16px', paddingLeft: 2 }}>
                       <div style={{ display: 'flex', minWidth: 0, flex: 1, alignItems: 'center', gap: 'var(--s-2)' }}>

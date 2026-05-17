@@ -15,7 +15,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
-  resendConfirmation: () => Promise<{ error: string | null }>;
+  resendConfirmation: (emailOverride?: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -121,11 +121,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const resendConfirmation = async () => {
-    if (!user?.email) return { error: 'No email associated with this account.' };
+  const resendConfirmation = async (emailOverride?: string) => {
+    // emailOverride covers the post-signup case where no session exists yet
+    // and `user` is null — the AuthModal needs to resend to the email the
+    // user just typed in.
+    const email = emailOverride ?? user?.email;
+    if (!email) return { error: 'No email associated with this account.' };
     const { error } = await supabase.auth.resend({
       type: 'signup',
-      email: user.email,
+      email,
       options: { emailRedirectTo: window.location.origin },
     });
     return { error: error?.message ?? null };

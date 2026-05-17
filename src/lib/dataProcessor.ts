@@ -185,8 +185,13 @@ export async function parsePortfolioExcel(buffer: ArrayBuffer): Promise<Portfoli
     throw new Error('Workbook contains no sheets');
   }
 
-  // Parse fact sheet (first sheet)
-  const factSheet = workbook.worksheets[0];
+  // Parse fact sheet — prefer one named "facts" (case-insensitive), else fall
+  // back to the first sheet. Mirrors the ref lookup below so templates can
+  // ship a leading "Read me" tab without breaking parsing of older uploads
+  // that put facts in slot 0.
+  const factSheet =
+    workbook.worksheets.find(ws => ws.name.toLowerCase() === 'facts') ??
+    workbook.worksheets[0];
   const factRows = sheetToObjects(factSheet);
 
   if (factRows.length === 0) throw new Error('No data found in the first sheet');

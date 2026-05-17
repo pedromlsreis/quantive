@@ -25,6 +25,10 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
 
   const from = params.from || Deno.env.get("EMAIL_FROM") || DEFAULT_FROM;
   const to = Array.isArray(params.to) ? params.to : [params.to];
+  // Resend (and RFC 5322) rejects CR/LF in subject. A user pasting multi-line
+  // feedback once 422'd every notification — sanitise defensively here so no
+  // caller can repeat that.
+  const subject = sanitizeSubject(params.subject);
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
@@ -36,7 +40,7 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
       body: JSON.stringify({
         from,
         to,
-        subject: params.subject,
+        subject,
         html: params.html,
         text: params.text,
         reply_to: params.replyTo || undefined,
@@ -60,4 +64,12 @@ export async function sendEmail(params: SendEmailParams): Promise<SendEmailResul
 
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export function sanitizeSubject(s: string): string {
+  // Collapse any CR/LF/tab to a single space; trim runs. Resend rejects the
+  // raw control chars and downstream clients treat them as header injection.
+  const cleaned = s.replace(/[\r\n\t]+/g, " ").replace(/\s{2,}/g, " ").trim();
+  // Hard cap — long subjects are not the point of feedback notifications.
+  return cleaned.length > 200 ? cleaned.slice(0, 197) + "..." : cleaned;
 }

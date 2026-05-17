@@ -26,6 +26,17 @@ describe('downloadExcelTemplate', () => {
 });
 
 describe('template content structure', () => {
+  it('Read me sheet exists as the first tab so Excel opens to it', async () => {
+    const buf = await buildTemplateWorkbook();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+
+    expect(wb.worksheets[0].name).toBe('Read me');
+    // The parser falls back to worksheets[0] when no 'facts' sheet is named —
+    // make sure that fallback path doesn't see the Read me tab.
+    expect(wb.getWorksheet('facts')).toBeDefined();
+  });
+
   it('facts sheet has DATE, ID_SOURCE, SOURCE_VL headers with example data', async () => {
     const buf = await buildTemplateWorkbook();
     const wb = new ExcelJS.Workbook();
@@ -40,6 +51,23 @@ describe('template content structure', () => {
     expect(headerRow.getCell(3).value).toBe('SOURCE_VL');
 
     expect(factsSheet!.actualRowCount).toBe(5); // header + 4 data rows
+  });
+
+  it('header cells carry inline comments (notes) explaining each column', async () => {
+    const buf = await buildTemplateWorkbook();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+
+    const factsSheet = wb.getWorksheet('facts')!;
+    expect(factsSheet.getRow(1).getCell(1).note).toBeTruthy();
+    expect(factsSheet.getRow(1).getCell(2).note).toBeTruthy();
+    expect(factsSheet.getRow(1).getCell(3).note).toBeTruthy();
+    expect(factsSheet.getRow(1).getCell(4).note).toBeTruthy();
+
+    const refSheet = wb.getWorksheet('ref')!;
+    expect(refSheet.getRow(1).getCell(1).note).toBeTruthy();
+    expect(refSheet.getRow(1).getCell(2).note).toBeTruthy();
+    expect(refSheet.getRow(1).getCell(3).note).toBeTruthy();
   });
 
   it('ref sheet has ID_SOURCE, VOLAT_TYPE, TRANSFERABLE_IN_DAYS headers', async () => {

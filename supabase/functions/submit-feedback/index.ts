@@ -71,20 +71,33 @@ Deno.serve(async (req) => {
     let userEmail: string | null = null;
 
     if (authHeader) {
+      // Pass the JWT directly to getUser(token) — the older pattern of
+      // `createClient(..., { global: { headers: { authorization } } })` and
+      // calling `getUser()` is flaky: supabase-js layers its own
+      // `Authorization: Bearer <anon_key>` on top, shadowing the user JWT in
+      // some header-case combinations and returning a null user even when
+      // the caller is authenticated.
       try {
-        const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || "";
-        const userClient = createClient(supabaseUrl, anonKey, {
-          global: { headers: { authorization: authHeader } },
-        });
-        const { data: { user } } = await userClient.auth.getUser();
-        if (user) {
-          userId = user.id;
-          userEmail = user.email ?? null;
+        const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
+        if (jwt) {
+          const { data: { user }, error: getUserErr } = await adminClient.auth.getUser(jwt);
+          if (getUserErr) {
+            console.warn("[feedback] getUser failed:", getUserErr.message);
+          } else if (user) {
+            userId = user.id;
+            userEmail = user.email ?? null;
+          } else {
+            // No user resolved: typically the supabase-js client attached
+            // `Authorization: Bearer <anon_key>` for an unauthenticated call.
+            console.warn("[feedback] auth header present but token resolves to no user (anon or expired)");
+          }
         }
       } catch (e) {
-        console.warn("Could not extract user from auth header:", e);
+        console.warn("[feedback] Could not extract user from auth header:", e);
       }
     }
+
+    console.log(`[feedback] inserting type=${type} userId=${userId ?? "null"} authHeader=${authHeader ? "present" : "absent"}`);
 
     const { error: insertError } = await adminClient
       .from("feedback")

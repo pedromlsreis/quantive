@@ -19,11 +19,11 @@ const USER = '550e8400-e29b-41d4-a716-446655440000';
 
 const SAMPLE: PortfolioData = {
   facts: [
-    { date: new Date('2024-01-15'), idSource: 'CGD', sourceVl: 1234.56, currency: 'EUR' },
+    { date: new Date('2024-01-15'), idSource: 'Santander', sourceVl: 1234.56, currency: 'EUR' },
     { date: new Date('2024-02-15'), idSource: 'Revolut', sourceVl: 789.0, currency: 'EUR' },
   ],
   refSources: [
-    { idSource: 'CGD', volatType: 'Non-Volatile', transferableInDays: true },
+    { idSource: 'Santander', volatType: 'Non-Volatile', transferableInDays: true },
     { idSource: 'Revolut', volatType: 'Non-Volatile', transferableInDays: true },
   ],
 };
@@ -104,7 +104,7 @@ describe('upsertEncryptedSnapshot', () => {
     expect(decoded.facts).toHaveLength(2);
     // Dates round-trip as ISO strings (JSON.parse won't revive them; the
     // PortfolioContext re-parses them with safeDate).
-    expect(decoded.facts[0].idSource).toBe('CGD');
+    expect(decoded.facts[0].idSource).toBe('Santander');
     expect(decoded.facts[0].sourceVl).toBe(1234.56);
     expect(decoded.facts[0].date).toBe('2024-01-15T00:00:00.000Z');
     expect(decoded.facts[0].currency).toBe('EUR');

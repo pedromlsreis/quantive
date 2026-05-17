@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
 vi.mock('@/contexts/PortfolioContext', () => ({
   usePortfolio: vi.fn(),
@@ -107,7 +107,7 @@ describe('AddMeasurementModal', () => {
 
   it('Save button enables after typing a source name', () => {
     setup();
-    const nameInput = screen.getByPlaceholderText('Source name');
+    const nameInput = screen.getByPlaceholderText(/Account or asset/i);
     fireEvent.change(nameInput, { target: { value: 'Savings' } });
     expect(screen.getByRole('button', { name: /save measurement/i })).toBeEnabled();
   });
@@ -126,15 +126,15 @@ describe('AddMeasurementModal', () => {
 
   it('adds a new source row when "Add data source" is clicked', () => {
     setup();
-    const before = screen.getAllByPlaceholderText('Source name').length;
+    const before = screen.getAllByPlaceholderText(/Account or asset/i).length;
     fireEvent.click(screen.getByRole('button', { name: /add data source/i }));
-    expect(screen.getAllByPlaceholderText('Source name').length).toBe(before + 1);
+    expect(screen.getAllByPlaceholderText(/Account or asset/i).length).toBe(before + 1);
   });
 
   it('shows validation error when a row has a value but no name', async () => {
     setup();
     // Row 1: fill name so Save becomes enabled
-    fireEvent.change(screen.getByPlaceholderText('Source name'), { target: { value: 'Savings' } });
+    fireEvent.change(screen.getByPlaceholderText(/Account or asset/i), { target: { value: 'Savings' } });
     // Row 2: add a row, fill value but leave name blank
     fireEvent.click(screen.getByRole('button', { name: /add data source/i }));
     const valueInputs = screen.getAllByPlaceholderText('0');
@@ -146,22 +146,36 @@ describe('AddMeasurementModal', () => {
     });
   });
 
-  it('shows validation error for duplicate source names', async () => {
+  it('shows validation error for duplicate source names on submit', async () => {
     setup();
-    const [nameInput] = screen.getAllByPlaceholderText('Source name');
+    const [nameInput] = screen.getAllByPlaceholderText(/Account or asset/i);
     fireEvent.change(nameInput, { target: { value: 'Savings' } });
     fireEvent.click(screen.getByRole('button', { name: /add data source/i }));
-    const nameInputs = screen.getAllByPlaceholderText('Source name');
+    const nameInputs = screen.getAllByPlaceholderText(/Account or asset/i);
     fireEvent.change(nameInputs[1], { target: { value: 'Savings' } });
     fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
     await waitFor(() => {
-      expect(screen.getByText(/duplicate source names/i)).toBeInTheDocument();
+      expect(screen.getByText(/"Savings" appears more than once/i)).toBeInTheDocument();
+    });
+  });
+
+  it('flags duplicates inline as the user types, case-insensitively', async () => {
+    setup();
+    const [nameInput] = screen.getAllByPlaceholderText(/Account or asset/i);
+    fireEvent.change(nameInput, { target: { value: 'Santander' } });
+    fireEvent.click(screen.getByRole('button', { name: /add data source/i }));
+    const nameInputs = screen.getAllByPlaceholderText(/Account or asset/i);
+    // Different case still matches — the inline check is more forgiving than
+    // the submit-time check so the user gets warned earlier.
+    fireEvent.change(nameInputs[1], { target: { value: 'santander' } });
+    await waitFor(() => {
+      expect(screen.getByText(/is already in this measurement/i)).toBeInTheDocument();
     });
   });
 
   it('calls addMeasurement and closes on valid save', async () => {
     const { addMeasurement, onOpenChange } = setup();
-    fireEvent.change(screen.getByPlaceholderText('Source name'), { target: { value: 'Savings' } });
+    fireEvent.change(screen.getByPlaceholderText(/Account or asset/i), { target: { value: 'Savings' } });
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '5000' } });
     fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
     await waitFor(() => {
@@ -186,7 +200,7 @@ describe('AddMeasurementModal', () => {
 
   it('persists the chosen currency per row', async () => {
     const { addMeasurement } = setup();
-    fireEvent.change(screen.getByPlaceholderText('Source name'), { target: { value: 'US Brokerage' } });
+    fireEvent.change(screen.getByPlaceholderText(/Account or asset/i), { target: { value: 'US Brokerage' } });
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '12000' } });
     fireEvent.change(screen.getByLabelText('Currency'), { target: { value: 'USD' } });
     fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
@@ -217,7 +231,7 @@ describe('AddMeasurementModal', () => {
 
   it('accepts comma-decimal format (e.g. "1,5" → 1.5)', async () => {
     const { addMeasurement } = setup();
-    fireEvent.change(screen.getByPlaceholderText('Source name'), { target: { value: 'Crypto' } });
+    fireEvent.change(screen.getByPlaceholderText(/Account or asset/i), { target: { value: 'Crypto' } });
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '1,5' } });
     fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
     await waitFor(() => {
@@ -229,11 +243,63 @@ describe('AddMeasurementModal', () => {
 
   it('shows validation error for non-numeric value', async () => {
     setup();
-    fireEvent.change(screen.getByPlaceholderText('Source name'), { target: { value: 'Savings' } });
+    fireEvent.change(screen.getByPlaceholderText(/Account or asset/i), { target: { value: 'Savings' } });
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: 'abc' } });
     fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
     await waitFor(() => {
       expect(screen.getByText(/invalid number/i)).toBeInTheDocument();
+    });
+  });
+
+  it('accepts European thousand-separator format with spaces (e.g. "1 234,00" → 1234)', async () => {
+    const { addMeasurement } = setup();
+    fireEvent.change(screen.getByPlaceholderText(/Account or asset/i), { target: { value: 'Santander' } });
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '1 234,00' } });
+    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    await waitFor(() => {
+      expect(addMeasurement).toHaveBeenCalledWith([
+        expect.objectContaining({ name: 'Santander', value: 1234 }),
+      ]);
+    });
+  });
+
+  it('re-seeds rows when the modal transitions closed → open with newly available data', async () => {
+    // Regression for #8: AppShell's AddMeasurementModal mounts once at app
+    // boot with data=null. Before the fix, useState ran exactly once with
+    // that empty data and never re-seeded — so after the first save, the
+    // next "Add measurement" opened a blank modal.
+    const addMeasurement = vi.fn();
+    vi.mocked(usePortfolio).mockReturnValue({
+      data: null,
+      addMeasurement,
+      lastCurrencyBySource: new Map(),
+    } as unknown as ReturnType<typeof usePortfolio>);
+    vi.mocked(useCurrency).mockReturnValue({
+      currency: { code: 'EUR', symbol: '€', locale: 'de-DE' },
+      allCurrencies: ALL_CURRENCIES,
+      setCurrency: vi.fn(),
+    } as unknown as ReturnType<typeof useCurrency>);
+
+    const onOpenChange = vi.fn();
+    const { rerender } = render(<AddMeasurementModal open={false} onOpenChange={onOpenChange} />);
+
+    // Simulate the user finishing their first save: data now has facts.
+    vi.mocked(usePortfolio).mockReturnValue({
+      data: {
+        facts: [{ date: new Date(2024, 0, 1), idSource: 'Santander Savings', sourceVl: 5000, currency: 'EUR' }],
+        refSources: [{ idSource: 'Santander Savings', volatType: 'Stable', transferableInDays: true }],
+      },
+      addMeasurement,
+      lastCurrencyBySource: new Map([['Santander Savings', 'EUR']]),
+    } as unknown as ReturnType<typeof usePortfolio>);
+
+    await act(async () => {
+      rerender(<AddMeasurementModal open={true} onOpenChange={onOpenChange} />);
+    });
+
+    await waitFor(() => {
+      const nameInputs = screen.getAllByPlaceholderText(/Account or asset/i) as HTMLInputElement[];
+      expect(nameInputs[0].value).toBe('Santander Savings');
     });
   });
 });
