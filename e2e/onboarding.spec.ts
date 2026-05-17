@@ -2,20 +2,24 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Onboarding / Empty State', () => {
   test.beforeEach(async ({ page }) => {
-    // Clear any stored data so we get the empty state
+    // Clear any stored data so we get the empty state.
+    // Pre-dismiss WelcomeModal: its aria-modal="true" backdrop hides the
+    // FileUpload from Playwright's accessibility-tree queries.
     await page.goto('/dashboard');
     await page.evaluate(() => {
       localStorage.clear();
       sessionStorage.clear();
+      localStorage.setItem('finance-cockpit-welcome-dismissed', 'true');
     });
     await page.goto('/dashboard');
   });
 
   test('shows FileUpload empty state when no data', async ({ page }) => {
-    // Either file upload or redirect to landing — both are valid
-    const hasUpload = await page.getByText(/add your first measurement/i).isVisible().catch(() => false);
-    const hasLanding = await page.getByRole('heading', { level: 1 }).isVisible().catch(() => false);
-    expect(hasUpload || hasLanding).toBe(true);
+    // Either the file-upload CTA or a level-1 heading is fine — use auto-waiting
+    // because the empty-state content animates in (opacity 0 → 1).
+    const uploadCta = page.getByRole('button', { name: /add your first measurement/i });
+    const landingH1 = page.getByRole('heading', { level: 1 });
+    await expect(uploadCta.or(landingH1).first()).toBeVisible({ timeout: 6000 });
   });
 
   test('empty state has "Add your first measurement" button', async ({ page }) => {

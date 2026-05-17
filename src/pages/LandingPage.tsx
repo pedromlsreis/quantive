@@ -345,6 +345,8 @@ export default function LandingPage() {
     <div ref={rootRef} className="lp-root flex min-h-screen flex-col">
       <StickyNav />
 
+      <main id="main-content">
+
       {/* ───── HERO ───── */}
       <section className="lp-hero" aria-labelledby="lp-hero-h1">
         <div className="lp-hero-glow" aria-hidden="true" />
@@ -743,6 +745,8 @@ export default function LandingPage() {
           </Link>
         </div>
       </div>
+
+      </main>
 
       <Footer />
     </div>
