@@ -4,14 +4,22 @@ import { Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Wordmark } from '@/components/layout/Brand';
+import { AuthModal } from '@/components/auth/AuthModal';
 import { analytics } from '@/lib/analytics';
 
 export function StickyNav() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
   const location = useLocation();
+
+  const openSignIn = () => {
+    setMobileOpen(false);
+    analytics.landingCtaClicked({ cta: 'sign_in', location: 'nav' });
+    setAuthOpen(true);
+  };
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -77,6 +85,16 @@ export function StickyNav() {
                 </Link>
               )
             ))}
+            {!user && (
+              <button
+                type="button"
+                onClick={openSignIn}
+                aria-label="Sign in to your account"
+                className="rounded-md text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              >
+                Sign in
+              </button>
+            )}
             <Link
               to="/dashboard"
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-transform hover:scale-105"
@@ -88,17 +106,29 @@ export function StickyNav() {
             </Link>
           </div>
 
-          {/* Mobile toggle */}
-          <button
-            type="button"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={mobileOpen}
-            aria-controls="mobile-nav-menu"
-            className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
-          >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          {/* Mobile: persistent Sign in + hamburger */}
+          <div className="flex items-center gap-2 md:hidden">
+            {!user && (
+              <button
+                type="button"
+                onClick={openSignIn}
+                aria-label="Sign in to your account"
+                className="inline-flex h-11 items-center rounded-md px-3 text-sm font-medium text-foreground transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                Sign in
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-nav-menu"
+              className="-mr-2 inline-flex h-11 w-11 items-center justify-center rounded-md text-foreground transition-colors hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile menu */}
@@ -126,6 +156,15 @@ export function StickyNav() {
                   </Link>
                 )
               ))}
+              {!user && (
+                <button
+                  type="button"
+                  onClick={openSignIn}
+                  className="mt-2 rounded-md px-3 py-3 text-left text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Sign in
+                </button>
+              )}
               <Link
                 to="/dashboard"
                 onClick={() => {
@@ -139,6 +178,7 @@ export function StickyNav() {
             </div>
           </div>
         )}
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} defaultMode="signin" />
     </nav>
   );
 }

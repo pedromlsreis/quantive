@@ -105,7 +105,7 @@ function capture(event: string, props?: Record<string, unknown>): void {
   posthog.capture(event, { ...attribution, ...props });
 }
 
-export type LandingCta = 'get_started' | 'try_demo' | 'pro_signup';
+export type LandingCta = 'get_started' | 'try_demo' | 'pro_signup' | 'sign_in';
 export type LandingCtaLocation = 'hero' | 'footer' | 'nav' | 'pricing_card';
 export type DemoSource = 'route' | 'in_app_button';
 export type FileUploadFailureReason =
