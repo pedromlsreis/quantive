@@ -7,7 +7,7 @@ test.describe('Dashboard', () => {
   });
 
   test('renders all four KPI cards', async ({ page }) => {
-    const kpiLabels = ['Net Worth', 'Year-over-Year', 'Sources', 'Liquid Assets'];
+    const kpiLabels = ['Net Worth', 'Liquid Assets', 'Sources', 'Forecast'];
     for (const label of kpiLabels) {
       await expect(page.getByText(label).first()).toBeVisible({ timeout: 6000 });
     }
@@ -40,15 +40,12 @@ test.describe('Dashboard', () => {
     }
   });
 
-  test('filter bar is visible', async ({ page }) => {
-    const filterBar = page.locator('[role="radiogroup"]').first();
-    await expect(filterBar).toBeVisible({ timeout: 6000 });
-  });
-
-  test('New measurement button is visible and enabled', async ({ page }) => {
-    const newBtn = page.getByRole('button', { name: /new/i }).first();
-    await expect(newBtn).toBeVisible({ timeout: 6000 });
-    await expect(newBtn).toBeEnabled();
+  test('topbar primary action is visible and enabled', async ({ page }) => {
+    // In demo mode the topbar primary CTA is "Sign up to track yours" (q-topbar-add);
+    // outside demo it's "Add measurement". Match either.
+    const addBtn = page.getByRole('button', { name: /add measurement|sign up to track/i }).first();
+    await expect(addBtn).toBeVisible({ timeout: 6000 });
+    await expect(addBtn).toBeEnabled();
   });
 
   test('dashboard has no horizontal overflow on mobile', async ({ page }) => {
