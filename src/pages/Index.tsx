@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
@@ -13,6 +13,7 @@ import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { DemoBanner } from '@/components/dashboard/DemoBanner';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
+import { SubscribeIntentNotice } from '@/components/dashboard/SubscribeIntentNotice';
 
 const Index = () => {
   const { data, isLoading, isMockData, snapshots } = usePortfolio();
@@ -38,11 +39,41 @@ const Index = () => {
     navigate(`/pricing?intent=subscribe&plan=${plan}`, { replace: true });
   }, [user, searchParams, navigate]);
 
-  if (isLoading) return <DashboardSkeleton />;
-  if (!data) return <FileUpload />;
+  // Logged-out users with the intent param see the SubscribeIntentNotice.
+  // Cancel strips the params and returns them to a normal dashboard.
+  const showSubscribeIntent = !user && searchParams.get('intent') === 'subscribe';
+  const subscribeIntentPlan = searchParams.get('plan') === 'monthly' ? 'monthly' : 'yearly';
+  const handleCancelSubscribeIntent = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('intent');
+    next.delete('plan');
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const subscribeIntentNotice = showSubscribeIntent ? (
+    <SubscribeIntentNotice plan={subscribeIntentPlan} onCancel={handleCancelSubscribeIntent} />
+  ) : null;
+
+  if (isLoading) {
+    return (
+      <>
+        {subscribeIntentNotice}
+        <DashboardSkeleton />
+      </>
+    );
+  }
+  if (!data) {
+    return (
+      <>
+        {subscribeIntentNotice}
+        <FileUpload />
+      </>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-8">
+      {subscribeIntentNotice}
       {isMockData && <DemoBanner />}
       {!isMockData && snapshots.length === 1 && <FreshStartNudge />}
 
