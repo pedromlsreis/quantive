@@ -16,7 +16,7 @@ import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
 import { SubscribeIntentNotice } from '@/components/dashboard/SubscribeIntentNotice';
 
 const Index = () => {
-  const { data, isLoading, isMockData, snapshots } = usePortfolio();
+  const { data, isLoading, isMockData, allSnapshots } = usePortfolio();
   const { user, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -75,7 +75,10 @@ const Index = () => {
     <div className="flex flex-col gap-8">
       {subscribeIntentNotice}
       {isMockData && <DemoBanner />}
-      {!isMockData && snapshots.length === 1 && <FreshStartNudge />}
+      {/* Use allSnapshots (not the filtered list) so a user with many
+          measurements doesn't get the "just starting out" nudge after
+          narrowing the date filter. */}
+      {!isMockData && allSnapshots.length === 1 && <FreshStartNudge />}
 
       <DashboardSection id="performance" title="Performance">
         <KPICards />
