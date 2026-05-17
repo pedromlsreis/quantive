@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isProtectedPath, PROTECTED_PATHS } from '../RequireUnlock';
+import { isProtectedPath, PROTECTED_PATHS } from '../protectedPaths';
 
 // Pure-function tests for the route gate. The modal's full behaviour (only
 // fires for authed + locked users, etc.) is wired through React state and
