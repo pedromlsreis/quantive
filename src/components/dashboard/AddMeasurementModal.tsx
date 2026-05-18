@@ -339,8 +339,8 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                     animate={{ opacity: 1, y: 0 }}
                     transition={softSpring}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-                      <label className="q-input" style={{ flex: 1 }}>
+                    <div className="q-measurement-row">
+                      <label className="q-input q-measurement-name">
                         <input
                           type="text"
                           value={entry.name}
@@ -351,7 +351,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                           style={{ opacity: entry.isSeeded ? 0.6 : 1 }}
                         />
                       </label>
-                      <label className="q-input" style={{ width: 96, flexShrink: 0 }}>
+                      <label className="q-input q-measurement-value">
                         <input
                           type="text"
                           inputMode="decimal"
@@ -362,7 +362,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                           aria-label="Source value"
                         />
                       </label>
-                      <label className="q-input" style={{ width: 96, flexShrink: 0 }}>
+                      <label className="q-input q-measurement-currency">
                         <select
                           value={entry.currency}
                           onChange={e => handleCurrencyChange(index, e.target.value as CurrencyCode)}

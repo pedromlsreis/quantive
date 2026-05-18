@@ -918,6 +918,21 @@
   display: flex; justify-content: flex-end; gap: var(--s-2);
 }
 
+/* Add-measurement row: name + value + currency + remove. Wraps on mobile so
+   the currency dropdown doesn't bleed past the card's right edge. */
+.q-measurement-row {
+  display: flex; align-items: center; gap: var(--s-2); flex-wrap: nowrap;
+}
+.q-measurement-row .q-measurement-name { flex: 1 1 0; min-width: 0; }
+.q-measurement-row .q-measurement-value { flex: 0 0 96px; }
+.q-measurement-row .q-measurement-currency { flex: 0 0 96px; }
+@media (max-width: 768px) {
+  .q-measurement-row { flex-wrap: wrap; }
+  .q-measurement-row .q-measurement-name { flex: 1 1 100%; }
+  .q-measurement-row .q-measurement-value { flex: 1 1 0; min-width: 0; }
+  .q-measurement-row .q-measurement-currency { flex: 1 1 0; min-width: 0; }
+}
+
 /* ─────────────────────────────────────────────────────────────────
    Chart container
    ─────────────────────────────────────────────────────────────────*/
