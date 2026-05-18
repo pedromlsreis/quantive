@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: May 17, 2026_
+_Last updated: May 18, 2026_
 
 ## 1. Introduction
 
@@ -24,7 +24,7 @@ We do not have a Data Protection Officer (DPO). As a solo controller below the h
 
 **Feedback.** If you submit feedback through the in-app feedback button, we store the message text, the type you selected (e.g. bug, idea), and your account ID so we can follow up. Feedback is not encrypted at rest. Do not include sensitive financial details in feedback messages.
 
-**Usage Data.** Only if you grant analytics consent (see §9): anonymous product analytics (page views, feature usage) via PostHog. No personally identifiable information, financial figures, or account details are included in these events.
+**Usage Data.** Only if you grant analytics consent (see §9): anonymous product analytics (page views, feature usage) and anonymous web-performance metrics (Largest Contentful Paint, Interaction to Next Paint, Cumulative Layout Shift) via PostHog. No personally identifiable information, financial figures, or account details are included in these events.
 
 **Campaign attribution.** If you arrive at the site via a link we publish that includes `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, or `utm_content` query parameters, those values are stored in your browser's localStorage. They are attached to analytics events only if you have granted analytics consent. They are cleared when you sign out or withdraw consent.
 
