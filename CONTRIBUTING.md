@@ -59,6 +59,7 @@ A few non-obvious ones, the rest you can pick up by reading the code.
 - **RLS on every user-data table.** A migration that adds a new table without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` and at least a SELECT policy keyed by `auth.uid()` will not be merged.
 - **No service-role keys in the client bundle.** `SUPABASE_SERVICE_ROLE_KEY` belongs only in edge function environments. If you have a use case that seems to require it client-side, the answer is almost always "edge function" instead.
 - **Encryption invariants** ([`docs/security/encryption.md`](docs/security/encryption.md)) are load-bearing. Changes that touch the crypto module, AAD framing, KDF parameters, or `enc_version` semantics must update the design doc and reference the section number in the PR.
+- **User-tied client state must reset on user-id transition** ([`docs/security/encryption.md` §8.6](docs/security/encryption.md)). Any new `localStorage`/`sessionStorage` key, React Query cache, or in-memory store that's keyed to *a specific user* must be wiped by the `PortfolioContext` watcher (or a parallel one — see [`QueryCacheGuard`](src/components/auth/QueryCacheGuard.tsx)) on sign-out and account switch. Authed users must never write plaintext portfolio data to `localStorage`; guests may.
 
 ## How to write a good PR
 

@@ -371,6 +371,36 @@ The Supabase email-based password reset flow rotates the account credential, but
 
 Outcome (3) is consistent with the threat model (§3.2.4) but is operationally distinct enough to be called out separately: it can happen even to a user who *remembers* their password but resets "just in case", and our UI must surface this before the reset is confirmed. The reset page in the app shows an explicit warning when the account is in the encrypted-no-recovery state.
 
+### 8.6 Sign-out and client-side data lifecycle
+
+Authenticated users' decrypted portfolio never touches localStorage. Cloud is the single source of truth post-decode (§9.2). Guests — unauthenticated visitors using the demo or local-only flow — keep a plaintext `portfolio-data` cache for offline-first ergonomics; the threat model accepts this because there's no account to leak across.
+
+A single watcher in `PortfolioContext` enforces the boundary on every user-id transition (sign-out, account switch). Mirrors `KeySessionContext`'s KEK/DK zeroing pattern (§5.1) so cleanup is centralised rather than spread across every signOut caller:
+
+```
+Trigger: user.id changes from a non-null previous value to anything else
+Action:
+  - setData(null), setFilters(default), setIsMockData(false), syncStatus='idle'
+  - invalidate any in-flight cloud save (bump requestId, drop refs)
+  - localStorage.removeItem:
+      portfolio-data
+      portfolio-data-is-mock
+      add-measurement-draft
+      portfolio-custom-milestones
+      recovery-offered:<previousUserId>
+  - clearAttribution()                       // UTM key from analytics
+  - QueryCacheGuard separately clears React Query cache
+  - KeySessionContext separately zeros KEK/DK
+```
+
+A `beforeunload` handler on authed users wipes the same data + draft keys as defence-in-depth against tab close without explicit sign-out. JS gives no guarantee here, but it raises the bar against another user opening the browser and seeing a previous tab's cache.
+
+The guest-load effect (which rehydrates a guest cache on page load) is gated on `authLoading` so it cannot race `getSession()` and flash a prior user's data to whoever opened the tab before auth resolves.
+
+What survives the watcher by design: `sb-*` (Supabase auth, cleared by `supabase.auth.signOut()`), `cookie-consent` (intentional cross-session), and `pref-*` / `preferred-currency` (preferences, not data — server profile rehydrates on next login).
+
+`/settings` and `/admin` are auth-gated via `RequireAuth`; other shell routes stay guest-accessible because they double as demo entry points and now have no cache to leak.
+
 ---
 
 ## 9. Encryption / decryption flow

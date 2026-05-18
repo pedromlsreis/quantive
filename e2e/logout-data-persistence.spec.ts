@@ -74,6 +74,36 @@ test.describe('Logout data persistence', () => {
     expect(await readLocalStorageKey(page, 'portfolio-data')).toBeNull();
   });
 
+  test('RequireUnlock "Sign out instead" wipes data without unlocking', async ({ page }) => {
+    test.skip(!hasCreds, 'TEST_USER_EMAIL / TEST_USER_PASSWORD not set.');
+    await signIn(page);
+
+    // Seed something so a regression has data to leak.
+    await page.evaluate(() => {
+      localStorage.setItem('portfolio-data', JSON.stringify({
+        facts: [{ date: '2026-01-01', idSource: 'leak', sourceVl: 999, currency: 'EUR' }],
+        refSources: [{ idSource: 'leak', volatType: 'Cash', transferableInDays: true }],
+      }));
+      localStorage.setItem('portfolio-data-is-mock', 'false');
+    });
+
+    // Reload: the auth session restores from sb-* but keySession is in-memory
+    // only, so status flips to 'locked' and RequireUnlock mounts on protected
+    // paths. Navigate to /dashboard explicitly so we land on a protected route.
+    await page.goto('/dashboard');
+    await page.waitForLoadState('networkidle').catch(() => null);
+
+    const unlockModal = page.getByRole('dialog', { name: /unlock your data/i });
+    await expect(unlockModal).toBeVisible({ timeout: 10_000 });
+
+    await page.getByRole('button', { name: /sign out instead/i }).click();
+    await page.waitForLoadState('networkidle').catch(() => null);
+
+    // The watcher must have wiped the cache even though we never unlocked.
+    expect(await readLocalStorageKey(page, 'portfolio-data')).toBeNull();
+    expect(await readLocalStorageKey(page, 'portfolio-data-is-mock')).toBeNull();
+  });
+
   test('/settings redirects to landing when unauthed', async ({ page }) => {
     await page.goto('/settings');
     await page.waitForURL((url) => url.pathname === '/', { timeout: 5_000 });
