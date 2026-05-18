@@ -91,8 +91,8 @@ export function WelcomeModal() {
           ))}
 
           <Notice variant="accent">
-            <MonitorSmartphone className="h-3.5 w-3.5 shrink-0" style={{ marginTop: 1 }} aria-hidden="true" />
-            <span>Your data saves here automatically. Sign in to sync across devices.</span>
+            <MonitorSmartphone className="h-3.5 w-3.5 shrink-0" style={{ marginTop: 2 }} aria-hidden="true" />
+            <span>Your data is saved here automatically. Sign in to sync across devices.</span>
           </Notice>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', cursor: 'pointer', userSelect: 'none' }}>
