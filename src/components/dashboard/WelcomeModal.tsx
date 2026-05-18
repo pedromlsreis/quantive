@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, BarChart3, Shield, Sparkles } from 'lucide-react';
+import { X, Plus, BarChart3, Shield, Sparkles, MonitorSmartphone } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Notice } from '@/components/ui/Notice';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 
 const STORAGE_KEY = 'finance-cockpit-welcome-dismissed';
@@ -88,6 +89,11 @@ export function WelcomeModal() {
               </div>
             </div>
           ))}
+
+          <Notice variant="accent">
+            <MonitorSmartphone className="h-3.5 w-3.5 shrink-0" style={{ marginTop: 1 }} aria-hidden="true" />
+            <span>Your data saves here automatically. Sign in to sync across devices.</span>
+          </Notice>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', cursor: 'pointer', userSelect: 'none' }}>
             <Checkbox
