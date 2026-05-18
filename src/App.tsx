@@ -16,6 +16,8 @@ import { PreferencesProvider } from "@/contexts/PreferencesContext";
 import { EmailConfirmationBanner } from "@/components/auth/EmailConfirmationBanner";
 import { RequireUnlock } from "@/components/auth/RequireUnlock";
 import { RecoveryOfferModal } from "@/components/auth/RecoveryOfferModal";
+import { QueryCacheGuard } from "@/components/auth/QueryCacheGuard";
+import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
 
 const LandingPage = lazy(() => import("./pages/LandingPage"));
@@ -72,11 +74,14 @@ function AppRoutes() {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/security" element={<SecurityPage />} />
-      <Route path="/settings" element={<SettingsPage />} />
+      {/* Auth-gated: /settings and /admin expose account-bound surfaces. */}
+      <Route element={<RequireAuth />}>
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/admin" element={<AdminPage />} />
+      </Route>
       <Route path="/forecast" element={<ForecastPage />} />
       <Route path="/allocations" element={<AllocationsPage />} />
       <Route path="/sources" element={<SourcesPage />} />
-      <Route path="/admin" element={<AdminPage />} />
       <Route path="/impressum" element={<Impressum />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
@@ -105,6 +110,7 @@ const App = () => (
       <Sonner />
       <ErrorBoundary>
         <AuthProvider>
+          <QueryCacheGuard />
           <KeySessionProvider>
             <CurrencyProvider>
               <PreferencesProvider>

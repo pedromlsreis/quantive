@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
-import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
@@ -239,7 +238,6 @@ function Sidebar({
   onSignIn: () => void;
 }) {
   const { user, signOut } = useAuth();
-  const { clearData } = usePortfolio();
   const { isAdmin } = useUserRole();
   const keySession = useKeySession();
   const navigate = useNavigate();
@@ -251,6 +249,9 @@ function Sidebar({
   const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
+    // Reset before fetch so a sign-out or account-switch can't flash the
+    // previous user's name while the new fetch is in flight.
+    setDisplayName(null);
     if (!user) return;
     supabase
       .from('profiles')
@@ -268,7 +269,6 @@ function Sidebar({
   })();
 
   const handleSignOut = () => {
-    clearData();
     signOut();
   };
 

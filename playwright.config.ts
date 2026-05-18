@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+// Load .env so specs can read TEST_USER_EMAIL / TEST_USER_PASSWORD etc.
+// Vite handles this for the app at runtime; tests run in plain Node and
+// would otherwise see nothing.
+import 'dotenv/config';
 
 export default defineConfig({
   testDir: './e2e',

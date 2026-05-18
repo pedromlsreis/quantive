@@ -17,9 +17,16 @@ import {
 import { useCurrency, type CurrencyCode } from './CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
 import { coerceCurrency } from '@/lib/fxConvert';
+import { clearAttribution } from '@/lib/analytics';
 
 const STORAGE_KEY = 'portfolio-data';
 const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
+// Per-user / cross-user client caches wiped by the user-id watcher on
+// sign-out and account-switch. Mirrors the encryption.md §8.3 contract:
+// nothing user-tied survives an identity transition in this browser.
+const ADD_MEASUREMENT_DRAFT_KEY = 'add-measurement-draft';
+const CUSTOM_MILESTONES_KEY = 'portfolio-custom-milestones';
+const RECOVERY_OFFERED_PREFIX = 'recovery-offered:';
 
 /**
  * Safely parse a date value, returning null for invalid dates.
@@ -123,7 +130,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [isLoading, setIsLoading] = useState(false);
   const [isMockData, setIsMockData] = useState(false);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { has } = useEntitlements();
   const keySession = useKeySession();
   const { currency: displayCurrency } = useCurrency();
@@ -170,6 +177,60 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       return { ...prev, dateRange: [floor, prev.dateRange[1]] };
     });
   }, [hasFullHistory]);
+
+  // Wipe every user-tied client cache when the auth user changes. Mirrors
+  // the KeySessionContext pattern (KeySessionContext.tsx:151-161). Owning
+  // the cleanup here means every sign-out path inherits it — UI surfaces
+  // (ProfileMenu, RequireUnlock, SettingsPage delete-account) no longer
+  // need to remember to call clearData() before signOut().
+  //
+  // Fires on: signed-in → signed-out, account A → account B. Does NOT fire
+  // on first mount or on identity-stable rerenders.
+  const previousUserIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const currentUserId = user?.id ?? null;
+    const previousUserId = previousUserIdRef.current;
+    if (previousUserId !== null && previousUserId !== currentUserId) {
+      setData(null);
+      setIsMockData(false);
+      setFilters(defaultFilters);
+      lastAttemptRef.current = null;
+      pendingCloudSaveRef.current = null;
+      // Invalidate any in-flight cloud save so its callback can't re-write status.
+      requestIdRef.current += 1;
+      setSyncStatus('idle');
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(MOCK_FLAG_KEY);
+        localStorage.removeItem(ADD_MEASUREMENT_DRAFT_KEY);
+        localStorage.removeItem(CUSTOM_MILESTONES_KEY);
+        localStorage.removeItem(`${RECOVERY_OFFERED_PREFIX}${previousUserId}`);
+        clearAttribution();
+      } catch {
+        // Storage unavailable; nothing to clean up.
+      }
+    }
+    previousUserIdRef.current = currentUserId;
+  }, [user?.id]);
+
+  // Defence-in-depth for tab-close without explicit sign-out. JS gives no
+  // guarantee here, but raises the bar against another user opening the
+  // browser and seeing the previous tab's plaintext cache. Guests keep
+  // their cache (offline-first ergonomics); only authed-user keys go.
+  useEffect(() => {
+    if (!user) return;
+    const handler = () => {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(MOCK_FLAG_KEY);
+        localStorage.removeItem(ADD_MEASUREMENT_DRAFT_KEY);
+      } catch {
+        // ignore
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [user]);
 
   // Save data to cloud when user is authenticated AND email confirmed
   const saveToCloud = useCallback(async (portfolioData: PortfolioData) => {
@@ -307,8 +368,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           setData(validData);
           setIsMockData(false);
           setDefaultDateRange(validData);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(validData));
-          localStorage.setItem(MOCK_FLAG_KEY, 'false'); // mark as real data
+          // Authed users: cloud is the source of truth post-decode; do NOT
+          // mirror plaintext into localStorage (see encryption.md §8.3).
         }
       } catch (e) {
         console.error('Failed to load from cloud:', e);
@@ -320,6 +381,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // Load from localStorage for guests
   useEffect(() => {
     if (user) return; // cloud load handles authenticated users
+    // Critical: hold off while auth is still resolving. Without this gate a
+    // page load with a prior user's cache flashes that data to whoever
+    // opened the tab before getSession() returns. See H3 in
+    // docs/logout-data-leak-remediation.md.
+    if (authLoading) return;
     try {
       // if previous data was mock (ephemeral), clear it and don't reload
       const wasMock = localStorage.getItem(MOCK_FLAG_KEY) === 'true';
@@ -366,7 +432,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('Failed to load cached data:', e);
     }
-  }, [setDefaultDateRange, user]);
+  }, [setDefaultDateRange, user, authLoading]);
 
   const loadFile = useCallback(async (file: File) => {
     setIsLoading(true);
@@ -377,8 +443,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       const parsed = await parsePortfolioExcel(buffer);
       setData(parsed);
       setIsMockData(false);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      localStorage.setItem(MOCK_FLAG_KEY, 'false'); // mark as real data
+      // Guests rely on the local cache for offline-first reload. Authed
+      // users go cloud-only — see encryption.md §8.3.
+      if (!user) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        localStorage.setItem(MOCK_FLAG_KEY, 'false');
+      }
       setDefaultDateRange(parsed);
       saveToCloud(parsed);
       analytics.fileUploaded({ rowCount: parsed.facts.length, sourceCount: parsed.refSources.length });
@@ -457,9 +527,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
 
-        // Persist
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-        localStorage.setItem(MOCK_FLAG_KEY, 'false');
+        // Persist (guests only — authed users go cloud-only)
+        if (!user) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+          localStorage.setItem(MOCK_FLAG_KEY, 'false');
+        }
         setDefaultDateRange(newData);
         saveToCloud(newData);
         toast.success(`Added measurement with ${entries.length} source${entries.length > 1 ? 's' : ''}`);
@@ -482,9 +554,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
 
-        // Persist as real data
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-        localStorage.setItem(MOCK_FLAG_KEY, 'false');
+        // Persist as real data (guests only)
+        if (!user) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
+          localStorage.setItem(MOCK_FLAG_KEY, 'false');
+        }
         setDefaultDateRange(newData);
         saveToCloud(newData);
         setIsMockData(false); // Clear the mock flag
@@ -524,8 +598,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           refSources: newRefSources,
         };
 
-        // Persist
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
+        // Persist (guests only)
+        if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
         setDefaultDateRange(updatedData);
         saveToCloud(updatedData);
         toast.success(`Updated measurement for ${format(now, 'dd MMM yyyy')}`);
@@ -558,15 +632,15 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         refSources: newRefSources,
       };
 
-      // Persist
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
+      // Persist (guests only)
+      if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
       setDefaultDateRange(updatedData);
       saveToCloud(updatedData);
       toast.success(`Added measurement with ${entries.length} source${entries.length > 1 ? 's' : ''}`);
       return updatedData;
     });
     analytics.measurementAdded({ count: entries.length });
-  }, [isMockData, saveToCloud, setDefaultDateRange]);
+  }, [user, isMockData, saveToCloud, setDefaultDateRange]);
 
   const updateRefSource = useCallback((idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => {
     setData(prev => {
@@ -584,11 +658,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       });
       if (!changed) return prev;
       const updated: PortfolioData = { ...prev, refSources: newRefSources };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
       saveToCloud(updated);
       return updated;
     });
-  }, [saveToCloud]);
+  }, [user, saveToCloud]);
 
   const updateFilters = useCallback((partial: Partial<FilterState>) => {
     setFilters(prev => ({ ...prev, ...partial }));

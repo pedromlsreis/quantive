@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { LogOut, User, Settings, ChevronDown, Shield } from 'lucide-react';
-import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
   DropdownMenu,
@@ -16,12 +15,14 @@ import {
 
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
-  const { clearData } = usePortfolio();
   const { isAdmin } = useUserRole();
   const navigate = useNavigate();
   const [displayName, setDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
+    // Reset before fetch so account-switch can't flash the previous
+    // user's name while the new fetch resolves.
+    setDisplayName(null);
     if (!user) return;
     supabase
       .from('profiles')
@@ -67,12 +68,7 @@ export function ProfileMenu() {
             Admin
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem
-          onSelect={() => {
-            clearData();
-            signOut();
-          }}
-        >
+        <DropdownMenuItem onSelect={() => { signOut(); }}>
           <LogOut className="mr-2 h-4 w-4" />
           Sign out
         </DropdownMenuItem>

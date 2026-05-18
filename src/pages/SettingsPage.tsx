@@ -65,7 +65,7 @@ const PREF_ROW_CLASS = 'q-pref-row';
 export default function SettingsPage() {
   const { user, signOut, updatePassword, subscription } = useAuth();
   const keySession = useKeySession();
-  const { clearData, data } = usePortfolio();
+  const { data } = usePortfolio();
   const { has } = useEntitlements();
   const canExportExcel = has('export.excel');
   const canExportCsv = has('export.csv');
@@ -255,7 +255,8 @@ export default function SettingsPage() {
         setDeleting(false);
         return;
       }
-      clearData();
+      // PortfolioContext's user-id watcher wipes all client state when
+      // signOut() flips user to null. See docs/security/encryption.md §8.3.
       await signOut();
       toast.success('Your account and all data have been permanently deleted.');
       navigate('/');
