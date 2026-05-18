@@ -411,9 +411,14 @@ export default function SettingsPage() {
                 value={currency.code}
                 onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
               >
-                {allCurrencies.map((c) => (
+                {[
+                  currency,
+                  ...allCurrencies
+                    .filter((c) => c.code !== currency.code)
+                    .sort((a, b) => a.name.localeCompare(b.name)),
+                ].map((c) => (
                   <option key={c.code} value={c.code} title={c.name}>
-                    {c.symbol === c.code ? c.code : `${c.symbol} ${c.code}`} — {c.name}
+                    {c.name} ({c.code})
                   </option>
                 ))}
               </select>

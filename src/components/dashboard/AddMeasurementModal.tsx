@@ -369,9 +369,14 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                           aria-label="Currency"
                           title="Currency this balance is recorded in"
                         >
-                          {allCurrencies.map(c => (
+                          {[
+                            displayCurrency,
+                            ...allCurrencies
+                              .filter(c => c.code !== displayCurrency.code)
+                              .sort((a, b) => a.name.localeCompare(b.name)),
+                          ].map(c => (
                             <option key={c.code} value={c.code} title={c.name}>
-                              {c.code} — {c.name}
+                              {c.name} ({c.code})
                             </option>
                           ))}
                         </select>

@@ -925,7 +925,7 @@
 }
 .q-measurement-row .q-measurement-name { flex: 1 1 0; min-width: 0; }
 .q-measurement-row .q-measurement-value { flex: 0 0 96px; }
-.q-measurement-row .q-measurement-currency { flex: 0 0 96px; }
+.q-measurement-row .q-measurement-currency { flex: 0 0 168px; }
 @media (max-width: 768px) {
   .q-measurement-row { flex-wrap: wrap; }
   .q-measurement-row .q-measurement-name { flex: 1 1 100%; }
