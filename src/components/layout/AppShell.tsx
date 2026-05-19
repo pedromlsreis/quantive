@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PieChart, TrendingUp, Database, Settings,
   LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User, KeyRound,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
@@ -26,8 +27,16 @@ interface NavItem {
 const PRIMARY_NAV: NavItem[] = [
   { to: '/dashboard',   label: 'Overview',    icon: <LayoutDashboard size={15} />, shortcut: '1' },
   { to: '/allocations', label: 'Allocations', icon: <PieChart size={15} />,        shortcut: '2' },
-  { to: '/forecast',    label: 'Forecast',    icon: <TrendingUp size={15} />,      shortcut: '3' },
-  { to: '/sources',     label: 'Sources',     icon: <Database size={15} />,        shortcut: '4' },
+  { to: '/sources',     label: 'Sources',     icon: <Database size={15} />,        shortcut: '3' },
+];
+
+// "Plan" group covers looking-forward and looking-back planning views.
+// Forecast is about the future; Performance is about historical comparison.
+// Agent A is expected to add /goals here too on its branch — when both land
+// the integrator (Agent D) will reconcile.
+const PLAN_NAV: NavItem[] = [
+  { to: '/forecast',    label: 'Forecast',    icon: <TrendingUp size={15} />,      shortcut: '4' },
+  { to: '/performance', label: 'Performance', icon: <Activity size={15} />,        shortcut: '5' },
 ];
 
 const SECONDARY_NAV: NavItem[] = [
@@ -295,6 +304,21 @@ function Sidebar({
         <nav className="q-nav" aria-label="Main navigation">
           <div className="q-nav-section-title">Workspace</div>
           {PRIMARY_NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => `q-nav-item${isActive ? ' is-active' : ''}`}
+              onClick={onClose}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+              {item.shortcut && <span className="q-nav-shortcut">{item.shortcut}</span>}
+            </NavLink>
+          ))}
+
+          <div style={{ height: 8 }} />
+          <div className="q-nav-section-title">Plan</div>
+          {PLAN_NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
