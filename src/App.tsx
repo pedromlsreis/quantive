@@ -74,7 +74,12 @@ function AppRoutes() {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/security" element={<SecurityPage />} />
-      {/* Auth-gated: /settings and /admin expose account-bound surfaces. */}
+      {/* Auth-gated: /settings and /admin expose account-bound surfaces.
+          /dashboard, /forecast, /allocations, /sources stay guest-accessible
+          because they have no client-side cache to leak after the
+          PortfolioContext watcher (encryption.md §8.6). If any of those
+          routes ever caches user-tied data again, move them under this
+          RequireAuth block. */}
       <Route element={<RequireAuth />}>
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/admin" element={<AdminPage />} />
