@@ -127,6 +127,12 @@ supabase/
 
 ---
 
+## Legal & policy pages
+
+`docs/legal/{impressum,privacy-policy,terms-of-service}.md` are the canonical source for the rendered Impressum, Privacy and Terms pages — they are imported via `?raw` by [`src/components/legal/MarkdownLegal.tsx`](src/components/legal/MarkdownLegal.tsx) and rendered with ReactMarkdown. Edit the markdown, not the React page.
+
+---
+
 ## Security
 
 Found a vulnerability? Please report it privately — see [SECURITY.md](SECURITY.md).

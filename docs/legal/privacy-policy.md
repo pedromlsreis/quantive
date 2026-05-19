@@ -57,7 +57,7 @@ We share personal data only with the processors strictly required to run the ser
 - **Stripe (Stripe Payments Europe, Ltd., Ireland)** — payment processing. Stripe's privacy policy applies to payment data. Stripe processes a subset of data in the United States; transfers are protected under EU Standard Contractual Clauses and Stripe is certified under the EU-US Data Privacy Framework.
 - **Supabase (Supabase Inc., United States; EU data residency)** — authentication, database, and edge functions. Your project data is hosted in the EU; SCCs apply to any incidental US processing.
 - **PostHog (PostHog Inc., United States; EU Cloud)** — anonymous product analytics, loaded only with your consent. Events are stored on PostHog's EU-hosted infrastructure. SCCs apply to any incidental US processing. See the [PostHog privacy policy](https://posthog.com/privacy).
-- **Email delivery provider** — used solely for transactional emails (password resets, billing receipts, account-deletion confirmation, feedback notifications).
+- **Resend (Resend, Inc., United States)** — transactional email delivery only (password resets, billing receipts, account-deletion confirmation, feedback notifications). SCCs apply to US processing. See the [Resend privacy policy](https://resend.com/legal/privacy-policy).
 
 We do not sell or share your data with advertisers, data brokers, or any other third party.
 

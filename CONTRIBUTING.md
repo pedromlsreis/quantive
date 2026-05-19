@@ -33,8 +33,6 @@ For a fully local Supabase stack (Postgres + Auth + Functions in Docker):
 npx supabase start
 ```
 
-`docs/internal/deployment.md` has the longer story (env vars, edge function deploy steps, hosting notes).
-
 ## Quality gates
 
 Before opening a PR, all four of these must pass:
