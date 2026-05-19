@@ -957,6 +957,36 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       });
   }, [data]);
 
+  // Live "you just crossed the line" emitter for goal_completed.
+  // Compares the most recent snapshot total against each active goal's target
+  // (in the goal's targetCurrency) and fires the analytics event the first
+  // time a given goal id is observed crossed in this session. Honours the
+  // "no portfolio data in events" rule — the event payload is empty.
+  // (Agent A added a creation-time emitter on GoalsPage; this complements it.)
+  const goalCrossedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!allSnapshots.length || !goals.length) return;
+    const latest = allSnapshots[allSnapshots.length - 1];
+    if (!latest) return;
+    for (const goal of goals) {
+      if (goalCrossedRef.current.has(goal.id)) continue;
+      // Convert latest total from display currency back to the goal's
+      // targetCurrency at the most recent snapshot date. fxConvertAt handles
+      // same-currency as identity and returns NaN if rates are missing.
+      const totalInTarget = fxConvertAt(
+        latest.total,
+        displayCurrency.code,
+        goal.targetCurrency,
+        latest.date,
+      );
+      if (!Number.isFinite(totalInTarget)) continue;
+      if (totalInTarget >= goal.targetAmount) {
+        goalCrossedRef.current.add(goal.id);
+        analytics.goalCompleted();
+      }
+    }
+  }, [allSnapshots, goals, fxConvertAt, displayCurrency.code]);
+
   const value = {
     data,
     enrichedFacts,
