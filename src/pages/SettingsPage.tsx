@@ -11,6 +11,7 @@ import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, type NumberFormat } from '@/contexts/PreferencesContext';
 import { supabase } from '@/integrations/supabase/client';
 import { RecoveryCodeDisplay } from '@/components/auth/RecoveryCodeDisplay';
+import { PdfReportButton } from '@/components/export/PdfReportButton';
 import {
   Pencil,
   Check,
@@ -568,6 +569,7 @@ export default function SettingsPage() {
                   {exporting === 'csv' ? 'Exporting…' : 'CSV'}
                 </button>
               )}
+              <PdfReportButton />
             </div>
           </div>
         ) : (
