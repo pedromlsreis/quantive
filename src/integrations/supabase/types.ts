@@ -39,6 +39,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      benchmarks: {
+        Row: {
+          currency: string | null
+          date: string
+          ingested_at: string
+          series_id: string
+          source: string
+          value: number
+        }
+        Insert: {
+          currency?: string | null
+          date: string
+          ingested_at?: string
+          series_id: string
+          source: string
+          value: number
+        }
+        Update: {
+          currency?: string | null
+          date?: string
+          ingested_at?: string
+          series_id?: string
+          source?: string
+          value?: number
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
           created_at: string
