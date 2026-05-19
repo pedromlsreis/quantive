@@ -40,6 +40,37 @@ export interface PortfolioData {
   facts: FactRow[];
   /** Reference source metadata (volatility, liquidity). */
   refSources: RefSource[];
+  /**
+   * Per-user goals, persisted inside the encrypted portfolio blob. Absent in
+   * legacy snapshots — read as `[]` when missing. See `pro-coming-soon-plan.md`
+   * (Feature 1) for the storage-lock-in rationale.
+   */
+  goals?: Goal[];
+}
+
+/**
+ * A net-worth milestone the user is tracking. Stored client-side inside the
+ * encrypted portfolio blob — never visible to the server.
+ *
+ * Amounts are stored in `targetCurrency`, not the user's base currency, so a
+ * base-currency switch does not require rewriting goals. Display-time
+ * conversion goes through `fxConvert.ts` at the rate of the day.
+ */
+export interface Goal {
+  /** UUID v4, generated client-side. Stable across edits. */
+  id: string;
+  /** Human-readable name, e.g. "Reach €100k by 2027". */
+  name: string;
+  /** Target amount, denominated in `targetCurrency`. */
+  targetAmount: number;
+  /** ISO 4217 code the target is denominated in. Defaults to the user's base at creation. */
+  targetCurrency: CurrencyCode;
+  /** ISO date "YYYY-MM-DD" — when the user wants to hit the target. */
+  targetDate: string;
+  /** ISO timestamp the goal was created. Drives the 30-day staged free-tier gate. */
+  createdAt: string;
+  /** Optional soft-delete timestamp. Archived goals are hidden from the active list. */
+  archivedAt?: string;
 }
 
 /** A fact row enriched with joined reference data for display/filtering. */
