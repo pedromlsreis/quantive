@@ -159,4 +159,14 @@ export const analytics = {
   proGateHit(props: { feature: string }): void {
     capture('pro_gate_hit', { feature: props.feature });
   },
+  momTableExported(props: { rows: number; freeRedacted: number }): void {
+    capture('mom_table_exported', { rows: props.rows, free_redacted: props.freeRedacted });
+  },
+  pdfReportGenerated(props: { period: string; hasForecast: boolean; months: number }): void {
+    capture('pdf_report_generated', {
+      period: props.period,
+      has_forecast: props.hasForecast,
+      months: props.months,
+    });
+  },
 };
