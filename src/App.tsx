@@ -30,6 +30,7 @@ const TermsOfService = lazy(() => import("./pages/TermsOfService"));
 const SecurityPage = lazy(() => import("./pages/SecurityPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ForecastPage = lazy(() => import("./pages/ForecastPage"));
+const PerformancePage = lazy(() => import("./pages/PerformancePage"));
 const GoalsPage = lazy(() => import("./pages/GoalsPage"));
 const AllocationsPage = lazy(() => import("./pages/AllocationsPage"));
 const SourcesPage = lazy(() => import("./pages/SourcesPage"));
@@ -59,7 +60,7 @@ const LoadingSpinner = () => (
 // shell route that doesn't read user data (e.g. a static help page), it's
 // fine to omit it from PROTECTED_PATHS — the two lists express different
 // concerns even though they coincide today.
-const APP_SHELL_PATHS = ['/dashboard', '/allocations', '/forecast', '/goals', '/sources', '/settings', '/admin'];
+const APP_SHELL_PATHS = ['/dashboard', '/allocations', '/forecast', '/performance', '/goals', '/sources', '/settings', '/admin'];
 
 function AppRoutes() {
   const location = useLocation();
@@ -86,6 +87,7 @@ function AppRoutes() {
         <Route path="/admin" element={<AdminPage />} />
       </Route>
       <Route path="/forecast" element={<ForecastPage />} />
+      <Route path="/performance" element={<PerformancePage />} />
       <Route path="/goals" element={<GoalsPage />} />
       <Route path="/allocations" element={<AllocationsPage />} />
       <Route path="/sources" element={<SourcesPage />} />

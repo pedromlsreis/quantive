@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PieChart, TrendingUp, Database, Settings, Shield,
-  Plus, Search, CornerDownLeft, Target,
+  Plus, Search, CornerDownLeft, Target, Activity,
 } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -23,6 +23,7 @@ const PAGES: { label: string; to: string; icon: React.ReactNode; keywords: strin
   { label: 'Overview',    to: '/dashboard',   icon: <LayoutDashboard size={14} />, keywords: 'dashboard home kpi' },
   { label: 'Allocations', to: '/allocations', icon: <PieChart size={14} />,        keywords: 'breakdown treemap donut' },
   { label: 'Forecast',    to: '/forecast',    icon: <TrendingUp size={14} />,      keywords: 'projection scenario future' },
+  { label: 'Performance', to: '/performance', icon: <Activity size={14} />,        keywords: 'benchmark inflation s&p sp500 history month' },
   { label: 'Goals',       to: '/goals',       icon: <Target size={14} />,          keywords: 'milestones targets progress' },
   { label: 'Sources',     to: '/sources',     icon: <Database size={14} />,        keywords: 'accounts assets' },
   { label: 'Settings',    to: '/settings',    icon: <Settings size={14} />,        keywords: 'preferences currency' },
