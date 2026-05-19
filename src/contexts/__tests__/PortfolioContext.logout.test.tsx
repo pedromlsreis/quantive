@@ -59,7 +59,11 @@ vi.mock('@/lib/analytics', () => ({
     signedOut: vi.fn(),
     signedUp: vi.fn(),
     pageViewed: vi.fn(),
+    goalCreated: vi.fn(),
+    goalCompleted: vi.fn(),
+    proGateHit: vi.fn(),
   },
+  clearAttribution: vi.fn(),
 }));
 
 vi.mock('sonner', () => ({
