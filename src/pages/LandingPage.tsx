@@ -114,7 +114,7 @@ const STRUCTURED_DATA = {
           name: 'What is included in Quantive Pro?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, Excel and CSV export, and priority support. Milestone tracking, benchmark comparisons (S&P 500, MSCI World, inflation), and a PDF wealth report are coming soon — included in Pro at no extra cost as they ship.',
+            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation; MSCI World coming soon), a month-by-month summary table, a PDF wealth report, Excel and CSV export, and priority support.',
           },
         },
         {
@@ -158,7 +158,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "What's included in Quantive Pro?",
-    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, and Excel and CSV export. Milestone and goal tracking, benchmark comparisons (vs. S&P 500, MSCI World, inflation), and a PDF wealth report are coming soon — included in Pro at no extra cost as they ship. Priority support is included.',
+    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, milestone and goal tracking, benchmark comparisons (vs. S&P 500 and inflation; MSCI World coming soon), a month-by-month summary table, a PDF wealth report, and Excel and CSV export. Priority support is included.',
   },
   {
     q: 'What if I lose access to my account?',
@@ -660,17 +660,17 @@ export default function LandingPage() {
               <li><span className="lp-price-check">✓</span>Forecasting engine — CAGR with 95% confidence bands</li>
               <li>
                 <span className="lp-price-check">✓</span>
-                <span>Milestone &amp; goal tracking <span className="lp-price-soon">Coming soon</span></span>
+                <span>Milestone &amp; goal tracking</span>
               </li>
               <li>
                 <span className="lp-price-check">✓</span>
-                <span>Benchmarks (S&amp;P 500, MSCI World, inflation) <span className="lp-price-soon">Coming soon</span></span>
+                <span>Benchmarks (S&amp;P 500 and inflation; MSCI World coming soon)</span>
               </li>
               <li className="lp-price-sec-head">Get your data out</li>
               <li><span className="lp-price-check">✓</span>Excel/CSV export</li>
               <li>
                 <span className="lp-price-check">✓</span>
-                <span>PDF wealth report — for advisors or annual review <span className="lp-price-soon">Coming soon</span></span>
+                <span>PDF wealth report — for advisors or annual review</span>
               </li>
               <li className="lp-price-sec-head">Support</li>
               <li><span className="lp-price-check">✓</span>Priority support — 24h response</li>
