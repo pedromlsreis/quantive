@@ -109,8 +109,13 @@ test.describe('Performance — benchmark comparison', () => {
     await page.waitForURL('**/performance');
     await expect(page.getByRole('heading', { name: 'Benchmark comparison' })).toBeVisible({ timeout: 8000 });
 
-    // The 12-month note is rendered for Free users.
-    await expect(page.getByText(/last 12 months/i)).toBeVisible();
+    // The 12-month note is rendered for Free users on the benchmark overlay.
+    // After the merge, the MonthSummaryTable below also surfaces an
+    // `history.full` upsell containing "last 12 months", so match the
+    // benchmark-specific copy exclusively.
+    await expect(
+      page.getByText(/Showing the last 12 months\. Upgrade to Pro for the full horizon\./i)
+    ).toBeVisible();
 
     // The benchmarks UpsellCard appears with its "Upgrade to Pro" CTA.
     await expect(page.getByRole('link', { name: /upgrade to pro/i }).first()).toBeVisible();

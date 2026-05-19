@@ -312,7 +312,7 @@ function Sidebar({
             >
               {item.icon}
               <span>{item.label}</span>
-              {item.shortcut && <span className="q-nav-shortcut">{item.shortcut}</span>}
+              {item.shortcut && <span className="q-nav-shortcut" aria-hidden="true">{item.shortcut}</span>}
             </NavLink>
           ))}
 
@@ -327,7 +327,7 @@ function Sidebar({
             >
               {item.icon}
               <span>{item.label}</span>
-              {item.shortcut && <span className="q-nav-shortcut">{item.shortcut}</span>}
+              {item.shortcut && <span className="q-nav-shortcut" aria-hidden="true">{item.shortcut}</span>}
             </NavLink>
           ))}
 
