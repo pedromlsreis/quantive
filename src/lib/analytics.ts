@@ -159,4 +159,7 @@ export const analytics = {
   proGateHit(props: { feature: string }): void {
     capture('pro_gate_hit', { feature: props.feature });
   },
+  benchmarkOverlayToggled(props: { series: 'inflation_eu' | 'sp500' | 'off'; period: 'all' | '5y' | '3y' | '1y' }): void {
+    capture('benchmark_overlay_toggled', { series: props.series, period: props.period });
+  },
 };
