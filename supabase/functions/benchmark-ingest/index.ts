@@ -1,5 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import {
+  type EurostatJson,
+  parseEurostatJson,
+  parseFredCsv,
+  type Row,
+} from "./parsers.ts";
 
 // benchmark-ingest mirrors fx-ingest: a cron-friendly Edge Function that
 // fetches the latest values for a small set of official reference series and
@@ -17,18 +23,14 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 //
 // All fetches are official-source, no API key required. Failures throw and
 // produce a 500 with the error message — visible in Supabase function logs.
+//
+// The pure parsing logic (Eurostat JSON → Row[], FRED CSV → Row[]) lives in
+// `./parsers.ts` so it stays under Vitest coverage. This file holds only the
+// Deno-specific fetch + upsert plumbing.
 
 const log = (step: string, details?: unknown) => {
   const d = details ? ` - ${JSON.stringify(details)}` : "";
   console.log(`[BENCHMARK-INGEST] ${step}${d}`);
-};
-
-type Row = {
-  series_id: string;
-  date: string;        // YYYY-MM-DD
-  value: number;
-  currency: string | null;
-  source: string;
 };
 
 // ─── Eurostat HICP (inflation_eu) ──────────────────────────────────────────
@@ -36,26 +38,10 @@ type Row = {
 // SDMX 2.1 JSON API. Filter:
 //   coicop=CP00 (all items), geo=EA (euro area, all 20 members), unit=I15
 //   (index 2015=100, the standard rebase), freq=M (monthly).
-// Eurostat returns periods as e.g. "2026-02"; we normalise to first-of-month.
 
 const EUROSTAT_URL =
   "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/" +
   "prc_hicp_midx?format=JSON&coicop=CP00&geo=EA&unit=I15&freq=M";
-
-type EurostatJson = {
-  value: Record<string, number>;
-  dimension: {
-    time: { category: { index: Record<string, number> } };
-  };
-};
-
-function eurostatPeriodToDate(period: string): string {
-  // Eurostat monthly periods are "YYYY-MM". Anchor to the 1st of the month
-  // so the client's "month-end ≤ date" lookup is unambiguous.
-  const m = /^(\d{4})-(\d{2})$/.exec(period);
-  if (!m) throw new Error(`Unexpected Eurostat period format: ${period}`);
-  return `${m[1]}-${m[2]}-01`;
-}
 
 async function fetchInflationEu(): Promise<Row[]> {
   const resp = await fetch(EUROSTAT_URL);
@@ -63,29 +49,7 @@ async function fetchInflationEu(): Promise<Row[]> {
     throw new Error(`Eurostat ${resp.status}: ${await resp.text()}`);
   }
   const json = (await resp.json()) as EurostatJson;
-  const timeIndex = json.dimension?.time?.category?.index;
-  if (!timeIndex) {
-    throw new Error("Eurostat response missing dimension.time.category.index");
-  }
-  // timeIndex maps "YYYY-MM" → position. value maps position-as-string → number.
-  const periodByIdx = new Map<number, string>();
-  for (const [period, idx] of Object.entries(timeIndex)) {
-    periodByIdx.set(idx, period);
-  }
-  const rows: Row[] = [];
-  for (const [idxStr, value] of Object.entries(json.value)) {
-    const idx = Number(idxStr);
-    const period = periodByIdx.get(idx);
-    if (!period || typeof value !== "number") continue;
-    rows.push({
-      series_id: "inflation_eu",
-      date: eurostatPeriodToDate(period),
-      value,
-      currency: null,
-      source: "eurostat",
-    });
-  }
-  return rows;
+  return parseEurostatJson(json, (reason, ctx) => log(`skipped Eurostat row: ${reason}`, ctx));
 }
 
 // ─── FRED SP500 (sp500) ────────────────────────────────────────────────────
@@ -95,7 +59,7 @@ async function fetchInflationEu(): Promise<Row[]> {
 //   2016-01-04,2012.66
 //   ...
 //   2026-05-15,5310.12
-// Missing values are encoded as "." — we skip those rows.
+// Missing values are encoded as "." — parser skips those rows.
 
 const FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500";
 
@@ -105,31 +69,7 @@ async function fetchSp500(): Promise<Row[]> {
     throw new Error(`FRED ${resp.status}: ${await resp.text()}`);
   }
   const text = await resp.text();
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2) {
-    throw new Error(`FRED CSV unexpectedly empty (${lines.length} lines)`);
-  }
-  // First line is header. Tolerant to either "observation_date" or "DATE".
-  const header = lines[0].toLowerCase();
-  if (!header.includes("sp500") && !header.includes("sp_500")) {
-    throw new Error(`FRED CSV header missing SP500: ${lines[0]}`);
-  }
-  const rows: Row[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const [date, valueRaw] = lines[i].split(",");
-    if (!date || !valueRaw) continue;
-    if (valueRaw === "." || valueRaw === "NA") continue; // FRED's missing-value sentinel
-    const value = Number(valueRaw);
-    if (!Number.isFinite(value)) continue;
-    rows.push({
-      series_id: "sp500",
-      date,
-      value,
-      currency: "USD",
-      source: "fred",
-    });
-  }
-  return rows;
+  return parseFredCsv(text);
 }
 
 // ─── HTTP entry point ──────────────────────────────────────────────────────

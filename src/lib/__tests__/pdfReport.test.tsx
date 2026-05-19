@@ -18,7 +18,6 @@ function baseInput(overrides: Partial<ReportInput> = {}): ReportInput {
     periodLabel: '2026-01-01 – 2026-05-19',
     period: 'this_year',
     baseCurrency: 'EUR',
-    baseSymbol: '€',
     snapshotsInPeriod: [snap('2026-01-31', 10000), snap('2026-05-19', 12000)],
     allSnapshots: [snap('2026-01-31', 10000), snap('2026-05-19', 12000)],
     topSources: [

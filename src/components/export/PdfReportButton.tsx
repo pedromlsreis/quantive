@@ -11,7 +11,7 @@
  * clean SVG that the browser can rasterise natively via
  * `<img src="data:image/svg+xml;...">`.
  */
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { FileText, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
@@ -176,7 +176,6 @@ function PdfReportButtonInner() {
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
   const [generating, setGenerating] = useState(false);
-  const cancelledRef = useRef(false);
 
   const noData = allSnapshots.length === 0;
 
@@ -191,7 +190,6 @@ function PdfReportButtonInner() {
       return;
     }
     setGenerating(true);
-    cancelledRef.current = false;
     try {
       const customS = period === 'custom' && customStart ? new Date(customStart) : undefined;
       const customE = period === 'custom' && customEnd ? new Date(customEnd) : undefined;
@@ -216,7 +214,6 @@ function PdfReportButtonInner() {
         periodLabel: label,
         period,
         baseCurrency: currency.code,
-        baseSymbol: currency.symbol,
         snapshotsInPeriod: snaps,
         allSnapshots,
         topSources: topSourcesFrom(lastInPeriod),

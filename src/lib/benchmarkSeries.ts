@@ -128,6 +128,10 @@ export function isStale(
   if (!latest) return false; // empty series — UI will show a different message
   const cadence: 'daily' | 'monthly' = series.id === 'sp500' ? 'daily' : 'monthly';
   const limit = cadence === 'daily' ? thresholds.daily : thresholds.monthly;
+  // Subtracting `now` (local Date, ms-since-epoch) from a UTC-midnight epoch
+  // is intentional and correct: both sides are absolute ms-since-epoch, so
+  // the timezone offset cancels out. Do NOT "fix" this by reading
+  // latest as local-midnight — that would *introduce* a TZ skew.
   const ageMs = now.getTime() - new Date(`${latest}T00:00:00Z`).getTime();
   const ageDays = ageMs / (1000 * 60 * 60 * 24);
   return ageDays > limit;

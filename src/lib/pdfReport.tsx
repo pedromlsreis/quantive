@@ -37,8 +37,6 @@ export interface ReportInput {
   period: ReportPeriod;
   /** Base currency code (e.g. "EUR"). */
   baseCurrency: string;
-  /** Symbol/prefix used for headline & deltas (e.g. "€"). */
-  baseSymbol: string;
   /** Filtered snapshots inside the chosen period (ascending by date). */
   snapshotsInPeriod: Snapshot[];
   /** Full snapshot history — used for the conditional forecast & CAGR. */
@@ -158,18 +156,33 @@ const styles = StyleSheet.create({
   },
 });
 
-function formatCurrencyBase(value: number, symbol: string): string {
+/**
+ * Full-precision currency formatter for the PDF. Unlike the in-app shorthand
+ * (€1.5k / €1.50M) this renders exact figures — a wealth report ends up in
+ * front of advisors and tax accountants, who want the literal values.
+ *
+ * Locale 'en-GB' matches the codebase's British-English microcopy and gives a
+ * predictable thousands separator regardless of the user's browser locale,
+ * which matters because the document is generated client-side but consumed
+ * downstream as a static PDF.
+ */
+function formatCurrencyBase(value: number, currency: string): string {
   if (!Number.isFinite(value)) return '—';
-  const abs = Math.abs(value);
-  const sign = value < 0 ? '-' : '';
-  if (abs >= 1_000_000) return `${sign}${symbol}${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `${sign}${symbol}${(abs / 1_000).toFixed(1)}k`;
-  return `${sign}${symbol}${abs.toFixed(0)}`;
+  try {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency,
+      currencyDisplay: 'symbol',
+    }).format(value);
+  } catch {
+    // Unknown ISO code (e.g. test fixture with "XXX") — fall back to a
+    // currency-code prefix rather than throwing.
+    return `${currency} ${value.toFixed(2)}`;
+  }
 }
 
 function periodChangeLine(
   snapshots: Snapshot[],
-  symbol: string,
 ): { abs: number; pct: number | null } | null {
   if (snapshots.length < 2) return null;
   const first = snapshots[0].total;
@@ -249,7 +262,7 @@ export function buildWealthReport(input: ReportInput): React.ReactElement {
     userName,
     generatedAt,
     periodLabel,
-    baseSymbol,
+    baseCurrency,
     snapshotsInPeriod,
     allSnapshots,
     topSources,
@@ -258,7 +271,7 @@ export function buildWealthReport(input: ReportInput): React.ReactElement {
     trajectoryPng,
   } = input;
 
-  const change = periodChangeLine(snapshotsInPeriod, baseSymbol);
+  const change = periodChangeLine(snapshotsInPeriod);
   const headlineValue =
     snapshotsInPeriod.length > 0
       ? snapshotsInPeriod[snapshotsInPeriod.length - 1].total
@@ -295,11 +308,11 @@ export function buildWealthReport(input: ReportInput): React.ReactElement {
         {/* 2. Headline */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Net worth at period end</Text>
-          <Text style={styles.headlineValue}>{formatCurrencyBase(headlineValue, baseSymbol)}</Text>
+          <Text style={styles.headlineValue}>{formatCurrencyBase(headlineValue, baseCurrency)}</Text>
           {change && (
             <Text style={styles.headlineSub}>
               Period change: {change.abs >= 0 ? '+' : ''}
-              {formatCurrencyBase(change.abs, baseSymbol)}
+              {formatCurrencyBase(change.abs, baseCurrency)}
               {change.pct !== null ? ` (${change.pct >= 0 ? '+' : ''}${change.pct.toFixed(1)}%)` : ''}
             </Text>
           )}
@@ -346,7 +359,7 @@ export function buildWealthReport(input: ReportInput): React.ReactElement {
           {topSources.slice(0, 5).map((s) => (
             <View key={s.name} style={styles.sourceRow}>
               <Text style={styles.sourceName}>{s.name}</Text>
-              <Text style={styles.sourceValue}>{formatCurrencyBase(s.value, baseSymbol)}</Text>
+              <Text style={styles.sourceValue}>{formatCurrencyBase(s.value, baseCurrency)}</Text>
               <Text style={styles.sourcePct}>{s.percentOfTotal.toFixed(1)}%</Text>
             </View>
           ))}
@@ -364,8 +377,8 @@ export function buildWealthReport(input: ReportInput): React.ReactElement {
                 Based on your own {(cagr * 100).toFixed(1)}% trailing CAGR over the last 3 years — past performance, not a forecast.
               </Text>
               <Text style={{ marginTop: 4 }}>
-                Projected net worth in 3 years: {formatCurrencyBase(forecastEnd.forecast, baseSymbol)}
-                {' '}({formatCurrencyBase(forecastEnd.lower, baseSymbol)} – {formatCurrencyBase(forecastEnd.upper, baseSymbol)} band).
+                Projected net worth in 3 years: {formatCurrencyBase(forecastEnd.forecast, baseCurrency)}
+                {' '}({formatCurrencyBase(forecastEnd.lower, baseCurrency)} – {formatCurrencyBase(forecastEnd.upper, baseCurrency)} band).
               </Text>
             </View>
           </View>
