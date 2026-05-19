@@ -18,6 +18,10 @@ const hasCreds = (() => {
   try { getTestCreds(); return true; } catch { return false; }
 })();
 
+const hasCreds2 = (() => {
+  try { getTestCreds(2); return true; } catch { return false; }
+})();
+
 test.describe('Logout data persistence', () => {
   test.beforeEach(async ({ page }) => {
     // Start each test from a known-clean browser state.
@@ -102,6 +106,58 @@ test.describe('Logout data persistence', () => {
     // The watcher must have wiped the cache even though we never unlocked.
     expect(await readLocalStorageKey(page, 'portfolio-data')).toBeNull();
     expect(await readLocalStorageKey(page, 'portfolio-data-is-mock')).toBeNull();
+  });
+
+  test('account-swap A → B in the same tab leaves no A state', async ({ page }) => {
+    test.skip(
+      !hasCreds || !hasCreds2,
+      'TEST_USER_EMAIL / PASSWORD and TEST_USER_2_EMAIL / PASSWORD must both be set.',
+    );
+
+    // Sign in as user A and seed every per-user key we expect the watcher to wipe.
+    await signIn(page, 1);
+    const aLabel = await page.evaluate(() => {
+      // Grab whatever displayName / email is showing in the account menu —
+      // we'll later assert it isn't visible after the swap.
+      const btn = document.querySelector('button[aria-label="Account menu"]');
+      return btn?.textContent?.trim() ?? null;
+    });
+
+    await page.evaluate(() => {
+      localStorage.setItem('portfolio-data', JSON.stringify({
+        facts: [{ date: '2026-01-01', idSource: 'A-leak', sourceVl: 111, currency: 'EUR' }],
+        refSources: [{ idSource: 'A-leak', volatType: 'Cash', transferableInDays: true }],
+      }));
+      localStorage.setItem('portfolio-data-is-mock', 'false');
+      localStorage.setItem('add-measurement-draft', '[{"name":"A-leak"}]');
+    });
+
+    await signOutViaProfileMenu(page);
+    await page.waitForTimeout(300);
+
+    // signIn helper clicks the landing-page sign-in trigger; after sign-out
+    // we may be on /dashboard (guest-accessible). Bounce to landing first.
+    await page.goto('/');
+
+    // Sign in as user B in the same tab.
+    await signIn(page, 2);
+    await page.waitForTimeout(300);
+
+    // Watcher contract: no A keys may survive.
+    expect(await readLocalStorageKey(page, 'portfolio-data')).toBeNull();
+    expect(await readLocalStorageKey(page, 'portfolio-data-is-mock')).toBeNull();
+    expect(await readLocalStorageKey(page, 'add-measurement-draft')).toBeNull();
+
+    // ProfileMenu must not flash A's label. We don't pin the exact format of
+    // B's label (test-user emails may differ between projects), only that
+    // whatever shows differs from A's.
+    if (aLabel) {
+      const bLabel = await page.evaluate(() => {
+        const btn = document.querySelector('button[aria-label="Account menu"]');
+        return btn?.textContent?.trim() ?? null;
+      });
+      expect(bLabel).not.toBe(aLabel);
+    }
   });
 
   test('/settings redirects to landing when unauthed', async ({ page }) => {
