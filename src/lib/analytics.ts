@@ -174,4 +174,14 @@ export const analytics = {
   benchmarkOverlayToggled(props: { series: 'inflation_eu' | 'sp500' | 'off'; period: 'all' | '5y' | '3y' | '1y' }): void {
     capture('benchmark_overlay_toggled', { series: props.series, period: props.period });
   },
+  momTableExported(props: { rows: number; freeRedacted: number }): void {
+    capture('mom_table_exported', { rows: props.rows, free_redacted: props.freeRedacted });
+  },
+  pdfReportGenerated(props: { period: string; hasForecast: boolean; months: number }): void {
+    capture('pdf_report_generated', {
+      period: props.period,
+      has_forecast: props.hasForecast,
+      months: props.months,
+    });
+  },
 };

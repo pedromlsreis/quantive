@@ -1,0 +1,19 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildWealthReport — document tree > renders a structural snapshot that is independent of raster data 1`] = `
+{
+  "hasForecastSection": false,
+  "hasTrajectoryImage": false,
+  "headlineText": "€12.0k",
+  "sectionTitles": [
+    "Net worth at period end",
+    "Allocation",
+    "Trajectory",
+    "Top sources",
+  ],
+  "sourceNames": [
+    "Brokerage",
+    "Savings",
+  ],
+}
+`;
