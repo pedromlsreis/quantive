@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData, FactRow, RefSource } from '@/lib/types';
+import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData, FactRow, RefSource, Goal } from '@/lib/types';
 import { generateMockData } from '@/lib/mockData';
 import { toast } from 'sonner';
 import { analytics } from '@/lib/analytics';
@@ -52,7 +52,34 @@ function safeDateWithWarning(val: unknown, context: string, index: number): Date
 type RawCloudPortfolio = {
   facts: Array<Record<string, unknown>>;
   refSources: RefSource[];
+  /** Optional in legacy blobs — see `coerceGoals` for normalisation. */
+  goals?: unknown;
 };
+
+/**
+ * Defensive normaliser for the goals array on a freshly-decoded snapshot.
+ * Treats anything malformed as an empty list rather than throwing, so a
+ * single corrupt goal entry can't black-hole the whole portfolio load.
+ */
+function coerceGoals(value: unknown): Goal[] {
+  if (!Array.isArray(value)) return [];
+  const out: Goal[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') continue;
+    const r = raw as Record<string, unknown>;
+    const id = typeof r.id === 'string' ? r.id : null;
+    const name = typeof r.name === 'string' ? r.name : null;
+    const targetAmount = typeof r.targetAmount === 'number' ? r.targetAmount : Number(r.targetAmount);
+    const targetCurrency = coerceCurrency(r.targetCurrency);
+    const targetDate = typeof r.targetDate === 'string' ? r.targetDate : null;
+    const createdAt = typeof r.createdAt === 'string' ? r.createdAt : null;
+    if (!id || !name || !targetDate || !createdAt) continue;
+    if (!Number.isFinite(targetAmount)) continue;
+    const archivedAt = typeof r.archivedAt === 'string' ? r.archivedAt : undefined;
+    out.push({ id, name, targetAmount, targetCurrency, targetDate, createdAt, archivedAt });
+  }
+  return out;
+}
 
 export type SyncStatus = 'idle' | 'syncing' | 'error' | 'synced';
 
@@ -79,6 +106,19 @@ interface PortfolioContextType {
   allSnapshots: Snapshot[];
   /** Maps source name → currency of that source's most recent fact. Used by the modal to default new measurements to the same currency. */
   lastCurrencyBySource: Map<string, CurrencyCode>;
+  /**
+   * Active (non-archived) goals, sorted by `createdAt` ascending. Stored
+   * inside the encrypted portfolio blob — `[]` when there's no data yet or
+   * the legacy blob has no `goals` field. See `pro-coming-soon-plan.md`
+   * Feature 1 for the staged free-tier gate.
+   */
+  goals: Goal[];
+  /** Persist a new goal. Generates the id and createdAt. */
+  addGoal: (input: { name: string; targetAmount: number; targetCurrency: CurrencyCode; targetDate: string }) => Goal;
+  /** Patch an existing goal in place (e.g. rename, retarget). Silently no-ops if the id is unknown. */
+  updateGoal: (id: string, patch: Partial<Pick<Goal, 'name' | 'targetAmount' | 'targetCurrency' | 'targetDate'>>) => void;
+  /** Soft-delete: stamps `archivedAt`. Archived goals don't surface on the goals page but stay in the blob. */
+  archiveGoal: (id: string) => void;
 }
 
 const defaultFilters: FilterState = {
@@ -364,7 +404,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             return;
           }
 
-          const validData: PortfolioData = { facts: parsedFacts, refSources: cloudData.refSources };
+          const validData: PortfolioData = {
+            facts: parsedFacts,
+            refSources: cloudData.refSources,
+            goals: coerceGoals(cloudData.goals),
+          };
           setData(validData);
           setIsMockData(false);
           setDefaultDateRange(validData);
@@ -419,7 +463,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (validFacts.length > 0) {
-          const validData = { ...parsed, facts: validFacts };
+          const validData: PortfolioData = {
+            ...parsed,
+            facts: validFacts,
+            goals: coerceGoals(parsed.goals),
+          };
           setData(validData);
           setIsMockData(false);
           setDefaultDateRange(validData);
@@ -664,6 +712,89 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     });
   }, [user, saveToCloud]);
 
+  // ── Goals ───────────────────────────────────────────────────────────────
+  //
+  // Goals live inside the same encrypted portfolio blob (see types.ts).
+  // Every CRUD call mutates `data`, persists the new blob (guests:
+  // localStorage; authed: cloud), and lets the existing sync plumbing carry
+  // the bytes. There is no separate goals table — see "Storage lock-in" in
+  // pro-coming-soon-plan.md Feature 1.
+
+  /** Internal helper: persist a portfolio mutation that doesn't touch the date range. */
+  const persistGoalsChange = useCallback((updated: PortfolioData) => {
+    if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    saveToCloud(updated);
+  }, [user, saveToCloud]);
+
+  const addGoal = useCallback(
+    (input: { name: string; targetAmount: number; targetCurrency: CurrencyCode; targetDate: string }): Goal => {
+      const goal: Goal = {
+        id: crypto.randomUUID(),
+        name: input.name.trim(),
+        targetAmount: input.targetAmount,
+        targetCurrency: input.targetCurrency,
+        targetDate: input.targetDate,
+        createdAt: new Date().toISOString(),
+      };
+      setData(prev => {
+        // No portfolio yet — create an empty one so the goal still has a home.
+        // The user will get FileUpload prompts on the dashboard, but goals
+        // don't require uploaded snapshots to exist.
+        const base: PortfolioData = prev ?? { facts: [], refSources: [], goals: [] };
+        const goals = [...(base.goals ?? []), goal];
+        const updated: PortfolioData = { ...base, goals };
+        persistGoalsChange(updated);
+        return updated;
+      });
+      analytics.goalCreated();
+      return goal;
+    },
+    [persistGoalsChange],
+  );
+
+  const updateGoal = useCallback(
+    (id: string, patch: Partial<Pick<Goal, 'name' | 'targetAmount' | 'targetCurrency' | 'targetDate'>>) => {
+      setData(prev => {
+        if (!prev) return prev;
+        const goals = prev.goals ?? [];
+        let changed = false;
+        const next = goals.map(g => {
+          if (g.id !== id) return g;
+          changed = true;
+          return {
+            ...g,
+            name: patch.name !== undefined ? patch.name.trim() : g.name,
+            targetAmount: patch.targetAmount !== undefined ? patch.targetAmount : g.targetAmount,
+            targetCurrency: patch.targetCurrency !== undefined ? patch.targetCurrency : g.targetCurrency,
+            targetDate: patch.targetDate !== undefined ? patch.targetDate : g.targetDate,
+          };
+        });
+        if (!changed) return prev;
+        const updated: PortfolioData = { ...prev, goals: next };
+        persistGoalsChange(updated);
+        return updated;
+      });
+    },
+    [persistGoalsChange],
+  );
+
+  const archiveGoal = useCallback((id: string) => {
+    setData(prev => {
+      if (!prev) return prev;
+      const goals = prev.goals ?? [];
+      let changed = false;
+      const next = goals.map(g => {
+        if (g.id !== id || g.archivedAt) return g;
+        changed = true;
+        return { ...g, archivedAt: new Date().toISOString() };
+      });
+      if (!changed) return prev;
+      const updated: PortfolioData = { ...prev, goals: next };
+      persistGoalsChange(updated);
+      return updated;
+    });
+  }, [persistGoalsChange]);
+
   const updateFilters = useCallback((partial: Partial<FilterState>) => {
     setFilters(prev => ({ ...prev, ...partial }));
   }, []);
@@ -811,6 +942,21 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     };
   }, [snapshots]);
 
+  // Active goals only (archived are still in the blob but hidden from the UI).
+  // Sorted by createdAt ascending so the staged-gate "first goal" rule reads
+  // off index 0 consistently.
+  const goals = useMemo<Goal[]>(() => {
+    const all = data?.goals ?? [];
+    return all
+      .filter(g => !g.archivedAt)
+      .sort((a, b) => {
+        const ta = Date.parse(a.createdAt);
+        const tb = Date.parse(b.createdAt);
+        if (ta !== tb) return ta - tb;
+        return a.id < b.id ? -1 : 1;
+      });
+  }, [data]);
+
   const value = {
     data,
     enrichedFacts,
@@ -832,6 +978,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     syncStatus,
     retrySync,
     lastCurrencyBySource,
+    goals,
+    addGoal,
+    updateGoal,
+    archiveGoal,
   };
 
   return (
