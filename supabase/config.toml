@@ -21,3 +21,6 @@ verify_jwt = false
 [functions.fx-ingest]
 verify_jwt = false
 
+[functions.benchmark-ingest]
+verify_jwt = false
+
