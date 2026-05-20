@@ -41,6 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkSubscription = async () => {
     try {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession?.access_token) return;
       const { data, error } = await supabase.functions.invoke('check-subscription');
       if (error) {
         console.error('Error checking subscription:', error);

@@ -32,13 +32,24 @@ serve(async (req) => {
     }
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header provided");
+    const token = authHeader?.replace("Bearer ", "").trim() ?? "";
+    const unsubscribedResponse = () => new Response(JSON.stringify({ subscribed: false }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
 
-    const token = authHeader.replace("Bearer ", "");
+    if (!token) {
+      logStep("No bearer token — returning unsubscribed");
+      return unsubscribedResponse();
+    }
+
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Authentication error: ${userError.message}`);
+    if (userError || !userData.user?.email) {
+      // Anon key, expired token, or otherwise no resolvable user — not a 500.
+      logStep("No authenticated user — returning unsubscribed", { reason: userError?.message });
+      return unsubscribedResponse();
+    }
     const user = userData.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
