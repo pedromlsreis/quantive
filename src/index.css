@@ -923,9 +923,15 @@
 .q-measurement-row {
   display: flex; align-items: center; gap: var(--s-2); flex-wrap: nowrap;
 }
+/* min-width: 0 disables the default min-content floor on flex items so the
+   inputs don't refuse to shrink below their natural typed width and steal
+   space from the source-name column. */
 .q-measurement-row .q-measurement-name { flex: 1 1 0; min-width: 0; }
-.q-measurement-row .q-measurement-value { flex: 0 0 96px; }
-.q-measurement-row .q-measurement-currency { flex: 0 0 168px; }
+.q-measurement-row .q-measurement-value { flex: 0 0 140px; min-width: 0; }
+.q-measurement-row .q-measurement-currency { flex: 0 0 184px; min-width: 0; }
+.q-measurement-row .q-measurement-name input {
+  font-size: var(--text-base); font-weight: 500;
+}
 @media (max-width: 768px) {
   .q-measurement-row { flex-wrap: wrap; }
   .q-measurement-row .q-measurement-name { flex: 1 1 100%; }

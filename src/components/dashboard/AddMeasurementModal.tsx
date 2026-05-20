@@ -266,7 +266,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
           <motion.div
             ref={trapRef}
             className="q-modal relative"
-            style={{ width: 'min(560px, calc(100vw - 32px))' }}
+            style={{ width: 'min(720px, calc(100vw - 32px))' }}
             variants={modalContent}
           >
             {/* Header */}
