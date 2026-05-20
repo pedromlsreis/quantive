@@ -10,6 +10,8 @@ async function openModalFromEmptyState(page: Page) {
     sessionStorage.clear();
     // Pre-dismiss the WelcomeModal so its backdrop doesn't intercept clicks.
     localStorage.setItem('finance-cockpit-welcome-dismissed', 'true');
+    // Pre-dismiss the analytics consent dialog so it doesn't overlay the modal.
+    localStorage.setItem('quantive_analytics_consent', 'denied');
   });
   await page.goto('/dashboard');
   const cta = page.getByRole('button', { name: /add your first measurement/i });
