@@ -842,6 +842,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return result;
   }, [enrichedFacts, filters]);
 
+  // Drop snapshots whose total can't be computed — fxConvertAt returns NaN
+  // when fx_rates haven't loaded yet, or when a fact's currency has no rate
+  // available on its snapshot date. NaN propagates through every downstream
+  // arithmetic (kpis, charts, yearly earnings) so it's far cleaner to hide
+  // the broken date until it can be valued correctly than to render "€NaN"
+  // across the dashboard.
   const snapshots = useMemo<Snapshot[]>(() => {
     const grouped = new Map<number, EnrichedFact[]>();
     filteredFacts.forEach(f => {
@@ -865,7 +871,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           total: sources.reduce((sum, s) => sum + s.value, 0),
           sources,
         };
-      });
+      })
+      .filter(snap => Number.isFinite(snap.total));
   }, [filteredFacts, fxConvertAt, displayCurrency.code]);
 
   const allSnapshots = useMemo<Snapshot[]>(() => {
@@ -890,7 +897,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           total: sources.reduce((sum, s) => sum + s.value, 0),
           sources,
         };
-      });
+      })
+      .filter(snap => Number.isFinite(snap.total));
   }, [enrichedFacts, fxConvertAt, displayCurrency.code]);
 
   // Most recent currency per source — drives the modal's defaults so a row
