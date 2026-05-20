@@ -518,7 +518,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [saveToCloud, setDefaultDateRange]);
+  }, [saveToCloud, setDefaultDateRange, user]);
 
   const loadMockData = useCallback(() => {
     const mock = generateMockData();
