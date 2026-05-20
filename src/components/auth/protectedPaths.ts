@@ -15,6 +15,8 @@ export const PROTECTED_PATHS = [
   '/dashboard',
   '/allocations',
   '/forecast',
+  '/goals',
+  '/performance',
   '/sources',
   '/settings',
   '/admin',

@@ -159,4 +159,29 @@ export const analytics = {
   proGateHit(props: { feature: string }): void {
     capture('pro_gate_hit', { feature: props.feature });
   },
+  /**
+   * Fired when a user adds a new goal. Per analytics.md, do NOT include
+   * the goal name or amount — that's portfolio data. The bare event is
+   * sufficient for funnel/conversion analysis.
+   */
+  goalCreated(): void {
+    capture('goal_created');
+  },
+  /** Fired when current net worth crosses a goal's target. No amounts attached. */
+  goalCompleted(): void {
+    capture('goal_completed');
+  },
+  benchmarkOverlayToggled(props: { series: 'inflation_eu' | 'sp500' | 'off'; period: 'all' | '5y' | '3y' | '1y' }): void {
+    capture('benchmark_overlay_toggled', { series: props.series, period: props.period });
+  },
+  momTableExported(props: { rows: number; freeRedacted: number }): void {
+    capture('mom_table_exported', { rows: props.rows, free_redacted: props.freeRedacted });
+  },
+  pdfReportGenerated(props: { period: string; hasForecast: boolean; months: number }): void {
+    capture('pdf_report_generated', {
+      period: props.period,
+      has_forecast: props.hasForecast,
+      months: props.months,
+    });
+  },
 };

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, PieChart, TrendingUp, Database, Settings,
-  LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User, KeyRound,
+  LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User, KeyRound, Target,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
@@ -26,8 +27,16 @@ interface NavItem {
 const PRIMARY_NAV: NavItem[] = [
   { to: '/dashboard',   label: 'Overview',    icon: <LayoutDashboard size={15} />, shortcut: '1' },
   { to: '/allocations', label: 'Allocations', icon: <PieChart size={15} />,        shortcut: '2' },
-  { to: '/forecast',    label: 'Forecast',    icon: <TrendingUp size={15} />,      shortcut: '3' },
-  { to: '/sources',     label: 'Sources',     icon: <Database size={15} />,        shortcut: '4' },
+  { to: '/sources',     label: 'Sources',     icon: <Database size={15} />,        shortcut: '3' },
+];
+
+// "Plan" group covers looking-forward and looking-back planning views.
+// Forecast is about the future; Performance is about historical comparison;
+// Goals tracks progress towards user-defined targets.
+const PLAN_NAV: NavItem[] = [
+  { to: '/forecast',    label: 'Forecast',    icon: <TrendingUp size={15} />, shortcut: '4' },
+  { to: '/performance', label: 'Performance', icon: <Activity size={15} />,   shortcut: '5' },
+  { to: '/goals',       label: 'Goals',       icon: <Target size={15} />,     shortcut: '6' },
 ];
 
 const SECONDARY_NAV: NavItem[] = [
@@ -303,7 +312,22 @@ function Sidebar({
             >
               {item.icon}
               <span>{item.label}</span>
-              {item.shortcut && <span className="q-nav-shortcut">{item.shortcut}</span>}
+              {item.shortcut && <span className="q-nav-shortcut" aria-hidden="true">{item.shortcut}</span>}
+            </NavLink>
+          ))}
+
+          <div style={{ height: 8 }} />
+          <div className="q-nav-section-title">Plan</div>
+          {PLAN_NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => `q-nav-item${isActive ? ' is-active' : ''}`}
+              onClick={onClose}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+              {item.shortcut && <span className="q-nav-shortcut" aria-hidden="true">{item.shortcut}</span>}
             </NavLink>
           ))}
 

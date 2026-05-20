@@ -11,6 +11,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/dashboard':    'Overview',
   '/allocations':  'Allocations',
   '/forecast':     'Forecast',
+  '/performance':  'Performance',
+  '/goals':        'Goals',
   '/sources':      'Sources',
   '/settings':     'Settings',
   '/security':     'Security',

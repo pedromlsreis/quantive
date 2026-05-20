@@ -222,30 +222,15 @@ export default function PricingPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>
-                      Milestone &amp; goal tracking{' '}
-                      <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 align-middle text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Coming soon
-                      </span>
-                    </span>
+                    <span>Milestone &amp; goal tracking</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>
-                      Benchmark comparison (vs. inflation, S&amp;P 500, MSCI World){' '}
-                      <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 align-middle text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Coming soon
-                      </span>
-                    </span>
+                    <span>Benchmark comparison (vs. S&amp;P 500 and inflation; MSCI World coming soon)</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>
-                      Month-by-month summary table{' '}
-                      <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 align-middle text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Coming soon
-                      </span>
-                    </span>
+                    <span>Month-by-month summary table</span>
                   </li>
                 </ul>
               </div>
@@ -258,12 +243,7 @@ export default function PricingPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>
-                      PDF wealth report (one-page summary for advisors or annual review){' '}
-                      <span className="ml-1 inline-block whitespace-nowrap rounded-full border border-border/60 px-1.5 py-0.5 align-middle text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Coming soon
-                      </span>
-                    </span>
+                    <span>PDF wealth report (one-page summary for advisors or annual review)</span>
                   </li>
                 </ul>
               </div>
