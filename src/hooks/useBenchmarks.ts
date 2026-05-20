@@ -2,17 +2,23 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { BenchmarkSeries, SeriesId } from '@/lib/benchmarkSeries';
 
-// Thin React wrapper around the `benchmarks` table. Loads all rows for the
-// requested series once, groups them by series_id, and exposes them in the
-// shape benchmarkSeries.ts expects.
+// Thin React wrapper around the `benchmarks` table. Loads rows for the
+// requested series once within a bounded date window, groups them by
+// series_id, and exposes them in the shape benchmarkSeries.ts expects.
 //
 // Notes:
 //   * Public read RLS — no auth needed; this lets the chart shell render for
 //     unauthenticated visitors landing on /performance (though the page is
 //     gated behind FeatureGate for free users anyway).
-//   * The benchmarks table is small (low thousands of rows total). One full
-//     load per session is cheaper than orchestrating per-period queries, and
-//     keeps the period-selector switch instant client-side.
+//   * We bound the query to the last LOOKBACK_YEARS so the daily SP500 feed
+//     stays well under PostgREST's default 1000-row response cap. Without the
+//     cutoff, ordering ASC truncated the response to the *oldest* 1000 rows
+//     and `lastDate()` would return a years-old date, falsely tripping the
+//     stale-data banner.
+//   * `.limit()` is set as a defensive cap in case the cutoff is widened.
+
+const LOOKBACK_YEARS = 15;
+const ROW_CAP = 10_000;
 
 export interface BenchmarksApi {
   ready: boolean;
@@ -36,11 +42,17 @@ export function useBenchmarks(): BenchmarksApi {
     setRows(null);
     setError(false);
     (async () => {
+      const cutoff = new Date();
+      cutoff.setUTCFullYear(cutoff.getUTCFullYear() - LOOKBACK_YEARS);
+      const cutoffIso = cutoff.toISOString().slice(0, 10);
+
       const { data, error: err } = await supabase
         .from('benchmarks')
         .select('series_id, date, value')
         .in('series_id', ['inflation_eu', 'sp500'])
-        .order('date', { ascending: true });
+        .gte('date', cutoffIso)
+        .order('date', { ascending: true })
+        .limit(ROW_CAP);
       if (cancelled) return;
       if (err) {
         console.error('[useBenchmarks] failed to load series:', err);
