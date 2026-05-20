@@ -95,19 +95,26 @@ export function MotivationalKPIs() {
     setEditingMilestones(false);
   };
 
-  if (snapshots.length < 2) return null;
+  // Drop snapshots whose total can't be computed yet (e.g. non-EUR sources
+  // while fx_rates are still loading — fxConvert returns NaN in that window
+  // and any arithmetic involving them propagates). Bailing out cleanly here
+  // lets the page render the rest of the dashboard until rates arrive.
+  const finiteSnapshots = snapshots.filter(s => Number.isFinite(s.total));
+  if (finiteSnapshots.length < 2) return null;
 
-  const latest = snapshots[snapshots.length - 1];
-  const first = snapshots[0];
+  const latest = finiteSnapshots[finiteSnapshots.length - 1];
+  const first = finiteSnapshots[0];
 
   // ATH
-  const ath = Math.max(...snapshots.map(s => s.total));
-  const athDate = snapshots.find(s => s.total === ath)!.date;
+  const ath = Math.max(...finiteSnapshots.map(s => s.total));
+  const athSnap = finiteSnapshots.find(s => s.total === ath);
+  if (!athSnap) return null;
+  const athDate = athSnap.date;
   const athProximity = latest.total / ath;
   const isAtATH = athProximity > 0.999;
 
   // Best Month
-  const sortedSnapshots = [...snapshots].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const sortedSnapshots = [...finiteSnapshots].sort((a, b) => a.date.getTime() - b.date.getTime());
   const monthlyEnd = new Map<string, { date: Date; total: number }>();
   for (const snap of sortedSnapshots) {
     const key = `${snap.date.getFullYear()}-${String(snap.date.getMonth() + 1).padStart(2, '0')}`;

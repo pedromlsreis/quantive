@@ -48,16 +48,23 @@ export function NetWorthChart() {
   }, []);
 
   const snapshots = useMemo(() => {
-    if (period === 'all') return allSnapshots;
+    // Drop snapshots with non-finite totals (e.g. non-EUR sources while
+    // fx_rates are still loading). NaNs propagate into the SVG scales and
+    // produce "Expected length, NaN" console warnings otherwise.
+    const finite = allSnapshots.filter(s => Number.isFinite(s.total));
+    if (period === 'all') return finite;
     const months = period === '3m' ? 3 : period === '6m' ? 6 : period === '12m' ? 12 : 24;
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - months);
-    return allSnapshots.filter(s => s.date >= cutoff);
+    return finite.filter(s => s.date >= cutoff);
   }, [allSnapshots, period]);
 
   if (!allSnapshots.length) return null;
 
-  if (allSnapshots.length < 2) {
+  // Gate on the *filtered* count too: with non-EUR sources mid-FX-load the
+  // filter above can drop everything, and the rest of the function assumes
+  // a non-empty `snapshots` (Math.min(...[]) → Infinity → NaN coordinates).
+  if (snapshots.length < 2) {
     return (
       <div className="q-card q-card--p-lg">
         <div className="q-section-head">

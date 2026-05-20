@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import { softSpring, collapseContent } from '@/lib/motion';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 
 interface DashboardSectionProps {
   id: string;
@@ -44,7 +45,7 @@ export function DashboardSection({ id, title, children, defaultOpen = true }: Da
             exit="exit"
             className="overflow-hidden space-y-6"
           >
-            {children}
+            <ErrorBoundary>{children}</ErrorBoundary>
           </motion.div>
         )}
       </AnimatePresence>
