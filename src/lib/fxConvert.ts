@@ -75,10 +75,18 @@ export function buildSeries(rows: FxRow[]): FxSeriesByCurrency {
 
 /**
  * Find the largest series.dates[i] <= isoDate (the "latest rate on or before
- * the target date" rule that mirrors the SQL convert_at helper). Returns null
- * if every available date is strictly after isoDate.
+ * the target date" rule that mirrors the SQL convert_at helper).
+ *
+ * If `isoDate` predates the earliest available row, we back-fill with the
+ * earliest known rate rather than returning null. The approximation cost on
+ * "net worth over time" is tiny for the supported currency set, and is
+ * strictly better than dropping the snapshot from the dashboard — which is
+ * what happens once the NaN propagates up through PortfolioContext.
+ *
+ * Returns null only if the series is empty (currency not ingested at all).
  */
 export function rateAt(series: FxSeries, isoDate: string): number | null {
+  if (series.dates.length === 0) return null;
   let lo = 0;
   let hi = series.dates.length - 1;
   let best = -1;
@@ -91,7 +99,8 @@ export function rateAt(series: FxSeries, isoDate: string): number | null {
       hi = mid - 1;
     }
   }
-  if (best === -1) return null;
+  // bfill: snapshot predates the earliest rate → use the earliest available.
+  if (best === -1) return series.rates.get(series.dates[0])!;
   return series.rates.get(series.dates[best])!;
 }
 

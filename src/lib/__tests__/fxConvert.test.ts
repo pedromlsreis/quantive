@@ -68,9 +68,19 @@ describe('convert (FX math, hand-checked)', () => {
       .toBeCloseTo(convert(1000, 'EUR', 'USD', thu, series), 6);
   });
 
-  it('returns NaN when no rate exists on or before the target date', () => {
-    // 2026-05-10 predates every row in RATES.
-    const result = convert(1000, 'EUR', 'USD', new Date(2026, 4, 10), series);
+  it('back-fills with the earliest known rate when the target date predates every row', () => {
+    // 2026-05-10 predates every USD row; rateAt now returns the earliest
+    // available rate (0.92 on 2026-05-12) rather than null. Same arithmetic
+    // as a conversion *at* 2026-05-12.
+    const before = convert(1000, 'EUR', 'USD', new Date(2026, 4, 10), series);
+    const earliest = convert(1000, 'EUR', 'USD', new Date(2026, 4, 12), series);
+    expect(before).toBeCloseTo(earliest, 6);
+  });
+
+  it('still returns NaN when the currency is not in the series at all', () => {
+    // No JPY rows ingested → no series → NaN. This is the only NaN class we
+    // keep, and it surfaces a real "currency not supported" data gap.
+    const result = convert(1000, 'EUR', 'JPY', new Date(2026, 4, 13), series);
     expect(Number.isNaN(result)).toBe(true);
   });
 
@@ -148,8 +158,15 @@ describe('rateAt (binary search "latest <= date")', () => {
     expect(rateAt(usd, '2026-05-15')).toBe(0.94); // falls back to Thu
   });
 
-  it('returns null when the target date is before every available date', () => {
-    expect(rateAt(usd, '2026-05-11')).toBeNull();
+  it('back-fills with the earliest known rate when the target date predates every row', () => {
+    // 2026-05-11 is before the first USD row (2026-05-12 = 0.92). We prefer
+    // an approximate value over NaN so old measurements in late-ingested
+    // currencies don't drop out of the dashboard.
+    expect(rateAt(usd, '2026-05-11')).toBe(0.92);
+  });
+
+  it('still returns null when the series is completely empty (currency not ingested)', () => {
+    expect(rateAt({ dates: [], rates: new Map() }, '2026-05-13')).toBeNull();
   });
 
   it('returns the most recent rate when the target date is after all rows', () => {
