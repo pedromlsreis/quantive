@@ -56,7 +56,7 @@
 }
 .lp-hero-ctas {
   position: relative; z-index: 1;
-  margin-top: 32px; display: flex; gap: 12px;
+  margin-top: 40px; display: flex; gap: 12px;
   flex-wrap: wrap; justify-content: center;
 }
 
@@ -92,7 +92,7 @@
 
 .lp-hero-visual {
   position: relative; z-index: 1;
-  margin-top: 56px; width: 100%; max-width: 700px;
+  margin-top: 72px; width: 100%; max-width: 700px;
 }
 .lp-hero-kpi-row {
   display: flex; align-items: flex-end;
@@ -376,6 +376,10 @@
   max-width: 540px; margin: 24px auto 0;
   text-align: center; font-size: 12px; color: var(--fg-subtle);
 }
+.lp-price-vat-foot {
+  max-width: 540px; margin: 20px auto 0;
+  text-align: center; font-size: 11px; color: var(--fg-faint);
+}
 
 /* ─── FAQ ────────────────────────────────────────────────── */
 .lp-faq-list {
@@ -452,10 +456,15 @@
   .lp-c-band { animation: none; opacity: 1; stroke-dashoffset: 0; }
 }
 
+/* Below ~375px the headline wraps to 3 lines and orphans "life";
+   hide the forced break so natural wrap takes over (2 lines). */
+@media (max-width: 374px) {
+  .lp-hero-h1-br { display: none; }
+}
+
 /* ─── RESPONSIVE ─────────────────────────────────────────── */
 @media (max-width: 1024px) {
   .lp-feat-hero { grid-template-columns: 1fr; gap: 32px; }
-  .lp-feat-card { display: none; }
 }
 @media (max-width: 860px) {
   .lp-root { --lp-sec-py: 64px; }
@@ -469,8 +478,8 @@
     border-bottom: 1px solid var(--border-soft-raw);
   }
   .lp-feat-col:last-child { border-bottom: none; }
-  .lp-step { grid-template-columns: 90px 1fr; }
-  .lp-step-num { font-size: 4rem; }
+  .lp-step { grid-template-columns: 56px 1fr; gap: 16px; }
+  .lp-step-num { font-size: 2.75rem; opacity: 0.08; }
   .lp-personas { grid-template-columns: 1fr; }
   .lp-pricing { grid-template-columns: 1fr; max-width: 420px; }
   .lp-privacy-grid { grid-template-columns: repeat(2, 1fr); }
@@ -481,8 +490,16 @@
 @media (max-width: 560px) {
   .lp-hero-h1 { font-size: 2.2rem; }
   .lp-hero-sub { margin-top: 16px; font-size: 16px; }
-  .lp-hero-ctas, .lp-cta-actions { flex-direction: column; align-items: stretch; margin-top: 24px; }
-  .lp-hero-visual { margin-top: 24px; }
+  .lp-hero-ctas, .lp-cta-actions { flex-direction: column; align-items: stretch; margin-top: 36px; }
+  /* When stacked, ghost button drops a tier so the primary clearly dominates. */
+  .lp-hero-ctas .lp-btn-ghost,
+  .lp-cta-actions .lp-btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+  .lp-hero-visual { margin-top: 44px; }
   .lp-hero-chart { padding: 10px; }
   .lp-privacy-grid { grid-template-columns: 1fr; }
   .lp-privacy-item {

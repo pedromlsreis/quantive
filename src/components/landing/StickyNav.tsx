@@ -102,7 +102,7 @@ export function StickyNav() {
                 if (!user) analytics.landingCtaClicked({ cta: 'get_started', location: 'nav' });
               }}
             >
-              {user ? 'Go to Dashboard' : 'Get Started Free'}
+              {user ? 'Go to dashboard' : 'Get started free'}
             </Link>
           </div>
 
@@ -173,7 +173,7 @@ export function StickyNav() {
                 }}
                 className="mt-2 rounded-lg bg-primary px-4 py-3 text-center text-sm font-medium text-primary-foreground transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {user ? 'Go to Dashboard' : 'Get Started Free'}
+                {user ? 'Go to dashboard' : 'Get started free'}
               </Link>
             </div>
           </div>

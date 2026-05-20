@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePageMeta } from '@/hooks/usePageMeta';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
-import { BASE_CURRENCY, CURRENCY_CODES } from '@/lib/currencies';
+import { CURRENCY_CODES } from '@/lib/currencies';
 import { analytics } from '@/lib/analytics';
 import './landing.css';
 
@@ -14,123 +14,7 @@ import './landing.css';
 const SUPPORTED_LIST = CURRENCY_CODES.join(', ');
 const SUPPORTED_COUNT = CURRENCY_CODES.length;
 
-/* ── JSON-LD structured data (AEO) ─────────────────────────── */
-const STRUCTURED_DATA = {
-  '@context': 'https://schema.org',
-  '@graph': [
-    {
-      '@type': 'WebSite',
-      '@id': 'https://usequantive.app/#website',
-      url: 'https://usequantive.app/',
-      name: 'Quantive',
-      description:
-        'Privacy-first personal finance cockpit for tracking net worth and forecasting wealth.',
-    },
-    {
-      '@type': 'SoftwareApplication',
-      name: 'Quantive',
-      applicationCategory: 'FinanceApplication',
-      operatingSystem: 'Web',
-      description:
-        'Track net worth, analyse asset allocations, and forecast future wealth — end-to-end encrypted, no bank connection required.',
-      offers: [
-        {
-          '@type': 'Offer',
-          priceSpecification: {
-            '@type': 'PriceSpecification',
-            price: '0',
-            priceCurrency: BASE_CURRENCY,
-            valueAddedTaxIncluded: true,
-          },
-          description:
-            'Free forever — unlimited tracking, multi-currency, encrypted cloud sync',
-        },
-        {
-          '@type': 'Offer',
-          priceSpecification: {
-            '@type': 'PriceSpecification',
-            price: '90',
-            priceCurrency: BASE_CURRENCY,
-            valueAddedTaxIncluded: true,
-          },
-          description:
-            'Pro — full history, forecasting engine, Excel/CSV export, priority support',
-        },
-      ],
-    },
-    {
-      '@type': 'FAQPage',
-      mainEntity: [
-        {
-          '@type': 'Question',
-          name: 'What is Quantive?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: "Quantive is a privacy-first personal finance cockpit that lets you track net worth, analyse asset allocations, and forecast future wealth, without connecting to your bank or sharing your financial data.",
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Is Quantive free to use?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: "Yes. Quantive's core features are free forever with no credit card required. A Pro plan with full history, advanced forecasting, and export features is coming at €90/year.",
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'How does Quantive protect my financial data?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: "All data is encrypted on your device before it reaches Quantive's servers using end-to-end encryption. Quantive cannot read your financial information. Only you hold the key.",
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Does Quantive connect to my bank?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually or import them from an existing spreadsheet.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'Can I import my existing spreadsheet?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Yes. Spreadsheet import is included in the free plan. Upload your spreadsheet and your historical balance data is preserved in the app.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'What currencies does Quantive support?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: `Quantive supports ${SUPPORTED_COUNT} display currencies (${SUPPORTED_LIST}). You can hold assets in any of them and view your portfolio in your preferred currency.`,
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'What is included in Quantive Pro?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, milestone and goal tracking, benchmark comparisons (vs. S&P 500 and inflation; MSCI World coming soon), a month-by-month summary table, a PDF wealth report, Excel and CSV export, and priority support.',
-          },
-        },
-        {
-          '@type': 'Question',
-          name: 'What if I lose access to my Quantive account?',
-          acceptedAnswer: {
-            '@type': 'Answer',
-            text: 'During cloud sync setup, Quantive issues a 24-word recovery phrase (BIP-39 mnemonic). Storing it safely lets you recover your encrypted data if you lose account access.',
-          },
-        },
-      ],
-    },
-  ],
-};
-
-/* ── FAQ data — kept in sync with the JSON-LD above ─────────── */
+/* ── FAQ data — single source of truth, also feeds JSON-LD below */
 const FAQS: Array<{ q: string; a: string }> = [
   {
     q: 'What is Quantive?',
@@ -166,12 +50,16 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
 ];
 
+/* JSON-LD lives in index.html as the canonical schema source for crawlers.
+   Keep the visible FAQS array (above) in sync with the FAQPage block there. */
+
 /* ── Scroll reveal hook ─────────────────────────────────────── */
 function useScrollReveal(rootRef: React.RefObject<HTMLElement>) {
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    if (typeof IntersectionObserver === 'undefined') {
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if (reduced || typeof IntersectionObserver === 'undefined') {
       root.querySelectorAll('.lp-reveal').forEach((el) => el.classList.add('is-vis'));
       return;
     }
@@ -199,7 +87,7 @@ function HeroChart() {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
-      aria-label="Net worth chart rising from €100k to €134k over two years, with a forecast continuing upward"
+      aria-label="Net worth chart rising from €100k to €134k over two years, with a dashed forecast extending upward toward €140k"
     >
       <defs>
         <linearGradient id="lp-hero-grad" x1="0" y1="0" x2="0" y2="1">
@@ -328,17 +216,6 @@ export default function LandingPage() {
 
   useScrollReveal(rootRef);
 
-  /* JSON-LD: inject on mount, remove on unmount. */
-  useEffect(() => {
-    const el = document.createElement('script');
-    el.type = 'application/ld+json';
-    el.text = JSON.stringify(STRUCTURED_DATA);
-    document.head.appendChild(el);
-    return () => {
-      document.head.removeChild(el);
-    };
-  }, []);
-
   if (!loading && user) return <Navigate to="/dashboard" replace />;
 
   return (
@@ -352,8 +229,8 @@ export default function LandingPage() {
         <div className="lp-hero-glow" aria-hidden="true" />
 
         <h1 className="lp-hero-h1" id="lp-hero-h1">
-          See your financial life
-          <br />
+          See your financial life{' '}
+          <br className="lp-hero-h1-br" />
           <span className="lp-hero-accent">clearly.</span>
         </h1>
 
@@ -367,14 +244,14 @@ export default function LandingPage() {
             className="lp-btn-primary"
             onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'hero' })}
           >
-            Get Started Free
+            Get started free
           </Link>
           <Link
             to="/demo"
             className="lp-btn-ghost"
             onClick={() => analytics.landingCtaClicked({ cta: 'try_demo', location: 'hero' })}
           >
-            Try Demo — No Sign Up
+            Try demo — no sign up
           </Link>
         </div>
 
@@ -580,7 +457,7 @@ export default function LandingPage() {
         <blockquote className="lp-founder-quote">
           Every finance app I tried wanted my bank credentials, monetised my data, or buried the basics under features I didn't need. I wanted something simple — track net worth, see clear charts, own my data end to end.
         </blockquote>
-        <p className="lp-founder-sig">— Founder, Quantive · usequantive.app</p>
+        <p className="lp-founder-sig">— Pedro Reis, founder · usequantive.app</p>
       </div>
 
       {/* ───── PRICING ───── */}
@@ -602,7 +479,6 @@ export default function LandingPage() {
               <span className="lp-price-period"> / forever</span>
             </div>
             <div className="lp-price-note">No credit card required.</div>
-            <div className="lp-price-note lp-price-vat">All prices final. No VAT charged under German legislation (§ 19 UStG).</div>
             <ul className="lp-price-features">
               <li className="lp-price-sec-head">See your full picture, today</li>
               <li><span className="lp-price-check">✓</span>Net worth tracking: unlimited sources</li>
@@ -620,7 +496,7 @@ export default function LandingPage() {
               className="lp-price-cta lp-price-cta--free"
               onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'pricing_card' })}
             >
-              Get Started Free
+              Get started free
             </Link>
           </div>
 
@@ -632,7 +508,6 @@ export default function LandingPage() {
               <span className="lp-price-period"> / year</span>
             </div>
             <div className="lp-price-note">~€7.50/mo · or €9/mo billed monthly</div>
-            <div className="lp-price-note lp-price-vat">All prices final. No VAT charged under German legislation (§ 19 UStG).</div>
             <ul className="lp-price-features">
               <li className="lp-price-sec-head">Know if you're on track</li>
               <li><span className="lp-price-check">✓</span>Full historical view: every snapshot, charted</li>
@@ -670,6 +545,9 @@ export default function LandingPage() {
             </Link>
           </div>
         </div>
+        <p className="lp-price-vat-foot">
+          All prices final. No VAT charged under German legislation (§ 19 UStG).
+        </p>
         <p className="lp-price-postscript">
           A Family tier (shared portfolios for 2 users) is planned. Not yet available.
         </p>
@@ -688,18 +566,22 @@ export default function LandingPage() {
         <div className="lp-faq-list lp-reveal" data-d="1">
           {FAQS.map((item, i) => {
             const isOpen = openFaq === i;
+            const panelId = `lp-faq-panel-${i}`;
+            const btnId = `lp-faq-btn-${i}`;
             return (
               <div key={item.q} className={`lp-faq-item ${isOpen ? 'is-open' : ''}`}>
                 <button
+                  id={btnId}
                   type="button"
                   className="lp-faq-btn"
                   aria-expanded={isOpen}
+                  aria-controls={panelId}
                   onClick={() => setOpenFaq(isOpen ? null : i)}
                 >
                   {item.q}
                   <span className="lp-faq-icon" aria-hidden="true">+</span>
                 </button>
-                <div className="lp-faq-ans">{item.a}</div>
+                <div id={panelId} role="region" aria-labelledby={btnId} className="lp-faq-ans">{item.a}</div>
               </div>
             );
           })}
@@ -717,14 +599,14 @@ export default function LandingPage() {
             className="lp-btn-primary"
             onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'footer' })}
           >
-            Get Started Free
+            Get started free
           </Link>
           <Link
             to="/demo"
             className="lp-btn-ghost"
             onClick={() => analytics.landingCtaClicked({ cta: 'try_demo', location: 'footer' })}
           >
-            Try Demo First
+            Try demo first
           </Link>
         </div>
       </div>

@@ -132,23 +132,15 @@
               "name": "What is Quantive?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Quantive is a privacy-first personal finance app for tracking your net worth, analysing asset allocation, and forecasting your financial future. It works without connecting to your bank — you add balances manually or import from a spreadsheet, and all data is end-to-end encrypted before it ever leaves your device."
+                "text": "Quantive is a privacy-first personal finance cockpit. Track net worth, analyse asset allocations, and forecast future wealth, without connecting to your bank or sharing your financial data with anyone."
               }
             },
             {
               "@type": "Question",
-              "name": "Is Quantive free?",
+              "name": "Is Quantive free to use?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes. The Free plan is free forever with no credit card required. It includes net worth tracking with unlimited sources, allocation charts, multi-currency display, spreadsheet import, and end-to-end encrypted cloud sync. A Pro plan at €90/year (or €9/month) is coming soon with forecasting, full history, and export features."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "Does Quantive connect to my bank?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "No. Quantive never connects to your bank and never asks for bank credentials. You enter balances manually or import them from a spreadsheet. This is a deliberate design choice to maximise privacy and keep your banking credentials completely separate from any third-party service."
+                "text": "Yes. Core features are free forever with no credit card required. A Pro plan with full history, advanced forecasting, and export features is coming at €90/year."
               }
             },
             {
@@ -156,15 +148,23 @@
               "name": "How does Quantive protect my financial data?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Quantive encrypts your data on your device before it ever reaches the server, using XChaCha20-Poly1305 for encryption and Argon2id for password-based key derivation (via libsodium). The server only ever stores ciphertext — even Quantive staff cannot read your financial data. A full database leak would reveal nothing about your finances."
+                "text": "All data is encrypted on your device using end-to-end encryption before it ever reaches Quantive's servers. Quantive cannot read your financial information. Only you hold the decryption key."
               }
             },
             {
               "@type": "Question",
-              "name": "What happens if I forget my password?",
+              "name": "Does Quantive connect to my bank?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Because Quantive uses true end-to-end encryption, a forgotten password cannot be reset by Quantive. If you set up a 24-word BIP-39 recovery code during sign-up, you can use it to regain access. Without a recovery code, your encrypted data is permanently unrecoverable — this is a property of true end-to-end encryption, not a bug."
+                "text": "No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually from the dashboard, or import them from an existing spreadsheet."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I import my existing spreadsheet?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Spreadsheet import is included in the free plan. Upload your existing spreadsheet and your historical balance data is preserved in Quantive."
               }
             },
             {
@@ -172,31 +172,23 @@
               "name": "What currencies does Quantive support?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Quantive supports multi-currency display across major world currencies including EUR, USD, GBP, JPY, CHF, and more. You can track assets denominated in any supported currency and view your total net worth converted to your preferred display currency at historically accurate rates."
+                "text": "Quantive supports multiple display currencies including EUR, USD, GBP, JPY, CHF, and more. You can hold assets in any of them and view your full portfolio in your preferred currency."
               }
             },
             {
               "@type": "Question",
-              "name": "Can I import my spreadsheet into Quantive?",
+              "name": "What's included in Quantive Pro?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Yes. Spreadsheet import is included on the Free plan. If you already track your net worth in a spreadsheet, you can import it directly into Quantive without recreating everything from scratch."
+                "text": "Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, milestone and goal tracking, benchmark comparisons (vs. S&P 500 and inflation; MSCI World coming soon), a month-by-month summary table, a PDF wealth report, and Excel and CSV export. Priority support is included."
               }
             },
             {
               "@type": "Question",
-              "name": "Who is Quantive for?",
+              "name": "What if I lose access to my account?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Quantive is designed for self-directed individuals who want a clear view of their wealth without sharing bank credentials: young professionals building wealth, investors tracking performance across multiple accounts and brokers, globally mobile people holding assets across currencies and borders, and anyone who values financial clarity and data privacy."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "Is the Quantive app secure?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "Yes. Quantive uses client-side end-to-end encryption, meaning your financial data is encrypted in your browser before syncing. The encryption stack — XChaCha20-Poly1305 and Argon2id via libsodium — is open source and publicly auditable on GitHub. The server stores only ciphertext and cannot decrypt your data."
+                "text": "During cloud sync setup, Quantive issues a 24-word recovery phrase (BIP-39 mnemonic). Storing it safely lets you recover your encrypted data even if you lose account access."
               }
             }
           ]
