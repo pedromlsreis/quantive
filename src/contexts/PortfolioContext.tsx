@@ -109,8 +109,7 @@ interface PortfolioContextType {
   /**
    * Active (non-archived) goals, sorted by `createdAt` ascending. Stored
    * inside the encrypted portfolio blob — `[]` when there's no data yet or
-   * the legacy blob has no `goals` field. See `pro-coming-soon-plan.md`
-   * Feature 1 for the staged free-tier gate.
+   * the legacy blob has no `goals` field.
    */
   goals: Goal[];
   /** Persist a new goal. Generates the id and createdAt. */
@@ -719,8 +718,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // Goals live inside the same encrypted portfolio blob (see types.ts).
   // Every CRUD call mutates `data`, persists the new blob (guests:
   // localStorage; authed: cloud), and lets the existing sync plumbing carry
-  // the bytes. There is no separate goals table — see "Storage lock-in" in
-  // pro-coming-soon-plan.md Feature 1.
+  // the bytes. There is no separate goals table — every goal edit rewrites
+  // the whole blob, so concurrent tabs can clobber (acceptable for solo
+  // users; revisit if multi-device editing becomes a real workflow).
 
   /** Internal helper: persist a portfolio mutation that doesn't touch the date range. */
   const persistGoalsChange = useCallback((updated: PortfolioData) => {

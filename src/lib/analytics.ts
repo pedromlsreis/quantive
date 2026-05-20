@@ -160,9 +160,9 @@ export const analytics = {
     capture('pro_gate_hit', { feature: props.feature });
   },
   /**
-   * Fired when a user adds a new goal. Per analytics.md, do NOT include
-   * the goal name or amount — that's portfolio data. The bare event is
-   * sufficient for funnel/conversion analysis.
+   * Fired when a user adds a new goal. Do NOT include the goal name or
+   * amount — that's portfolio data. The bare event is sufficient for
+   * funnel/conversion analysis.
    */
   goalCreated(): void {
     capture('goal_created');

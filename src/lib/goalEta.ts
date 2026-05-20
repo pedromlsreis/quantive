@@ -83,7 +83,7 @@ export type GoalGateState = 'allowed' | 'gated';
 /**
  * Compute the staged free-tier gate for a single goal.
  *
- * Rules per the plan (see `pro-coming-soon-plan.md` Feature 1):
+ * Rules:
  *  - Pro users always see live progress.
  *  - Free users get their first active (non-archived) goal fully unlocked
  *    for 30 days from `createdAt`. After that, or for any additional goal,

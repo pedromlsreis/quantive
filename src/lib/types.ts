@@ -42,8 +42,7 @@ export interface PortfolioData {
   refSources: RefSource[];
   /**
    * Per-user goals, persisted inside the encrypted portfolio blob. Absent in
-   * legacy snapshots — read as `[]` when missing. See `pro-coming-soon-plan.md`
-   * (Feature 1) for the storage-lock-in rationale.
+   * legacy snapshots — read as `[]` when missing.
    */
   goals?: Goal[];
 }

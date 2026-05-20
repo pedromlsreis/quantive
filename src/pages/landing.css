@@ -37,20 +37,6 @@
   0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
   50%       { opacity: 1;   transform: translateX(-50%) scale(1.12); }
 }
-.lp-hero-badge {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 5px 14px; border-radius: 999px;
-  border: 1px solid var(--border-raw);
-  background: var(--surface-soft);
-  font-family: var(--font-mono); font-size: 11px;
-  color: var(--fg-subtle);
-  margin-bottom: 28px; position: relative; z-index: 1;
-}
-.lp-hero-badge-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--accent-raw);
-  box-shadow: 0 0 8px var(--accent-raw);
-}
 .lp-hero-h1 {
   position: relative; z-index: 1;
   font-family: var(--font-body); font-weight: 800;
@@ -192,10 +178,6 @@
   gap: 56px; align-items: center;
   margin-top: 48px;
 }
-.lp-feat-num {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  letter-spacing: 0.12em; color: var(--accent-raw); margin-bottom: 14px;
-}
 .lp-feat-title {
   font-weight: 700; font-size: 1.5rem;
   letter-spacing: -0.025em; margin-bottom: 12px;
@@ -219,10 +201,6 @@
   border-right: 1px solid var(--border-soft-raw);
 }
 .lp-feat-col:last-child { border-right: none; }
-.lp-feat-col-num {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  color: var(--accent-raw); letter-spacing: 0.1em; margin-bottom: 10px;
-}
 .lp-feat-col-title { font-weight: 600; font-size: 14px; margin-bottom: 6px; color: var(--fg); }
 .lp-feat-col-desc { font-size: 13px; color: var(--fg-subtle); line-height: 1.55; }
 
