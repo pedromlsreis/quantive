@@ -165,7 +165,7 @@ export function computeMonthlyRows(snapshots: Snapshot[]): MonthlyRow[] {
  * UI's job — this function only labels.
  */
 export function applyFreeTierMask(rows: MonthlyRow[], now: Date = new Date()): Array<MonthlyRow & { redacted: boolean }> {
-  const floor = new Date(now.getFullYear(), now.getMonth() - 12, 1);
+  const floor = new Date(now.getFullYear(), now.getMonth() - 11, 1);
   return rows.map((r) => ({
     ...r,
     redacted: new Date(r.monthEnd).getTime() < floor.getTime(),

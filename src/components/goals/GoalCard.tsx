@@ -112,7 +112,7 @@ export function GoalCard({
               <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 500, margin: 0 }}>{goal.name}</h3>
             </div>
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', margin: '4px 0 0' }}>
-              Target {fmtFull(goal.targetAmount)} {goal.targetCurrency !== displayCurrency.code ? `(${goal.targetCurrency})` : ''} by {formatTargetDate(goal.targetDate)}
+              Target {fmtFull(targetInDisplay)} {goal.targetCurrency !== displayCurrency.code ? `(${goal.targetCurrency})` : ''} by {formatTargetDate(goal.targetDate)}
             </p>
           </div>
         </div>

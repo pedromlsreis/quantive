@@ -4,6 +4,7 @@ import { Plus, Target } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCurrency } from '@/contexts/CurrencyContext';
 import { GoalCard } from '@/components/goals/GoalCard';
 import { GoalForm } from '@/components/goals/GoalForm';
 import { staggerContainer, staggerItem } from '@/lib/motion';
@@ -16,6 +17,7 @@ const GoalsPage = () => {
   const { goals, addGoal, updateGoal, archiveGoal, allSnapshots } = usePortfolio();
   const { has } = useEntitlements();
   const { user } = useAuth();
+  const { currency } = useCurrency();
   const hasMilestones = has('milestones');
 
   const [formOpen, setFormOpen] = useState(false);
@@ -49,7 +51,7 @@ const GoalsPage = () => {
       const created = addGoal(input);
       // Best-effort completion event — fires if the user is already past the
       // target at creation time.
-      if (currentNetWorth !== null && currentNetWorth >= created.targetAmount) {
+      if (currentNetWorth !== null && created.targetCurrency === currency.code && currentNetWorth >= created.targetAmount) {
         analytics.goalCompleted();
       }
     }

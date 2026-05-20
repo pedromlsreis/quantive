@@ -38,6 +38,15 @@ function todayIso(): string {
   return `${y}-${m}-${day}`;
 }
 
+function tomorrowIso(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
   const { currency: displayCurrency } = useCurrency();
   const trapRef = useFocusTrap<HTMLDivElement>(open);
@@ -87,7 +96,7 @@ export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
       setError('Enter a positive target amount.');
       return;
     }
-    if (!targetDate || targetDate < todayIso()) {
+    if (!targetDate || targetDate <= todayIso()) {
       setError('Pick a target date in the future.');
       return;
     }
@@ -193,7 +202,7 @@ export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
                     <input
                       type="date"
                       value={targetDate}
-                      min={todayIso()}
+                      min={tomorrowIso()}
                       onChange={(e) => setTargetDate(e.target.value)}
                       aria-label="Target date"
                     />

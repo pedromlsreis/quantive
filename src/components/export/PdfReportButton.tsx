@@ -51,16 +51,19 @@ function filterSnapshotsByPeriod(
       break;
     case 'last_year':
       start = new Date(last.getFullYear() - 1, 0, 1);
-      end = new Date(last.getFullYear() - 1, 11, 31);
+      end = new Date(last.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
       break;
     case 'all_time':
       start = sorted[0].date;
       end = last;
       break;
-    case 'custom':
+    case 'custom': {
+      const rawEnd = customEnd ?? last;
+      end = new Date(rawEnd);
+      end.setHours(23, 59, 59, 999);
       start = customStart ?? sorted[0].date;
-      end = customEnd ?? last;
       break;
+    }
   }
   const inRange = sorted.filter(
     (s) => s.date.getTime() >= start.getTime() && s.date.getTime() <= end.getTime(),

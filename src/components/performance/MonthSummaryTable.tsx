@@ -27,7 +27,12 @@ function signColor(value: number | null): string | undefined {
 
 function maskedCell({ redacted, children }: { redacted: boolean; children: React.ReactNode }) {
   if (!redacted) return <>{children}</>;
-  return <span style={{ filter: 'blur(6px)', color: 'var(--fg-faint)' }} aria-hidden="true">€••••</span>;
+  return (
+    <>
+      <span style={{ filter: 'blur(6px)', color: 'var(--fg-faint)' }} aria-hidden="true">••••</span>
+      <span className="sr-only">redacted — upgrade to Pro to view</span>
+    </>
+  );
 }
 
 export function MonthSummaryTable() {

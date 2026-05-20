@@ -114,7 +114,7 @@ const STRUCTURED_DATA = {
           name: 'What is included in Quantive Pro?',
           acceptedAnswer: {
             '@type': 'Answer',
-            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation; MSCI World coming soon), a month-by-month summary table, a PDF wealth report, Excel and CSV export, and priority support.',
+            text: 'Pro adds full historical views, a CAGR forecasting engine with 95% confidence bands, milestone and goal tracking, benchmark comparisons (vs. S&P 500 and inflation; MSCI World coming soon), a month-by-month summary table, a PDF wealth report, Excel and CSV export, and priority support.',
           },
         },
         {
@@ -665,6 +665,10 @@ export default function LandingPage() {
               <li>
                 <span className="lp-price-check">✓</span>
                 <span>Benchmarks (S&amp;P 500 and inflation; MSCI World coming soon)</span>
+              </li>
+              <li>
+                <span className="lp-price-check">✓</span>
+                <span>Month-by-month summary table</span>
               </li>
               <li className="lp-price-sec-head">Get your data out</li>
               <li><span className="lp-price-check">✓</span>Excel/CSV export</li>

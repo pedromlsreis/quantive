@@ -44,7 +44,7 @@ const EUROSTAT_URL =
   "prc_hicp_midx?format=JSON&coicop=CP00&geo=EA&unit=I15&freq=M";
 
 async function fetchInflationEu(): Promise<Row[]> {
-  const resp = await fetch(EUROSTAT_URL);
+  const resp = await fetch(EUROSTAT_URL, { signal: AbortSignal.timeout(15_000) });
   if (!resp.ok) {
     throw new Error(`Eurostat ${resp.status}: ${await resp.text()}`);
   }
@@ -64,7 +64,7 @@ async function fetchInflationEu(): Promise<Row[]> {
 const FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500";
 
 async function fetchSp500(): Promise<Row[]> {
-  const resp = await fetch(FRED_URL);
+  const resp = await fetch(FRED_URL, { signal: AbortSignal.timeout(15_000) });
   if (!resp.ok) {
     throw new Error(`FRED ${resp.status}: ${await resp.text()}`);
   }
@@ -93,6 +93,14 @@ serve(async (req) => {
       } catch {
         throw new Error("Body must be JSON or empty");
       }
+    }
+
+    const ALLOWED_SERIES = ["inflation_eu", "sp500"] as const;
+    if (body.series && !(ALLOWED_SERIES as readonly string[]).includes(body.series)) {
+      return new Response(
+        JSON.stringify({ error: `Unknown series "${body.series}". Allowed: ${ALLOWED_SERIES.join(", ")}` }),
+        { headers: { "Content-Type": "application/json" }, status: 400 },
+      );
     }
 
     const allRows: Row[] = [];

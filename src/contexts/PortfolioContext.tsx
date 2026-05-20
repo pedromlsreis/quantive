@@ -600,7 +600,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           volatType: e.volatType?.trim() || 'Unknown',
           transferableInDays: e.isLiquid ?? false,
         }));
-        const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
+        const newData: PortfolioData = { ...prev, facts: newFacts, refSources: newRefSources };
 
         // Persist as real data (guests only)
         if (!user) {
@@ -642,6 +642,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         }
 
         const updatedData: PortfolioData = {
+          ...prev,
           facts: [...remainingFacts, ...newFacts],
           refSources: newRefSources,
         };
@@ -676,6 +677,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       }
 
       const updatedData: PortfolioData = {
+        ...prev,
         facts: [...prev.facts, ...newFacts],
         refSources: newRefSources,
       };

@@ -131,7 +131,7 @@ export function freeTrialDaysRemaining(goal: Goal, now: Date = new Date()): numb
   const created = Date.parse(goal.createdAt);
   if (!Number.isFinite(created)) return 0;
   const elapsedDays = (now.getTime() - created) / DAY_MS;
-  return Math.max(0, Math.ceil(FREE_TRIAL_DAYS - elapsedDays));
+  return Math.min(FREE_TRIAL_DAYS, Math.max(0, Math.ceil(FREE_TRIAL_DAYS - elapsedDays)));
 }
 
 /**

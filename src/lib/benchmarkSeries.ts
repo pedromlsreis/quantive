@@ -160,6 +160,6 @@ export function filterByPeriod<T extends { date: string }>(
   points: T[],
   cutoff: string | null,
 ): T[] {
-  if (cutoff === null) return points;
+  if (cutoff === null) return [...points];
   return points.filter((p) => p.date >= cutoff);
 }
