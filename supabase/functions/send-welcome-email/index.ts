@@ -8,14 +8,15 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { brandedEmailHtml, escapeHtml, sendEmail } from "../_shared/email.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
   const corsHeaders = buildCorsHeaders(req);
 
-  const respond = (body: Record<string, unknown>, status = 200) =>
+  const respond = (body: Record<string, unknown>, status = 200, extraHeaders: Record<string, string> = {}) =>
     new Response(JSON.stringify(body), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json", ...extraHeaders },
       status,
     });
 
@@ -25,6 +26,17 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } },
     );
+
+    // Throttle per source IP. The client calls this on every authenticated
+    // session start; the welcome_email_sent_at flag makes that idempotent
+    // for legitimate users, but a malicious authed caller could still spam
+    // invocations to burn Resend quota and log noise. 5/minute is plenty
+    // of headroom for a real login (typically 1 per session).
+    const ip = extractIp(req);
+    const rate = await checkRateLimit(admin, { ip, maxRequests: 5, windowSeconds: 60 });
+    if (!rate.allowed) {
+      return respond({ error: "rate_limited" }, 429, { "Retry-After": String(rate.retryAfter) });
+    }
 
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace("Bearer ", "").trim();
