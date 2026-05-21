@@ -19,21 +19,49 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY") ?? ""
   );
 
+  // Error codes are stable identifiers the client maps to a user-facing
+  // string. Internal detail (stack traces, missing env var names, Stripe
+  // messages) stays in logs — it must not reach the browser.
+  const errorResponse = (code: string, status: number) =>
+    new Response(JSON.stringify({ error: code }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status,
+    });
+
   try {
     logStep("Function started");
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+    if (!stripeKey) {
+      logStep("ERROR: STRIPE_SECRET_KEY not set");
+      return errorResponse("checkout_unavailable", 503);
+    }
 
-    const authHeader = req.headers.get("Authorization")!;
-    const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) return errorResponse("unauthenticated", 401);
+
+    const { data, error: userError } = await supabaseClient.auth.getUser(token);
     const user = data.user;
-    if (!user?.email) throw new Error("User not authenticated or email not available");
-    logStep("User authenticated", { email: user.email });
+    if (userError || !user?.email) {
+      logStep("Unauthenticated", { reason: userError?.message });
+      return errorResponse("unauthenticated", 401);
+    }
+    if (!user.email_confirmed_at) {
+      logStep("Email not confirmed", { userId: user.id });
+      return errorResponse("email_unverified", 403);
+    }
+    logStep("User authenticated", { userId: user.id });
 
-    const { priceId } = await req.json();
-    if (!priceId) throw new Error("priceId is required");
+    let priceId: unknown;
+    try {
+      ({ priceId } = await req.json());
+    } catch {
+      return errorResponse("invalid_request", 400);
+    }
+    if (typeof priceId !== "string" || !priceId) {
+      return errorResponse("invalid_request", 400);
+    }
     logStep("Price ID received", { priceId });
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
@@ -64,9 +92,6 @@ serve(async (req) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });
-    return new Response(JSON.stringify({ error: errorMessage }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return errorResponse("checkout_unavailable", 503);
   }
 });

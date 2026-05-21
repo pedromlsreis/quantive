@@ -31,6 +31,7 @@ const defaultSubscription: SubscriptionStatus = {
   productId: null,
   subscriptionEnd: null,
   cancelAtPeriodEnd: false,
+  paymentPastDue: false,
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         productId: data?.product_id ?? null,
         subscriptionEnd: data?.subscription_end ?? null,
         cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
+        paymentPastDue: data?.payment_past_due ?? false,
       });
     } catch (err) {
       console.error('Error checking subscription:', err);

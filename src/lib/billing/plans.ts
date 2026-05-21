@@ -73,4 +73,8 @@ export type SubscriptionStatus = {
   productId: string | null;
   subscriptionEnd: string | null;
   cancelAtPeriodEnd: boolean;
+  // True while Stripe is retrying a failed renewal. The user keeps Pro
+  // access during the dunning window; the UI should prompt them to update
+  // their card before retries run out.
+  paymentPastDue: boolean;
 };

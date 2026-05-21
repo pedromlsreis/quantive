@@ -8,6 +8,7 @@ import { CURRENCY_CODES } from '@/lib/currencies';
 import { analytics } from '@/lib/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { PLANS } from '@/lib/billing/plans';
+import { extractCheckoutErrorCode, messageForCheckoutError } from '@/lib/billing/checkoutError';
 import { supabase } from '@/integrations/supabase/client';
 import { Notice } from '@/components/ui/Notice';
 import './landing.css';
@@ -48,12 +49,13 @@ export default function PricingPage() {
         body: { priceId: chosenPrice.priceId },
       });
       if (error || !data?.url) {
-        toast.error('Could not start checkout. Please try again.');
+        const code = await extractCheckoutErrorCode(error);
+        toast.error(messageForCheckoutError(code));
         return;
       }
       window.location.href = data.url;
     } catch {
-      toast.error('Could not start checkout. Please try again.');
+      toast.error(messageForCheckoutError(undefined));
     } finally {
       setSubmitting(false);
     }

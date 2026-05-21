@@ -65,6 +65,7 @@ describe('SubscriptionStatus type', () => {
       productId: null,
       subscriptionEnd: null,
       cancelAtPeriodEnd: false,
+      paymentPastDue: false,
     };
     expect(s.subscribed).toBe(false);
   });
@@ -75,8 +76,21 @@ describe('SubscriptionStatus type', () => {
       productId: 'prod_abc123',
       subscriptionEnd: '2026-12-31T00:00:00.000Z',
       cancelAtPeriodEnd: false,
+      paymentPastDue: false,
     };
     expect(s.subscribed).toBe(true);
     expect(s.productId).toBe('prod_abc123');
+  });
+
+  it('can represent a Pro user mid-dunning', () => {
+    const s: SubscriptionStatus = {
+      subscribed: true,
+      productId: 'prod_abc123',
+      subscriptionEnd: '2026-12-31T00:00:00.000Z',
+      cancelAtPeriodEnd: false,
+      paymentPastDue: true,
+    };
+    expect(s.subscribed).toBe(true);
+    expect(s.paymentPastDue).toBe(true);
   });
 });

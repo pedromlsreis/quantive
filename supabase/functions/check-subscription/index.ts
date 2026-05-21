@@ -3,6 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { findStripeCustomer } from "../_shared/stripeCustomer.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { pickEntitledSubscription } from "./entitled.ts";
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -65,19 +66,28 @@ serve(async (req) => {
 
     logStep("Found Stripe customer", { customerId: customer.id });
 
+    // List all statuses and pick the best one ourselves. A `past_due`
+    // subscription is mid-dunning (Stripe is retrying the card) — Pro access
+    // should continue during that grace period; dropping the user to Free
+    // would be a silent demotion they cannot recover from without contacting
+    // support. `trialing` is also entitled access.
     const subscriptions = await stripe.subscriptions.list({
       customer: customer.id,
-      status: "active",
-      limit: 1,
+      status: "all",
+      limit: 10,
     });
 
-    const hasActiveSub = subscriptions.data.length > 0;
+    // Rank by entitlement strength so the response reflects the strongest
+    // subscription if a customer happens to have several (e.g. an old
+    // canceled one alongside a new active one). See entitled.ts.
+    const subscription = pickEntitledSubscription(subscriptions.data);
+
     let productId: string | null = null;
     let subscriptionEnd: string | null = null;
     let cancelAtPeriodEnd = false;
+    let paymentPastDue = false;
 
-    if (hasActiveSub) {
-      const subscription = subscriptions.data[0];
+    if (subscription) {
       const item = subscription.items.data[0];
       // In Stripe API 2025-08-27+ the period end moved from the subscription
       // to the item; the top-level field is now often null on new subscriptions.
@@ -87,16 +97,18 @@ serve(async (req) => {
       subscriptionEnd = periodEndSeconds ? new Date(periodEndSeconds * 1000).toISOString() : null;
       productId = (item?.price?.product as string | null) ?? null;
       cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
-      logStep("Active subscription found", { subscriptionId: subscription.id, productId, endDate: subscriptionEnd, cancelAtPeriodEnd });
+      paymentPastDue = subscription.status === "past_due";
+      logStep("Entitled subscription found", { subscriptionId: subscription.id, status: subscription.status, productId, endDate: subscriptionEnd, cancelAtPeriodEnd, paymentPastDue });
     } else {
-      logStep("No active subscription found");
+      logStep("No entitled subscription found");
     }
 
     return new Response(JSON.stringify({
-      subscribed: hasActiveSub,
+      subscribed: !!subscription,
       product_id: productId,
       subscription_end: subscriptionEnd,
       cancel_at_period_end: cancelAtPeriodEnd,
+      payment_past_due: paymentPastDue,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,

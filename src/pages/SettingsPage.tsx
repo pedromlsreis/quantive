@@ -6,6 +6,7 @@ import { useKeySession } from '@/contexts/KeySessionContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { UpsellCard } from '@/components/billing/UpsellCard';
+import { Notice } from '@/components/ui/Notice';
 import { analytics } from '@/lib/analytics';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, type NumberFormat } from '@/contexts/PreferencesContext';
@@ -350,6 +351,18 @@ export default function SettingsPage() {
               Billing
             </h2>
           </div>
+          {subscription.paymentPastDue && (
+            <Notice
+              variant="warning"
+              role="status"
+              style={{ marginBottom: 'var(--s-4)', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--s-1)' }}
+            >
+              <p style={{ fontWeight: 600, margin: 0 }}>Your last payment didn't go through</p>
+              <p style={{ margin: 0, opacity: 0.9 }}>
+                We're still retrying, and you keep Pro access for now. Open the billing portal to update your card before retries run out.
+              </p>
+            </Notice>
+          )}
           <div className={PREF_ROW_CLASS}>
             <div style={{ minWidth: 0 }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
