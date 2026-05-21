@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { loadDemo } from './helpers/loadDemo';
+import { seedClean } from './helpers/seedClean';
 
 // Goals are persisted inside the same encrypted portfolio blob (or
 // localStorage `portfolio-data` for guests). Each test runs in a clean storage
@@ -10,13 +11,12 @@ const PLAN_KEY = 'quantive-test-plan';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 async function clearStorage(page: Page) {
-  // Navigate first so localStorage is reachable.
+  // Seed dismissal flags BEFORE the first navigation so the WelcomeModal can't
+  // appear on /dashboard (where its backdrop would intercept later clicks).
+  // Playwright contexts are per-test isolated, so localStorage starts empty —
+  // an explicit clear() is unnecessary.
+  await seedClean(page);
   await page.goto('/dashboard');
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-    localStorage.setItem('finance-cockpit-welcome-dismissed', 'true');
-  });
 }
 
 /** Seed a single fact so `usePortfolio` boots with a positive net worth and a

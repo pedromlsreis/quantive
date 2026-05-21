@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { loadDemo } from './helpers/loadDemo';
+import { seedClean } from './helpers/seedClean';
 
 /**
  * Feature 3 — month-by-month summary table on /performance.
@@ -10,12 +11,10 @@ import { loadDemo } from './helpers/loadDemo';
  * branch entirely.
  */
 async function gotoPerformanceAs(page: Page, plan: 'pro' | 'free') {
-  // Set the test-plan override before loading the demo so that the first
-  // render of the page tree (and FeatureGate) honours it.
-  await page.goto('/dashboard');
-  await page.evaluate((p) => {
-    window.localStorage.setItem('quantive-test-plan', p);
-  }, plan);
+  // Seed plan override + dismissal flags via addInitScript BEFORE any
+  // navigation so FeatureGate sees the override on first render and the
+  // WelcomeModal can't intercept the sidebar click.
+  await seedClean(page, { plan });
   await loadDemo(page);
   // SPA-navigate to keep in-memory mock data alive (page.goto would be a
   // hard reload and would wipe the PortfolioContext).

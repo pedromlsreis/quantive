@@ -1,13 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 import { loadDemo } from './helpers/loadDemo';
+import { seedClean } from './helpers/seedClean';
 
 // Helpers — set the dev-only Pro/Free override exposed by useEntitlements.ts.
-// Mirrors Agent A's `localStorage.quantive-test-plan` shape; production
-// bundles strip the override branch via import.meta.env.DEV.
+// `quantive-test-plan` is only honoured under `import.meta.env.DEV`; production
+// bundles strip the override branch entirely.
 async function setPlan(page: Page, plan: 'pro' | 'free') {
-  await page.addInitScript((p) => {
-    window.localStorage.setItem('quantive-test-plan', p);
-  }, plan);
+  await seedClean(page, { plan });
 }
 
 async function clearPlan(page: Page) {

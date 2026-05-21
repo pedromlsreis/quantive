@@ -1,18 +1,13 @@
 import { test, expect, Page } from '@playwright/test';
+import { seedClean } from './helpers/seedClean';
 
 // Open the Add measurement modal via the empty-state CTA.
 // We avoid demo mode here because in demo the topbar primary CTA navigates to
 // sign-up instead of opening the modal.
 async function openModalFromEmptyState(page: Page) {
-  await page.goto('/dashboard');
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
-    // Pre-dismiss the WelcomeModal so its backdrop doesn't intercept clicks.
-    localStorage.setItem('finance-cockpit-welcome-dismissed', 'true');
-    // Pre-dismiss the analytics consent dialog so it doesn't overlay the modal.
-    localStorage.setItem('quantive_analytics_consent', 'denied');
-  });
+  // Pre-dismiss WelcomeModal + consent banner via addInitScript so neither
+  // backdrop can intercept the CTA click on first render.
+  await seedClean(page);
   await page.goto('/dashboard');
   const cta = page.getByRole('button', { name: /add your first measurement/i });
   await expect(cta).toBeVisible({ timeout: 6000 });

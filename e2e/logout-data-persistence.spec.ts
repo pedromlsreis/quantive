@@ -5,6 +5,7 @@ import {
   readLocalStorageKey,
   getTestCreds,
 } from './helpers/auth';
+import { seedClean } from './helpers/seedClean';
 
 /**
  * Verifies the client-side cleanup contract from
@@ -24,16 +25,12 @@ const hasCreds2 = (() => {
 
 test.describe('Logout data persistence', () => {
   test.beforeEach(async ({ page }) => {
-    // Start each test from a known-clean browser state.
-    await page.goto('/');
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-      // Pre-dismiss WelcomeModal so it can't intercept clicks on the
-      // account menu after a fresh sign-in. The user-id watcher only
-      // wipes per-user keys, not this app-wide UI flag.
-      localStorage.setItem('finance-cockpit-welcome-dismissed', 'true');
-    });
+    // Pre-dismiss WelcomeModal via addInitScript so it can't intercept clicks
+    // on the account menu after a fresh sign-in. The user-id watcher wipes
+    // per-user keys but not this app-wide UI flag, so re-seeding before each
+    // navigation is the safe default. Playwright contexts are per-test
+    // isolated, so localStorage starts empty — no explicit clear() needed.
+    await seedClean(page);
     await page.goto('/');
   });
 

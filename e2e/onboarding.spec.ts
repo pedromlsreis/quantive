@@ -1,16 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { seedClean } from './helpers/seedClean';
 
 test.describe('Onboarding / Empty State', () => {
   test.beforeEach(async ({ page }) => {
-    // Clear any stored data so we get the empty state.
-    // Pre-dismiss WelcomeModal: its aria-modal="true" backdrop hides the
-    // FileUpload from Playwright's accessibility-tree queries.
-    await page.goto('/dashboard');
-    await page.evaluate(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-      localStorage.setItem('finance-cockpit-welcome-dismissed', 'true');
-    });
+    // Pre-dismiss WelcomeModal so its aria-modal backdrop doesn't hide the
+    // FileUpload from accessibility-tree queries. addInitScript lands the
+    // flag BEFORE the first render, so the modal never appears.
+    await seedClean(page);
     await page.goto('/dashboard');
   });
 

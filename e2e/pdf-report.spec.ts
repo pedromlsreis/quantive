@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { loadDemo } from './helpers/loadDemo';
+import { seedClean } from './helpers/seedClean';
 
 /**
  * Feature 4 — PDF wealth report.
@@ -15,13 +16,13 @@ import { loadDemo } from './helpers/loadDemo';
  * modal wiring, and the actual blob download.
  */
 async function gotoPerformanceAs(page: Page, plan: 'pro' | 'free') {
-  // Set the test-plan override before the demo loads so FeatureGate sees the
-  // override on first render. SPA-navigate to keep mock data in memory.
-  await page.goto('/dashboard');
-  await page.evaluate((p) => {
-    window.localStorage.setItem('quantive-test-plan', p);
-  }, plan);
+  // Seed plan override + dismissal flags via addInitScript BEFORE any
+  // navigation so FeatureGate sees the override on first render and the
+  // WelcomeModal/ConsentBanner can't intercept the sidebar click.
+  await seedClean(page, { plan });
   await loadDemo(page);
+  // SPA-navigate to keep mock data in memory (page.goto would hard-reload
+  // and wipe the in-memory PortfolioContext).
   await page.getByRole('link', { name: /^performance$/i }).first().click();
   await page.waitForURL(/\/performance$/, { timeout: 10_000 });
   await page.waitForSelector('h1', { timeout: 10_000 });
