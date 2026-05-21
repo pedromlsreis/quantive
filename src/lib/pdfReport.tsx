@@ -19,6 +19,9 @@ import {
   View,
   StyleSheet,
   Image,
+  Svg,
+  Circle,
+  Line,
   pdf,
 } from '@react-pdf/renderer';
 import type { Snapshot } from './types';
@@ -67,10 +70,15 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     marginBottom: 14,
   },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   brand: {
+    fontFamily: 'Courier-Bold',
     fontSize: 16,
-    fontWeight: 700,
-    letterSpacing: 0.6,
+    letterSpacing: -0.4,
     color: '#111827',
   },
   meta: {
@@ -220,6 +228,33 @@ export function trailingCagrFromSnapshots(snapshots: Snapshot[]): number | null 
   return Math.pow(w1.total / w0.total, 1 / yrs) - 1;
 }
 
+/**
+ * Brand monogram rendered as react-pdf SVG primitives. Mirrors the in-app
+ * `Monogram` component in `components/layout/Brand.tsx` — a circle, a
+ * south-east stroke, and a filled inner dot. Kept inline (rather than importing
+ * the React DOM SVG component) because `@react-pdf/renderer` requires its own
+ * SVG namespace.
+ */
+const BRAND_ACCENT = '#318b61';
+
+function PdfMonogram({ size = 16 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle cx="12" cy="12" r="9" stroke={BRAND_ACCENT} strokeWidth={1.6} fill="none" />
+      <Line
+        x1="14.2"
+        y1="14.2"
+        x2="20.5"
+        y2="20.5"
+        stroke={BRAND_ACCENT}
+        strokeWidth={1.6}
+        strokeLinecap="round"
+      />
+      <Circle cx="12" cy="12" r="2.2" fill={BRAND_ACCENT} />
+    </Svg>
+  );
+}
+
 // eslint-disable-next-line react-refresh/only-export-components -- intentional: pure document-tree module mixes the builder with helpers; only entry point.
 function HorizontalSplitBar({
   leftLabel,
@@ -294,8 +329,11 @@ export function buildWealthReport(input: ReportInput): React.ReactElement {
         {/* 1. Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.brand}>QUANTIVE</Text>
-            <Text style={{ fontSize: 9, color: '#6b7280' }}>
+            <View style={styles.brandRow}>
+              <PdfMonogram size={16} />
+              <Text style={styles.brand}>quantive</Text>
+            </View>
+            <Text style={{ fontSize: 9, color: '#6b7280', marginTop: 4 }}>
               Wealth report — {userName ?? 'Your portfolio'}
             </Text>
           </View>
@@ -386,7 +424,7 @@ export function buildWealthReport(input: ReportInput): React.ReactElement {
 
         {/* 7. Footer */}
         <Text style={styles.footer} fixed>
-          Generated client-side. Not financial advice. quantive.app.
+          Generated client-side. Not financial advice. usequantive.app
         </Text>
       </Page>
     </Document>
