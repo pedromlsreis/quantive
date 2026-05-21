@@ -1,11 +1,18 @@
-// Receives Stripe webhook events and emails the admin on the high-signal ones:
-// new subscription, payment failure, and cancellation/churn.
+// Receives Stripe webhook events. Three jobs:
+//   1. Idempotency — insert (event_id) into stripe_events first; a duplicate
+//      delivery sees the conflict and we return 200 without re-running.
+//   2. Cache the subscription state on profiles so check-subscription does
+//      not need a live Stripe call on every dashboard load.
+//   3. Send transactional emails: admin notifications (always) plus the
+//      Pro receipt + onboarding email to the customer on first activation.
 //
 // Stripe webhook signing secret must be set as STRIPE_WEBHOOK_SECRET.
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
-import { escapeHtml, sendEmail } from "../_shared/email.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { brandedEmailHtml, escapeHtml, sendEmail } from "../_shared/email.ts";
+import { buildCacheRow } from "../_shared/subscriptionCache.ts";
 
 const HANDLED_EVENTS = new Set([
   "customer.subscription.created",
@@ -47,12 +54,58 @@ serve(async (req) => {
     });
   }
 
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } },
+  );
+
+  // Idempotency. INSERT ... ON CONFLICT DO NOTHING — if Stripe re-delivers
+  // the same event (network blip, retry, replay), we see no rows inserted
+  // and skip the handler. We still 200 so Stripe stops retrying.
+  const { data: inserted, error: idemErr } = await admin
+    .from("stripe_events")
+    .insert({ event_id: event.id, event_type: event.type })
+    .select("event_id");
+
+  if (idemErr) {
+    // Unique-violation on event_id is the duplicate case we want; pg returns
+    // code 23505. supabase-js surfaces it on the error object.
+    const code = (idemErr as { code?: string }).code;
+    if (code === "23505") {
+      console.log(`[stripe-webhook] duplicate event ${event.id} (${event.type}) — skipping`);
+      return new Response(JSON.stringify({ received: true, duplicate: true }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    // A real DB failure — return 500 so Stripe retries with backoff. Better
+    // a retried delivery than a silently-dropped subscription event.
+    console.error(`[stripe-webhook] stripe_events insert failed:`, idemErr);
+    return new Response(JSON.stringify({ error: "idempotency_check_failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (!inserted || inserted.length === 0) {
+    // Defensive: insert returned no rows without an error — treat as duplicate.
+    return new Response(JSON.stringify({ received: true, duplicate: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
   try {
-    await handleEvent(stripe, event);
+    await handleEvent(stripe, admin, event);
   } catch (e) {
-    // Log but return 200 — we don't want Stripe to retry just because our
-    // email failed. The DB-of-record is Stripe itself.
+    // A handler failure now means real DB work didn't happen. Return 500
+    // so Stripe retries the delivery — the idempotency row we just inserted
+    // would block the retry, so roll it back first.
     console.error(`[stripe-webhook] Handler failed for ${event.type}:`, e);
+    await admin.from("stripe_events").delete().eq("event_id", event.id);
+    return new Response(JSON.stringify({ error: "handler_failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   return new Response(JSON.stringify({ received: true }), {
@@ -60,20 +113,29 @@ serve(async (req) => {
   });
 });
 
-async function handleEvent(stripe: Stripe, event: Stripe.Event) {
-  const to = Deno.env.get("STRIPE_NOTIFY_TO_EMAIL") || "hello@usequantive.app";
+type AdminClient = ReturnType<typeof createClient>;
+
+async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Event) {
+  const adminTo = Deno.env.get("STRIPE_NOTIFY_TO_EMAIL") || "hello@usequantive.app";
 
   switch (event.type) {
     case "customer.subscription.created": {
       const sub = event.data.object as Stripe.Subscription;
-      const { email, name } = await resolveCustomer(stripe, sub.customer);
+      const { email, name, userId } = await resolveCustomer(stripe, sub.customer);
       const item = sub.items.data[0];
       const amount = (item?.price?.unit_amount ?? 0) / 100;
       const currency = (item?.price?.currency ?? "eur").toUpperCase();
       const interval = item?.price?.recurring?.interval ?? "?";
 
+      // Cache the subscription on profiles so check-subscription can skip
+      // the live Stripe round-trip. Best-effort: an upsert failure here
+      // logs but does not fail the webhook — the admin email still goes,
+      // and check-subscription falls back to live lookup.
+      await cacheSubscription(admin, userId, sub.customer, sub);
+
+      // Admin notification: a new paid customer is high-signal.
       await sendEmail({
-        to,
+        to: adminTo,
         subject: `New Quantive subscription: ${email ?? sub.customer}`,
         html: notificationHtml("New subscription", [
           ["Customer", email ?? "(unknown)"],
@@ -90,15 +152,25 @@ async function handleEvent(stripe: Stripe, event: Stripe.Event) {
           ["Customer ID", String(sub.customer)],
         ]),
       });
+
+      // Pro onboarding email to the customer. We do this only on .created
+      // (not .updated) so plan changes or reactivations don't re-spam.
+      if (email) {
+        await sendProWelcomeEmail({ email, name, amount, currency, interval });
+      }
       break;
     }
 
     case "customer.subscription.updated": {
-      // We only care about two transitions on update:
-      //   - cancel_at_period_end flipped false → true  (user requested cancellation)
-      //   - cancel_at_period_end flipped true → false  (user reactivated)
-      // Everything else (plan switch, quantity change, etc.) is noise for now.
       const sub = event.data.object as Stripe.Subscription;
+      const { email, userId } = await resolveCustomer(stripe, sub.customer);
+
+      // Always refresh the cache — past_due transitions, plan changes, and
+      // cancel_at_period_end flips all matter to the UI.
+      await cacheSubscription(admin, userId, sub.customer, sub);
+
+      // Admin emails only on the two cancellation-state transitions; other
+      // updates (status, quantity, etc.) are cache-only and not high-signal.
       const prev = event.data.previous_attributes as
         | { cancel_at_period_end?: boolean }
         | undefined;
@@ -107,7 +179,6 @@ async function handleEvent(stripe: Stripe, event: Stripe.Event) {
       const isCancelling = sub.cancel_at_period_end;
       if (wasCancelling === isCancelling) break;
 
-      const { email } = await resolveCustomer(stripe, sub.customer);
       const endDate = (sub.items.data[0] as unknown as { current_period_end?: number })
         ?.current_period_end;
       const endLabel = endDate ? new Date(endDate * 1000).toISOString().slice(0, 10) : "(unknown)";
@@ -118,7 +189,7 @@ async function handleEvent(stripe: Stripe, event: Stripe.Event) {
           sub.cancellation_details?.feedback ??
           "(none provided)";
         await sendEmail({
-          to,
+          to: adminTo,
           subject: `Quantive cancellation requested: ${email ?? sub.customer}`,
           html: notificationHtml("Cancellation requested", [
             ["Customer", email ?? "(unknown)"],
@@ -137,7 +208,7 @@ async function handleEvent(stripe: Stripe, event: Stripe.Event) {
         });
       } else {
         await sendEmail({
-          to,
+          to: adminTo,
           subject: `Quantive cancellation reverted: ${email ?? sub.customer}`,
           html: notificationHtml("Cancellation reverted", [
             ["Customer", email ?? "(unknown)"],
@@ -158,14 +229,20 @@ async function handleEvent(stripe: Stripe, event: Stripe.Event) {
 
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
-      const { email } = await resolveCustomer(stripe, sub.customer);
+      const { email, userId } = await resolveCustomer(stripe, sub.customer);
+
+      // Drop the cache to canceled so check-subscription stops treating
+      // them as entitled. We keep stripe_customer_id so future re-subscribes
+      // are still wired up.
+      await clearSubscriptionCache(admin, userId, sub.customer);
+
       const cancelReason =
         sub.cancellation_details?.reason ??
         sub.cancellation_details?.feedback ??
         "(none provided)";
 
       await sendEmail({
-        to,
+        to: adminTo,
         subject: `Quantive subscription ended: ${email ?? sub.customer}`,
         html: notificationHtml("Subscription ended", [
           ["Customer", email ?? "(unknown)"],
@@ -191,7 +268,7 @@ async function handleEvent(stripe: Stripe, event: Stripe.Event) {
       const attempts = invoice.attempt_count ?? 0;
 
       await sendEmail({
-        to,
+        to: adminTo,
         subject: `Quantive payment failed: ${email ?? invoice.customer}`,
         html: notificationHtml("Payment failed", [
           ["Customer", email ?? "(unknown)"],
@@ -208,28 +285,140 @@ async function handleEvent(stripe: Stripe, event: Stripe.Event) {
           ["Hosted URL", invoice.hosted_invoice_url ?? "(none)"],
         ]),
       });
+      // The corresponding subscription.updated event will follow and refresh
+      // the cache with status=past_due; nothing to do here cache-wise.
       break;
     }
+  }
+}
+
+async function cacheSubscription(
+  admin: AdminClient,
+  userId: string | null,
+  customerId: string | Stripe.Customer | Stripe.DeletedCustomer | null,
+  sub: Stripe.Subscription,
+) {
+  if (!userId) {
+    console.warn("[stripe-webhook] cache: no userId on customer metadata — skipping");
+    return;
+  }
+  const row = buildCacheRow(sub as unknown as Parameters<typeof buildCacheRow>[0]);
+  const customerIdStr = typeof customerId === "string"
+    ? customerId
+    : (customerId && "id" in customerId ? customerId.id : null);
+  const { error } = await admin
+    .from("profiles")
+    .update({
+      ...row,
+      ...(customerIdStr ? { stripe_customer_id: customerIdStr } : {}),
+    })
+    .eq("user_id", userId);
+  if (error) {
+    console.error(`[stripe-webhook] cache update failed for ${userId}:`, error.message);
+  }
+}
+
+async function clearSubscriptionCache(
+  admin: AdminClient,
+  userId: string | null,
+  customerId: string | Stripe.Customer | Stripe.DeletedCustomer | null,
+) {
+  if (!userId) return;
+  const customerIdStr = typeof customerId === "string"
+    ? customerId
+    : (customerId && "id" in customerId ? customerId.id : null);
+  const { error } = await admin
+    .from("profiles")
+    .update({
+      subscription_status: "canceled",
+      subscription_product_id: null,
+      subscription_end: null,
+      subscription_cancel_at_period_end: false,
+      subscription_synced_at: new Date().toISOString(),
+      ...(customerIdStr ? { stripe_customer_id: customerIdStr } : {}),
+    })
+    .eq("user_id", userId);
+  if (error) {
+    console.error(`[stripe-webhook] cache clear failed for ${userId}:`, error.message);
   }
 }
 
 async function resolveCustomer(
   stripe: Stripe,
   customer: string | Stripe.Customer | Stripe.DeletedCustomer | null,
-): Promise<{ email: string | null; name: string | null }> {
-  if (!customer) return { email: null, name: null };
+): Promise<{ email: string | null; name: string | null; userId: string | null }> {
+  if (!customer) return { email: null, name: null, userId: null };
   if (typeof customer !== "string") {
-    if ("deleted" in customer && customer.deleted) return { email: null, name: null };
+    if ("deleted" in customer && customer.deleted) return { email: null, name: null, userId: null };
     const c = customer as Stripe.Customer;
-    return { email: c.email ?? null, name: c.name ?? null };
+    return {
+      email: c.email ?? null,
+      name: c.name ?? null,
+      userId: (c.metadata?.supabase_user_id as string | undefined) ?? null,
+    };
   }
   try {
     const c = await stripe.customers.retrieve(customer);
-    if ("deleted" in c && c.deleted) return { email: null, name: null };
-    return { email: c.email ?? null, name: c.name ?? null };
+    if ("deleted" in c && c.deleted) return { email: null, name: null, userId: null };
+    return {
+      email: c.email ?? null,
+      name: c.name ?? null,
+      userId: (c.metadata?.supabase_user_id as string | undefined) ?? null,
+    };
   } catch {
-    return { email: null, name: null };
+    return { email: null, name: null, userId: null };
   }
+}
+
+async function sendProWelcomeEmail(params: {
+  email: string;
+  name: string | null;
+  amount: number;
+  currency: string;
+  interval: string;
+}) {
+  const { email, name, amount, currency, interval } = params;
+  const greeting = name ? `Hi ${escapeHtml(name.split(" ")[0])},` : "Hi,";
+  const planLabel = `${amount} ${currency} / ${interval}`;
+
+  const bodyHtml = `
+    <p style="margin: 0 0 16px;">${greeting}</p>
+    <p style="margin: 0 0 16px;">Thanks for upgrading. Your subscription is active (${escapeHtml(planLabel)}). Stripe will email a separate receipt with the formal invoice for your records.</p>
+    <p style="margin: 0 0 12px;">What's now unlocked:</p>
+    <ul style="margin: 0 0 16px; padding-left: 20px;">
+      <li style="margin-bottom: 4px;">Full historical view — every snapshot you've recorded, charted and tabular</li>
+      <li style="margin-bottom: 4px;">Forecasting engine with CAGR projection and 95% confidence intervals</li>
+      <li style="margin-bottom: 4px;">Milestone &amp; goal tracking</li>
+      <li style="margin-bottom: 4px;">Benchmark comparison against S&amp;P 500 and inflation</li>
+      <li style="margin-bottom: 4px;">Month-by-month summary table</li>
+      <li>Excel/CSV export and PDF wealth report</li>
+    </ul>
+    <p style="margin: 0 0 16px;">You can manage your subscription, update your card, or cancel at any time from <a href="https://usequantive.app/settings" style="color: #111;">Settings → Billing</a>. If anything breaks or surprises you, reply to this email — it goes straight to me.</p>
+    <p style="margin: 0 0 4px;">Thanks,</p>
+    <p style="margin: 0;">Pedro · Quantive</p>
+  `;
+  const html = brandedEmailHtml({ heading: "Welcome to Quantive Pro", bodyHtml });
+  const text =
+    `Welcome to Quantive Pro\n\n` +
+    `${name ? `Hi ${name.split(" ")[0]},` : "Hi,"}\n\n` +
+    `Thanks for upgrading. Your subscription is active (${planLabel}). Stripe will email a separate receipt with the formal invoice for your records.\n\n` +
+    `What's now unlocked:\n` +
+    `- Full historical view — every snapshot you've recorded, charted and tabular\n` +
+    `- Forecasting engine with CAGR projection and 95% confidence intervals\n` +
+    `- Milestone & goal tracking\n` +
+    `- Benchmark comparison against S&P 500 and inflation\n` +
+    `- Month-by-month summary table\n` +
+    `- Excel/CSV export and PDF wealth report\n\n` +
+    `Manage your subscription at https://usequantive.app/settings. If anything breaks or surprises you, reply to this email — it goes straight to me.\n\n` +
+    `Thanks,\nPedro · Quantive`;
+
+  await sendEmail({
+    to: email,
+    subject: "Welcome to Quantive Pro",
+    html,
+    text,
+    replyTo: Deno.env.get("FOUNDER_REPLY_TO_EMAIL") || "hello@usequantive.app",
+  });
 }
 
 function notificationHtml(title: string, rows: Array<[string, string]>): string {

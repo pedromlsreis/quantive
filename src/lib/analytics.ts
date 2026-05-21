@@ -184,4 +184,55 @@ export const analytics = {
       months: props.months,
     });
   },
+  /**
+   * Report a thrown error to PostHog so the founder can see crashes during
+   * the HN launch window. Always console.error too — useful when debugging
+   * a user's screen-share, and for users who declined consent (their errors
+   * never leave the device).
+   *
+   * Consent-gated like everything else in this file. We deliberately do not
+   * exempt error reporting from the consent flag: the project's privacy
+   * stance is "no phone-home without explicit opt-in" and silent error
+   * reporting would contradict it.
+   */
+  captureException(error: unknown, context?: Record<string, unknown>): void {
+    if (typeof window !== 'undefined') {
+      console.error('[captureException]', error, context);
+    }
+    if (typeof window === 'undefined' || !KEY) return;
+    if (getConsent() !== 'granted') return;
+    if (!posthogInitialised) bootPosthog();
+    if (!posthogInitialised) return;
+    const err = error instanceof Error ? error : new Error(String(error));
+    const attribution = getAttribution();
+    try {
+      posthog.captureException(err, { ...attribution, ...(context ?? {}) });
+    } catch (e) {
+      // Never let the error reporter throw — that's the one path that can
+      // turn one crash into an infinite loop.
+      console.error('[captureException] posthog.captureException threw:', e);
+    }
+  },
 };
+
+/**
+ * Wire window-level error and unhandledrejection events through
+ * analytics.captureException. Call once from the app entry. Idempotent: a
+ * second call is a no-op.
+ */
+let globalHandlersInstalled = false;
+export function installGlobalErrorHandlers(): void {
+  if (typeof window === 'undefined' || globalHandlersInstalled) return;
+  globalHandlersInstalled = true;
+  window.addEventListener('error', (ev) => {
+    analytics.captureException(ev.error ?? ev.message, {
+      kind: 'window_error',
+      filename: ev.filename,
+      line: ev.lineno,
+      col: ev.colno,
+    });
+  });
+  window.addEventListener('unhandledrejection', (ev) => {
+    analytics.captureException(ev.reason, { kind: 'unhandled_rejection' });
+  });
+}

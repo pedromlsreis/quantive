@@ -92,6 +92,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [user]);
 
+  // Fire-and-forget welcome email once email is confirmed. The edge function
+  // is idempotent (profiles.welcome_email_sent_at), so calling on every
+  // confirmed-session start is safe — a second call returns
+  // { skipped: "already_sent" } and no email goes out.
+  useEffect(() => {
+    if (!user?.email_confirmed_at) return;
+    supabase.functions.invoke('send-welcome-email').catch((err) => {
+      console.warn('[welcome-email] invoke failed:', err);
+    });
+  }, [user?.id, user?.email_confirmed_at]);
+
   const signUp = async (email: string, password: string) => {
     const { error } = await supabase.auth.signUp({
       email,

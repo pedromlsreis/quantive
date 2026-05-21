@@ -1,4 +1,5 @@
 import React from 'react';
+import { analytics } from '@/lib/analytics';
 
 interface Props {
   children: React.ReactNode;
@@ -17,7 +18,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('ErrorBoundary caught:', error, info.componentStack);
+    analytics.captureException(error, {
+      kind: 'react_error_boundary',
+      componentStack: info.componentStack,
+    });
   }
 
   render() {

@@ -1,11 +1,18 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
-import { escapeHtml, sendEmail } from "../_shared/email.ts";
+import { brandedEmailHtml, escapeHtml, sendEmail } from "../_shared/email.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
   const corsHeaders = buildCorsHeaders(req);
+
+  const errorResponse = (code: string, status: number, extraHeaders: Record<string, string> = {}) =>
+    new Response(JSON.stringify({ error: code }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json", ...extraHeaders },
+      status,
+    });
 
   try {
     const supabaseClient = createClient(
@@ -14,18 +21,24 @@ serve(async (req) => {
       { global: { headers: { Authorization: req.headers.get("Authorization")! } } }
     );
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 401,
-      });
-    }
-
     const serviceClient = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
     );
+
+    // Account-deletion is a destructive single-shot per session — 5 attempts
+    // per minute per IP is more than enough for a real user and blocks the
+    // obvious abuse case of scripted mass-deletion against stolen tokens.
+    const ip = extractIp(req);
+    const rate = await checkRateLimit(serviceClient, { ip, maxRequests: 5, windowSeconds: 60 });
+    if (!rate.allowed) {
+      return errorResponse("rate_limited", 429, { "Retry-After": String(rate.retryAfter) });
+    }
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
+      return errorResponse("unauthenticated", 401);
+    }
 
     // Delete portfolio snapshots
     await serviceClient.from("portfolio_snapshots").delete().eq("user_id", user.id);
@@ -44,10 +57,7 @@ serve(async (req) => {
     const { error: deleteError } = await serviceClient.auth.admin.deleteUser(user.id);
     if (deleteError) {
       console.error("Error deleting user:", deleteError);
-      return new Response(JSON.stringify({ error: "Failed to delete account" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      });
+      return errorResponse("delete_failed", 500);
     }
 
     // Fire-and-forget — email failures must not affect the deletion result.
@@ -62,23 +72,18 @@ serve(async (req) => {
     });
   } catch (err) {
     console.error("delete-account error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
+    return errorResponse("internal_error", 500);
   }
 });
 
 async function sendUserDeletionConfirmation(email: string | null) {
   if (!email) return;
-  const html = `
-    <div style="font-family: ui-sans-serif, system-ui, sans-serif; max-width: 560px;">
-      <h2 style="margin: 0 0 12px;">Your Quantive account has been deleted</h2>
-      <p style="margin: 0 0 12px;">We've removed your account and all associated data. There's nothing left for you to do.</p>
-      <p style="margin: 0 0 12px;">If this wasn't you, or you'd like to share why you left, just reply to this email — we read every response.</p>
-      <p style="margin: 0;">Thanks for trying Quantive.</p>
-    </div>
+  const bodyHtml = `
+    <p style="margin: 0 0 16px;">We've removed your account and all associated data. There's nothing left for you to do.</p>
+    <p style="margin: 0 0 16px;">If this wasn't you, or you'd like to share why you left, just reply to this email — we read every response.</p>
+    <p style="margin: 0;">Thanks for trying Quantive.</p>
   `;
+  const html = brandedEmailHtml({ heading: "Your Quantive account has been deleted", bodyHtml });
   const text =
     "Your Quantive account has been deleted.\n\n" +
     "We've removed your account and all associated data. There's nothing left for you to do.\n\n" +

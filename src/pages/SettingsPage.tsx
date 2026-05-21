@@ -7,6 +7,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { UpsellCard } from '@/components/billing/UpsellCard';
 import { Notice } from '@/components/ui/Notice';
+import { extractCheckoutErrorCode, messageForPortalError } from '@/lib/billing/checkoutError';
 import { analytics } from '@/lib/analytics';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, type NumberFormat } from '@/contexts/PreferencesContext';
@@ -83,7 +84,8 @@ export default function SettingsPage() {
       const { data: portal, error } = await supabase.functions.invoke('customer-portal');
       if (error || !portal?.url) {
         portalTab?.close();
-        toast.error('Could not open the billing portal. Please try again.');
+        const code = await extractCheckoutErrorCode(error);
+        toast.error(messageForPortalError(code));
         return;
       }
       if (portalTab) {
@@ -94,7 +96,7 @@ export default function SettingsPage() {
       }
     } catch {
       portalTab?.close();
-      toast.error('Could not open the billing portal. Please try again.');
+      toast.error(messageForPortalError(undefined));
     } finally {
       setManagingBilling(false);
     }
@@ -359,7 +361,7 @@ export default function SettingsPage() {
             >
               <p style={{ fontWeight: 600, margin: 0 }}>Your last payment didn't go through</p>
               <p style={{ margin: 0, opacity: 0.9 }}>
-                We're still retrying, and you keep Pro access for now. Open the billing portal to update your card before retries run out.
+                We're still retrying, and you keep Pro access for now. Click 'Manage billing' below to update your card before retries run out.
               </p>
             </Notice>
           )}

@@ -8,7 +8,7 @@ vi.stubGlobal('Deno', {
   },
 });
 
-import { sanitizeSubject, escapeHtml } from '../email';
+import { sanitizeSubject, escapeHtml, brandedEmailHtml } from '../email';
 
 describe('sanitizeSubject', () => {
   it('passes plain ASCII subjects through unchanged', () => {
@@ -66,5 +66,42 @@ describe('escapeHtml', () => {
 
   it('handles ampersand-first to avoid double-encoding', () => {
     expect(escapeHtml('&lt;')).toBe('&amp;lt;');
+  });
+});
+
+describe('brandedEmailHtml', () => {
+  it('escapes the heading to defeat HTML injection', () => {
+    const html = brandedEmailHtml({ heading: '<script>x</script>', bodyHtml: '<p>hi</p>' });
+    expect(html).toContain('&lt;script&gt;x&lt;/script&gt;');
+    expect(html).not.toContain('<script>x</script>');
+  });
+
+  it('embeds the bodyHtml verbatim (caller is trusted)', () => {
+    const html = brandedEmailHtml({ heading: 'Welcome', bodyHtml: '<p>Hello <strong>world</strong></p>' });
+    expect(html).toContain('<p>Hello <strong>world</strong></p>');
+  });
+
+  it('includes the brand mark and wordmark by default', () => {
+    const html = brandedEmailHtml({ heading: 'Welcome', bodyHtml: '<p>x</p>' });
+    expect(html).toContain('https://usequantive.app/logo.png');
+    expect(html).toContain('alt="Quantive"');
+    expect(html).toContain('>Quantive<');
+  });
+
+  it('uses a default footer with the usequantive.app link', () => {
+    const html = brandedEmailHtml({ heading: 'Welcome', bodyHtml: '<p>x</p>' });
+    expect(html).toContain('usequantive.app');
+    expect(html).toContain('hello@usequantive.app');
+  });
+
+  it('allows the footer to be overridden', () => {
+    const html = brandedEmailHtml({ heading: 'Welcome', bodyHtml: '<p>x</p>', footerHtml: 'custom footer' });
+    expect(html).toContain('custom footer');
+    expect(html).not.toContain('hello@usequantive.app');
+  });
+
+  it('is wrapped in a DOCTYPE so email clients render in standards mode', () => {
+    const html = brandedEmailHtml({ heading: 'x', bodyHtml: 'y' });
+    expect(html.trimStart().toLowerCase().startsWith('<!doctype html>')).toBe(true);
   });
 });

@@ -18,9 +18,33 @@ verify_jwt = false
 [functions.stripe-webhook]
 verify_jwt = false
 
+[functions.send-welcome-email]
+verify_jwt = false
+
 [functions.fx-ingest]
 verify_jwt = false
 
 [functions.benchmark-ingest]
 verify_jwt = false
+
+# Auth email templates. The Supabase CLI applies these on `supabase db push`
+# for self-hosted projects; on hosted projects the content must also be
+# pasted into Authentication → Email Templates in the dashboard (the source
+# of truth there is the dashboard, not this file). The .html files below
+# are the canonical content — never edit one without the other.
+[auth.email.template.confirmation]
+subject = "Confirm your Quantive sign-up"
+content_path = "./templates/auth-confirm.html"
+
+[auth.email.template.recovery]
+subject = "Reset your Quantive password"
+content_path = "./templates/auth-recovery.html"
+
+[auth.email.template.magic_link]
+subject = "Your Quantive sign-in link"
+content_path = "./templates/auth-magic-link.html"
+
+[auth.email.template.invite]
+subject = "You've been invited to Quantive"
+content_path = "./templates/auth-invite.html"
 

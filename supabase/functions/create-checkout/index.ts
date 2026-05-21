@@ -4,6 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { findOrCreateStripeCustomer } from "../_shared/stripeCustomer.ts";
 
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -19,17 +20,35 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY") ?? ""
   );
 
+  // Service-role client just for the rate-limit RPC, which is SECURITY
+  // DEFINER and does not need the user's JWT.
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } },
+  );
+
   // Error codes are stable identifiers the client maps to a user-facing
   // string. Internal detail (stack traces, missing env var names, Stripe
   // messages) stays in logs — it must not reach the browser.
-  const errorResponse = (code: string, status: number) =>
+  const errorResponse = (code: string, status: number, extraHeaders: Record<string, string> = {}) =>
     new Response(JSON.stringify({ error: code }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json", ...extraHeaders },
       status,
     });
 
   try {
     logStep("Function started");
+
+    // Throttle per source IP. 10 checkouts/minute is enough headroom for a
+    // user who toggles the monthly/yearly switch a few times and impossible
+    // to abuse meaningfully. Fails open on RPC error (see rateLimit.ts).
+    const ip = extractIp(req);
+    const rate = await checkRateLimit(admin, { ip, maxRequests: 10, windowSeconds: 60 });
+    if (!rate.allowed) {
+      logStep("Rate-limited", { ip });
+      return errorResponse("rate_limited", 429, { "Retry-After": String(rate.retryAfter) });
+    }
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {

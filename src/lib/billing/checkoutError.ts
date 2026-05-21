@@ -32,9 +32,29 @@ export function messageForCheckoutError(code: string | undefined): string {
     case 'email_unverified':
       return 'Confirm your email first — check the link we sent you.';
     case 'invalid_request':
-      return 'That plan no longer looks valid. Refresh the page and try again.';
+      return "That plan isn't available anymore. Refresh the page and try again.";
+    case 'rate_limited':
+      return 'A few too many attempts in a row. Wait a minute and try again.';
     case 'checkout_unavailable':
     default:
       return "We couldn't open checkout. Try again in a moment, or email support@usequantive.app if it keeps failing.";
+  }
+}
+
+/**
+ * Mirror of messageForCheckoutError for the customer-portal endpoint.
+ * Same code contract; different surface (Settings → Manage billing).
+ */
+export function messageForPortalError(code: string | undefined): string {
+  switch (code) {
+    case 'unauthenticated':
+      return 'Your session expired. Please sign in again, then try opening billing.';
+    case 'not_found':
+      return "We couldn't find your billing record. If you've never subscribed, there's nothing to manage yet.";
+    case 'rate_limited':
+      return 'A few too many attempts in a row. Wait a minute and try again.';
+    case 'portal_unavailable':
+    default:
+      return "We couldn't open the billing portal. Try again in a moment, or email support@usequantive.app if it keeps failing.";
   }
 }
