@@ -123,15 +123,34 @@ export function MonthSummaryTable() {
         </button>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
+      <div
+        role="region"
+        tabIndex={0}
+        aria-label={`Month-by-month history, ${sorted.length} ${sorted.length === 1 ? 'row' : 'rows'}, scrollable`}
+        style={{
+          overflow: 'auto',
+          maxHeight: 'min(60vh, 460px)',
+          border: '1px solid var(--border-raw)',
+          borderRadius: 'var(--radius-md, 8px)',
+        }}
+      >
         <table className="q-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
-          <thead style={{ position: 'sticky', top: 0, background: 'var(--surface, var(--bg))', zIndex: 1 }}>
-            <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border-raw)' }}>
-              <th style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--fg-subtle)' }}>Month-end</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Net worth</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Δ month</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Δ year</th>
-              <th style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Annualised</th>
+          <caption className="sr-only">Net worth and month-over-month deltas, newest first.</caption>
+          <thead
+            style={{
+              position: 'sticky',
+              top: 0,
+              background: 'var(--surface, var(--bg, #fff))',
+              boxShadow: 'inset 0 -1px 0 var(--border-raw)',
+              zIndex: 1,
+            }}
+          >
+            <tr style={{ textAlign: 'left' }}>
+              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)' }}>Month-end</th>
+              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Net worth</th>
+              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Δ month</th>
+              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Δ year</th>
+              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Annualised</th>
             </tr>
           </thead>
           <tbody>
@@ -147,11 +166,11 @@ export function MonthSummaryTable() {
                     opacity: redacted ? 0.85 : 1,
                   }}
                 >
-                  <td style={{ padding: '8px 12px', color: 'var(--fg)' }}>{row.monthEnd}</td>
-                  <td style={{ ...numeric, padding: '8px 12px', ...cellBlur }}>
+                  <td style={{ padding: '6px 10px', color: 'var(--fg)' }}>{row.monthEnd}</td>
+                  <td style={{ ...numeric, padding: '6px 10px', ...cellBlur }}>
                     {maskedCell({ redacted, children: fmtFull(row.netWorth) })}
                   </td>
-                  <td style={{ ...numeric, padding: '8px 12px', color: signColor(row.deltaMonthAbs), ...cellBlur }}>
+                  <td style={{ ...numeric, padding: '6px 10px', color: signColor(row.deltaMonthAbs), ...cellBlur }}>
                     {maskedCell({
                       redacted,
                       children: row.deltaMonthAbs === null ? '—' : (
@@ -161,7 +180,7 @@ export function MonthSummaryTable() {
                       ),
                     })}
                   </td>
-                  <td style={{ ...numeric, padding: '8px 12px', color: signColor(row.deltaYearAbs), ...cellBlur }}>
+                  <td style={{ ...numeric, padding: '6px 10px', color: signColor(row.deltaYearAbs), ...cellBlur }}>
                     {maskedCell({
                       redacted,
                       children: row.deltaYearAbs === null ? '—' : (
@@ -171,7 +190,7 @@ export function MonthSummaryTable() {
                       ),
                     })}
                   </td>
-                  <td style={{ ...numeric, padding: '8px 12px', color: signColor(row.annualisedPct), ...cellBlur }}>
+                  <td style={{ ...numeric, padding: '6px 10px', color: signColor(row.annualisedPct), ...cellBlur }}>
                     {maskedCell({ redacted, children: formatPct(row.annualisedPct) })}
                   </td>
                 </tr>
