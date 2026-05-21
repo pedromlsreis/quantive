@@ -14,10 +14,10 @@ const MARGIN = { top: 28, right: 16, bottom: 32, left: 64 };
 type Period = '3m' | '6m' | '12m' | '24m' | 'all';
 
 const PERIOD_OPTIONS: { value: Period; label: string }[] = [
-  { value: '3m',  label: '3M'  },
-  { value: '6m',  label: '6M'  },
-  { value: '12m', label: '12M' },
-  { value: '24m', label: '24M' },
+  { value: '3m',  label: '3m'  },
+  { value: '6m',  label: '6m'  },
+  { value: '12m', label: '12m' },
+  { value: '24m', label: '24m' },
   { value: 'all', label: 'All' },
 ];
 
