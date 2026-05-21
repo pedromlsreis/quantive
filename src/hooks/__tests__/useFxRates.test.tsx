@@ -29,11 +29,13 @@ beforeEach(() => {
 });
 
 describe('useFxRates', () => {
-  it('starts with ready=false before the query resolves', () => {
+  it('starts with ready=false before the query resolves', async () => {
     queryResponse.data = SAMPLE_ROWS;
     const { result } = renderHook(() => useFxRates());
     // Synchronously, before the async effect settles, ready is false.
     expect(result.current.ready).toBe(false);
+    // Flush the pending state update so it doesn't fire outside act().
+    await waitFor(() => expect(result.current.ready).toBe(true));
   });
 
   it('sets ready=true after a successful load', async () => {
@@ -54,16 +56,17 @@ describe('useFxRates', () => {
     // Same-currency short-circuits before any rate lookup.
     expect(result.current.convertAt(500, 'EUR', 'EUR', new Date())).toBe(500);
     expect(result.current.convertAt(100, 'USD', 'USD', new Date())).toBe(100);
+    // Flush the pending state update so it doesn't fire outside act().
+    await waitFor(() => expect(result.current.ready).toBe(true));
   });
 
-  it('convertAt returns NaN for cross-currency conversions before rates are loaded', () => {
-    // We need the query to hang so rates never arrive; reset the response so
-    // .order() never resolves by replacing it with a pending promise.
-    // Easier: just don't advance the async effect by not awaiting.
+  it('convertAt returns NaN for cross-currency conversions before rates are loaded', async () => {
     queryResponse.data = SAMPLE_ROWS;
     const { result } = renderHook(() => useFxRates());
     // Synchronously (before load), cross-currency should return NaN.
     expect(Number.isNaN(result.current.convertAt(100, 'EUR', 'USD', new Date()))).toBe(true);
+    // Flush the pending state update so it doesn't fire outside act().
+    await waitFor(() => expect(result.current.ready).toBe(true));
   });
 
   it('convertAt performs correct EUR→USD conversion after load', async () => {
