@@ -124,7 +124,7 @@ const App = () => (
             <CurrencyProvider>
               <PreferencesProvider>
               <PortfolioProvider>
-                <BrowserRouter>
+                <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                   <PageViewTracker />
                   <RequireUnlock />
                   <RecoveryOfferModal />

@@ -267,6 +267,7 @@ export function trailingCagrFromSnapshots(snapshots: Snapshot[]): number | null 
  */
 const BRAND_ACCENT = '#318b61';
 
+// eslint-disable-next-line react-refresh/only-export-components -- intentional: pure document-tree module mixes the builder with helpers; only entry point.
 function PdfMonogram({ size = 16 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
