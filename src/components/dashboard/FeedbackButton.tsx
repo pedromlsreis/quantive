@@ -101,30 +101,13 @@ export function FeedbackButton() {
           onClick={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
         >
           <div ref={trapRef} className="q-modal">
-            <div
-              className="q-modal-head"
-              style={{ padding: 'var(--s-5) var(--s-5) var(--s-3)', alignItems: 'flex-start' }}
-            >
-              <div style={{ display: 'flex', gap: 'var(--s-3)', alignItems: 'flex-start' }}>
-                <div
-                  aria-hidden
-                  style={{
-                    width: 36, height: 36, flexShrink: 0,
-                    display: 'grid', placeItems: 'center',
-                    borderRadius: 'var(--r-3)',
-                    background: 'var(--surface-soft)',
-                    border: '1px solid var(--border-raw)',
-                    color: 'hsl(var(--primary))',
-                  }}
-                >
+            <div className="q-modal-head">
+              <div className="q-modal-head-row">
+                <div className="q-modal-chip" aria-hidden>
                   <MessageSquarePlus className="h-4 w-4" />
                 </div>
-                <div>
-                  <div
-                    className="q-modal-title"
-                    id="feedback-title"
-                    style={{ fontWeight: 600 }}
-                  >
+                <div style={{ minWidth: 0 }}>
+                  <div className="q-modal-title" id="feedback-title">
                     Share your feedback
                   </div>
                   <div className="q-modal-sub">
@@ -183,7 +166,7 @@ export function FeedbackButton() {
                     minHeight: 18,
                     marginTop: 'var(--s-1)',
                     fontSize: 'var(--text-xs)',
-                    color: message.length >= MAX_LEN ? 'var(--negative, #c33)' : 'var(--fg-subtle)',
+                    color: message.length >= MAX_LEN ? 'var(--negative)' : 'var(--fg-subtle)',
                     fontVariantNumeric: 'tabular-nums',
                     opacity: message.length >= COUNTER_THRESHOLD ? 1 : 0,
                     transition: 'opacity 150ms ease-out',
@@ -195,91 +178,33 @@ export function FeedbackButton() {
               </div>
             </div>
 
-            <div className="q-modal-foot" style={{ display: 'block' }}>
-              <FeedbackFooterControls
-                shortcutLabel={shortcutLabel}
-                onCancel={() => setOpen(false)}
-                onSubmit={handleSubmit}
-                canSubmit={canSubmit}
-                sending={sending}
-              />
+            <div className="q-modal-foot q-modal-foot--split">
+              <span className="q-modal-shortcut" aria-hidden>
+                {shortcutLabel} to send
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="q-btn q-btn--ghost q-btn--md"
+                disabled={sending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                className="q-btn q-btn--primary q-btn--md"
+                style={{ opacity: canSubmit ? 1 : 0.5 }}
+              >
+                <Send className="h-4 w-4" />
+                {sending ? 'Sending…' : 'Send feedback'}
+              </button>
             </div>
           </div>
         </div>,
         document.body,
       )}
-    </>
-  );
-}
-
-function FeedbackFooterControls({
-  shortcutLabel,
-  onCancel,
-  onSubmit,
-  canSubmit,
-  sending,
-}: {
-  shortcutLabel: string;
-  onCancel: () => void;
-  onSubmit: () => void;
-  canSubmit: boolean;
-  sending: boolean;
-}) {
-  return (
-    <>
-      <style>{`
-        .q-feedback-foot-row {
-          display: flex;
-          flex-direction: column-reverse;
-          gap: var(--s-2);
-          width: 100%;
-        }
-        .q-feedback-foot-row .q-feedback-cancel { width: 100%; }
-        .q-feedback-foot-row .q-feedback-submit { width: 100%; }
-        .q-feedback-shortcut {
-          display: none;
-          font-size: var(--text-xs);
-          color: var(--fg-subtle);
-          margin-right: auto;
-          align-self: center;
-          font-variant-numeric: tabular-nums;
-        }
-        @media (min-width: 560px) {
-          .q-feedback-foot-row {
-            flex-direction: row;
-            justify-content: flex-end;
-            align-items: center;
-          }
-          .q-feedback-foot-row .q-feedback-cancel,
-          .q-feedback-foot-row .q-feedback-submit {
-            width: auto;
-          }
-          .q-feedback-shortcut { display: inline-flex; }
-        }
-      `}</style>
-      <div className="q-feedback-foot-row">
-        <span className="q-feedback-shortcut" aria-hidden>
-          {shortcutLabel} to send
-        </span>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="q-btn q-btn--ghost q-btn--md q-feedback-cancel"
-          disabled={sending}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={onSubmit}
-          disabled={!canSubmit}
-          className="q-btn q-btn--primary q-btn--md q-feedback-submit"
-          style={{ opacity: canSubmit ? 1 : 0.5 }}
-        >
-          <Send className="h-4 w-4" />
-          {sending ? 'Sending…' : 'Send feedback'}
-        </button>
-      </div>
     </>
   );
 }

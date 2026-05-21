@@ -216,15 +216,15 @@ export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
                 )}
               </div>
 
-              <div className="q-modal-foot">
+              <div className="q-modal-foot q-modal-foot--split">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="q-btn q-btn--secondary q-btn--sm"
+                  className="q-btn q-btn--ghost q-btn--md"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="q-btn q-btn--primary q-btn--sm">
+                <button type="submit" className="q-btn q-btn--primary q-btn--md">
                   {goal ? 'Save changes' : 'Add goal'}
                 </button>
               </div>

@@ -62,9 +62,14 @@ export function WelcomeModal() {
     <div className="q-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="welcome-title">
       <div ref={trapRef} className="q-modal" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
         <div className="q-modal-head">
-          <div>
-            <div className="q-modal-title" id="welcome-title">Welcome to Quantive</div>
-            <div className="q-modal-sub">Your personal dashboard to track, analyse, and forecast your net worth.</div>
+          <div className="q-modal-head-row">
+            <div className="q-modal-chip" aria-hidden>
+              <BarChart3 className="h-4 w-4" />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div className="q-modal-title" id="welcome-title">Welcome to Quantive</div>
+              <div className="q-modal-sub">Your personal dashboard to track, analyse, and forecast your net worth.</div>
+            </div>
           </div>
           <button type="button" onClick={handleClose} className="q-icon-btn" aria-label="Close">
             <X className="h-4 w-4" />
@@ -72,14 +77,6 @@ export function WelcomeModal() {
         </div>
 
         <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 48, height: 48, borderRadius: 'var(--r-3)',
-            background: 'var(--accent-faint-raw)', flexShrink: 0,
-          }}>
-            <BarChart3 className="h-6 w-6 text-primary" />
-          </div>
-
           {highlights.map((item, i) => (
             <div key={i} style={{ display: 'flex', gap: 'var(--s-3)' }}>
               <div className="q-insight-icon">{item.icon}</div>
@@ -105,12 +102,11 @@ export function WelcomeModal() {
           </label>
         </div>
 
-        <div className="q-modal-foot">
+        <div className="q-modal-foot q-modal-foot--full">
           <button
             type="button"
             onClick={handleClose}
             className="q-btn q-btn--primary q-btn--md"
-            style={{ width: '100%' }}
           >
             Get started
           </button>

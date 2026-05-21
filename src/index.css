@@ -894,7 +894,7 @@
    ─────────────────────────────────────────────────────────────────*/
 .q-modal-backdrop {
   position: fixed; inset: 0;
-  background: oklch(0% 0 0 / 0.5); backdrop-filter: blur(8px);
+  background: oklch(0% 0 0 / 0.55); backdrop-filter: blur(6px);
   display: grid; place-items: center; z-index: 50;
   animation: q-fade-in var(--d-base) var(--ease-out);
 }
@@ -907,16 +907,50 @@
   animation: q-modal-in var(--d-slow) var(--ease-out);
 }
 .q-modal-head {
-  padding: var(--s-6) var(--s-6) var(--s-2);
+  padding: var(--s-5) var(--s-5) var(--s-3);
   display: flex; justify-content: space-between; align-items: flex-start;
+  gap: var(--s-3);
 }
-.q-modal-title { font-size: var(--text-lg); font-weight: 500; letter-spacing: -0.01em; }
-.q-modal-sub { font-size: var(--text-sm); color: var(--fg-subtle); margin-top: 4px; }
-.q-modal-body { padding: var(--s-4) var(--s-6); }
+.q-modal-title { font-size: var(--text-lg); font-weight: 600; letter-spacing: -0.01em; }
+.q-modal-sub { font-size: var(--text-sm); color: var(--fg-subtle); margin-top: 4px; line-height: 1.5; }
+.q-modal-body { padding: var(--s-3) var(--s-5) var(--s-4); }
 .q-modal-foot {
-  padding: var(--s-4) var(--s-6); border-top: 1px solid var(--border-raw);
+  padding: var(--s-4) var(--s-5); border-top: 1px solid var(--border-raw);
   display: flex; justify-content: flex-end; gap: var(--s-2);
 }
+
+/* Small rounded-square icon chip used in modal heads (replaces inline-icon-in-title). */
+.q-modal-chip {
+  width: 36px; height: 36px; flex-shrink: 0;
+  display: grid; place-items: center;
+  border-radius: var(--r-3);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-raw);
+  color: hsl(var(--primary));
+}
+.q-modal-head-row {
+  display: flex; gap: var(--s-3); align-items: flex-start; min-width: 0; flex: 1;
+}
+
+/* Footer variant: stacks on small screens with primary on top (column-reverse),
+   right-aligned row on >=560px. Use inside .q-modal-foot:
+     <div class="q-modal-foot q-modal-foot--split"> ... </div>
+   Put the secondary/cancel button BEFORE the primary in source order. */
+.q-modal-foot--split { flex-direction: column-reverse; align-items: stretch; }
+.q-modal-foot--split > .q-btn { width: 100%; }
+.q-modal-foot--split .q-modal-shortcut { display: none; }
+@media (min-width: 560px) {
+  .q-modal-foot--split { flex-direction: row; justify-content: flex-end; align-items: center; }
+  .q-modal-foot--split > .q-btn { width: auto; }
+  .q-modal-foot--split .q-modal-shortcut {
+    display: inline-flex; align-items: center;
+    font-size: var(--text-xs); color: var(--fg-subtle);
+    margin-right: auto; font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Footer variant: single full-width primary button (welcome, unlock, single-CTA). */
+.q-modal-foot--full > .q-btn { width: 100%; }
 
 /* Add-measurement row: name + value + currency + remove. Wraps on mobile so
    the currency dropdown doesn't bleed past the card's right edge. */

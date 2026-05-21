@@ -732,21 +732,19 @@ export default function SettingsPage() {
         <div className="q-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="recovery-title">
           <div className="q-modal">
             <div className="q-modal-head">
-              <div>
-                <div className="q-modal-title" id="recovery-title">Your recovery code</div>
-                <div className="q-modal-sub">
-                  Save these 24 words somewhere safe. Anyone with these words can unlock your data — we won't show them again.
+              <div className="q-modal-head-row">
+                <div className="q-modal-chip" aria-hidden>
+                  <KeyRound className="h-4 w-4" />
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div className="q-modal-title" id="recovery-title">Your recovery code</div>
+                  <div className="q-modal-sub">
+                    Save these 24 words somewhere safe. Anyone with these words can unlock your data — we won't show them again.
+                  </div>
                 </div>
               </div>
             </div>
             <div className="q-modal-body">
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 48, height: 48, borderRadius: 'var(--r-3)',
-                background: 'var(--accent-faint-raw)', marginBottom: 'var(--s-4)',
-              }}>
-                <KeyRound className="h-6 w-6 text-primary" />
-              </div>
               <RecoveryCodeDisplay
                 code={showRecoveryCode}
                 onConfirmed={() => setShowRecoveryCode(null)}

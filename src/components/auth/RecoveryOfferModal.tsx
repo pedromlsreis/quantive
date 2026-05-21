@@ -117,14 +117,19 @@ export function RecoveryOfferModal() {
     >
       <div ref={trapRef} className="q-modal">
         <div className="q-modal-head">
-          <div>
-            <div className="q-modal-title" id="recovery-offer-title">
-              {step === 'offer' ? 'Set up a recovery code' : 'Your recovery code'}
+          <div className="q-modal-head-row">
+            <div className="q-modal-chip" aria-hidden>
+              <Lock className="h-4 w-4" />
             </div>
-            <div className="q-modal-sub">
-              {step === 'offer'
-                ? 'Your data is end-to-end encrypted. If you forget your password, we cannot recover it for you.'
-                : "Save these 24 words somewhere safe — we'll only show them once. Anyone with these words can unlock your data."}
+            <div style={{ minWidth: 0 }}>
+              <div className="q-modal-title" id="recovery-offer-title">
+                {step === 'offer' ? 'Set up a recovery code' : 'Your recovery code'}
+              </div>
+              <div className="q-modal-sub">
+                {step === 'offer'
+                  ? 'Your data is end-to-end encrypted. If you forget your password, we cannot recover it for you.'
+                  : "Save these 24 words somewhere safe — we'll only show them once. Anyone with these words can unlock your data."}
+              </div>
             </div>
           </div>
           <button type="button" onClick={close} className="q-icon-btn" aria-label="Close">
@@ -133,14 +138,6 @@ export function RecoveryOfferModal() {
         </div>
 
         <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 48, height: 48, borderRadius: 'var(--r-3)',
-            background: 'var(--accent-faint-raw)', flexShrink: 0,
-          }}>
-            <Lock className="h-6 w-6 text-primary" />
-          </div>
-
           {step === 'offer' && (
             <div style={{
               borderRadius: 'var(--r-2)',
@@ -168,13 +165,13 @@ export function RecoveryOfferModal() {
         </div>
 
         {step === 'offer' && (
-          <div className="q-modal-foot" style={{ justifyContent: 'stretch', gap: 'var(--s-2)' }}>
+          <div className="q-modal-foot q-modal-foot--split">
             <button
               type="button"
               onClick={handleSkip}
               disabled={submitting}
               className="q-btn q-btn--ghost q-btn--md"
-              style={{ flex: 1, opacity: submitting ? 0.5 : 1 }}
+              style={{ opacity: submitting ? 0.5 : 1 }}
             >
               Skip for now
             </button>
@@ -183,7 +180,7 @@ export function RecoveryOfferModal() {
               onClick={handleSetUp}
               disabled={submitting}
               className="q-btn q-btn--primary q-btn--md"
-              style={{ flex: 1, opacity: submitting ? 0.5 : 1 }}
+              style={{ opacity: submitting ? 0.5 : 1 }}
             >
               {submitting ? 'Generating…' : 'Set up now'}
             </button>

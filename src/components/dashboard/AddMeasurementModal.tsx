@@ -484,7 +484,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
             </div>
 
             {/* Footer */}
-            <div className="q-modal-foot">
+            <div className="q-modal-foot q-modal-foot--split">
               <button
                 type="button"
                 onClick={() => onOpenChange(false)}
