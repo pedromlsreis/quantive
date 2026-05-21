@@ -174,14 +174,9 @@ describe('lastDate', () => {
 describe('periodCutoff', () => {
   const NOW = new Date('2025-05-19T12:00:00Z');
 
-  it('returns null for "all"', () => {
-    expect(periodCutoff('all', NOW)).toBeNull();
-  });
-
   it('subtracts the right number of years', () => {
     expect(periodCutoff('1y', NOW)).toBe('2024-05-19');
     expect(periodCutoff('3y', NOW)).toBe('2022-05-19');
-    expect(periodCutoff('5y', NOW)).toBe('2020-05-19');
   });
 });
 

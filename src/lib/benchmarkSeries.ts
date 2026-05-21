@@ -139,16 +139,13 @@ export function isStale(
 
 /**
  * Period selector — the user picks one of these, we map it to a cutoff date.
- * `all` returns null (no lower bound).
  */
-export type BenchmarkPeriod = 'all' | '5y' | '3y' | '1y';
+export type BenchmarkPeriod = '3y' | '1y';
 
-export function periodCutoff(period: BenchmarkPeriod, now: Date): string | null {
-  if (period === 'all') return null;
-  const years = period === '5y' ? 5 : period === '3y' ? 3 : 1;
+export function periodCutoff(period: BenchmarkPeriod, now: Date): string {
+  const years = period === '3y' ? 3 : 1;
   const d = new Date(now);
   d.setFullYear(d.getFullYear() - years);
-  // ISO date only.
   return d.toISOString().slice(0, 10);
 }
 

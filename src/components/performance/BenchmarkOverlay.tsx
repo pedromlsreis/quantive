@@ -32,8 +32,6 @@ const OVERLAY_OPTIONS: { value: OverlayChoice; label: string }[] = [
 ];
 
 const PERIOD_OPTIONS: { value: BenchmarkPeriod; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: '5y',  label: '5y' },
   { value: '3y',  label: '3y' },
   { value: '1y',  label: '1y' },
 ];
@@ -73,7 +71,7 @@ function BenchmarkOverlayInner() {
   const isPro = has('benchmarks');
 
   const [overlay, setOverlay] = useState<OverlayChoice>('inflation_eu');
-  const [period, setPeriod] = useState<BenchmarkPeriod>('all');
+  const [period, setPeriod] = useState<BenchmarkPeriod>('3y');
 
   const userPoints = useMemo(
     () => allSnapshots.map((s) => ({
