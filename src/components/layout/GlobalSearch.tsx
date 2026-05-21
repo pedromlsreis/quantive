@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, PieChart, TrendingUp, Database, Settings, Shield,
-  Plus, Search, CornerDownLeft, Target, Activity,
+  PieChart, Database, Shield,
+  Plus, Search, CornerDownLeft,
 } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toTitleCase } from '@/lib/utils';
+import { ALL_NAV_ITEMS } from '@/lib/nav-config';
 
 type ResultKind = 'page' | 'source' | 'volatType' | 'action';
 
@@ -19,15 +20,33 @@ interface Result {
   run: () => void;
 }
 
-const PAGES: { label: string; to: string; icon: React.ReactNode; keywords: string }[] = [
-  { label: 'Overview',    to: '/dashboard',   icon: <LayoutDashboard size={14} />, keywords: 'dashboard home kpi' },
-  { label: 'Allocations', to: '/allocations', icon: <PieChart size={14} />,        keywords: 'breakdown treemap donut' },
-  { label: 'Forecast',    to: '/forecast',    icon: <TrendingUp size={14} />,      keywords: 'projection scenario future' },
-  { label: 'Performance', to: '/performance', icon: <Activity size={14} />,        keywords: 'benchmark inflation s&p sp500 history month looking back' },
-  { label: 'Goals',       to: '/goals',       icon: <Target size={14} />,          keywords: 'milestones targets progress' },
-  { label: 'Sources',     to: '/sources',     icon: <Database size={14} />,        keywords: 'accounts assets' },
-  { label: 'Settings',    to: '/settings',    icon: <Settings size={14} />,        keywords: 'preferences currency' },
-  { label: 'Security',    to: '/security',    icon: <Shield size={14} />,          keywords: 'encryption key recovery' },
+const SEARCH_ICON_SIZE = 14;
+
+interface SearchablePage {
+  label: string;
+  to: string;
+  icon: React.ReactNode;
+  keywords: string;
+}
+
+// Pages reachable only via search (no sidebar / mobile bar entry).
+const EXTRA_SEARCHABLE_PAGES: SearchablePage[] = [
+  {
+    label: 'Security',
+    to: '/security',
+    icon: <Shield size={SEARCH_ICON_SIZE} />,
+    keywords: 'encryption key recovery',
+  },
+];
+
+const PAGES: SearchablePage[] = [
+  ...ALL_NAV_ITEMS.map((item) => ({
+    label: item.label,
+    to: item.to,
+    icon: <item.Icon size={SEARCH_ICON_SIZE} />,
+    keywords: item.keywords ?? '',
+  })),
+  ...EXTRA_SEARCHABLE_PAGES,
 ];
 
 function matches(haystack: string, needle: string): boolean {

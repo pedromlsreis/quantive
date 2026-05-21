@@ -1016,6 +1016,78 @@
 .q-mobile-tab.is-active { color: var(--accent-raw); }
 
 /* ─────────────────────────────────────────────────────────────────
+   Mobile "More" bottom sheet — opened from the 5th tab to surface
+   nav items that don't fit the 5-slot bottom-bar cap (Plan group,
+   Account group). Grouped sections mirror the desktop sidebar so
+   cross-platform navigation stays coherent.
+   ─────────────────────────────────────────────────────────────────*/
+.q-mobile-more-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.q-mobile-more-backdrop {
+  position: absolute;
+  inset: 0;
+  background: oklch(0% 0 0 / 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.q-mobile-more-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 70dvh;
+  background: var(--bg-elev-1, var(--bg));
+  border-top: 1px solid var(--border-raw);
+  border-top-left-radius: var(--r-4, 16px);
+  border-top-right-radius: var(--r-4, 16px);
+  box-shadow: var(--shadow-lg);
+  padding: 8px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.q-mobile-more-grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border-raw);
+  margin: 6px auto 8px;
+  flex-shrink: 0;
+}
+.q-mobile-more-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 8px;
+  flex-shrink: 0;
+}
+.q-mobile-more-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--fg);
+}
+.q-mobile-more-nav {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0 8px;
+}
+.q-mobile-more-section + .q-mobile-more-section {
+  margin-top: 12px;
+}
+/* Hit-area: inside the sheet, nav rows need to clear the touch-target
+   minimum (44pt) since they're the only way to reach these pages. */
+.q-mobile-more-nav .q-nav-item {
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: var(--text-sm);
+  gap: 12px;
+}
+
+/* ─────────────────────────────────────────────────────────────────
    Mobile shell
    ─────────────────────────────────────────────────────────────────*/
 @media (max-width: 768px) {
