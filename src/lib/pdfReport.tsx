@@ -22,10 +22,39 @@ import {
   Svg,
   Circle,
   Line,
+  Font,
   pdf,
 } from '@react-pdf/renderer';
 import type { Snapshot } from './types';
 import { generateScenarioForecast } from './scenarioForecast';
+
+// Brand fonts — Geist (body) and JetBrains Mono (wordmark) match the in-app
+// stack defined in `src/index.css` (--font-body, --font-display). We use the
+// WOFF variants because `@react-pdf/renderer` parses TTF/WOFF but not WOFF2.
+// Vite's `?url` suffix resolves to a hashed asset URL at build time.
+import GeistRegular from '@fontsource/geist/files/geist-latin-400-normal.woff?url';
+import GeistMedium from '@fontsource/geist/files/geist-latin-500-normal.woff?url';
+import GeistSemibold from '@fontsource/geist/files/geist-latin-600-normal.woff?url';
+import GeistBold from '@fontsource/geist/files/geist-latin-700-normal.woff?url';
+import JetBrainsMonoRegular from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-400-normal.woff?url';
+import JetBrainsMonoMedium from '@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff?url';
+
+Font.register({
+  family: 'Geist',
+  fonts: [
+    { src: GeistRegular, fontWeight: 400 },
+    { src: GeistMedium, fontWeight: 500 },
+    { src: GeistSemibold, fontWeight: 600 },
+    { src: GeistBold, fontWeight: 700 },
+  ],
+});
+Font.register({
+  family: 'JetBrains Mono',
+  fonts: [
+    { src: JetBrainsMonoRegular, fontWeight: 400 },
+    { src: JetBrainsMonoMedium, fontWeight: 500 },
+  ],
+});
 
 export type ReportPeriod = 'this_year' | 'last_year' | 'all_time' | 'custom';
 
@@ -58,7 +87,7 @@ const styles = StyleSheet.create({
   page: {
     padding: 36,
     fontSize: 10,
-    fontFamily: 'Helvetica',
+    fontFamily: 'Geist',
     color: '#1f2937',
   },
   header: {
@@ -76,9 +105,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   brand: {
-    fontFamily: 'Courier-Bold',
-    fontSize: 16,
-    letterSpacing: -0.4,
+    fontFamily: 'JetBrains Mono',
+    fontWeight: 500,
+    fontSize: 15,
+    letterSpacing: -0.3,
     color: '#111827',
   },
   meta: {
