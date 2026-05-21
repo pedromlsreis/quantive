@@ -25,7 +25,6 @@ function UserMenu({
   needsRecovery,
   onNavigate,
   onSignOut,
-  onFeedback,
 }: {
   displayName: string | null;
   email: string | undefined;
@@ -35,7 +34,6 @@ function UserMenu({
   needsRecovery: boolean;
   onNavigate: (to: string) => void;
   onSignOut: () => void;
-  onFeedback: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -147,14 +145,6 @@ function UserMenu({
               <span>Admin</span>
             </button>
           )}
-          <button
-            role="menuitem"
-            onClick={() => { setOpen(false); onFeedback(); }}
-            className="q-nav-item"
-          >
-            <MessageSquarePlus size={15} />
-            <span>Suggest a feature</span>
-          </button>
           <div style={{ height: 1, background: 'var(--border-raw)', margin: '4px 0' }} />
           <button
             role="menuitem"
@@ -307,16 +297,25 @@ function Sidebar({
             </div>
           </div>
           {user ? (
-            <UserMenu
-              displayName={displayName}
-              email={user.email}
-              initial={initial}
-              isAdmin={isAdmin}
-              needsRecovery={needsRecovery}
-              onNavigate={(to) => { onClose(); navigate(to); }}
-              onSignOut={handleSignOut}
-              onFeedback={() => { onClose(); onFeedback(); }}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <button
+                type="button"
+                onClick={() => { onClose(); onFeedback(); }}
+                className="q-nav-item"
+              >
+                <MessageSquarePlus size={15} />
+                <span>Suggest a feature</span>
+              </button>
+              <UserMenu
+                displayName={displayName}
+                email={user.email}
+                initial={initial}
+                isAdmin={isAdmin}
+                needsRecovery={needsRecovery}
+                onNavigate={(to) => { onClose(); navigate(to); }}
+                onSignOut={handleSignOut}
+              />
+            </div>
           ) : (
             <SignedOutMenu
               onSignIn={onSignIn}
