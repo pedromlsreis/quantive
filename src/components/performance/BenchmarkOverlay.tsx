@@ -71,7 +71,7 @@ function BenchmarkOverlayInner() {
   const { has } = useEntitlements();
   const isPro = has('benchmarks');
 
-  const [overlay, setOverlay] = useState<OverlayChoice>('inflation_eu');
+  const [overlay, setOverlay] = useState<OverlayChoice>('sp500');
   const [period, setPeriod] = useState<BenchmarkPeriod>('3y');
 
   const userPoints = useMemo(

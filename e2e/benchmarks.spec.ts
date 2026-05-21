@@ -84,12 +84,12 @@ test.describe('Performance — benchmark comparison', () => {
     await expect(overlayTabs.getByRole('tab', { name: /S.*P.*500/ })).toBeVisible();
     await expect(overlayTabs.getByRole('tab', { name: 'Off' })).toBeVisible();
 
-    // Default selection: Inflation.
-    await expect(overlayTabs.getByRole('tab', { name: 'Inflation' })).toHaveAttribute('aria-selected', 'true');
-
-    // Toggle to S&P 500.
-    await overlayTabs.getByRole('tab', { name: /S.*P.*500/ }).click();
+    // Default selection: S&P 500.
     await expect(overlayTabs.getByRole('tab', { name: /S.*P.*500/ })).toHaveAttribute('aria-selected', 'true');
+
+    // Toggle to Inflation.
+    await overlayTabs.getByRole('tab', { name: 'Inflation' }).click();
+    await expect(overlayTabs.getByRole('tab', { name: 'Inflation' })).toHaveAttribute('aria-selected', 'true');
 
     // Toggle Off.
     await overlayTabs.getByRole('tab', { name: 'Off' }).click();
