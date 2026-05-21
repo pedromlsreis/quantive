@@ -34,17 +34,17 @@ verify_jwt = false
 # are the canonical content — never edit one without the other.
 [auth.email.template.confirmation]
 subject = "Confirm your Quantive sign-up"
-content_path = "./templates/auth-confirm.html"
+content_path = "./supabase/templates/auth-confirm.html"
 
 [auth.email.template.recovery]
 subject = "Reset your Quantive password"
-content_path = "./templates/auth-recovery.html"
+content_path = "./supabase/templates/auth-recovery.html"
 
 [auth.email.template.magic_link]
 subject = "Your Quantive sign-in link"
-content_path = "./templates/auth-magic-link.html"
+content_path = "./supabase/templates/auth-magic-link.html"
 
 [auth.email.template.invite]
 subject = "You've been invited to Quantive"
-content_path = "./templates/auth-invite.html"
+content_path = "./supabase/templates/auth-invite.html"
 
