@@ -140,12 +140,16 @@ export function isStale(
 /**
  * Period selector — the user picks one of these, we map it to a cutoff date.
  */
-export type BenchmarkPeriod = '3y' | '1y';
+export type BenchmarkPeriod = '3y' | '1y' | '6m';
 
 export function periodCutoff(period: BenchmarkPeriod, now: Date): string {
-  const years = period === '3y' ? 3 : 1;
   const d = new Date(now);
-  d.setFullYear(d.getFullYear() - years);
+  if (period === '6m') {
+    d.setMonth(d.getMonth() - 6);
+  } else {
+    const years = period === '3y' ? 3 : 1;
+    d.setFullYear(d.getFullYear() - years);
+  }
   return d.toISOString().slice(0, 10);
 }
 

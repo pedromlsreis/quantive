@@ -26,14 +26,15 @@ import {
 type OverlayChoice = 'off' | SeriesId;
 
 const OVERLAY_OPTIONS: { value: OverlayChoice; label: string }[] = [
-  { value: 'inflation_eu', label: 'Inflation' },
   { value: 'sp500',        label: 'S&P 500' },
+  { value: 'inflation_eu', label: 'Inflation' },
   { value: 'off',          label: 'Off' },
 ];
 
 const PERIOD_OPTIONS: { value: BenchmarkPeriod; label: string }[] = [
   { value: '3y',  label: '3y' },
   { value: '1y',  label: '1y' },
+  { value: '6m',  label: '6m' },
 ];
 
 const SERIES_LABEL: Record<SeriesId, string> = {
