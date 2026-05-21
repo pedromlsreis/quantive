@@ -8,12 +8,12 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Lock, LogOut } from 'lucide-react';
-import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { Notice } from '@/components/ui/Notice';
 import { isProtectedPath } from './protectedPaths';
 
 export function RequireUnlock() {
@@ -23,6 +23,12 @@ export function RequireUnlock() {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const trapRef = useFocusTrap<HTMLDivElement>(true);
+  // Inline error instead of a toast: the toast auto-dismisses at the exact
+  // moment the user is trying to read it (same defect AuthModal fixed by
+  // bumping toast duration). An inline region inside the focused dialog
+  // stays visible, is screen-reader-announced via Notice's aria-live, and
+  // sits next to the input the user is about to retry.
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Only show when the user is authed and we don't have a DK loaded.
   if (!user || keySession.status !== 'locked') return null;
@@ -32,10 +38,15 @@ export function RequireUnlock() {
     e.preventDefault();
     if (!password.trim()) return;
     setSubmitting(true);
+    setErrorMessage(null);
     try {
       const { error } = await keySession.unlock(user.id, password);
       if (error) {
-        toast.error('Could not unlock. Check your password and try again.');
+        // The unlock boundary intentionally does not distinguish wrong
+        // password from network failure (see KeySessionContext.unlock). The
+        // message has to cover both; "try again" handles the transient case,
+        // and the recovery link handles the genuinely-forgotten case.
+        setErrorMessage("That password didn't work. Try again, or use your recovery code if you've forgotten it.");
         return;
       }
       setPassword('');
@@ -47,6 +58,7 @@ export function RequireUnlock() {
   const handleSignOut = async () => {
     await signOut();
     setPassword('');
+    setErrorMessage(null);
   };
 
   return createPortal(
@@ -80,11 +92,36 @@ export function RequireUnlock() {
                 type="password"
                 placeholder="Password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  // Clear stale error the moment the user edits — keeps the
+                  // message tied to the attempt that produced it.
+                  if (errorMessage) setErrorMessage(null);
+                }}
                 required
                 autoFocus
+                aria-invalid={errorMessage ? true : undefined}
+                aria-describedby={errorMessage ? 'require-unlock-error' : undefined}
               />
             </label>
+
+            {errorMessage && (
+              <Notice
+                variant="negative"
+                role="alert"
+                style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--s-1)' }}
+              >
+                <p id="require-unlock-error" style={{ margin: 0 }}>{errorMessage}</p>
+                <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.85 }}>
+                  Forgotten your password?{' '}
+                  <Link to="/reset-password" style={{ textDecoration: 'underline' }}>
+                    Reset with your recovery code
+                  </Link>
+                  .
+                </p>
+              </Notice>
+            )}
+
             <button
               type="submit"
               disabled={submitting || !password.trim()}
