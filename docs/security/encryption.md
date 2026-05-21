@@ -537,7 +537,7 @@ The encryption module (`src/lib/crypto/`) is licensed under the MIT License (see
 The module will:
 
 - Have **no I/O**: pure functions only. Database calls and network calls happen in higher layers.
-- Ship with **Known Answer Test (KAT) vectors** from draft-irtf-cfrg-xchacha (XChaCha20-Poly1305 §A.3.1) and RFC 9106 (Argon2id) executed in the test suite.
+- Ship with a **Known Answer Test (KAT) vector** from draft-irtf-cfrg-xchacha (XChaCha20-Poly1305 §A.3.1) executed in the test suite. For Argon2id we exercise the configured production parameters (`t=3, m=64MiB`) for determinism, salt sensitivity, and password sensitivity, but do not match RFC 9106's published vectors: libsodium's `crypto_pwhash` hard-codes parallelism to `p=1`, and every RFC 9106 vector uses `p ≥ 4`.
 - Ship with a **fuzz target** (decryption with random ciphertexts, expecting failure) to catch accidental oracles.
 - Be **unit-tested at >95% line coverage**.
 
