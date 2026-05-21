@@ -32,9 +32,9 @@ const OVERLAY_OPTIONS: { value: OverlayChoice; label: string }[] = [
 ];
 
 const PERIOD_OPTIONS: { value: BenchmarkPeriod; label: string }[] = [
-  { value: '3y',  label: '3y' },
-  { value: '1y',  label: '1y' },
   { value: '6m',  label: '6m' },
+  { value: '1y',  label: '1y' },
+  { value: '3y',  label: '3y' },
 ];
 
 const SERIES_LABEL: Record<SeriesId, string> = {
