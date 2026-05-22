@@ -144,6 +144,17 @@ export const analytics = {
   measurementAdded(props: { count: number }): void {
     capture('measurement_added', { count: props.count });
   },
+  /**
+   * Fired when a user edits a single measurement's value or currency. Bare
+   * event only — no source name, date, or amount (that's portfolio data).
+   */
+  measurementEdited(): void {
+    capture('measurement_edited');
+  },
+  /** Fired when a user deletes a single measurement. No portfolio data. */
+  measurementDeleted(): void {
+    capture('measurement_deleted');
+  },
   dataCleared(): void {
     capture('data_cleared');
   },
