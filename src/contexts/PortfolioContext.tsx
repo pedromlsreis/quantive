@@ -391,9 +391,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // flips to 'unlocked-encrypted', this effect re-fires and the load proceeds.
   useEffect(() => {
     if (!user) {
-      // Signed-out / never-authed. No cloud fetch will happen, so don't keep
-      // the skeleton armed.
-      setIsCloudLoading(false);
+      // Only drop the skeleton once auth is *confirmed* guest. While auth is
+      // still restoring a session we don't yet know if a user is coming back,
+      // so keep the skeleton armed to avoid flashing "upload your file".
+      if (!authLoading) setIsCloudLoading(false);
       return;
     }
     if (keySession.status === 'locked') return;
@@ -467,7 +468,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       }
     };
     loadFromCloud();
-  }, [user, keySession, setDefaultDateRange]);
+  }, [user, authLoading, keySession, setDefaultDateRange]);
 
   // Load from localStorage for guests
   useEffect(() => {

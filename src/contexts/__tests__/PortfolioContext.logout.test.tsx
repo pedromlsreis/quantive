@@ -37,16 +37,38 @@ vi.mock('@/contexts/CurrencyContext', () => ({
 vi.mock('@/hooks/useFxRates', () => ({ useFxRates: () => fxMock }));
 vi.mock('@/hooks/useEntitlements', () => ({ useEntitlements: () => entitlementsMock }));
 
+// Controllable cloud-load responder. Defaults to "no rows, resolved
+// immediately" so legacy tests keep their behaviour. The skeleton-state tests
+// below swap this for a manually-resolved deferred so they can assert the
+// in-flight state without depending on microtask timing — i.e. they remain
+// deterministic on a heavily loaded CI machine.
+const cloudMockRef = vi.hoisted(() => ({
+  responder: (): Promise<{ data: unknown[]; error: null }> =>
+    Promise.resolve({ data: [], error: null }),
+}));
+
 vi.mock('@/integrations/supabase/client', () => {
   // Permissive thenable chain — cloud-load reads .from(...).select(...).eq(...).order(...).limit(1)
-  // and the test never seeds rows, so always return empty.
   const chain: Record<string, unknown> = {};
   chain.select = () => chain;
   chain.eq = () => chain;
   chain.order = () => chain;
-  chain.limit = () => Promise.resolve({ data: [], error: null });
+  chain.limit = () => cloudMockRef.responder();
   return { supabase: { from: () => chain } };
 });
+
+/**
+ * Returns a Promise that resolves only when `resolve()` is called. Lets tests
+ * pin the cloud-load in its in-flight state for as long as they need to make
+ * assertions on `isLoading`, then release it deterministically.
+ */
+function deferredCloudResponse() {
+  let resolve!: (rows: unknown[]) => void;
+  const promise = new Promise<{ data: unknown[]; error: null }>((res) => {
+    resolve = (rows) => res({ data: rows, error: null });
+  });
+  return { promise, resolve };
+}
 
 vi.mock('@/lib/analytics', () => ({
   analytics: {
@@ -100,6 +122,7 @@ beforeEach(() => {
   localStorage.clear();
   authState.user = null;
   authState.loading = false;
+  cloudMockRef.responder = () => Promise.resolve({ data: [], error: null });
 });
 
 describe('PortfolioContext — logout cleanup (H2/H4)', () => {
@@ -253,5 +276,111 @@ describe('PortfolioContext — authed users do not write plaintext cache (H2)', 
     });
 
     expect(localStorage.getItem('portfolio-data')).not.toBeNull();
+  });
+});
+
+// ─── Stale-data-on-login regression ──────────────────────────────────────────
+//
+// Before the fix, a guest who had loaded preview/mock data (or a localStorage
+// cache) and then signed in would see the stale numbers on the dashboard
+// until they hit F5. Root cause: the user-id watcher only wiped state on
+// user-A → user-B transitions, and the cloud-load effect had no loading flag.
+//
+// These tests pin the cloud-load in its in-flight state with a deferred
+// promise so assertions on the intermediate (data: null, isLoading: true)
+// state can't be raced past by a fast microtask resolution. That makes them
+// deterministic regardless of CI machine load.
+describe('PortfolioContext — guest → authed login (no stale data flash)', () => {
+  // Generous timeout so a slow CI box doesn't flake; `waitFor` retries until
+  // the assertion passes or this elapses.
+  const WAIT = { timeout: 5000 };
+
+  it('clears stale guest cache and shows isLoading=true while cloud-load is in flight', async () => {
+    // Guest with a populated localStorage cache.
+    localStorage.setItem('portfolio-data', validCachedPortfolio());
+    localStorage.setItem('portfolio-data-is-mock', 'false');
+    authState.user = null;
+
+    const { result, rerender } = renderHook(() => usePortfolio(), { wrapper });
+
+    // Guest-load hydrated the cache.
+    await waitFor(() => {
+      expect(result.current.data?.facts.length).toBe(1);
+    }, WAIT);
+
+    // Pin the upcoming cloud-load mid-flight so the in-flight state is
+    // observable regardless of how loaded the machine is.
+    const deferred = deferredCloudResponse();
+    cloudMockRef.responder = () => deferred.promise;
+
+    // Sign in.
+    await act(async () => {
+      authState.user = { id: 'user-a' };
+      rerender();
+    });
+
+    // Stale guest data must be gone and the skeleton armed.
+    await waitFor(() => {
+      expect(result.current.data).toBeNull();
+      expect(result.current.isLoading).toBe(true);
+    }, WAIT);
+
+    // Release the cloud-load (empty response → still no data, but isLoading falls).
+    await act(async () => {
+      deferred.resolve([]);
+      await deferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    }, WAIT);
+  });
+
+  it('starts with isLoading=true on mount when a session is already restored (F5 case)', async () => {
+    // Pin the cloud-load mid-flight before the provider mounts.
+    const deferred = deferredCloudResponse();
+    cloudMockRef.responder = () => deferred.promise;
+    authState.user = { id: 'user-a' };
+
+    const { result } = renderHook(() => usePortfolio(), { wrapper });
+
+    // The seed (`useState(() => !!user || authLoading)`) means the very first
+    // observable value is already true — no "upload your file" flash.
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.data).toBeNull();
+
+    await act(async () => {
+      deferred.resolve([]);
+      await deferred.promise;
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    }, WAIT);
+  });
+
+  it('starts with isLoading=true while auth itself is still resolving', async () => {
+    // Auth hasn't decided yet — we don't know if a user is coming back.
+    authState.user = null;
+    authState.loading = true;
+
+    const { result, rerender } = renderHook(() => usePortfolio(), { wrapper });
+
+    // Skeleton on, no stale guest hydrate (guest-load gate honours authLoading).
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.data).toBeNull();
+
+    // Auth resolves to "really a guest". isLoading must clear so the dashboard
+    // can fall through to the file-upload empty state. The mock returns the
+    // same authState object reference, so we need rerender() to push the
+    // change into React.
+    await act(async () => {
+      authState.loading = false;
+      rerender();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    }, WAIT);
   });
 });
