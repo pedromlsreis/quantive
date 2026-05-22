@@ -44,11 +44,15 @@ test.describe('Landing page sections and anchors', () => {
     await expect(firstFaqBtn).toHaveAttribute('aria-expanded', 'false', { timeout: 4000 });
   });
 
-  test('"Try demo first" footer CTA navigates to /demo', async ({ page }) => {
+  test('"Try demo first" footer CTA loads the demo and lands on the dashboard', async ({ page }) => {
     const demoCta = page.getByRole('link', { name: /try demo first/i });
     await demoCta.scrollIntoViewIfNeeded();
     await demoCta.click();
-    await page.waitForURL('**/demo**', { timeout: 10_000 });
+    // DemoRedirect replaces /demo with /dashboard before paint, so wait for
+    // /dashboard rather than for /demo (which would never be observed).
+    await page.waitForURL('**/dashboard**', { timeout: 15_000 });
+    // Performance section is the canonical "demo data loaded" marker.
+    await expect(page.locator('[id="performance"]')).toBeVisible({ timeout: 12_000 });
   });
 
   test('"Get started free" footer CTA navigates to /dashboard', async ({ page }) => {
