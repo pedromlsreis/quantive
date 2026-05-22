@@ -8,6 +8,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { requireAdmin } from "../_shared/requireAdmin.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
@@ -25,24 +26,15 @@ serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Unauthorized" }, 401);
-
     const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
+      global: { headers: { Authorization: authHeader ?? "" } },
     });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) return json({ error: "Unauthorized" }, 401);
-
     const service = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false },
     });
 
-    // Admin gate via the SQL helper. is_admin() is SECURITY DEFINER, so
-    // it returns the truth regardless of which client calls it.
-    const { data: adminCheck, error: roleErr } = await service.rpc("is_admin", {
-      _user_id: user.id,
-    });
-    if (roleErr || adminCheck !== true) return json({ error: "Forbidden" }, 403);
+    const gate = await requireAdmin(authHeader, userClient, service);
+    if (!gate.ok) return json({ error: gate.error }, gate.status);
 
     const now = new Date();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();

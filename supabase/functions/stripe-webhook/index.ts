@@ -14,6 +14,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { brandedEmailHtml, escapeHtml, sendEmail } from "../_shared/email.ts";
 import { buildCacheRow } from "../_shared/subscriptionCache.ts";
 import { formatCancellationReason } from "./cancellationReason.ts";
+import { decideIdempotencyOutcome } from "./idempotency.ts";
+import { cancellationTransition } from "./transitions.ts";
 
 const HANDLED_EVENTS = new Set([
   "customer.subscription.created",
@@ -64,33 +66,31 @@ serve(async (req) => {
   // Idempotency. INSERT ... ON CONFLICT DO NOTHING — if Stripe re-delivers
   // the same event (network blip, retry, replay), we see no rows inserted
   // and skip the handler. We still 200 so Stripe stops retrying.
-  const { data: inserted, error: idemErr } = await admin
+  const insertResult = await admin
     .from("stripe_events")
     .insert({ event_id: event.id, event_type: event.type })
     .select("event_id");
 
-  if (idemErr) {
-    // Unique-violation on event_id is the duplicate case we want; pg returns
-    // code 23505. supabase-js surfaces it on the error object.
-    const code = (idemErr as { code?: string }).code;
-    if (code === "23505") {
-      console.log(`[stripe-webhook] duplicate event ${event.id} (${event.type}) — skipping`);
-      return new Response(JSON.stringify({ received: true, duplicate: true }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-    // A real DB failure — return 500 so Stripe retries with backoff. Better
-    // a retried delivery than a silently-dropped subscription event.
-    console.error(`[stripe-webhook] stripe_events insert failed:`, idemErr);
-    return new Response(JSON.stringify({ error: "idempotency_check_failed" }), {
-      status: 500,
+  const outcome = decideIdempotencyOutcome({
+    data: insertResult.data as Array<{ event_id: string }> | null,
+    error: insertResult.error as { code?: string; message?: string } | null,
+  });
+
+  if (outcome.kind === "duplicate") {
+    console.log(
+      `[stripe-webhook] duplicate event ${event.id} (${event.type}) reason=${outcome.reason} — skipping`,
+    );
+    return new Response(JSON.stringify({ received: true, duplicate: true }), {
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  if (!inserted || inserted.length === 0) {
-    // Defensive: insert returned no rows without an error — treat as duplicate.
-    return new Response(JSON.stringify({ received: true, duplicate: true }), {
+  if (outcome.kind === "error") {
+    // A real DB failure — return 500 so Stripe retries with backoff. Better
+    // a retried delivery than a silently-dropped subscription event.
+    console.error(`[stripe-webhook] stripe_events insert failed:`, insertResult.error);
+    return new Response(JSON.stringify({ error: "idempotency_check_failed" }), {
+      status: 500,
       headers: { "Content-Type": "application/json" },
     });
   }
@@ -175,16 +175,14 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
       const prev = event.data.previous_attributes as
         | { cancel_at_period_end?: boolean }
         | undefined;
-      if (!prev || prev.cancel_at_period_end === undefined) break;
-      const wasCancelling = prev.cancel_at_period_end;
-      const isCancelling = sub.cancel_at_period_end;
-      if (wasCancelling === isCancelling) break;
+      const transition = cancellationTransition(prev, sub);
+      if (transition.kind === "none") break;
 
       const endDate = (sub.items.data[0] as unknown as { current_period_end?: number })
         ?.current_period_end;
       const endLabel = endDate ? new Date(endDate * 1000).toISOString().slice(0, 10) : "(unknown)";
 
-      if (isCancelling) {
+      if (transition.kind === "started") {
         const cancelReason = formatCancellationReason(sub.cancellation_details);
         await sendEmail({
           to: adminTo,

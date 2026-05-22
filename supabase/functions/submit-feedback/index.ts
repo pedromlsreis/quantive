@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { escapeHtml, sendEmail } from "../_shared/email.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { parseFeedbackBody } from "./validation.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
@@ -41,29 +42,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { type, message } = await req.json();
-
-    if (!type || !message) {
-      return new Response(JSON.stringify({ error: "Missing type or message" }), {
-        status: 400,
+    const rawBody = await req.json().catch(() => null);
+    const parsed = parseFeedbackBody(rawBody);
+    if (!parsed.ok) {
+      return new Response(JSON.stringify({ error: parsed.error }), {
+        status: parsed.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const validTypes = ["feature", "improvement", "bug"];
-    if (!validTypes.includes(type)) {
-      return new Response(JSON.stringify({ error: "Invalid feedback type" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (typeof message !== "string" || message.trim().length === 0 || message.length > 2000) {
-      return new Response(JSON.stringify({ error: "Message must be 1-2000 characters" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const { type, message } = parsed;
 
     // Extract user if authenticated
     const authHeader = req.headers.get("authorization");
@@ -103,8 +90,8 @@ Deno.serve(async (req) => {
       .from("feedback")
       .insert({
         user_id: userId,
-        type: type.trim(),
-        message: message.trim(),
+        type,
+        message,
       });
 
     if (insertError) {
@@ -116,8 +103,8 @@ Deno.serve(async (req) => {
     }
 
     await sendFeedbackEmail({
-      type: type.trim(),
-      message: message.trim(),
+      type,
+      message,
       userId,
       userEmail,
     });

@@ -7,8 +7,12 @@
 // Role mutations also re-check the `is_admin` SQL function — defense in depth.
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { cancelActiveSubscriptions, isFullyCancelled } from "../_shared/cancelStripeSubscriptions.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { deleteUserData } from "../_shared/userDataDelete.ts";
 
 const ALLOWED_ROLES = new Set(["admin", "moderator"]);
 
@@ -28,22 +32,16 @@ serve(async (req) => {
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Unauthorized" }, 401);
-
     const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
+      global: { headers: { Authorization: authHeader ?? "" } },
     });
-    const { data: { user }, error: authErr } = await userClient.auth.getUser();
-    if (authErr || !user) return json({ error: "Unauthorized" }, 401);
-
     const service = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false },
     });
 
-    const { data: adminCheck, error: roleErr } = await service.rpc("is_admin", {
-      _user_id: user.id,
-    });
-    if (roleErr || adminCheck !== true) return json({ error: "Forbidden" }, 403);
+    const gate = await requireAdmin(authHeader, userClient, service);
+    if (!gate.ok) return json({ error: gate.error }, gate.status);
+    const user = { id: gate.userId };
 
     if (req.method === "GET") {
       const url = new URL(req.url);
@@ -110,15 +108,52 @@ serve(async (req) => {
         if (userId === user.id) {
           return json({ error: "You cannot delete your own account from here." }, 400);
         }
-        // Mirrors the user-facing delete-account flow: clean up dependent
-        // rows first, then drop the auth user. The FK cascades would catch
-        // anything we miss, but explicit deletes make intent obvious and
-        // help if a future schema changes a cascade rule.
-        await service.from("portfolio_snapshots").delete().eq("user_id", userId);
-        await service.from("feedback").delete().eq("user_id", userId);
-        await service.from("user_roles").delete().eq("user_id", userId);
-        await service.from("user_keys").delete().eq("user_id", userId);
-        await service.from("profiles").delete().eq("user_id", userId);
+
+        // Mirror the user-facing delete-account flow: cancel live Stripe
+        // subscriptions first so a removed user doesn't keep getting billed,
+        // then clear user-scoped rows, then drop auth.users. We fail-closed
+        // on the Stripe step — half-deleting a paying customer leaks
+        // recurring revenue and confuses the webhook reconciliation later.
+        const { data: targetProfile, error: targetProfileErr } = await service
+          .from("profiles")
+          .select("stripe_customer_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (targetProfileErr) {
+          console.error("[admin-users] target profile lookup failed:", targetProfileErr.message);
+          return json({ error: "profile_lookup_failed" }, 500);
+        }
+        const targetCustomerId =
+          (targetProfile?.stripe_customer_id as string | null | undefined) ?? null;
+
+        const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+        if (targetCustomerId && stripeKey) {
+          try {
+            const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+            const cancelResult = await cancelActiveSubscriptions(stripe, targetCustomerId);
+            if (!isFullyCancelled(cancelResult)) {
+              console.error(
+                "[admin-users] Stripe cancellation incomplete:",
+                JSON.stringify(cancelResult.errors),
+              );
+              return json({ error: "stripe_cancel_failed" }, 500);
+            }
+            if (cancelResult.cancelled.length > 0) {
+              console.log(
+                `[admin-users] cancelled ${cancelResult.cancelled.length} sub(s) for ${targetCustomerId}: ${cancelResult.cancelled.join(", ")}`,
+              );
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error("[admin-users] Stripe list/cancel threw:", msg);
+            return json({ error: "stripe_cancel_failed" }, 500);
+          }
+        } else if (targetCustomerId && !stripeKey) {
+          console.error("[admin-users] customer present but STRIPE_SECRET_KEY missing — refusing delete");
+          return json({ error: "server_misconfigured" }, 500);
+        }
+
+        await deleteUserData(service, userId);
 
         const { error: delErr } = await service.auth.admin.deleteUser(userId);
         if (delErr) return json({ error: delErr.message }, 400);

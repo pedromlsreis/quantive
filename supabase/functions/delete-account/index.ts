@@ -1,8 +1,11 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { brandedEmailHtml, escapeHtml, sendEmail } from "../_shared/email.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
+import { cancelActiveSubscriptions, isFullyCancelled } from "../_shared/cancelStripeSubscriptions.ts";
+import { deleteUserData } from "../_shared/userDataDelete.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
@@ -40,14 +43,59 @@ serve(async (req) => {
       return errorResponse("unauthenticated", 401);
     }
 
-    // Delete portfolio snapshots
-    await serviceClient.from("portfolio_snapshots").delete().eq("user_id", user.id);
+    // Cancel any live Stripe subscriptions before dropping the user row.
+    // Without this, a self-deleted Pro user keeps getting billed and the
+    // webhook can no longer reconcile state to a missing profile. We
+    // fail-closed: if Stripe is unreachable or any cancel fails, the
+    // deletion aborts so the user can retry rather than silently leaking
+    // a paying subscription.
+    //
+    // We need the stripe_customer_id from `profiles` BEFORE we run
+    // deleteUserData, which removes the profile row.
+    const { data: profile, error: profileErr } = await serviceClient
+      .from("profiles")
+      .select("stripe_customer_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (profileErr) {
+      console.error("[delete-account] profile lookup failed:", profileErr);
+      return errorResponse("internal_error", 500);
+    }
+    const customerId = (profile?.stripe_customer_id as string | null | undefined) ?? null;
 
-    // Delete feedback
-    await serviceClient.from("feedback").delete().eq("user_id", user.id);
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (customerId && stripeKey) {
+      try {
+        const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+        const cancelResult = await cancelActiveSubscriptions(stripe, customerId);
+        if (!isFullyCancelled(cancelResult)) {
+          console.error(
+            "[delete-account] Stripe cancellation incomplete:",
+            JSON.stringify(cancelResult.errors),
+          );
+          return errorResponse("stripe_cancel_failed", 500);
+        }
+        if (cancelResult.cancelled.length > 0) {
+          console.log(
+            `[delete-account] cancelled ${cancelResult.cancelled.length} sub(s) for ${customerId}: ${cancelResult.cancelled.join(", ")}`,
+          );
+        }
+      } catch (e) {
+        console.error("[delete-account] Stripe list/cancel threw:", e);
+        return errorResponse("stripe_cancel_failed", 500);
+      }
+    } else if (customerId && !stripeKey) {
+      // A profile has a Stripe customer ID but we have no Stripe key to
+      // cancel with. Refuse the delete — silently dropping the user would
+      // strand the subscription.
+      console.error("[delete-account] customer present but STRIPE_SECRET_KEY missing — refusing delete");
+      return errorResponse("server_misconfigured", 500);
+    }
 
-    // Delete profile
-    await serviceClient.from("profiles").delete().eq("user_id", user.id);
+    // Clear user-scoped rows before dropping auth.users. The list of tables
+    // and their order live in userDataDelete.ts so the same sequence can be
+    // unit-tested and reused by the admin-side delete path.
+    await deleteUserData(serviceClient, user.id);
 
     // Capture identifiers before deletion — they're needed for the emails.
     const deletedUserId = user.id;
