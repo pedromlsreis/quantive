@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { mapAuthError } from '@/lib/authError';
 
 export function EmailConfirmationBanner() {
   const { user, resendConfirmation } = useAuth();
@@ -27,7 +28,7 @@ export function EmailConfirmationBanner() {
     const { error } = await resendConfirmation();
     setSubmitting(false);
     if (error) {
-      toast.error(`Could not resend: ${error}`);
+      toast.error(mapAuthError(error));
       return;
     }
     setSent(true);

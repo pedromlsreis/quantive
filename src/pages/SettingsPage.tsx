@@ -34,6 +34,7 @@ import {
 import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/lib/consent';
 import { Link } from 'react-router-dom';
 import { resolvePlan } from '@/lib/billing/plans';
+import { mapAuthError } from '@/lib/authError';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -205,7 +206,7 @@ export default function SettingsPage() {
     try {
       const { error: authErr } = await updatePassword(newPassword);
       if (authErr) {
-        toast.error(authErr);
+        toast.error(mapAuthError(authErr));
         return;
       }
       const { error: rewrapErr } = await keySession.rewrapForNewPassword(user.id, newPassword);

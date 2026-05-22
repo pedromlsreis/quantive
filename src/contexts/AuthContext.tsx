@@ -93,13 +93,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   // Fire-and-forget welcome email once email is confirmed. The edge function
-  // is idempotent (profiles.welcome_email_sent_at), so calling on every
-  // confirmed-session start is safe — a second call returns
-  // { skipped: "already_sent" } and no email goes out.
+  // is idempotent (profiles.welcome_email_sent_at), so a second call returns
+  // { skipped: "already_sent" } and no email goes out. Even so, we gate the
+  // invoke behind a per-tab sessionStorage flag so a page refresh on HN
+  // traffic doesn't re-hit the function once per load.
   useEffect(() => {
     if (!user?.email_confirmed_at) return;
+    const flagKey = `welcome-invoked:${user.id}`;
+    try {
+      if (sessionStorage.getItem(flagKey) === '1') return;
+      sessionStorage.setItem(flagKey, '1');
+    } catch {
+      // sessionStorage unavailable (e.g. Safari private mode): fall through
+      // and invoke — the edge function is still idempotent.
+    }
     supabase.functions.invoke('send-welcome-email').catch((err) => {
-      console.warn('[welcome-email] invoke failed:', err);
+      console.debug('[welcome-email] invoke failed:', err);
     });
   }, [user?.id, user?.email_confirmed_at]);
 

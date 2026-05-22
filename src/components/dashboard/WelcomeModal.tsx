@@ -50,7 +50,7 @@ export function WelcomeModal() {
       try {
         localStorage.setItem(STORAGE_KEY, 'true');
       } catch (e) {
-        console.warn('[WelcomeModal] Failed to persist dismissal preference:', e);
+        console.debug('[WelcomeModal] Failed to persist dismissal preference:', e);
       }
     }
     setVisible(false);

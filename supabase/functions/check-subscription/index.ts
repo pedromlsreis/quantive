@@ -16,6 +16,29 @@ const logStep = (step: string, details?: unknown) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${detailsStr}`);
 };
 
+// Per-instance negative cache: protects Stripe from being hammered on a hot
+// loop if the persisted cache (profiles.subscription_synced_at) ever fails
+// to populate — e.g. a transient profile-write failure during webhook delivery.
+// Keyed by user id; entries TTL'd to 60 s. Stateless across cold starts, which
+// is fine: the first request after a cold start re-hits Stripe once, then
+// short-circuits subsequent requests on the same instance.
+const liveLookupCache = new Map<string, { view: SubscriptionView; expiresAt: number }>();
+const LIVE_TTL_MS = 60_000;
+
+function getNegativeCache(userId: string): SubscriptionView | null {
+  const hit = liveLookupCache.get(userId);
+  if (!hit) return null;
+  if (hit.expiresAt < Date.now()) {
+    liveLookupCache.delete(userId);
+    return null;
+  }
+  return hit.view;
+}
+
+function setNegativeCache(userId: string, view: SubscriptionView) {
+  liveLookupCache.set(userId, { view, expiresAt: Date.now() + LIVE_TTL_MS });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
   const corsHeaders = buildCorsHeaders(req);
@@ -70,6 +93,17 @@ serve(async (req) => {
       return respond(viewFromCacheRow(profile));
     }
 
+    // 1b) In-memory short-TTL cache — shields Stripe from request floods if
+    //     the persisted cache hasn't populated yet (rare; only happens between
+    //     the very first sign-in and the first webhook delivery, or if a
+    //     profile-write fails). On HN traffic, the per-instance map keeps
+    //     repeated dashboard loads off the Stripe API.
+    const cached = getNegativeCache(user.id);
+    if (cached) {
+      logStep("Serving from in-memory live cache");
+      return respond(cached);
+    }
+
     // 2) Cache miss — fall back to a live Stripe lookup, then backfill.
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) {
@@ -90,6 +124,7 @@ serve(async (req) => {
           subscription_synced_at: new Date().toISOString(),
         })
         .eq("user_id", user.id);
+      setNegativeCache(user.id, emptyView());
       return respond(emptyView());
     }
 
@@ -114,6 +149,7 @@ serve(async (req) => {
           subscription_synced_at: new Date().toISOString(),
         })
         .eq("user_id", user.id);
+      setNegativeCache(user.id, emptyView());
       return respond(emptyView());
     }
 
@@ -127,12 +163,14 @@ serve(async (req) => {
     }
 
     logStep("Entitled subscription found (live)", { subscriptionId: subscription.id, status: subscription.status });
-    return respond(viewFromCacheRow({
+    const liveView = viewFromCacheRow({
       subscription_status: row.subscription_status,
       subscription_product_id: row.subscription_product_id,
       subscription_end: row.subscription_end,
       subscription_cancel_at_period_end: row.subscription_cancel_at_period_end,
-    }));
+    });
+    setNegativeCache(user.id, liveView);
+    return respond(liveView);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logStep("ERROR", { message: errorMessage });

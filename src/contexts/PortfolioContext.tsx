@@ -43,7 +43,7 @@ function safeDate(val: unknown): Date | null {
 function safeDateWithWarning(val: unknown, context: string, index: number): Date | null {
   const d = safeDate(val);
   if (!d) {
-    console.warn(`[${context}] Skipping fact #${index}: invalid date "${String(val)}"`);
+    console.debug(`[${context}] Skipping fact #${index}: invalid date "${String(val)}"`);
   }
   return d;
 }
@@ -392,14 +392,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
           const skipped = cloudData.facts.length - parsedFacts.length;
           if (skipped > 0) {
-            console.warn(`[cloud-load] Skipped ${skipped}/${cloudData.facts.length} facts with invalid dates`);
+            console.debug(`[cloud-load] Skipped ${skipped}/${cloudData.facts.length} facts with invalid dates`);
             toast.warning(`${skipped} record${skipped > 1 ? 's' : ''} had invalid dates and were skipped.`, {
               id: 'cloud-date-warning',
             });
           }
 
           if (parsedFacts.length === 0) {
-            console.warn('[cloud-load] No valid facts after date validation — skipping cloud data');
+            console.debug('[cloud-load] No valid facts after date validation — skipping cloud data');
             return;
           }
 
@@ -458,7 +458,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
         const skipped = parsed.facts.length - validFacts.length;
         if (skipped > 0) {
-          console.warn(`[local-cache] Skipped ${skipped}/${parsed.facts.length} facts with invalid dates`);
+          console.debug(`[local-cache] Skipped ${skipped}/${parsed.facts.length} facts with invalid dates`);
         }
 
         if (validFacts.length > 0) {

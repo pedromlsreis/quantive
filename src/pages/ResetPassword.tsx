@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { supabaseKeyStore } from '@/lib/keySession';
 import { isValidRecoveryCode } from '@/lib/crypto';
 import { urlLooksLikeRecovery } from '@/lib/recoveryUrl';
+import { mapAuthError } from '@/lib/authError';
 
 type LinkState = 'checking' | 'invalid' | 'verifying' | 'ready';
 
@@ -130,7 +131,7 @@ const ResetPassword = () => {
     try {
       const { error } = await updatePassword(password);
       if (error) {
-        toast.error(error);
+        toast.error(mapAuthError(error));
         return;
       }
 

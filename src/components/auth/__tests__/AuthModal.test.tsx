@@ -201,7 +201,11 @@ describe('AuthModal — error visibility (#3 follow-on)', () => {
     });
 
     await waitFor(() => {
-      expect(toastError).toHaveBeenCalledWith('Invalid login credentials', expect.objectContaining({ duration: 8000 }));
+      // Raw GoTrue string is mapped via lib/authError for a friendlier message.
+      expect(toastError).toHaveBeenCalledWith(
+        expect.stringContaining("email or password didn't match"),
+        expect.objectContaining({ duration: 8000 }),
+      );
     });
   });
 });

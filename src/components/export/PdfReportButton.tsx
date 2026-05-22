@@ -162,7 +162,7 @@ async function rasteriseTrajectory(
         ctx.drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL('image/png'));
       } catch (err) {
-        console.warn('[PdfReportButton] rasterise failed', err);
+        console.debug('[PdfReportButton] rasterise failed', err);
         resolve(null);
       }
     };

@@ -9,6 +9,7 @@ import { LogIn, UserPlus, X, Mail, KeyRound, MailCheck, Eye, EyeOff } from 'luci
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Notice } from '@/components/ui/Notice';
+import { mapAuthError } from '@/lib/authError';
 
 interface AuthModalProps {
   open: boolean;
@@ -75,7 +76,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
       const { error } = await resetPassword(email.trim());
       setSubmitting(false);
       if (error) {
-        toast.error(error);
+        toast.error(mapAuthError(error));
       } else {
         toast.success('Check your email for a password reset link.');
         handleClose();
@@ -96,7 +97,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
       // 8s instead of the default ~4s — auth errors are the moment the user
       // most needs the message ("wrong password", "user not found") and a
       // toast that vanishes mid-read is what made #3 feel like a silent close.
-      toast.error(error, { duration: 8000 });
+      toast.error(mapAuthError(error), { duration: 8000 });
       return;
     }
 
@@ -133,7 +134,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     setResendCooldown(60);
     const { error } = await resendConfirmation(email.trim());
     if (error) {
-      toast.error(error);
+      toast.error(mapAuthError(error));
       setResendCooldown(0);
     } else {
       toast.success('Confirmation email resent.');
