@@ -1,6 +1,6 @@
 # Impressum
 
-_Last updated: May 17, 2026_
+_Last updated: May 22, 2026_
 
 ## Quantive
 
@@ -13,10 +13,9 @@ Germany
 **Email:** <legal@usequantive.app>  
 We respond to email enquiries within 1 business day (Mon–Fri, excluding public holidays in NRW, Germany).
 
-**Kleinunternehmer:** As a small business under § 19 UStG, no VAT is charged and no VAT identification number (USt-IdNr.) is currently issued.
+**Wirtschafts-Identifikationsnummer (W-IdNr.):** DE462317122
 
-<!-- TODO: Add USt-IdNr. once available -->
-<!-- **USt-IdNr.:** DE-XXXXXXX -->
+**Kleinunternehmer:** As a small business under § 19 UStG, no VAT is charged and no VAT identification number (USt-IdNr.) is currently issued.
 
 ## Verantwortlich gemäß § 5 DDG
 
