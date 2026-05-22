@@ -97,6 +97,27 @@ interface PortfolioContextType {
   loadMockData: () => void;
   clearData: () => void;
   addMeasurement: (entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[]) => void;
+  /**
+   * Patch the value and/or currency of a single measurement, identified by
+   * its (date, idSource) composite key. Idempotent: if no matching fact
+   * exists the call is a silent no-op. If multiple facts share the key
+   * (legacy duplicates from spreadsheet imports), all matches are updated
+   * to the same patched values — they were already indistinguishable.
+   * Re-encrypts and syncs through the existing cloud-save path.
+   */
+  updateMeasurement: (
+    date: Date,
+    idSource: string,
+    patch: { sourceVl?: number; currency?: CurrencyCode },
+  ) => void;
+  /**
+   * Hard-delete every fact matching the (date, idSource) composite key.
+   * Idempotent. Re-encrypts and syncs. Does not touch refSources — a source
+   * with no remaining facts stays in the metadata table; lifecycle of
+   * refSources is a separate concern (see the "Rename, merge, archive
+   * sources" wishlist item).
+   */
+  deleteMeasurement: (date: Date, idSource: string) => void;
   updateRefSource: (idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => void;
   isLoading: boolean;
   isMockData: boolean;
@@ -713,6 +734,69 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     });
   }, [user, saveToCloud]);
 
+  // ── Individual measurement edit / delete ────────────────────────────────
+  //
+  // Facts have no stable id today — the (date, idSource) tuple is the
+  // identifier, mirroring the addMeasurement "replace day" semantics. If a
+  // legacy spreadsheet ingest produced duplicates on the same (date, source),
+  // edit fans out to all of them and delete removes all of them. Acceptable:
+  // the duplicates were already indistinguishable to every other consumer.
+
+  // Analytics is called inside the setData updater (not after it) so phantom
+  // events don't fire on no-op paths (null data, no fact match, identical
+  // value+currency). The codebase does not use <StrictMode> (see main.tsx),
+  // so the updater runs exactly once per call. If StrictMode is ever enabled
+  // these events would double-fire in dev — guard with a closure flag then.
+  const updateMeasurement = useCallback(
+    (date: Date, idSource: string, patch: { sourceVl?: number; currency?: CurrencyCode }) => {
+      const dateKey = date.getTime();
+      const target = idSource.trim();
+      setData(prev => {
+        if (!prev) return prev;
+        let changed = false;
+        const nextFacts = prev.facts.map(f => {
+          if (f.date.getTime() !== dateKey || f.idSource.trim() !== target) return f;
+          const nextValue = patch.sourceVl !== undefined ? patch.sourceVl : f.sourceVl;
+          const nextCurrency = patch.currency !== undefined ? patch.currency : f.currency;
+          if (nextValue === f.sourceVl && nextCurrency === f.currency) return f;
+          changed = true;
+          return { ...f, sourceVl: nextValue, currency: nextCurrency };
+        });
+        if (!changed) return prev;
+        const updated: PortfolioData = { ...prev, facts: nextFacts };
+        if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        saveToCloud(updated);
+        analytics.measurementEdited();
+        return updated;
+      });
+    },
+    [user, saveToCloud],
+  );
+
+  const deleteMeasurement = useCallback(
+    (date: Date, idSource: string) => {
+      const dateKey = date.getTime();
+      const target = idSource.trim();
+      setData(prev => {
+        if (!prev) return prev;
+        const nextFacts = prev.facts.filter(
+          f => !(f.date.getTime() === dateKey && f.idSource.trim() === target),
+        );
+        if (nextFacts.length === prev.facts.length) return prev;
+        const updated: PortfolioData = { ...prev, facts: nextFacts };
+        if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        // Date range may have shrunk if we removed the only fact for the
+        // earliest or latest date — recompute so charts don't keep showing
+        // an empty edge.
+        setDefaultDateRange(updated);
+        saveToCloud(updated);
+        analytics.measurementDeleted();
+        return updated;
+      });
+    },
+    [user, saveToCloud, setDefaultDateRange],
+  );
+
   // ── Goals ───────────────────────────────────────────────────────────────
   //
   // Goals live inside the same encrypted portfolio blob (see types.ts).
@@ -1012,6 +1096,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     loadMockData,
     clearData,
     addMeasurement,
+    updateMeasurement,
+    deleteMeasurement,
     updateRefSource,
     isLoading,
     isMockData,

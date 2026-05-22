@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MoreHorizontal, Search, Pencil } from 'lucide-react';
+import { MoreHorizontal, Search, Pencil, History } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FileUpload } from '@/components/dashboard/FileUpload';
 import { Sparkline } from '@/components/charts/Sparkline';
+import { MeasurementHistoryModal } from '@/components/sources/MeasurementHistoryModal';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -25,6 +26,7 @@ const SourcesPage = () => {
   const [editingVolat, setEditingVolat] = useState<string | null>(null);
   const [volatDraft, setVolatDraft] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
+  const [historySource, setHistorySource] = useState<string | null>(null);
 
   const startEditVolat = (idSource: string, current: string) => {
     setEditingVolat(idSource);
@@ -190,6 +192,10 @@ const SourcesPage = () => {
                           >
                             {s.isLiquid ? 'Mark as non-liquid' : 'Mark as liquid'}
                           </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setHistorySource(s.name)}>
+                            <History className="mr-2 h-3.5 w-3.5" />
+                            View measurements
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
@@ -208,6 +214,11 @@ const SourcesPage = () => {
         </div>
       </div>
 
+      <MeasurementHistoryModal
+        open={!!historySource}
+        onOpenChange={(o) => { if (!o) setHistorySource(null); }}
+        idSource={historySource}
+      />
     </div>
   );
 };
