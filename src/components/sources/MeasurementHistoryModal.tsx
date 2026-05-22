@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -165,12 +165,14 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
                   aria-label="Measurement history"
                   style={{
                     maxHeight: '60vh',
-                    overflowY: 'auto',
+                    // Both axes: prevents the action icons from being clipped
+                    // on narrow viewports if a future column ever widens.
+                    overflow: 'auto',
                     border: '1px solid var(--border-raw)',
                     borderRadius: 'var(--r-2)',
                   }}
                 >
-                  <table className="q-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
+                  <table className="q-table q-table--responsive" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
                     <thead
                       style={{
                         position: 'sticky',
@@ -181,9 +183,9 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
                       }}
                     >
                       <tr style={{ textAlign: 'left' }}>
-                        <th scope="col" style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--fg-subtle)' }}>Date</th>
-                        <th scope="col" style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Value</th>
-                        <th scope="col" style={{ padding: '8px 12px', fontWeight: 500, color: 'var(--fg-subtle)' }}>Currency</th>
+                        <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)' }}>Date</th>
+                        <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Value</th>
+                        <th scope="col" data-col="secondary" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)' }}>Currency</th>
                         <th scope="col" aria-label="Actions" style={{ width: 80 }} />
                       </tr>
                     </thead>
@@ -192,10 +194,10 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
                         const symbol = CURRENCIES[row.currency]?.symbol ?? row.currency;
                         return (
                           <tr key={row.date.getTime()} style={{ borderBottom: '1px solid var(--border-raw)' }}>
-                            <td style={{ padding: '8px 12px' }}>{formatRowDate(row.date)}</td>
+                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{formatRowDate(row.date)}</td>
                             <td
                               style={{
-                                padding: '8px 12px',
+                                padding: '8px 10px',
                                 textAlign: 'right',
                                 fontFamily: 'var(--font-mono)',
                                 fontVariantNumeric: 'tabular-nums',
@@ -204,29 +206,34 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
                             >
                               {symbol}{row.sourceVl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </td>
-                            <td style={{ padding: '8px 12px', color: 'var(--fg-muted)' }}>
+                            <td data-col="secondary" style={{ padding: '8px 10px', color: 'var(--fg-muted)' }}>
                               <span className="mono" style={{ fontSize: 'var(--text-xs)' }}>{row.currency}</span>
                             </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                              <button
-                                type="button"
-                                onClick={() => setEditing(row)}
-                                className="q-icon-btn"
-                                aria-label={`Edit measurement from ${formatRowDate(row.date)}`}
-                                title="Edit"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeleting(row)}
-                                className="q-icon-btn"
-                                aria-label={`Delete measurement from ${formatRowDate(row.date)}`}
-                                title="Delete"
-                                style={{ color: 'var(--negative)' }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
+                              {/* Flex + gap satisfies touch-spacing (≥8px between adjacent
+                                  targets). Right-aligned via justify-content so the cell
+                                  still reads as an "actions" column. */}
+                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditing(row)}
+                                  className="q-icon-btn"
+                                  aria-label={`Edit measurement from ${formatRowDate(row.date)}`}
+                                  title="Edit"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleting(row)}
+                                  className="q-icon-btn"
+                                  aria-label={`Delete measurement from ${formatRowDate(row.date)}`}
+                                  title="Delete"
+                                  style={{ color: 'var(--negative)' }}
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -312,6 +319,7 @@ function EditMeasurementModal({ row, idSource, onClose, onSubmit }: EditMeasurem
   const { currency: displayCurrency } = useCurrency();
   const { convertAt } = useFxRates();
   const trapRef = useFocusTrap<HTMLDivElement>(true);
+  const valueInputRef = useRef<HTMLInputElement>(null);
 
   const [amount, setAmount] = useState<string>(() => String(row.sourceVl));
   const [currency, setCurrency] = useState<CurrencyCode>(row.currency);
@@ -344,6 +352,10 @@ function EditMeasurementModal({ row, idSource, onClose, onSubmit }: EditMeasurem
     e.preventDefault();
     if (typeof parsed !== 'number' || !Number.isFinite(parsed)) {
       setError(typeof parsed === 'string' ? parsed : 'Enter a valid number.');
+      // Bounce focus back to the offending field so the user can correct it
+      // without re-tabbing (WCAG focus-management on submit error).
+      valueInputRef.current?.focus();
+      valueInputRef.current?.select();
       return;
     }
     onSubmit({ sourceVl: parsed, currency });
@@ -393,11 +405,13 @@ function EditMeasurementModal({ row, idSource, onClose, onSubmit }: EditMeasurem
                 <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>Value</span>
                 <div className="q-input">
                   <input
+                    ref={valueInputRef}
                     type="text"
                     inputMode="decimal"
                     value={amount}
                     onChange={(e) => { setAmount(e.target.value); setError(null); }}
                     autoFocus
+                    aria-invalid={error ? true : undefined}
                     aria-label="Measurement value"
                     style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}
                   />
