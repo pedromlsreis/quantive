@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 import type { SubscriptionStatus } from '@/lib/billing/plans';
@@ -40,7 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionStatus>(defaultSubscription);
 
-  const checkSubscription = async () => {
+  // useCallback so consumers can put `checkSubscription` in effect dep arrays
+  // without re-firing on every parent render. The fn captures no React state,
+  // so an empty dep array is correct.
+  const checkSubscription = useCallback(async () => {
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (!currentSession?.access_token) return;
@@ -59,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Error checking subscription:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -83,14 +86,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => authSub.unsubscribe();
-  }, []);
+  }, [checkSubscription]);
 
   // Auto-refresh subscription every 60s for logged-in users
   useEffect(() => {
     if (!user) return;
     const interval = setInterval(checkSubscription, 60_000);
     return () => clearInterval(interval);
-  }, [user]);
+  }, [user, checkSubscription]);
 
   // Fire-and-forget welcome email once email is confirmed. The edge function
   // is idempotent (profiles.welcome_email_sent_at), so a second call returns

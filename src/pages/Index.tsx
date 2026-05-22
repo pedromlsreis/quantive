@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
@@ -21,13 +21,34 @@ const Index = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // Guards against re-entering the poll loop if the effect re-fires (e.g.
+  // because another searchParam changed). Without this, stripping the
+  // ?checkout=success param would tear down and restart the polling.
+  const checkoutPolledRef = useRef(false);
   useEffect(() => {
     if (searchParams.get('checkout') !== 'success') return;
+    if (checkoutPolledRef.current) return;
+    checkoutPolledRef.current = true;
+
     toast.success('Welcome to Pro! Your subscription is active.', { duration: 6000 });
-    checkSubscription();
+
+    // Strip the param immediately so a refresh doesn't re-trigger.
     const next = new URLSearchParams(searchParams);
     next.delete('checkout');
     setSearchParams(next, { replace: true });
+
+    // Poll with backoff. The webhook usually lands in <1s, but Stripe's
+    // customers.search has a few seconds of eventual consistency, and the
+    // edge function may briefly serve a cached "Free" view if it raced the
+    // webhook. Five attempts over ~22s reliably converges to the active
+    // subscription without leaning on the 60s background poll.
+    const delays = [0, 1500, 3000, 6000, 12000];
+    (async () => {
+      for (const delay of delays) {
+        if (delay) await new Promise((r) => setTimeout(r, delay));
+        await checkSubscription();
+      }
+    })();
   }, [searchParams, setSearchParams, checkSubscription]);
 
   // Logged-out users sent here from /pricing carry an intent param.

@@ -67,7 +67,14 @@ const fieldLabel: React.CSSProperties = {
 const PREF_ROW_CLASS = 'q-pref-row';
 
 export default function SettingsPage() {
-  const { user, signOut, updatePassword, subscription } = useAuth();
+  const { user, signOut, updatePassword, subscription, checkSubscription } = useAuth();
+
+  // Re-check on mount so a user who lands here directly after checkout
+  // (or who navigates here before the 60s background poll runs) sees the
+  // up-to-date plan instead of whatever AuthContext last cached.
+  useEffect(() => {
+    checkSubscription();
+  }, [checkSubscription]);
   const keySession = useKeySession();
   const { data } = usePortfolio();
   const { has } = useEntitlements();
