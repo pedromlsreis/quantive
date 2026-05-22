@@ -186,11 +186,19 @@ function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: 
 }
 
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
+  const { user, loading: authLoading } = useAuth();
   const [data, setData] = useState<PortfolioData | null>(null);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [isLoading, setIsLoading] = useState(false);
+  // True while we're awaiting the first cloud snapshot for the current user.
+  // Seeded true when a session might still resolve to an authed user (auth
+  // restore in progress, or user already present at mount), so the dashboard
+  // shows the skeleton on F5 instead of flashing "upload your file" before
+  // cloud-load resolves. Also flipped true on guest → authed sign-in (see the
+  // user-id watcher below) so stale guest preview / mock data can't leak past
+  // login. The cloud-load effect clears it on success/error/no-user.
+  const [isCloudLoading, setIsCloudLoading] = useState<boolean>(() => !!user || authLoading);
   const [isMockData, setIsMockData] = useState(false);
-  const { user, loading: authLoading } = useAuth();
   const { has } = useEntitlements();
   const keySession = useKeySession();
   const { currency: displayCurrency } = useCurrency();
@@ -269,6 +277,18 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // Storage unavailable; nothing to clean up.
       }
+      // Switching into another authed identity → arm the skeleton until that
+      // user's cloud snapshot resolves.
+      if (currentUserId !== null) setIsCloudLoading(true);
+    } else if (previousUserId === null && currentUserId !== null) {
+      // Guest → authed sign-in. Drop any guest preview (mock data, or a
+      // localStorage cache loaded before login) so the dashboard can't render
+      // it while we fetch the real cloud snapshot. Without this the user sees
+      // stale numbers on every login until they F5.
+      setData(null);
+      setIsMockData(false);
+      setFilters(defaultFilters);
+      setIsCloudLoading(true);
     }
     previousUserIdRef.current = currentUserId;
   }, [user?.id]);
@@ -370,7 +390,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // user unlocks (otherwise we'd try to decrypt without a DK). Once status
   // flips to 'unlocked-encrypted', this effect re-fires and the load proceeds.
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      // Signed-out / never-authed. No cloud fetch will happen, so don't keep
+      // the skeleton armed.
+      setIsCloudLoading(false);
+      return;
+    }
     if (keySession.status === 'locked') return;
 
     const loadFromCloud = async () => {
@@ -437,6 +462,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (e) {
         console.error('Failed to load from cloud:', e);
+      } finally {
+        setIsCloudLoading(false);
       }
     };
     loadFromCloud();
@@ -1099,7 +1126,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     updateMeasurement,
     deleteMeasurement,
     updateRefSource,
-    isLoading,
+    isLoading: isLoading || isCloudLoading,
     isMockData,
     syncStatus,
     retrySync,
