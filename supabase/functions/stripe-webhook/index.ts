@@ -13,6 +13,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { brandedEmailHtml, escapeHtml, sendEmail } from "../_shared/email.ts";
 import { buildCacheRow } from "../_shared/subscriptionCache.ts";
+import { formatCancellationReason } from "./cancellationReason.ts";
 
 const HANDLED_EVENTS = new Set([
   "customer.subscription.created",
@@ -184,10 +185,7 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
       const endLabel = endDate ? new Date(endDate * 1000).toISOString().slice(0, 10) : "(unknown)";
 
       if (isCancelling) {
-        const cancelReason =
-          sub.cancellation_details?.reason ??
-          sub.cancellation_details?.feedback ??
-          "(none provided)";
+        const cancelReason = formatCancellationReason(sub.cancellation_details);
         await sendEmail({
           to: adminTo,
           subject: `Quantive cancellation requested: ${email ?? sub.customer}`,
@@ -236,10 +234,7 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
       // are still wired up.
       await clearSubscriptionCache(admin, userId, sub.customer);
 
-      const cancelReason =
-        sub.cancellation_details?.reason ??
-        sub.cancellation_details?.feedback ??
-        "(none provided)";
+      const cancelReason = formatCancellationReason(sub.cancellation_details);
 
       await sendEmail({
         to: adminTo,
