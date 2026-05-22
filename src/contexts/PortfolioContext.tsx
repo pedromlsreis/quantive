@@ -742,6 +742,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // edit fans out to all of them and delete removes all of them. Acceptable:
   // the duplicates were already indistinguishable to every other consumer.
 
+  // Analytics is called inside the setData updater (not after it) so phantom
+  // events don't fire on no-op paths (null data, no fact match, identical
+  // value+currency). The codebase does not use <StrictMode> (see main.tsx),
+  // so the updater runs exactly once per call. If StrictMode is ever enabled
+  // these events would double-fire in dev — guard with a closure flag then.
   const updateMeasurement = useCallback(
     (date: Date, idSource: string, patch: { sourceVl?: number; currency?: CurrencyCode }) => {
       const dateKey = date.getTime();
@@ -761,9 +766,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const updated: PortfolioData = { ...prev, facts: nextFacts };
         if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         saveToCloud(updated);
+        analytics.measurementEdited();
         return updated;
       });
-      analytics.measurementEdited();
     },
     [user, saveToCloud],
   );
@@ -785,9 +790,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         // an empty edge.
         setDefaultDateRange(updated);
         saveToCloud(updated);
+        analytics.measurementDeleted();
         return updated;
       });
-      analytics.measurementDeleted();
     },
     [user, saveToCloud, setDefaultDateRange],
   );

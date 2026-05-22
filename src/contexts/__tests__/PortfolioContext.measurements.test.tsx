@@ -169,6 +169,36 @@ describe('PortfolioContext — measurement edit/delete', () => {
       result.current.updateMeasurement(new Date('2099-06-01T00:00:00.000Z'), 'Checking', { sourceVl: 0 });
     });
     expect(result.current.data!.facts).toHaveLength(before);
+    // Funnel hygiene: phantom no-op edits must not pollute analytics.
+    expect(measurementEdited).not.toHaveBeenCalled();
+  });
+
+  it('updateMeasurement does not fire analytics when value+currency are unchanged', async () => {
+    seedBlob();
+    const { result } = renderHook(() => usePortfolio(), { wrapper });
+    await waitFor(() => expect(result.current.data).not.toBeNull());
+
+    act(() => {
+      // Same values as the seed — should short-circuit.
+      result.current.updateMeasurement(
+        new Date('2026-01-15T00:00:00.000Z'),
+        'Checking',
+        { sourceVl: 1000, currency: 'EUR' },
+      );
+    });
+    expect(measurementEdited).not.toHaveBeenCalled();
+  });
+
+  it('updateMeasurement does not fire analytics when data is null', async () => {
+    // No seedBlob — provider mounts with data === null.
+    const { result } = renderHook(() => usePortfolio(), { wrapper });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.data).toBeNull();
+
+    act(() => {
+      result.current.updateMeasurement(new Date('2026-01-15T00:00:00.000Z'), 'Checking', { sourceVl: 42 });
+    });
+    expect(measurementEdited).not.toHaveBeenCalled();
   });
 
   it('deleteMeasurement removes exactly the matching fact', async () => {
@@ -201,6 +231,18 @@ describe('PortfolioContext — measurement edit/delete', () => {
       result.current.deleteMeasurement(new Date('2099-06-01T00:00:00.000Z'), 'Checking');
     });
     expect(result.current.data!.facts).toHaveLength(before);
+    expect(measurementDeleted).not.toHaveBeenCalled();
+  });
+
+  it('deleteMeasurement does not fire analytics when data is null', async () => {
+    const { result } = renderHook(() => usePortfolio(), { wrapper });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.data).toBeNull();
+
+    act(() => {
+      result.current.deleteMeasurement(new Date('2026-01-15T00:00:00.000Z'), 'Checking');
+    });
+    expect(measurementDeleted).not.toHaveBeenCalled();
   });
 
   it('deleteMeasurement leaves refSources alone (orphan metadata is intentional)', async () => {
