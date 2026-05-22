@@ -61,12 +61,23 @@ test.describe('Logout data persistence', () => {
 
     await signOutViaProfileMenu(page);
 
-    // Allow the watcher's microtask to flush.
-    await page.waitForTimeout(300);
-
-    expect(await readLocalStorageKey(page, 'portfolio-data')).toBeNull();
-    expect(await readLocalStorageKey(page, 'portfolio-data-is-mock')).toBeNull();
-    expect(await readLocalStorageKey(page, 'add-measurement-draft')).toBeNull();
+    // Poll until the PortfolioContext user-id watcher has wiped the keys.
+    // A fixed 300ms sleep was previously enough on idle hardware but flakes
+    // under heavy load — the effect runs once React has committed the
+    // user=null state and scheduled the cleanup microtask. Use expect.poll
+    // so the timeout absorbs any commit + microtask delay.
+    await expect.poll(
+      () => readLocalStorageKey(page, 'portfolio-data'),
+      { timeout: 10_000, message: 'PortfolioContext watcher should wipe portfolio-data on sign-out' },
+    ).toBeNull();
+    await expect.poll(
+      () => readLocalStorageKey(page, 'portfolio-data-is-mock'),
+      { timeout: 5_000 },
+    ).toBeNull();
+    await expect.poll(
+      () => readLocalStorageKey(page, 'add-measurement-draft'),
+      { timeout: 5_000 },
+    ).toBeNull();
 
     // Reload — the guest-load gate should not rehydrate any data because
     // the cache is gone.
@@ -130,7 +141,11 @@ test.describe('Logout data persistence', () => {
     });
 
     await signOutViaProfileMenu(page);
-    await page.waitForTimeout(300);
+    // Wait for the watcher to wipe A's keys before navigating away.
+    await expect.poll(
+      () => readLocalStorageKey(page, 'portfolio-data'),
+      { timeout: 10_000 },
+    ).toBeNull();
 
     // signIn helper clicks the landing-page sign-in trigger; after sign-out
     // we may be on /dashboard (guest-accessible). Bounce to landing first.
@@ -138,12 +153,23 @@ test.describe('Logout data persistence', () => {
 
     // Sign in as user B in the same tab.
     await signIn(page, 2);
-    await page.waitForTimeout(300);
 
-    // Watcher contract: no A keys may survive.
-    expect(await readLocalStorageKey(page, 'portfolio-data')).toBeNull();
-    expect(await readLocalStorageKey(page, 'portfolio-data-is-mock')).toBeNull();
-    expect(await readLocalStorageKey(page, 'add-measurement-draft')).toBeNull();
+    // Watcher contract: no A keys may survive. The guest → authed branch
+    // only nulls in-memory state, so localStorage should stay clean from the
+    // previous sign-out — poll defensively in case React batched the
+    // identity-change effect behind the cloud-load skeleton.
+    await expect.poll(
+      () => readLocalStorageKey(page, 'portfolio-data'),
+      { timeout: 10_000, message: 'A-leak portfolio-data must not survive A → B account swap' },
+    ).toBeNull();
+    await expect.poll(
+      () => readLocalStorageKey(page, 'portfolio-data-is-mock'),
+      { timeout: 5_000 },
+    ).toBeNull();
+    await expect.poll(
+      () => readLocalStorageKey(page, 'add-measurement-draft'),
+      { timeout: 5_000 },
+    ).toBeNull();
 
     // ProfileMenu must not flash A's label. We don't pin the exact format of
     // B's label (test-user emails may differ between projects), only that
