@@ -498,6 +498,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     // The effect only reads `status` (for the early return) and
     // `getDataKey()` (a stable useCallback), so `status` is the only
     // identity we actually care about.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, keySession.status, setDefaultDateRange]);
 
   // Load from localStorage for guests

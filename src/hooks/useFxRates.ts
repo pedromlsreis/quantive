@@ -61,6 +61,10 @@ export function useFxRates(): FxRatesApi {
       setRows((data ?? []) as FxRow[]);
     })();
     return () => { cancelled = true; };
+    // Identity, not the full User object, is what gates the fetch — a
+    // subscription update or any other Supabase user-object refresh
+    // shouldn't trigger a refetch as long as the id is the same.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   const seriesByCcy = useMemo<FxSeriesByCurrency | null>(
