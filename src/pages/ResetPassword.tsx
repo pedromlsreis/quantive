@@ -249,6 +249,7 @@ const ResetPassword = () => {
           <label className="q-input">
             <input
               type="password"
+              autoComplete="new-password"
               placeholder="New password"
               value={password}
               onChange={e => setPassword(e.target.value)}
@@ -259,6 +260,7 @@ const ResetPassword = () => {
           <label className="q-input">
             <input
               type="password"
+              autoComplete="new-password"
               placeholder="Confirm password"
               value={confirm}
               onChange={e => setConfirm(e.target.value)}

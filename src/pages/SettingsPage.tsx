@@ -681,6 +681,7 @@ export default function SettingsPage() {
                   <label className="q-input" style={{ maxWidth: 300 }}>
                     <input
                       type="password"
+                      autoComplete="new-password"
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       placeholder="New password"
@@ -692,6 +693,7 @@ export default function SettingsPage() {
                   <label className="q-input" style={{ maxWidth: 300 }}>
                     <input
                       type="password"
+                      autoComplete="new-password"
                       value={newPasswordConfirm}
                       onChange={e => setNewPasswordConfirm(e.target.value)}
                       placeholder="Confirm new password"

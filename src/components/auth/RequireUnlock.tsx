@@ -90,6 +90,7 @@ export function RequireUnlock() {
             <label className="q-input">
               <input
                 type="password"
+                autoComplete="current-password"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => {
