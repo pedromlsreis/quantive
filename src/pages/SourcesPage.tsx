@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MoreHorizontal, Search, Pencil, History } from 'lucide-react';
+import { MoreHorizontal, Search, Pencil, History, Droplet } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { useCurrency } from '@/contexts/CurrencyContext';
@@ -190,6 +190,7 @@ const SourcesPage = () => {
                           <DropdownMenuItem
                             onSelect={() => updateRefSource(s.name, { isLiquid: !s.isLiquid })}
                           >
+                            <Droplet className="mr-2 h-3.5 w-3.5" />
                             {s.isLiquid ? 'Mark as non-liquid' : 'Mark as liquid'}
                           </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => setHistorySource(s.name)}>
