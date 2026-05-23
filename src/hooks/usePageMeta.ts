@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const DEFAULT_TITLE = 'Quantive – See Your Financial Life Clearly';
+const DEFAULT_TITLE = 'Quantive - See Your Financial Life Clearly';
 const DEFAULT_DESC =
   'A privacy-first finance cockpit. Upload your spreadsheet, track net worth, analyse allocations, and forecast your future. Free forever.';
 const BASE_URL = 'https://usequantive.app';
