@@ -199,6 +199,28 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // login. The cloud-load effect clears it on success/error/no-user.
   const [isCloudLoading, setIsCloudLoading] = useState<boolean>(() => !!user || authLoading);
   const [isMockData, setIsMockData] = useState(false);
+
+  // Render-time identity guard. The useEffect-based watcher below cleans up
+  // localStorage + analytics on sign-out / account-switch, but effects run
+  // *after* the render commits — leaving a one-frame window where consumers
+  // see the new `user` paired with the previous user's `data`. On a slow
+  // mobile JS thread that window is long enough to render a stale dashboard
+  // before the watcher fires. This conditional setState during render is
+  // React's documented "reset state when a prop changes" pattern: when the
+  // identity differs, React throws away this render and immediately re-runs
+  // it with the cleared state, so the stale combination is never observable.
+  const [lastSeenUserId, setLastSeenUserId] = useState<string | null>(user?.id ?? null);
+  if (lastSeenUserId !== (user?.id ?? null)) {
+    setLastSeenUserId(user?.id ?? null);
+    setData(null);
+    setIsMockData(false);
+    setFilters(defaultFilters);
+    // Arm the skeleton iff we're entering an authed identity (a real cloud
+    // fetch is about to happen). On sign-out (user → null) we leave it false
+    // so the dashboard can fall through to the file-upload empty state.
+    setIsCloudLoading(user != null);
+  }
+
   const { has } = useEntitlements();
   const keySession = useKeySession();
   const { currency: displayCurrency } = useCurrency();
