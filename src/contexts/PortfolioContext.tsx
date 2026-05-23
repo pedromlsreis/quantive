@@ -211,6 +211,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // it with the cleared state, so the stale combination is never observable.
   const [lastSeenUserId, setLastSeenUserId] = useState<string | null>(user?.id ?? null);
   if (lastSeenUserId !== (user?.id ?? null)) {
+    console.debug('[diag] render-guard FIRE', {
+      from: lastSeenUserId,
+      to: user?.id ?? null,
+      ts: Date.now(),
+    });
     setLastSeenUserId(user?.id ?? null);
     setData(null);
     setIsMockData(false);
@@ -237,6 +242,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // Monotonically increasing id; only the latest in-flight call mutates state.
   // Stops overlapping saves from clobbering each other's status.
   const requestIdRef = useRef(0);
+  // Diag-only sequence id for cloud loads, so concurrent loads can be told
+  // apart in the console. Not load-bearing — see the version-guard fix on
+  // the followup if this turns out to be the bug source.
+  const cloudLoadSeqRef = useRef(0);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
 
   const hasFullHistory = has('history.full');
@@ -281,6 +290,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const currentUserId = user?.id ?? null;
     const previousUserId = previousUserIdRef.current;
     if (previousUserId !== null && previousUserId !== currentUserId) {
+      console.debug('[diag] watcher SIGN-OUT-OR-SWITCH', {
+        from: previousUserId,
+        to: currentUserId,
+        ts: Date.now(),
+      });
       setData(null);
       setIsMockData(false);
       setFilters(defaultFilters);
@@ -303,6 +317,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       // user's cloud snapshot resolves.
       if (currentUserId !== null) setIsCloudLoading(true);
     } else if (previousUserId === null && currentUserId !== null) {
+      console.debug('[diag] watcher GUEST→AUTHED', {
+        to: currentUserId,
+        ts: Date.now(),
+      });
       // Guest → authed sign-in. Drop any guest preview (mock data, or a
       // localStorage cache loaded before login) so the dashboard can't render
       // it while we fetch the real cloud snapshot. Without this the user sees
@@ -413,22 +431,64 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // flips to 'unlocked-encrypted', this effect re-fires and the load proceeds.
   useEffect(() => {
     if (!user) {
+      console.debug('[diag] cloud-load effect SKIP no-user', {
+        authLoading,
+        ts: Date.now(),
+      });
       // Only drop the skeleton once auth is *confirmed* guest. While auth is
       // still restoring a session we don't yet know if a user is coming back,
       // so keep the skeleton armed to avoid flashing "upload your file".
       if (!authLoading) setIsCloudLoading(false);
       return;
     }
-    if (keySession.status === 'locked') return;
+    if (keySession.status === 'locked') {
+      console.debug('[diag] cloud-load effect SKIP locked', {
+        userId: user.id,
+        ts: Date.now(),
+      });
+      return;
+    }
+
+    const loadSeq = ++cloudLoadSeqRef.current;
+    console.debug('[diag] cloud-load FIRE', {
+      seq: loadSeq,
+      userId: user.id,
+      status: keySession.status,
+      ts: Date.now(),
+    });
 
     const loadFromCloud = async () => {
       try {
-        const { data: rows } = await supabase
+        const fetchStart = Date.now();
+        const { data: rows, error: fetchErr } = await supabase
           .from('portfolio_snapshots')
-          .select('data, encrypted_data, nonce, enc_version')
+          .select('data, encrypted_data, nonce, enc_version, updated_at')
           .eq('user_id', user.id)
           .order('updated_at', { ascending: false })
           .limit(1);
+        const fetchMs = Date.now() - fetchStart;
+
+        if (fetchErr) {
+          console.debug('[diag] cloud-load FETCH-ERR', { seq: loadSeq, fetchMs, fetchErr });
+        } else {
+          const row0 = rows && rows.length > 0 ? (rows[0] as unknown as Record<string, unknown>) : null;
+          const ciphertextStr = (row0?.encrypted_data as string | undefined) ?? '';
+          // Fingerprint the encrypted row so two loads can be compared without
+          // leaking plaintext: length + first/last 8 hex chars are enough to
+          // tell whether the cloud actually returned a different row.
+          const cipherFp =
+            ciphertextStr.length === 0
+              ? '∅'
+              : `${ciphertextStr.length}:${ciphertextStr.slice(0, 8)}…${ciphertextStr.slice(-8)}`;
+          console.debug('[diag] cloud-load FETCH-OK', {
+            seq: loadSeq,
+            fetchMs,
+            rowCount: rows?.length ?? 0,
+            updated_at: row0?.updated_at,
+            enc_version: row0?.enc_version,
+            cipherFp,
+          });
+        }
 
         if (rows && rows.length > 0) {
           const row = rows[0] as unknown as SnapshotRow;
@@ -440,7 +500,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             });
             cloudData = decoded.data as RawCloudPortfolio;
           } catch (e) {
-            console.error('[cloud-load] failed to decode snapshot:', e);
+            console.error('[diag] cloud-load DECODE-FAIL', { seq: loadSeq, err: e });
             toast.error('Could not decrypt your saved data. Try signing out and back in.');
             return;
           }
@@ -467,10 +527,24 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             });
           }
 
+          // Latest fact date is a quick proxy for "how recent" the snapshot is.
+          const latestFactTs =
+            parsedFacts.length === 0
+              ? null
+              : Math.max(...parsedFacts.map((f) => f.date.getTime()));
+
           if (parsedFacts.length === 0) {
-            console.debug('[cloud-load] No valid facts after date validation — skipping cloud data');
+            console.debug('[diag] cloud-load NO-FACTS skip setData', { seq: loadSeq });
             return;
           }
+
+          console.debug('[diag] cloud-load setData', {
+            seq: loadSeq,
+            factCount: parsedFacts.length,
+            latestFactDate: latestFactTs ? new Date(latestFactTs).toISOString() : null,
+            refSourceCount: cloudData.refSources?.length ?? 0,
+            goalCount: Array.isArray(cloudData.goals) ? cloudData.goals.length : 0,
+          });
 
           const validData: PortfolioData = {
             facts: parsedFacts,
@@ -484,8 +558,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           // mirror plaintext into localStorage (see encryption.md §8.3).
         }
       } catch (e) {
-        console.error('Failed to load from cloud:', e);
+        console.error('[diag] cloud-load THROW', { seq: loadSeq, err: e });
       } finally {
+        console.debug('[diag] cloud-load DONE', { seq: loadSeq, ts: Date.now() });
         setIsCloudLoading(false);
       }
     };
@@ -538,6 +613,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             facts: validFacts,
             goals: coerceGoals(parsed.goals),
           };
+          console.debug('[diag] guest-load setData from localStorage', {
+            factCount: validFacts.length,
+          });
           setData(validData);
           setIsMockData(false);
           setDefaultDateRange(validData);
