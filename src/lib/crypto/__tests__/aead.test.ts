@@ -141,10 +141,20 @@ describe('AEAD: round-trip', () => {
     const ct = await encrypt({ key, nonce, plaintext, aad });
     const pt = await decrypt({ key, nonce, ciphertext: ct, aad });
     expect(pt.length).toBe(plaintext.length);
-    expect(Array.from(pt.subarray(0, 32))).toEqual(
-      Array.from(plaintext.subarray(0, 32)),
-    );
-  }, 30_000);
+    // Full-buffer compare. A 32-byte head spot-check would miss corruption
+    // anywhere past the first block — the whole point of exercising 1 MiB is
+    // to flush out chunking/streaming bugs that only show up at scale.
+    // Compare via TypedArray equality (not Array.from) to avoid allocating
+    // two 1M-element JS arrays just to assert.
+    let same = pt.length === plaintext.length;
+    for (let i = 0; same && i < pt.length; i++) {
+      if (pt[i] !== plaintext[i]) same = false;
+    }
+    expect(same).toBe(true);
+    // Generous budget: cold-start libsodium WASM + a 1 MiB round-trip is
+    // ~4-8s on a warm machine but has been seen to take >30s on cold
+    // Windows CI runners.
+  }, 60_000);
 });
 
 describe('AEAD: tamper detection', () => {

@@ -28,6 +28,13 @@ function renderLegal(source: string, title = 'Doc') {
   );
 }
 
+// react-markdown + remark/rehype plugins are dynamically pulled in on first
+// render and parsing a ~120-line legal document under jsdom is not free.
+// 5s (vitest default) is enough on a warm dev box but flaky on cold CI/Windows
+// — bump every test in this file to a comfortable budget so a slow first
+// render doesn't masquerade as a regression.
+const RENDER_TIMEOUT_MS = 20_000;
+
 describe('MarkdownLegal', () => {
   it('renders the Privacy Policy with key Art. 13 sections and anchors', () => {
     const { container } = renderLegal(privacy, 'Privacy');
@@ -45,7 +52,7 @@ describe('MarkdownLegal', () => {
     expect(text).toContain('LDI NRW');
     expect(text).toContain('§ 147 AO');
     expect(text).toMatch(/Art\.\s*6\(1\)\(b\)/);
-  });
+  }, RENDER_TIMEOUT_MS);
 
   it('renders the Terms with §13 VSBG notice and the Muster sections', () => {
     renderLegal(terms, 'Terms');
@@ -53,21 +60,21 @@ describe('MarkdownLegal', () => {
     expect(screen.getByText(/Verbraucherschlichtungsstelle/)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Widerrufsbelehrung/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Muster-Widerrufsformular/i })).toBeInTheDocument();
-  });
+  }, RENDER_TIMEOUT_MS);
 
   it('preserves lang="de" on the German Muster blocks for screen readers', () => {
     const { container } = renderLegal(terms, 'Terms');
     const germanBlocks = container.querySelectorAll('[lang="de"]');
     // Two Muster blocks: the Widerrufsbelehrung and the Widerrufsformular.
     expect(germanBlocks.length).toBeGreaterThanOrEqual(2);
-  });
+  }, RENDER_TIMEOUT_MS);
 
   it('renders the Impressum with Kleinunternehmer note and § 5 DDG citation', () => {
     renderLegal(impressum, 'Impressum');
     expect(screen.getByRole('heading', { level: 1, name: /Impressum/i })).toBeInTheDocument();
     expect(screen.getByText(/Kleinunternehmer/)).toBeInTheDocument();
     expect(screen.getByText(/§ 5 DDG/)).toBeInTheDocument();
-  });
+  }, RENDER_TIMEOUT_MS);
 
   it('opens external links in a new tab with rel="noopener noreferrer"', () => {
     const { container } = renderLegal(
@@ -77,5 +84,5 @@ describe('MarkdownLegal', () => {
     expect(link).not.toBeNull();
     expect(link.target).toBe('_blank');
     expect(link.rel).toBe('noopener noreferrer');
-  });
+  }, RENDER_TIMEOUT_MS);
 });

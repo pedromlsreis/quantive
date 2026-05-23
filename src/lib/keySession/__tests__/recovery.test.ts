@@ -176,13 +176,13 @@ describe('recoverAndRewrap', () => {
   }, 60_000);
 
   it('rejects an invalid mnemonic (BIP-39 checksum failure) before any KDF work', async () => {
-    const session = await provisionUser(keyStore);
-    await setupRecoveryCode({
-      userId: USER,
-      dataKey: session.dk,
-      keyStore,
-    });
-
+    // No provisioning here on purpose. The point of this test is that the
+    // BIP-39 checksum check fires *before* any keystore I/O or KDF work.
+    // If it does, the recovery code is rejected even on a completely empty
+    // store — which is what we assert below. Doing setup first would
+    // (a) waste two ~600ms Argon2id derivations on a check that doesn't
+    // need them and (b) hide a regression where the check accidentally
+    // moves to *after* the keystore read.
     await expect(
       recoverAndRewrap({
         userId: USER,
@@ -191,6 +191,11 @@ describe('recoverAndRewrap', () => {
         keyStore,
       }),
     ).rejects.toThrow(/invalid recovery code/);
+
+    // Belt-and-braces: the keystore was never touched. If the BIP-39 check
+    // ever regresses to run after the row lookup, this assertion will fail
+    // with a different error ("no encryption keys") and pinpoint the issue.
+    expect(await keyStore.getUserKeys(USER)).toBeNull();
   });
 
   it('rejects a checksum-valid recovery code that is not the right one', async () => {
