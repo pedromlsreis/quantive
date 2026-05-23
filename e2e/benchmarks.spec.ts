@@ -74,10 +74,15 @@ test.describe('Performance — benchmark comparison', () => {
     await page.waitForURL('**/performance');
     await expect(page.getByRole('heading', { name: 'Performance' })).toBeVisible({ timeout: 8000 });
 
-    // The benchmark card is present.
-    await expect(page.getByRole('heading', { name: 'Benchmark comparison' })).toBeVisible();
+    // The benchmark card is present. Lives below the fold and hydrates after
+    // the stubbed /benchmarks REST response resolves — give it the same 8s
+    // budget the sibling tests use for this exact locator (5s default has
+    // been seen to lose the race on cold Playwright workers, even though the
+    // heading does render).
+    await expect(page.getByRole('heading', { name: 'Benchmark comparison' })).toBeVisible({ timeout: 8000 });
 
-    // Overlay tablist has the three options.
+    // Overlay tablist has the three options. From here on the assertions
+    // are local to the card so the default timeout is plenty.
     const overlayTabs = page.getByRole('tablist', { name: 'Benchmark overlay' });
     await expect(overlayTabs).toBeVisible();
     await expect(overlayTabs.getByRole('tab', { name: 'Inflation' })).toBeVisible();

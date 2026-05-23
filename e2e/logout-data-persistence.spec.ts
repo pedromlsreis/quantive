@@ -183,15 +183,19 @@ test.describe('Logout data persistence', () => {
     }
   });
 
+  // RequireAuth resolves the Supabase session on mount before deciding to
+  // redirect; on a cold Playwright worker that first session lookup has been
+  // seen to take >5s. Give both unauthed-redirect probes a 15s budget — a
+  // genuine redirect-not-firing regression will still fail within that.
   test('/settings redirects to landing when unauthed', async ({ page }) => {
     await page.goto('/settings');
-    await page.waitForURL((url) => url.pathname === '/', { timeout: 5_000 });
+    await page.waitForURL((url) => url.pathname === '/', { timeout: 15_000 });
     expect(page.url()).toMatch(/\/$/);
   });
 
   test('/admin redirects to landing when unauthed', async ({ page }) => {
     await page.goto('/admin');
-    await page.waitForURL((url) => url.pathname === '/', { timeout: 5_000 });
+    await page.waitForURL((url) => url.pathname === '/', { timeout: 15_000 });
     expect(page.url()).toMatch(/\/$/);
   });
 });
