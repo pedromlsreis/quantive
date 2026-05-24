@@ -160,15 +160,20 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
       // on retries (see pre-launch-hardening-plan.md #10).
       await cacheSubscription(admin, userId, sub.customer, sub);
 
-      // Resolve once: did this user ever receive the Pro welcome before?
-      // True if this is a churn-and-return event (cancel → resubscribe).
-      // Drives both the admin email subject and whether the customer
-      // welcome re-fires.
-      const isReturning = userId ? await proWelcomeAlreadySent(admin, userId) : false;
+      // Atomic claim drives BOTH the admin email subject AND whether to
+      // send the customer welcome. claimedFresh=true means we won the
+      // claim (first ever Pro event for this user); false means returning
+      // customer OR a parallel/duplicate event lost the race. Either way
+      // the customer welcome must not re-fire.
+      const claimedFresh = userId ? await claimProWelcome(admin, userId) : false;
+      const isReturning = !claimedFresh;
 
       // Admin notification: a new paid customer is high-signal. Returning
       // customers are a different, lower-stakes signal — same payload but
-      // a distinct subject so they don't read as fresh signups.
+      // a distinct subject so they don't read as fresh signups. Note: a
+      // rare race could mislabel a true first-time signup as "returning"
+      // if a peer event won the claim, but the customer experience is
+      // unchanged and admin signal stays usable.
       const adminLabel = isReturning ? "Returning subscription" : "New subscription";
       await sendEmail({
         to: adminTo,
@@ -189,14 +194,16 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
         ]),
       });
 
-      // Pro onboarding email to the customer — only once per user, ever.
-      // The pro_welcome_sent_at flag prevents resends on Stripe retries
-      // AND on churn-and-return (a second `.created` event after a full
-      // cancel-then-resubscribe should not trigger a fresh welcome).
-      if (email && userId) {
-        if (!isReturning) {
-          await sendProWelcomeEmail({ email, name, amount, currency, interval });
-          await markProWelcomeSent(admin, userId);
+      // Pro onboarding email — only fired by the caller that won the
+      // atomic claim above. If the send fails (Resend outage, malformed
+      // recipient), release the claim so the next event (Stripe retry or
+      // peer delivery) can retry. sendEmail returns a result rather than
+      // throwing, so check ok explicitly.
+      if (email && userId && claimedFresh) {
+        const result = await sendProWelcomeEmail({ email, name, amount, currency, interval });
+        if (!result.ok) {
+          console.error(`[stripe-webhook] sendProWelcomeEmail failed for ${userId}:`, result.reason);
+          await releaseProWelcomeClaim(admin, userId);
         }
       }
       break;
@@ -409,32 +416,48 @@ async function resolveCustomer(
   }
 }
 
-async function proWelcomeAlreadySent(admin: AdminClient, userId: string): Promise<boolean> {
+/**
+ * Atomically claim the Pro welcome-send slot. Returns true iff this caller
+ * won the claim (i.e. it's the first event ever for this user); false if
+ * the slot is already taken (returning customer or duplicate event).
+ *
+ * Conditional UPDATE with `.is("pro_welcome_sent_at", null)` flips the
+ * flag iff it's still null; the `.select()` returns rows only on the
+ * winning claim. Mirrors the send-welcome-email pattern — same reason:
+ * eliminates the read-then-write race that fired duplicate emails when
+ * two flows raced through the dedupe gate.
+ *
+ * Fail-closed on DB error: if we can't decide, assume returning and skip
+ * the welcome. The user already got the Stripe receipt and can see Pro
+ * in the app; missing our welcome is mild.
+ */
+async function claimProWelcome(admin: AdminClient, userId: string): Promise<boolean> {
   const { data, error } = await admin
     .from("profiles")
-    .select("pro_welcome_sent_at")
+    .update({ pro_welcome_sent_at: new Date().toISOString() })
     .eq("user_id", userId)
-    .maybeSingle();
+    .is("pro_welcome_sent_at", null)
+    .select("user_id");
   if (error) {
-    // Fail closed: if we can't read the flag we'd rather skip the welcome
-    // than risk a duplicate. The user already got the Stripe receipt and
-    // can see Pro in the app — missing our admin-style welcome is mild.
-    console.error(`[stripe-webhook] proWelcomeAlreadySent read failed for ${userId}:`, error.message);
-    return true;
+    console.error(`[stripe-webhook] claimProWelcome failed for ${userId}:`, error.message);
+    return false;
   }
-  return (data as { pro_welcome_sent_at?: string | null } | null)?.pro_welcome_sent_at != null;
+  return Array.isArray(data) && data.length > 0;
 }
 
-async function markProWelcomeSent(admin: AdminClient, userId: string): Promise<void> {
+/**
+ * Release a previously-won claim — used on send failure so the next event
+ * for this user can retry the welcome. Logged but not thrown: the outer
+ * handler's stripe_events row is already committed and rolling back to
+ * re-deliver is the wrong remedy.
+ */
+async function releaseProWelcomeClaim(admin: AdminClient, userId: string): Promise<void> {
   const { error } = await admin
     .from("profiles")
-    .update({ pro_welcome_sent_at: new Date().toISOString() })
+    .update({ pro_welcome_sent_at: null })
     .eq("user_id", userId);
   if (error) {
-    // Logged but not thrown: the welcome email already went out and the
-    // outer handler's stripe_events row is already committed — rolling
-    // back to re-send is the wrong remedy. Worst case: a retry double-sends.
-    console.error(`[stripe-webhook] markProWelcomeSent failed for ${userId}:`, error.message);
+    console.error(`[stripe-webhook] releaseProWelcomeClaim failed for ${userId}:`, error.message);
   }
 }
 
@@ -444,7 +467,7 @@ async function sendProWelcomeEmail(params: {
   amount: number;
   currency: string;
   interval: string;
-}) {
+}): Promise<import("../_shared/email.ts").SendEmailResult> {
   const { email, name, amount, currency, interval } = params;
   const greeting = name ? `Hi ${escapeHtml(name.split(" ")[0])},` : "Hi,";
   const planLabel = `${amount} ${currency} / ${interval}`;
@@ -480,7 +503,7 @@ async function sendProWelcomeEmail(params: {
     `Manage your subscription at https://usequantive.app/settings. If anything breaks or surprises you, reply to this email — it goes straight to me.\n\n` +
     `Thanks,\nPedro · Quantive`;
 
-  await sendEmail({
+  return sendEmail({
     to: email,
     subject: "Welcome to Quantive Pro",
     html,
