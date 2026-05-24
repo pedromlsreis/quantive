@@ -151,7 +151,7 @@ describe('AuthModal — post-signup confirm panel (#2)', () => {
     const { signUp } = setup({ defaultMode: 'signup' });
 
     fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'pedro@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'hunter2!' } });
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'hunter2hunter2' } });
     fireEvent.click(screen.getByTestId('terms-checkbox'));
 
     await act(async () => {
@@ -159,7 +159,7 @@ describe('AuthModal — post-signup confirm panel (#2)', () => {
     });
 
     await waitFor(() => {
-      expect(signUp).toHaveBeenCalledWith('pedro@example.com', 'hunter2!');
+      expect(signUp).toHaveBeenCalledWith('pedro@example.com', 'hunter2hunter2');
       // Confirm panel shows: title + email surfaced + resend affordance.
       expect(screen.getByText(/check your inbox/i)).toBeInTheDocument();
       expect(screen.getByText('pedro@example.com')).toBeInTheDocument();
@@ -175,7 +175,7 @@ describe('AuthModal — post-signup confirm panel (#2)', () => {
     const { onClose } = setup({ defaultMode: 'signup' });
 
     fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'pedro@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'hunter2!' } });
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'hunter2hunter2' } });
     fireEvent.click(screen.getByTestId('terms-checkbox'));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^sign up$/i }));
