@@ -19,7 +19,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { ready, sodium } from '@/lib/crypto/sodium';
+import { ready, getSodium } from '@/lib/crypto/sodium';
 import {
   detectAndUnlock,
   recoverAndRewrap,
@@ -92,8 +92,10 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
   const [hasRecovery, setHasRecovery] = useState<boolean | null>(null);
 
   const lock = useCallback(() => {
-    if (kekRef.current) sodium.memzero(kekRef.current);
-    if (dkRef.current) sodium.memzero(dkRef.current);
+    // Refs can only be set after a successful unlock(), which awaits
+    // ready() — so if a ref is present, sodium is loaded.
+    if (kekRef.current) getSodium().memzero(kekRef.current);
+    if (dkRef.current) getSodium().memzero(dkRef.current);
     kekRef.current = null;
     dkRef.current = null;
     setStatus('locked');
@@ -114,8 +116,8 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
             supabaseKeyStore,
           );
           // Replace any prior keys defensively before installing new ones.
-          if (kekRef.current) sodium.memzero(kekRef.current);
-          if (dkRef.current) sodium.memzero(dkRef.current);
+          if (kekRef.current) getSodium().memzero(kekRef.current);
+          if (dkRef.current) getSodium().memzero(dkRef.current);
           kekRef.current = result.kek;
           dkRef.current = result.dk;
           setStatus('unlocked-encrypted');
@@ -133,7 +135,7 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
 
           return { error: null };
         } finally {
-          sodium.memzero(passwordBytes);
+          getSodium().memzero(passwordBytes);
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'unlock failed';
@@ -197,8 +199,8 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
             newPassword: passwordBytes,
             keyStore: supabaseKeyStore,
           });
-          if (kekRef.current) sodium.memzero(kekRef.current);
-          if (dkRef.current) sodium.memzero(dkRef.current);
+          if (kekRef.current) getSodium().memzero(kekRef.current);
+          if (dkRef.current) getSodium().memzero(dkRef.current);
           kekRef.current = kek;
           dkRef.current = dk;
           setStatus('unlocked-encrypted');
@@ -208,7 +210,7 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
           setHasRecovery(true);
           return { error: null };
         } finally {
-          sodium.memzero(passwordBytes);
+          getSodium().memzero(passwordBytes);
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'recovery failed';
@@ -234,12 +236,12 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
             newPassword: passwordBytes,
             keyStore: supabaseKeyStore,
           });
-          if (kekRef.current) sodium.memzero(kekRef.current);
+          if (kekRef.current) getSodium().memzero(kekRef.current);
           kekRef.current = kek;
           // DK is unchanged — it stays in memory under the new KEK.
           return { error: null };
         } finally {
-          sodium.memzero(passwordBytes);
+          getSodium().memzero(passwordBytes);
         }
       } catch (e) {
         const msg = e instanceof Error ? e.message : 'rewrap failed';

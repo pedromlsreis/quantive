@@ -44,7 +44,7 @@ serve(async (req) => {
     // user who toggles the monthly/yearly switch a few times and impossible
     // to abuse meaningfully. Fails open on RPC error (see rateLimit.ts).
     const ip = extractIp(req);
-    const rate = await checkRateLimit(admin, { ip, maxRequests: 10, windowSeconds: 60 });
+    const rate = await checkRateLimit(admin, { ip, bucket: "create-checkout", maxRequests: 10, windowSeconds: 60 });
     if (!rate.allowed) {
       logStep("Rate-limited", { ip });
       return errorResponse("rate_limited", 429, { "Retry-After": String(rate.retryAfter) });

@@ -18,6 +18,7 @@ import { decideIdempotencyOutcome } from "./idempotency.ts";
 import { cancellationTransition } from "./transitions.ts";
 
 const HANDLED_EVENTS = new Set([
+  "checkout.session.completed",
   "customer.subscription.created",
   "customer.subscription.updated",
   "customer.subscription.deleted",
@@ -120,6 +121,30 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
   const adminTo = Deno.env.get("STRIPE_NOTIFY_TO_EMAIL") || "hello@usequantive.app";
 
   switch (event.type) {
+    case "checkout.session.completed": {
+      // Insurance against `customer.subscription.created` arriving late or
+      // out of order. We resolve the subscription and refresh the cache so
+      // the post-checkout redirect on the client converges to "subscribed"
+      // even if .subscription.created is still in flight. cacheSubscription
+      // is an idempotent UPDATE — running it twice (here, then again from
+      // .created) is safe.
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.mode !== "subscription" || !session.subscription) break;
+      const subId = typeof session.subscription === "string"
+        ? session.subscription
+        : session.subscription.id;
+      try {
+        const sub = await stripe.subscriptions.retrieve(subId);
+        const { userId } = await resolveCustomer(stripe, sub.customer);
+        await cacheSubscription(admin, userId, sub.customer, sub);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`[stripe-webhook] checkout.session.completed retrieve/cache failed:`, msg);
+        throw e; // bubble so the outer handler rolls back stripe_events
+      }
+      break;
+    }
+
     case "customer.subscription.created": {
       const sub = event.data.object as Stripe.Subscription;
       const { email, name, userId } = await resolveCustomer(stripe, sub.customer);
@@ -307,7 +332,12 @@ async function cacheSubscription(
     })
     .eq("user_id", userId);
   if (error) {
+    // Throw so the outer handler rolls back the stripe_events row and
+    // Stripe retries. Swallowing left the cache stale forever and forced
+    // check-subscription to fall back to live Stripe on every dashboard
+    // load — slow and expensive under launch traffic.
     console.error(`[stripe-webhook] cache update failed for ${userId}:`, error.message);
+    throw new Error(`cache update failed: ${error.message}`);
   }
 }
 
@@ -333,6 +363,7 @@ async function clearSubscriptionCache(
     .eq("user_id", userId);
   if (error) {
     console.error(`[stripe-webhook] cache clear failed for ${userId}:`, error.message);
+    throw new Error(`cache clear failed: ${error.message}`);
   }
 }
 

@@ -4,6 +4,8 @@
 // for end users. We match on substrings (not exact equality) because the
 // upstream wording occasionally shifts between GoTrue versions.
 
+import { PASSWORD_LENGTH_HINT } from './passwordPolicy';
+
 export function mapAuthError(raw: string | null | undefined): string {
   if (!raw) return "Something went wrong. Please try again.";
   const m = raw.toLowerCase();
@@ -24,7 +26,7 @@ export function mapAuthError(raw: string | null | undefined): string {
     return "Please wait a moment before trying again.";
   }
   if (m.includes("password should be at least") || m.includes("weak_password")) {
-    return "Password must be at least 6 characters.";
+    return PASSWORD_LENGTH_HINT;
   }
   if (m.includes("new password should be different")) {
     return "Your new password must be different from the current one.";

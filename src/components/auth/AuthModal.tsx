@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Notice } from '@/components/ui/Notice';
 import { mapAuthError } from '@/lib/authError';
+import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
 
 interface AuthModalProps {
   open: boolean;
@@ -85,6 +86,11 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     }
 
     if (!password.trim()) { setSubmitting(false); return; }
+    if (mode === 'signup' && passwordTooShort(password)) {
+      setSubmitting(false);
+      toast.error(PASSWORD_LENGTH_HINT);
+      return;
+    }
     if (mode === 'signup' && !acceptedTerms) {
       toast.error('You must accept the Privacy Policy and Terms of Service.');
       setSubmitting(false);
@@ -237,7 +243,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   required
-                  minLength={6}
+                  minLength={mode === 'signup' ? PASSWORD_MIN_LENGTH : undefined}
                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
                   style={{ paddingRight: 36 }}
                 />

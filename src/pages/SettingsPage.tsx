@@ -35,6 +35,7 @@ import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/l
 import { Link } from 'react-router-dom';
 import { resolvePlan } from '@/lib/billing/plans';
 import { mapAuthError } from '@/lib/authError';
+import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -201,8 +202,8 @@ export default function SettingsPage() {
       toast.error('Passwords do not match.');
       return;
     }
-    if (newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters.');
+    if (passwordTooShort(newPassword)) {
+      toast.error(PASSWORD_LENGTH_HINT);
       return;
     }
     if (keySession.status !== 'unlocked-encrypted') {
@@ -428,7 +429,7 @@ export default function SettingsPage() {
                 <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Display currency</span>
               </div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                All balances are shown in this currency. Source values must already be in it — no conversion is applied.
+                All balances are shown in this currency. Values stored in other currencies are converted at the rate of the snapshot date.
               </p>
             </div>
             <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
@@ -685,7 +686,7 @@ export default function SettingsPage() {
                       value={newPassword}
                       onChange={e => setNewPassword(e.target.value)}
                       placeholder="New password"
-                      minLength={6}
+                      minLength={PASSWORD_MIN_LENGTH}
                       required
                       autoFocus
                     />
@@ -697,7 +698,7 @@ export default function SettingsPage() {
                       value={newPasswordConfirm}
                       onChange={e => setNewPasswordConfirm(e.target.value)}
                       placeholder="Confirm new password"
-                      minLength={6}
+                      minLength={PASSWORD_MIN_LENGTH}
                       required
                     />
                   </label>

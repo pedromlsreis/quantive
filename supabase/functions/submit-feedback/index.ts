@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { escapeHtml, sendEmail } from "../_shared/email.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 import { parseFeedbackBody } from "./validation.ts";
 
 Deno.serve(async (req) => {
@@ -21,24 +22,21 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // Rate limiting — check before parsing body
-    const ip =
-      req.headers.get("CF-Connecting-IP") ||
-      req.headers.get("X-Forwarded-For")?.split(",")[0].trim() ||
-      "unknown";
-
-    const { data: allowed, error: rlError } = await adminClient.rpc("check_rate_limit", {
-      p_ip: ip,
+    // Rate limiting — check before parsing body. submit-feedback is
+    // unauthenticated (verify_jwt = false) so a hard per-IP cap is the only
+    // throttle. 2/minute is enough for real users; anything higher is abuse.
+    const ip = extractIp(req);
+    const rate = await checkRateLimit(adminClient, {
+      ip,
+      bucket: "submit-feedback",
+      maxRequests: 2,
+      windowSeconds: 60,
     });
-
-    if (rlError) {
-      console.error("[RATE_LIMIT] Check failed:", rlError);
-      // Fail open to avoid blocking legitimate users on DB errors
-    } else if (!allowed) {
+    if (!rate.allowed) {
       console.warn(`[RATE_LIMIT] Rejected ip=${ip} at=${new Date().toISOString()}`);
       return new Response(JSON.stringify({ error: "Too many requests" }), {
         status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": "60" },
+        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(rate.retryAfter) },
       });
     }
 

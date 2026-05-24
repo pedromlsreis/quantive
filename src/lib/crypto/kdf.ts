@@ -6,7 +6,7 @@
  * old wrapped DKs were derived under prior parameters.
  */
 
-import { ready, sodium } from './sodium';
+import { ready, getSodium } from './sodium';
 
 export const KDF_OPSLIMIT = 3;
 export const KDF_MEMLIMIT = 64 * 1024 * 1024;
@@ -15,7 +15,7 @@ export const KDF_KEY_BYTES = 32;
 
 export async function generateSalt(): Promise<Uint8Array> {
   await ready();
-  return sodium.randombytes_buf(KDF_SALT_BYTES);
+  return getSodium().randombytes_buf(KDF_SALT_BYTES);
 }
 
 /**
@@ -43,6 +43,7 @@ export async function deriveKey(
     password.constructor === Uint8Array ? password : new Uint8Array(password);
   const saltCopy =
     salt.constructor === Uint8Array ? salt : new Uint8Array(salt);
+  const sodium = getSodium();
   return sodium.crypto_pwhash(
     outputBytes,
     passwordCopy,

@@ -68,12 +68,12 @@ describe('mapAuthError', () => {
   });
 
   describe('password validation', () => {
-    it('"Password should be at least 6 characters" maps to the length hint', () => {
-      expect(mapAuthError('Password should be at least 6 characters')).toMatch(/at least 6/i);
+    it('"Password should be at least N characters" maps to the length hint', () => {
+      expect(mapAuthError('Password should be at least 6 characters')).toMatch(/at least 10/i);
     });
 
     it('Supabase v2 "weak_password" maps to the same copy', () => {
-      expect(mapAuthError('weak_password')).toMatch(/at least 6/i);
+      expect(mapAuthError('weak_password')).toMatch(/at least 10/i);
     });
 
     it('"New password should be different" -> dedicated copy', () => {

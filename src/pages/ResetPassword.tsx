@@ -9,6 +9,7 @@ import { supabaseKeyStore } from '@/lib/keySession';
 import { isValidRecoveryCode } from '@/lib/crypto';
 import { urlLooksLikeRecovery } from '@/lib/recoveryUrl';
 import { mapAuthError } from '@/lib/authError';
+import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
 
 type LinkState = 'checking' | 'invalid' | 'verifying' | 'ready';
 
@@ -104,8 +105,8 @@ const ResetPassword = () => {
       toast.error('Passwords do not match.');
       return;
     }
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters.');
+    if (passwordTooShort(password)) {
+      toast.error(PASSWORD_LENGTH_HINT);
       return;
     }
 
@@ -254,7 +255,7 @@ const ResetPassword = () => {
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={PASSWORD_MIN_LENGTH}
             />
           </label>
           <label className="q-input">
@@ -265,7 +266,7 @@ const ResetPassword = () => {
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               required
-              minLength={6}
+              minLength={PASSWORD_MIN_LENGTH}
             />
           </label>
 

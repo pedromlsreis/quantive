@@ -6,7 +6,7 @@
  * format and do not split it.
  */
 
-import { ready, sodium } from './sodium';
+import { ready, getSodium } from './sodium';
 
 export const AEAD_KEY_BYTES = 32;
 export const AEAD_NONCE_BYTES = 24;
@@ -46,12 +46,12 @@ function realm(buf: Uint8Array): Uint8Array {
 
 export async function generateKey(): Promise<Uint8Array> {
   await ready();
-  return sodium.randombytes_buf(AEAD_KEY_BYTES);
+  return getSodium().randombytes_buf(AEAD_KEY_BYTES);
 }
 
 export async function generateNonce(): Promise<Uint8Array> {
   await ready();
-  return sodium.randombytes_buf(AEAD_NONCE_BYTES);
+  return getSodium().randombytes_buf(AEAD_NONCE_BYTES);
 }
 
 export async function encrypt(args: {
@@ -63,7 +63,7 @@ export async function encrypt(args: {
   await ready();
   assertKey(args.key);
   assertNonce(args.nonce);
-  return sodium.crypto_aead_xchacha20poly1305_ietf_encrypt(
+  return getSodium().crypto_aead_xchacha20poly1305_ietf_encrypt(
     realm(args.plaintext),
     realm(args.aad),
     null, // nsec is unused for XChaCha20-Poly1305
@@ -85,7 +85,7 @@ export async function decrypt(args: {
     throw new DecryptionError('ciphertext shorter than auth tag');
   }
   try {
-    return sodium.crypto_aead_xchacha20poly1305_ietf_decrypt(
+    return getSodium().crypto_aead_xchacha20poly1305_ietf_decrypt(
       null,
       realm(args.ciphertext),
       realm(args.aad),

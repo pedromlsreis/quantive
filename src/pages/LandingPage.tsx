@@ -22,7 +22,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Is Quantive free to use?',
-    a: 'Yes. Core features are free forever with no credit card required. A Pro plan with full history, advanced forecasting, and export features is coming at €90/year.',
+    a: 'Yes. Core features are free forever with no credit card required. Pro is €9/month or €90/year — see Pricing below for what it adds.',
   },
   {
     q: 'How does Quantive protect my financial data?',

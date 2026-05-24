@@ -12,12 +12,12 @@ function fakeClient(behaviour: { data?: unknown; error?: { message: string }; th
 describe('checkRateLimit', () => {
   it('allows when the RPC returns true', async () => {
     const client = fakeClient({ data: true });
-    expect(await checkRateLimit(client, { ip: '1.2.3.4' })).toEqual({ allowed: true });
+    expect(await checkRateLimit(client, { ip: '1.2.3.4', bucket: 'b' })).toEqual({ allowed: true });
   });
 
   it('rejects when the RPC returns false, with the configured retryAfter', async () => {
     const client = fakeClient({ data: false });
-    expect(await checkRateLimit(client, { ip: '1.2.3.4', windowSeconds: 30 })).toEqual({
+    expect(await checkRateLimit(client, { ip: '1.2.3.4', bucket: 'b', windowSeconds: 30 })).toEqual({
       allowed: false,
       retryAfter: 30,
     });
@@ -25,25 +25,26 @@ describe('checkRateLimit', () => {
 
   it('defaults retryAfter to 60 when windowSeconds is not provided', async () => {
     const client = fakeClient({ data: false });
-    const result = await checkRateLimit(client, { ip: '1.2.3.4' });
+    const result = await checkRateLimit(client, { ip: '1.2.3.4', bucket: 'b' });
     expect(result).toEqual({ allowed: false, retryAfter: 60 });
   });
 
   it('fails open when the RPC returns an error', async () => {
     const client = fakeClient({ error: { message: 'connection refused' } });
-    expect(await checkRateLimit(client, { ip: '1.2.3.4' })).toEqual({ allowed: true });
+    expect(await checkRateLimit(client, { ip: '1.2.3.4', bucket: 'b' })).toEqual({ allowed: true });
   });
 
   it('fails open when the RPC throws', async () => {
     const client = fakeClient({ throws: true });
-    expect(await checkRateLimit(client, { ip: '1.2.3.4' })).toEqual({ allowed: true });
+    expect(await checkRateLimit(client, { ip: '1.2.3.4', bucket: 'b' })).toEqual({ allowed: true });
   });
 
-  it('forwards maxRequests and windowSeconds as named RPC args', async () => {
+  it('forwards bucket, maxRequests and windowSeconds as named RPC args', async () => {
     const client = fakeClient({ data: true });
-    await checkRateLimit(client, { ip: '1.2.3.4', maxRequests: 7, windowSeconds: 45 });
-    expect(client.rpc).toHaveBeenCalledWith('check_rate_limit', {
+    await checkRateLimit(client, { ip: '1.2.3.4', bucket: 'feedback', maxRequests: 7, windowSeconds: 45 });
+    expect(client.rpc).toHaveBeenCalledWith('check_rate_limit_bucket', {
       p_ip: '1.2.3.4',
+      p_bucket: 'feedback',
       p_max_requests: 7,
       p_window_seconds: 45,
     });
@@ -51,8 +52,8 @@ describe('checkRateLimit', () => {
 
   it('omits override args when not specified, so DB defaults apply', async () => {
     const client = fakeClient({ data: true });
-    await checkRateLimit(client, { ip: '1.2.3.4' });
-    expect(client.rpc).toHaveBeenCalledWith('check_rate_limit', { p_ip: '1.2.3.4' });
+    await checkRateLimit(client, { ip: '1.2.3.4', bucket: 'b' });
+    expect(client.rpc).toHaveBeenCalledWith('check_rate_limit_bucket', { p_ip: '1.2.3.4', p_bucket: 'b' });
   });
 });
 

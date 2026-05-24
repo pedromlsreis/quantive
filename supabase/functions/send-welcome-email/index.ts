@@ -33,7 +33,7 @@ serve(async (req) => {
     // invocations to burn Resend quota and log noise. 5/minute is plenty
     // of headroom for a real login (typically 1 per session).
     const ip = extractIp(req);
-    const rate = await checkRateLimit(admin, { ip, maxRequests: 5, windowSeconds: 60 });
+    const rate = await checkRateLimit(admin, { ip, bucket: "send-welcome-email", maxRequests: 5, windowSeconds: 60 });
     if (!rate.allowed) {
       return respond({ error: "rate_limited" }, 429, { "Retry-After": String(rate.retryAfter) });
     }

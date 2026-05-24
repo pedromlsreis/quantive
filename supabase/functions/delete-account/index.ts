@@ -33,7 +33,7 @@ serve(async (req) => {
     // per minute per IP is more than enough for a real user and blocks the
     // obvious abuse case of scripted mass-deletion against stolen tokens.
     const ip = extractIp(req);
-    const rate = await checkRateLimit(serviceClient, { ip, maxRequests: 5, windowSeconds: 60 });
+    const rate = await checkRateLimit(serviceClient, { ip, bucket: "delete-account", maxRequests: 5, windowSeconds: 60 });
     if (!rate.allowed) {
       return errorResponse("rate_limited", 429, { "Retry-After": String(rate.retryAfter) });
     }
@@ -95,7 +95,19 @@ serve(async (req) => {
     // Clear user-scoped rows before dropping auth.users. The list of tables
     // and their order live in userDataDelete.ts so the same sequence can be
     // unit-tested and reused by the admin-side delete path.
-    await deleteUserData(serviceClient, user.id);
+    //
+    // Abort if any table-level delete failed. The auth.users row stays so
+    // the user (or admin) can retry — silently removing the account would
+    // orphan rows in tables that are ON DELETE SET NULL (e.g. feedback),
+    // defeating the GDPR-intent delete.
+    const cleanup = await deleteUserData(serviceClient, user.id);
+    if (cleanup.errors.length > 0) {
+      console.error(
+        `[delete-account] data cleanup partial-failure for ${user.id}:`,
+        JSON.stringify(cleanup.errors),
+      );
+      return errorResponse("cleanup_failed", 500);
+    }
 
     // Capture identifiers before deletion — they're needed for the emails.
     const deletedUserId = user.id;

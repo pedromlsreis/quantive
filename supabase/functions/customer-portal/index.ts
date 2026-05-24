@@ -30,7 +30,7 @@ serve(async (req) => {
     logStep("Function started");
 
     const ip = extractIp(req);
-    const rate = await checkRateLimit(admin, { ip, maxRequests: 10, windowSeconds: 60 });
+    const rate = await checkRateLimit(admin, { ip, bucket: "customer-portal", maxRequests: 10, windowSeconds: 60 });
     if (!rate.allowed) {
       logStep("Rate-limited", { ip });
       return errorResponse("rate_limited", 429, { "Retry-After": String(rate.retryAfter) });

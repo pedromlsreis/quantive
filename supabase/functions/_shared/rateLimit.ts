@@ -1,9 +1,12 @@
-// Rate-limit guard for authenticated edge functions. Wraps the existing
-// public.check_rate_limit(p_ip, ...) RPC and returns a typed result.
+// Rate-limit guard for authenticated edge functions. Wraps the bucketed
+// public.check_rate_limit_bucket(p_ip, p_bucket, ...) RPC.
 //
 // Fails open on RPC error: a transient DB issue should not block a paying
 // user from opening checkout. The risk is one extra unthrottled request
 // per outage; the cost of a false positive is a lost conversion.
+//
+// Each function must pass a distinct `bucket` so its counter does not
+// share state with unrelated endpoints. See migrations/20260524000000.
 
 // Use an unknown-typed client so this module stays runnable in both Deno
 // (npm:@supabase/supabase-js) and Vitest contexts without dragging the SDK
@@ -17,6 +20,7 @@ interface RpcCapable {
 
 export interface RateLimitOptions {
   ip: string;
+  bucket: string;
   maxRequests?: number;
   windowSeconds?: number;
 }
@@ -29,13 +33,13 @@ export async function checkRateLimit(
   client: RpcCapable,
   opts: RateLimitOptions,
 ): Promise<RateLimitResult> {
-  const { ip, maxRequests, windowSeconds } = opts;
-  const args: Record<string, unknown> = { p_ip: ip };
+  const { ip, bucket, maxRequests, windowSeconds } = opts;
+  const args: Record<string, unknown> = { p_ip: ip, p_bucket: bucket };
   if (maxRequests !== undefined) args.p_max_requests = maxRequests;
   if (windowSeconds !== undefined) args.p_window_seconds = windowSeconds;
 
   try {
-    const { data, error } = await client.rpc("check_rate_limit", args);
+    const { data, error } = await client.rpc("check_rate_limit_bucket", args);
     if (error) {
       console.error("[rate-limit] RPC failed:", error.message);
       return { allowed: true };

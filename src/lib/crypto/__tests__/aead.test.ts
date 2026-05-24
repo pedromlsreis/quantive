@@ -6,8 +6,8 @@
  * security-relevant behaviors that callers depend on.
  */
 
-import { describe, expect, it } from 'vitest';
-import { sodium } from '../sodium';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { getSodium, ready } from '../sodium';
 import {
   AEAD_KEY_BYTES,
   AEAD_NONCE_BYTES,
@@ -18,6 +18,12 @@ import {
   generateKey,
   generateNonce,
 } from '../aead';
+
+// libsodium loads lazily now (dynamic import); ensure it is ready before any
+// test reads sodium directly.
+beforeAll(async () => {
+  await ready();
+});
 
 function hex(s: string): Uint8Array {
   const clean = s.replace(/[^0-9a-fA-F]/g, '');
@@ -137,7 +143,7 @@ describe('AEAD: round-trip', () => {
     const key = await generateKey();
     const nonce = await generateNonce();
     const aad = utf8('big');
-    const plaintext = sodium.randombytes_buf(1024 * 1024);
+    const plaintext = getSodium().randombytes_buf(1024 * 1024);
     const ct = await encrypt({ key, nonce, plaintext, aad });
     const pt = await decrypt({ key, nonce, ciphertext: ct, aad });
     expect(pt.length).toBe(plaintext.length);
@@ -275,7 +281,7 @@ describe('AEAD: fuzz (random ciphertext rejection)', () => {
     const aad = utf8('fuzz');
     for (let i = 0; i < 100; i++) {
       const len = AEAD_TAG_BYTES + Math.floor(Math.random() * 256);
-      const ct = sodium.randombytes_buf(len);
+      const ct = getSodium().randombytes_buf(len);
       await expect(
         decrypt({ key, nonce, ciphertext: ct, aad }),
       ).rejects.toBeInstanceOf(DecryptionError);
