@@ -149,8 +149,14 @@ serve(async (req) => {
           subscription_synced_at: new Date().toISOString(),
         })
         .eq("user_id", user.id);
-      setNegativeCache(user.id, emptyView());
-      return respond(emptyView());
+      // A Stripe customer exists (the customer.id branch above) — the user
+      // has billing history, even if they have no entitled subscription
+      // right now. Surfacing has_stripe_history=true keeps the Settings page
+      // "Manage billing" button reachable so they can pull invoices or
+      // reactivate without a fresh checkout flow.
+      const noSubView = { ...emptyView(), has_stripe_history: true };
+      setNegativeCache(user.id, noSubView);
+      return respond(noSubView);
     }
 
     const row = buildCacheRow(subscription as unknown as Parameters<typeof buildCacheRow>[0]);
@@ -168,6 +174,7 @@ serve(async (req) => {
       subscription_product_id: row.subscription_product_id,
       subscription_end: row.subscription_end,
       subscription_cancel_at_period_end: row.subscription_cancel_at_period_end,
+      stripe_customer_id: customer.id,
     });
     setNegativeCache(user.id, liveView);
     return respond(liveView);

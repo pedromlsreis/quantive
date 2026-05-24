@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { analytics } from "@/lib/analytics";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorBoundary, RouteScopedErrorBoundary } from "@/components/ErrorBoundary";
 import { ConsentBanner } from "@/components/ConsentBanner";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -129,7 +129,14 @@ const App = () => (
                   <RequireUnlock />
                   <RecoveryOfferModal />
                   <AuthModalProvider>
-                    <AppRoutes />
+                    {/* Route-scoped boundary: a page-level crash resets when
+                        the user navigates away, instead of poisoning the
+                        whole shell. The outer ErrorBoundary still catches
+                        provider-init failures that would otherwise leave the
+                        router unmounted. */}
+                    <RouteScopedErrorBoundary>
+                      <AppRoutes />
+                    </RouteScopedErrorBoundary>
                   </AuthModalProvider>
                   <ConsentBanner />
                 </BrowserRouter>

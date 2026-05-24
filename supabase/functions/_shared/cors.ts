@@ -75,3 +75,25 @@ export function buildCorsHeaders(req: Request): Record<string, string> {
 export function corsPreflightResponse(req: Request): Response {
   return new Response(null, { status: 204, headers: buildCorsHeaders(req) });
 }
+
+/**
+ * Resolve the base URL to use when building Stripe `success_url` /
+ * `return_url`. We trust the request's Origin header only when it appears
+ * in the same allowlist used for CORS, falling back to the canonical
+ * production URL otherwise.
+ *
+ * Background: CORS gates which sites the browser will accept *responses*
+ * from, but does not validate the body of the request itself. A
+ * server-to-server caller with a stolen JWT can supply any Origin string,
+ * and Stripe will happily redirect the user to that domain after checkout.
+ * Pinning the redirect base to an allowlisted origin closes that gap.
+ */
+export function safeRedirectOrigin(req: Request): string {
+  const allowlist = getAllowedOrigins();
+  const supplied = req.headers.get("origin");
+  const allowed = pickAllowedOrigin(supplied, allowlist);
+  if (allowed) return allowed;
+  // Prefer the first allowlisted origin (canonical production URL is first
+  // in DEFAULT_ALLOWED_ORIGINS) over a localhost fallback.
+  return allowlist[0] ?? "https://usequantive.app";
+}

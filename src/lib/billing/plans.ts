@@ -77,4 +77,8 @@ export type SubscriptionStatus = {
   // access during the dunning window; the UI should prompt them to update
   // their card before retries run out.
   paymentPastDue: boolean;
+  // True if the user has ever had a Stripe customer record. The Settings
+  // page uses this to keep the "Manage billing" button visible for cancelled
+  // users so they can reach the portal for invoices or to reactivate.
+  hasStripeHistory: boolean;
 };

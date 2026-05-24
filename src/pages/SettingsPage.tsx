@@ -394,7 +394,12 @@ export default function SettingsPage() {
               )}
             </div>
             <div style={{ display: 'flex', gap: 'var(--s-2)', flexShrink: 0 }}>
-              {subscription.subscribed ? (
+              {/* Manage billing stays reachable for anyone with Stripe
+                  history — active subscribers and cancelled users alike —
+                  so they can pull invoices or reactivate without a fresh
+                  checkout flow. Upgrade button shows for everyone not
+                  currently subscribed (including ex-Pro). */}
+              {(subscription.subscribed || subscription.hasStripeHistory) && (
                 <button
                   type="button"
                   onClick={handleManageBilling}
@@ -404,7 +409,8 @@ export default function SettingsPage() {
                 >
                   {managingBilling ? 'Opening…' : 'Manage billing'}
                 </button>
-              ) : (
+              )}
+              {!subscription.subscribed && (
                 <Link to="/pricing" className="q-btn q-btn--primary q-btn--sm">
                   Upgrade to Pro
                 </Link>

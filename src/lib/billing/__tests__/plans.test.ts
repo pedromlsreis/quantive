@@ -66,6 +66,7 @@ describe('SubscriptionStatus type', () => {
       subscriptionEnd: null,
       cancelAtPeriodEnd: false,
       paymentPastDue: false,
+      hasStripeHistory: false,
     };
     expect(s.subscribed).toBe(false);
   });
@@ -77,6 +78,7 @@ describe('SubscriptionStatus type', () => {
       subscriptionEnd: '2026-12-31T00:00:00.000Z',
       cancelAtPeriodEnd: false,
       paymentPastDue: false,
+      hasStripeHistory: true,
     };
     expect(s.subscribed).toBe(true);
     expect(s.productId).toBe('prod_abc123');
@@ -89,8 +91,22 @@ describe('SubscriptionStatus type', () => {
       subscriptionEnd: '2026-12-31T00:00:00.000Z',
       cancelAtPeriodEnd: false,
       paymentPastDue: true,
+      hasStripeHistory: true,
     };
     expect(s.subscribed).toBe(true);
     expect(s.paymentPastDue).toBe(true);
+  });
+
+  it('can represent a cancelled ex-Pro user with billing history', () => {
+    const s: SubscriptionStatus = {
+      subscribed: false,
+      productId: null,
+      subscriptionEnd: null,
+      cancelAtPeriodEnd: false,
+      paymentPastDue: false,
+      hasStripeHistory: true,
+    };
+    expect(s.subscribed).toBe(false);
+    expect(s.hasStripeHistory).toBe(true);
   });
 });

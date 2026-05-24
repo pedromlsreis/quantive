@@ -7,6 +7,7 @@ export type CheckoutErrorCode =
   | 'unauthenticated'
   | 'email_unverified'
   | 'invalid_request'
+  | 'already_subscribed'
   | 'checkout_unavailable';
 
 /**
@@ -33,6 +34,8 @@ export function messageForCheckoutError(code: string | undefined): string {
       return 'Confirm your email first — check the link we sent you.';
     case 'invalid_request':
       return "That plan isn't available anymore. Refresh the page and try again.";
+    case 'already_subscribed':
+      return "You're already on Pro. Manage your subscription from Settings.";
     case 'rate_limited':
       return 'A few too many attempts in a row. Wait a minute and try again.';
     case 'checkout_unavailable':

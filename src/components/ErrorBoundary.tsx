@@ -1,9 +1,17 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { analytics } from '@/lib/analytics';
 
 interface Props {
   children: React.ReactNode;
   fallback?: React.ReactNode;
+  /**
+   * When this value changes (e.g. on route navigation), a tripped boundary
+   * resets itself. Lets one bad page stay bad without poisoning the rest of
+   * the app — the user navigating away gets a clean shell instead of the
+   * fallback persisting until manual reset.
+   */
+  resetKey?: string;
 }
 
 interface State {
@@ -22,6 +30,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
       kind: 'react_error_boundary',
       componentStack: info.componentStack,
     });
+  }
+
+  componentDidUpdate(prevProps: Props) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
+    }
   }
 
   render() {
@@ -43,4 +57,18 @@ export class ErrorBoundary extends React.Component<Props, State> {
     }
     return this.props.children;
   }
+}
+
+/**
+ * ErrorBoundary that resets when the route pathname changes. Must be
+ * rendered inside a <BrowserRouter>. Use this around AppRoutes so a
+ * page-level crash does not persist when the user navigates away.
+ */
+export function RouteScopedErrorBoundary({ children, fallback }: Omit<Props, 'resetKey'>) {
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary resetKey={pathname} fallback={fallback}>
+      {children}
+    </ErrorBoundary>
+  );
 }

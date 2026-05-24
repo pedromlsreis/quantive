@@ -3,7 +3,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { findOrCreateStripeCustomer } from "../_shared/stripeCustomer.ts";
 
-import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { buildCorsHeaders, corsPreflightResponse, safeRedirectOrigin } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 
 const logStep = (step: string, details?: unknown) => {
@@ -83,6 +83,24 @@ serve(async (req) => {
     }
     logStep("Price ID received", { priceId });
 
+    // Refuse to create a second active subscription on the same Stripe
+    // customer. Without this, a Pro user who clicks "subscribe" again (e.g.
+    // through a stale tab or browser back-button) ends up double-billed.
+    // The cache row is the source of truth here — the webhook writes it on
+    // every subscription event, so it cannot meaningfully race with the
+    // user's own click. Cancelled users (`canceled` / null) still proceed:
+    // re-subscribing is a legitimate flow.
+    const { data: existing } = await admin
+      .from("profiles")
+      .select("subscription_status")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const existingStatus = (existing as { subscription_status?: string | null } | null)?.subscription_status ?? null;
+    if (existingStatus === "active" || existingStatus === "trialing" || existingStatus === "past_due") {
+      logStep("Already subscribed — refusing duplicate checkout", { userId: user.id, status: existingStatus });
+      return errorResponse("already_subscribed", 409);
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
     // Always resolve to a customer with metadata.supabase_user_id set, so
@@ -91,7 +109,7 @@ serve(async (req) => {
     const customer = await findOrCreateStripeCustomer(stripe, user.id, user.email);
     logStep("Stripe customer resolved", { customerId: customer.id });
 
-    const origin = req.headers.get("origin") || "http://localhost:3000";
+    const origin = safeRedirectOrigin(req);
     const session = await stripe.checkout.sessions.create({
       customer: customer.id,
       client_reference_id: user.id,

@@ -1,0 +1,50 @@
+# Verification-only CI. Mirrors the gates already enforced locally by
+# .husky/pre-push, so any internal push that uses --no-verify and every
+# external pull request still gets the same signal before merge.
+#
+# IMPORTANT: this workflow does NOT deploy. Cloudflare Pages watches the
+# repo independently and builds on push — adding a deploy step here would
+# either race with or shadow that integration. Keep this workflow strictly
+# read-only.
+#
+# Skips playwright (test:e2e) because the suite needs a running dev server
+# plus per-browser binaries and would more than double CI time. Husky still
+# runs it locally via `npm run test:all`.
+
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, typecheck, unit tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm run test
+
+      - run: npm run build
+
+      - run: npm run size:check

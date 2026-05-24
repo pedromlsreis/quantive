@@ -32,6 +32,7 @@ const defaultSubscription: SubscriptionStatus = {
   subscriptionEnd: null,
   cancelAtPeriodEnd: false,
   paymentPastDue: false,
+  hasStripeHistory: false,
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         subscriptionEnd: data?.subscription_end ?? null,
         cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
         paymentPastDue: data?.payment_past_due ?? false,
+        hasStripeHistory: data?.has_stripe_history ?? false,
       });
     } catch (err) {
       console.error('Error checking subscription:', err);
@@ -88,11 +90,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => authSub.unsubscribe();
   }, [checkSubscription]);
 
-  // Auto-refresh subscription every 60s for logged-in users
+  // Auto-refresh subscription every 60s, but only while the tab is visible.
+  // Background tabs left open all day were firing 1440 edge-function calls
+  // per user per day with nothing reading the result. We also re-fetch
+  // immediately when a hidden tab regains focus so the user sees fresh
+  // entitlement state on switch-back.
   useEffect(() => {
     if (!user) return;
-    const interval = setInterval(checkSubscription, 60_000);
-    return () => clearInterval(interval);
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    const start = () => {
+      if (interval !== null) return;
+      checkSubscription();
+      interval = setInterval(checkSubscription, 60_000);
+    };
+    const stop = () => {
+      if (interval === null) return;
+      clearInterval(interval);
+      interval = null;
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') start();
+      else stop();
+    };
+
+    if (document.visibilityState === 'visible') {
+      // Initial fetch already happens on auth change; only schedule the timer.
+      interval = setInterval(checkSubscription, 60_000);
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      stop();
+    };
   }, [user, checkSubscription]);
 
   // Fire-and-forget welcome email once email is confirmed. The edge function

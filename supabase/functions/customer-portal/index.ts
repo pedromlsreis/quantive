@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { findStripeCustomer } from "../_shared/stripeCustomer.ts";
-import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { buildCorsHeaders, corsPreflightResponse, safeRedirectOrigin } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 
 const logStep = (step: string, details?: unknown) => {
@@ -61,7 +61,7 @@ serve(async (req) => {
       return errorResponse("not_found", 404);
     }
 
-    const origin = req.headers.get("origin") || "http://localhost:3000";
+    const origin = safeRedirectOrigin(req);
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customer.id,
       return_url: `${origin}/settings`,

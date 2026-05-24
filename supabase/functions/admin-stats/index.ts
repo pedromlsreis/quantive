@@ -182,8 +182,11 @@ serve(async (req) => {
       subscriptions: stripeStats,
     });
   } catch (err) {
+    // Never echo raw error text to the client — Postgres / Stripe messages
+    // can include table names, query fragments, or upstream API detail
+    // that should stay in server logs.
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[admin-stats] error:", msg);
-    return json({ error: msg }, 500);
+    return json({ error: "internal_error" }, 500);
   }
 });

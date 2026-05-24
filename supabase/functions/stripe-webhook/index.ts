@@ -153,10 +153,11 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
       const currency = (item?.price?.currency ?? "eur").toUpperCase();
       const interval = item?.price?.recurring?.interval ?? "?";
 
-      // Cache the subscription on profiles so check-subscription can skip
-      // the live Stripe round-trip. Best-effort: an upsert failure here
-      // logs but does not fail the webhook — the admin email still goes,
-      // and check-subscription falls back to live lookup.
+      // Cache FIRST. If the cache write throws (DB hiccup), the outer
+      // handler rolls back stripe_events and Stripe retries — and we will
+      // NOT have sent admin or customer emails yet. Sending side-effects
+      // before the DB commit was the bug that doubled the welcome email
+      // on retries (see pre-launch-hardening-plan.md #10).
       await cacheSubscription(admin, userId, sub.customer, sub);
 
       // Admin notification: a new paid customer is high-signal.
@@ -179,10 +180,16 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
         ]),
       });
 
-      // Pro onboarding email to the customer. We do this only on .created
-      // (not .updated) so plan changes or reactivations don't re-spam.
-      if (email) {
-        await sendProWelcomeEmail({ email, name, amount, currency, interval });
+      // Pro onboarding email to the customer — only once per user, ever.
+      // The pro_welcome_sent_at flag prevents resends on Stripe retries
+      // AND on churn-and-return (a second `.created` event after a full
+      // cancel-then-resubscribe should not trigger a fresh welcome).
+      if (email && userId) {
+        const alreadySent = await proWelcomeAlreadySent(admin, userId);
+        if (!alreadySent) {
+          await sendProWelcomeEmail({ email, name, amount, currency, interval });
+          await markProWelcomeSent(admin, userId);
+        }
       }
       break;
     }
@@ -391,6 +398,35 @@ async function resolveCustomer(
     };
   } catch {
     return { email: null, name: null, userId: null };
+  }
+}
+
+async function proWelcomeAlreadySent(admin: AdminClient, userId: string): Promise<boolean> {
+  const { data, error } = await admin
+    .from("profiles")
+    .select("pro_welcome_sent_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) {
+    // Fail closed: if we can't read the flag we'd rather skip the welcome
+    // than risk a duplicate. The user already got the Stripe receipt and
+    // can see Pro in the app — missing our admin-style welcome is mild.
+    console.error(`[stripe-webhook] proWelcomeAlreadySent read failed for ${userId}:`, error.message);
+    return true;
+  }
+  return (data as { pro_welcome_sent_at?: string | null } | null)?.pro_welcome_sent_at != null;
+}
+
+async function markProWelcomeSent(admin: AdminClient, userId: string): Promise<void> {
+  const { error } = await admin
+    .from("profiles")
+    .update({ pro_welcome_sent_at: new Date().toISOString() })
+    .eq("user_id", userId);
+  if (error) {
+    // Logged but not thrown: the welcome email already went out and the
+    // outer handler's stripe_events row is already committed — rolling
+    // back to re-send is the wrong remedy. Worst case: a retry double-sends.
+    console.error(`[stripe-webhook] markProWelcomeSent failed for ${userId}:`, error.message);
   }
 }
 

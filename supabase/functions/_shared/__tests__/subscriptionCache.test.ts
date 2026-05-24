@@ -64,6 +64,7 @@ describe('viewFromCacheRow', () => {
       subscription_product_id: 'prod_pro',
       subscription_end: '2026-12-31T00:00:00.000Z',
       subscription_cancel_at_period_end: false,
+      stripe_customer_id: 'cus_active',
     });
     expect(view).toEqual({
       subscribed: true,
@@ -71,6 +72,7 @@ describe('viewFromCacheRow', () => {
       subscription_end: '2026-12-31T00:00:00.000Z',
       cancel_at_period_end: false,
       payment_past_due: false,
+      has_stripe_history: true,
     });
   });
 
@@ -113,6 +115,18 @@ describe('viewFromCacheRow', () => {
       expect(view.payment_past_due).toBe(false);
     }
   });
+
+  it('flags has_stripe_history when a cancelled row still carries a customer id', () => {
+    const view = viewFromCacheRow({
+      subscription_status: 'canceled',
+      subscription_product_id: null,
+      subscription_end: null,
+      subscription_cancel_at_period_end: false,
+      stripe_customer_id: 'cus_excustomer',
+    });
+    expect(view.subscribed).toBe(false);
+    expect(view.has_stripe_history).toBe(true);
+  });
 });
 
 describe('emptyView', () => {
@@ -123,6 +137,7 @@ describe('emptyView', () => {
       subscription_end: null,
       cancel_at_period_end: false,
       payment_past_due: false,
+      has_stripe_history: false,
     });
   });
 });
