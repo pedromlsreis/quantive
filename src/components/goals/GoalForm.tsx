@@ -82,7 +82,19 @@ export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  // Soft close on backdrop: only when the user hasn't typed anything yet,
+  // mirroring AuthModal's guard. Stops a stray edge-click from discarding
+  // a half-written goal. The × button and Esc remain the always-on closes.
+  // Note: deliberately no `if (!open) return null` early-return — that
+  // short-circuits AnimatePresence before it can play the exit animation.
+  // The `{open && ...}` inside AnimatePresence is what handles visibility.
+  const hasUserInput =
+    name.trim().length > 0 || amount.trim().length > 0;
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target !== e.currentTarget) return;
+    if (hasUserInput) return;
+    onClose();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,7 +124,7 @@ export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
           animate="visible"
           exit="exit"
           className="q-modal-backdrop"
-          onClick={onClose}
+          onClick={handleBackdropClick}
           role="presentation"
         >
           <motion.div

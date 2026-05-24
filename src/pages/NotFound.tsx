@@ -7,7 +7,10 @@ const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    // A 404 from a mistyped URL or dead deep-link is normal traffic, not an
+    // app error. Warn so the line stays greppable in dev without bumping
+    // the page into the global-error-handler bucket on launch day.
+    console.warn("404: no route for", location.pathname);
   }, [location.pathname]);
 
   return (

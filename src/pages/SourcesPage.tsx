@@ -17,7 +17,7 @@ import {
 import { toTitleCase } from '@/lib/utils';
 
 const SourcesPage = () => {
-  const { data, isLoading, snapshots, updateRefSource } = usePortfolio();
+  const { data, isLoading, snapshots, updateRefSource, lastCurrencyBySource } = usePortfolio();
   const { fmtFull } = useCurrencyFormatter();
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -162,7 +162,24 @@ const SourcesPage = () => {
                       )}
                     </td>
                     <td data-col="secondary">
-                      <span className="mono" style={{ fontSize: 12, color: 'var(--fg-muted)' }}>{currency.code}</span>
+                      {(() => {
+                        // Show the source's own currency (most-recent fact),
+                        // not the global display currency. When the two
+                        // differ, the Value column is FX-converted at the
+                        // snapshot rate; hint at that with a small "→ EUR"
+                        // suffix so the user can see why their USD broker
+                        // shows a different number than their statement.
+                        const sourceCcy = lastCurrencyBySource.get(s.name) ?? currency.code;
+                        const converted = sourceCcy !== currency.code;
+                        return (
+                          <span className="mono" style={{ fontSize: 12, color: 'var(--fg-muted)' }}>
+                            {sourceCcy}
+                            {converted && (
+                              <span style={{ color: 'var(--fg-faint)' }}> → {currency.code}</span>
+                            )}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td data-col="secondary" style={{ width: 100 }}>
                       {series.length > 1

@@ -2,7 +2,7 @@
 
 A privacy-first personal finance cockpit. Track your net worth over time, analyse asset allocations, and forecast your future — with every byte of portfolio data encrypted before it leaves your device.
 
-**Live:** https://usequantive.app
+**Live:** https://usequantive.app · **Try the demo without signing up:** https://usequantive.app/demo
 
 ![Quantive dashboard — net worth chart, allocation treemap, KPI cards](public/images/dashboard.jpg)
 
@@ -121,7 +121,7 @@ src/
 └── hooks/
 
 supabase/
-├── migrations/       # 9 forward-only SQL migrations
+├── migrations/       # forward-only SQL migrations
 └── functions/        # Deno edge functions: Stripe webhook, FX ingest, admin APIs
 ```
 
@@ -143,5 +143,4 @@ Crypto patches must reference the relevant section of `docs/security/encryption.
 
 ## License
 
-The application code is released under the [PolyForm Noncommercial 1.0.0](LICENSE) licence.  
-The crypto module (`src/lib/crypto/`) is released under the MIT licence.
+Quantive is **source-available**, not OSI-approved open source. The application code is released under the [PolyForm Noncommercial 1.0.0](LICENSE) licence; the crypto module (`src/lib/crypto/`) is released under the MIT licence. Commercial use requires a separate licence — contact <legal@usequantive.app>.

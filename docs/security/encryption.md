@@ -231,7 +231,7 @@ CREATE TABLE public.user_keys (
   wrapped_dk_recovery BYTEA,
 
   -- Argon2id salt for recovery_code → recovery_KEK derivation.
-  -- NULL iff wrapped_dk_recovery is NULL.
+  -- NULL if wrapped_dk_recovery is NULL.
   recovery_kdf_salt BYTEA,
 
   -- KDF parameter version. enc_version=1 means Argon2id t=3, m=64MiB.

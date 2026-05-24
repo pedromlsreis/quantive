@@ -151,14 +151,27 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (!user) return;
+    let cancelled = false;
     supabase
       .from('profiles')
       .select('display_name')
       .eq('user_id', user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          // The display-name field is a nicety, not load-bearing — the page
+          // is still usable without it. Surface a quiet toast so the user
+          // knows the empty name is a fetch failure, not the truth.
+          console.warn('[settings] display name fetch failed:', error.message);
+          toast.error("Couldn't load your profile. Refresh to try again.");
+          return;
+        }
         if (data) setDisplayName(data.display_name);
       });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   const handleSave = async () => {

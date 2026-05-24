@@ -215,7 +215,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setData(null);
     setIsMockData(false);
     setFilters(defaultFilters);
-    // Arm the skeleton iff we're entering an authed identity (a real cloud
+    // Arm the skeleton if we're entering an authed identity (a real cloud
     // fetch is about to happen). On sign-out (user → null) we leave it false
     // so the dashboard can fall through to the file-upload empty state.
     setIsCloudLoading(user != null);

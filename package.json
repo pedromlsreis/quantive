@@ -1,6 +1,17 @@
 {
   "name": "quantive",
   "version": "0.1.0",
+  "description": "A privacy-first personal finance cockpit. Track net worth, analyse asset allocations, and forecast future wealth — with every byte of portfolio data encrypted before it leaves your device.",
+  "author": "Pedro Reis <pedromlsreis@gmail.com>",
+  "homepage": "https://usequantive.app",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pedromlsreis/quantive.git"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "bugs": {
+    "url": "https://github.com/pedromlsreis/quantive/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",

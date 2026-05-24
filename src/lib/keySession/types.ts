@@ -23,7 +23,7 @@ export interface KeyStore {
   /** Inserts a fresh user_keys row. Caller is responsible for ensuring no row already exists. */
   insertUserKeys(row: UserKeysRow): Promise<void>;
 
-  /** True iff the user has at least one row in portfolio_snapshots. */
+  /** True if the user has at least one row in portfolio_snapshots. */
   hasPortfolioSnapshot(userId: string): Promise<boolean>;
 
   /**

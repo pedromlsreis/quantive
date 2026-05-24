@@ -68,7 +68,7 @@ export async function cancelActiveSubscriptions(
   return result;
 }
 
-// Convenience: true iff every billing-eligible subscription is now terminal.
+// Convenience: true if every billing-eligible subscription is now terminal.
 // The delete-account flow uses this to decide whether to proceed (true) or
 // abort with a 500 so the user can retry (false).
 export function isFullyCancelled(result: CancelResult): boolean {

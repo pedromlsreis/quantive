@@ -36,7 +36,7 @@ export type KeySessionStatus =
 interface KeySessionContextType {
   status: KeySessionStatus;
   /**
-   * True iff the active user has set up a recovery code (i.e. their
+   * True if the active user has set up a recovery code (i.e. their
    * user_keys row has a populated wrapped_dk_recovery). Null while we
    * don't yet know.
    */

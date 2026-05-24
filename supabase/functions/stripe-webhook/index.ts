@@ -160,18 +160,27 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
       // on retries (see pre-launch-hardening-plan.md #10).
       await cacheSubscription(admin, userId, sub.customer, sub);
 
-      // Admin notification: a new paid customer is high-signal.
+      // Resolve once: did this user ever receive the Pro welcome before?
+      // True if this is a churn-and-return event (cancel → resubscribe).
+      // Drives both the admin email subject and whether the customer
+      // welcome re-fires.
+      const isReturning = userId ? await proWelcomeAlreadySent(admin, userId) : false;
+
+      // Admin notification: a new paid customer is high-signal. Returning
+      // customers are a different, lower-stakes signal — same payload but
+      // a distinct subject so they don't read as fresh signups.
+      const adminLabel = isReturning ? "Returning subscription" : "New subscription";
       await sendEmail({
         to: adminTo,
-        subject: `New Quantive subscription: ${email ?? sub.customer}`,
-        html: notificationHtml("New subscription", [
+        subject: `Quantive ${isReturning ? "returning" : "new"} subscription: ${email ?? sub.customer}`,
+        html: notificationHtml(adminLabel, [
           ["Customer", email ?? "(unknown)"],
           ...(name ? [["Name", name] as [string, string]] : []),
           ["Plan", `${amount} ${currency} / ${interval}`],
           ["Subscription ID", sub.id],
           ["Customer ID", String(sub.customer)],
         ]),
-        text: notificationText("New subscription", [
+        text: notificationText(adminLabel, [
           ["Customer", email ?? "(unknown)"],
           ...(name ? [["Name", name] as [string, string]] : []),
           ["Plan", `${amount} ${currency} / ${interval}`],
@@ -185,8 +194,7 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
       // AND on churn-and-return (a second `.created` event after a full
       // cancel-then-resubscribe should not trigger a fresh welcome).
       if (email && userId) {
-        const alreadySent = await proWelcomeAlreadySent(admin, userId);
-        if (!alreadySent) {
+        if (!isReturning) {
           await sendProWelcomeEmail({ email, name, amount, currency, interval });
           await markProWelcomeSent(admin, userId);
         }
