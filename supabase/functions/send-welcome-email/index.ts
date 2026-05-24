@@ -48,23 +48,35 @@ serve(async (req) => {
     if (!user.email) return respond({ skipped: "no_email" });
     if (!user.email_confirmed_at) return respond({ skipped: "email_unverified" });
 
-    // Idempotency: check the flag before sending.
-    const { data: profile, error: profileErr } = await admin
+    // Atomically CLAIM the welcome-send slot before sending. The previous
+    // pattern (read flag → send → write flag) had a race window: two tabs
+    // hitting the function in parallel both read NULL, both sent, both
+    // wrote the flag. Common with new signups because the confirmation
+    // email link opens a second tab, so the original signup tab + the new
+    // tab + a stray Settings tab all fire on the same SIGNED_IN event.
+    //
+    // Conditional UPDATE with `.is("welcome_email_sent_at", null)` flips the
+    // flag iff it is still null and returns the row only on the winning
+    // claim. Losers see an empty result and short-circuit.
+    const claimedAt = new Date().toISOString();
+    const { data: claim, error: claimErr } = await admin
       .from("profiles")
-      .select("welcome_email_sent_at, display_name")
+      .update({ welcome_email_sent_at: claimedAt })
       .eq("user_id", user.id)
-      .maybeSingle();
+      .is("welcome_email_sent_at", null)
+      .select("display_name");
 
-    if (profileErr) {
-      console.error("[send-welcome-email] profile read failed:", profileErr.message);
+    if (claimErr) {
+      console.error("[send-welcome-email] claim failed:", claimErr.message);
       return respond({ error: "internal_error" }, 500);
     }
-    if (profile?.welcome_email_sent_at) {
+    if (!claim || claim.length === 0) {
       return respond({ skipped: "already_sent" });
     }
+    const claimedProfile = claim[0] as { display_name: string | null };
 
-    const greeting = profile?.display_name
-      ? `Hi ${escapeHtml(profile.display_name.split(" ")[0])},`
+    const greeting = claimedProfile.display_name
+      ? `Hi ${escapeHtml(claimedProfile.display_name.split(" ")[0])},`
       : "Hi,";
 
     const bodyHtml = `
@@ -83,7 +95,7 @@ serve(async (req) => {
     const html = brandedEmailHtml({ heading: "Welcome to Quantive", bodyHtml });
     const text =
       `Welcome to Quantive\n\n` +
-      `${profile?.display_name ? `Hi ${profile.display_name.split(" ")[0]},` : "Hi,"}\n\n` +
+      `${claimedProfile.display_name ? `Hi ${claimedProfile.display_name.split(" ")[0]},` : "Hi,"}\n\n` +
       `Thanks for signing up. Quantive is a personal net worth tracker that keeps your data end-to-end encrypted in your browser — the server can't read it, and neither can I.\n\n` +
       `A few things that might help you get going:\n` +
       `- Add your accounts from the dashboard, or import an existing spreadsheet: https://usequantive.app/dashboard\n` +
@@ -101,20 +113,21 @@ serve(async (req) => {
     });
 
     if (!result.ok) {
-      // Do not set the flag — let the next session retry. We don't want a
-      // transient Resend outage to permanently swallow the welcome email.
+      // Send failed — release the claim so the next session can retry.
+      // We don't want a transient Resend outage to permanently swallow the
+      // welcome email. Race-safe because the release is unconditional: if
+      // a parallel caller somehow claimed in between (impossible given the
+      // conditional UPDATE above, but defensive), the worst case is that
+      // their successful send also gets re-claimed by yet another caller.
       console.error("[send-welcome-email] sendEmail failed:", result.reason);
+      const { error: releaseErr } = await admin
+        .from("profiles")
+        .update({ welcome_email_sent_at: null })
+        .eq("user_id", user.id);
+      if (releaseErr) {
+        console.error("[send-welcome-email] claim release failed:", releaseErr.message);
+      }
       return respond({ error: "send_failed" }, 502);
-    }
-
-    const { error: flagErr } = await admin
-      .from("profiles")
-      .update({ welcome_email_sent_at: new Date().toISOString() })
-      .eq("user_id", user.id);
-    if (flagErr) {
-      // Email went out but we couldn't mark it sent — the user might get a
-      // second copy on their next sign-in. Acceptable; log loudly.
-      console.error("[send-welcome-email] flag update failed:", flagErr.message);
     }
 
     return respond({ sent: true });
