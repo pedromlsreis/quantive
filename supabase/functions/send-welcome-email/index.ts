@@ -81,14 +81,14 @@ serve(async (req) => {
 
     const bodyHtml = `
       <p style="margin: 0 0 16px;">${greeting}</p>
-      <p style="margin: 0 0 16px;">Thanks for signing up. Quantive is a personal net worth tracker that keeps your data end-to-end encrypted in your browser — the server can't read it, and neither can I.</p>
+      <p style="margin: 0 0 16px;">Thanks for signing up. Quantive is a personal net worth tracker that keeps your data end-to-end encrypted in your browser - the server can't read it, and neither can I.</p>
       <p style="margin: 0 0 12px;">A few things that might help you get going:</p>
       <ul style="margin: 0 0 16px; padding-left: 20px;">
         <li style="margin-bottom: 6px;"><strong>Add your accounts</strong> from the dashboard, or import an existing spreadsheet. <a href="https://usequantive.app/dashboard" style="color: #111;">Open the dashboard</a>.</li>
         <li style="margin-bottom: 6px;"><strong>Set up a recovery code</strong> in <a href="https://usequantive.app/settings" style="color: #111;">Settings</a>. Quantive's encryption is real, which means if you forget your password and have no recovery code, your data is genuinely gone — by design.</li>
-        <li><strong>The free tier is forever</strong>. <a href="https://usequantive.app/pricing" style="color: #111;">Pro</a> (€9/month or €90/year) adds forecasting, full history, milestones, benchmarks, and exports if and when you want them.</li>
+        <li><strong>The free tier is forever</strong>. <a href="https://usequantive.app/pricing" style="color: #111;">Pro</a> adds forecasting, full history, milestones, benchmarks, reports, and exports if and when you want them.</li>
       </ul>
-      <p style="margin: 0 0 16px;">If anything is unclear or broken, reply to this email — it goes straight to me.</p>
+      <p style="margin: 0 0 16px;">If anything is unclear or broken, reply to this email - it goes straight to me.</p>
       <p style="margin: 0 0 4px;">Thanks,</p>
       <p style="margin: 0;">Pedro · Quantive</p>
     `;
@@ -96,12 +96,12 @@ serve(async (req) => {
     const text =
       `Welcome to Quantive\n\n` +
       `${claimedProfile.display_name ? `Hi ${claimedProfile.display_name.split(" ")[0]},` : "Hi,"}\n\n` +
-      `Thanks for signing up. Quantive is a personal net worth tracker that keeps your data end-to-end encrypted in your browser — the server can't read it, and neither can I.\n\n` +
+      `Thanks for signing up. Quantive is a personal net worth tracker that keeps your data end-to-end encrypted in your browser - the server can't read it, and neither can I.\n\n` +
       `A few things that might help you get going:\n` +
       `- Add your accounts from the dashboard, or import an existing spreadsheet: https://usequantive.app/dashboard\n` +
-      `- Set up a recovery code in Settings (https://usequantive.app/settings). Quantive's encryption is real — if you forget your password and have no recovery code, your data is genuinely gone by design.\n` +
-      `- The free tier is forever. Pro (https://usequantive.app/pricing) adds forecasting, full history, milestones, benchmarks, and exports if and when you want them.\n\n` +
-      `If anything is unclear or broken, reply to this email — it goes straight to me.\n\n` +
+      `- Set up a recovery code in Settings (https://usequantive.app/settings). Quantive's encryption is real, which means if you forget your password and have no recovery code, your data is genuinely gone by design.\n` +
+      `- The free tier is forever. Pro (https://usequantive.app/pricing) adds forecasting, full history, milestones, benchmarks, reports, and exports if and when you want them.\n\n` +
+      `If anything is unclear or broken, reply to this email - it goes straight to me.\n\n` +
       `Thanks,\nPedro · Quantive`;
 
     const result = await sendEmail({
