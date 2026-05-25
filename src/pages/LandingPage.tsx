@@ -208,7 +208,7 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   usePageMeta({
-    title: 'Quantive — See Your Financial Life Clearly',
+    title: 'Quantive - See Your Financial Life Clearly',
     description:
       'Quantive is a privacy-first finance cockpit. Track net worth, analyse allocations, and forecast your wealth — end-to-end encrypted, no bank connections. Free forever.',
     path: '/',

@@ -17,7 +17,7 @@ type Interval = 'monthly' | 'yearly';
 
 export default function PricingPage() {
   usePageMeta({
-    title: 'Pricing – Quantive',
+    title: 'Pricing - Quantive',
     description: 'Quantive is free forever, with optional Pro for full history, forecasting, and exports — €9/month or €90/year.',
     path: '/pricing',
   });

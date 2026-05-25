@@ -417,12 +417,12 @@ async function resolveCustomer(
 }
 
 /**
- * Atomically claim the Pro welcome-send slot. Returns true iff this caller
+ * Atomically claim the Pro welcome-send slot. Returns true if this caller
  * won the claim (i.e. it's the first event ever for this user); false if
  * the slot is already taken (returning customer or duplicate event).
  *
  * Conditional UPDATE with `.is("pro_welcome_sent_at", null)` flips the
- * flag iff it's still null; the `.select()` returns rows only on the
+ * flag if it's still null; the `.select()` returns rows only on the
  * winning claim. Mirrors the send-welcome-email pattern — same reason:
  * eliminates the read-then-write race that fired duplicate emails when
  * two flows raced through the dedupe gate.

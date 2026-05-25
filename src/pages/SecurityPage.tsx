@@ -16,7 +16,7 @@ const CRYPTO_MODULE_URL = `${REPO_URL}/tree/main/src/lib/crypto`;
 
 export default function SecurityPage() {
   usePageMeta({
-    title: 'Security & Encryption – Quantive',
+    title: 'Security & Encryption - Quantive',
     description: 'Quantive encrypts your financial data on your device using XChaCha20-Poly1305 and Argon2id. The server only ever sees ciphertext. Learn how it works.',
     path: '/security',
   });

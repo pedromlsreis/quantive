@@ -56,7 +56,7 @@ serve(async (req) => {
     // tab + a stray Settings tab all fire on the same SIGNED_IN event.
     //
     // Conditional UPDATE with `.is("welcome_email_sent_at", null)` flips the
-    // flag iff it is still null and returns the row only on the winning
+    // flag if it is still null and returns the row only on the winning
     // claim. Losers see an empty result and short-circuit.
     const claimedAt = new Date().toISOString();
     const { data: claim, error: claimErr } = await admin

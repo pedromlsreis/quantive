@@ -5,7 +5,7 @@ export default function Impressum() {
   return (
     <MarkdownLegal
       source={source}
-      pageTitle="Impressum – Quantive"
+      pageTitle="Impressum - Quantive"
       pageDescription="Legal notice (Impressum) for Quantive, operated by Pedro Reis in Düsseldorf, Germany."
       path="/impressum"
     />

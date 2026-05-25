@@ -30,8 +30,8 @@ const VARIANTS: Record<'syncing' | 'synced' | 'error', { style: CSSProperties; i
   error: {
     style: { ...pillBase, background: 'color-mix(in oklch, var(--negative) 15%, transparent)', color: 'var(--negative)', cursor: 'pointer' },
     icon: <CloudOff className="h-3 w-3" />,
-    label: 'Sync failed — Retry',
-    title: 'Sync failed — tap to retry',
+    label: 'Sync failed - Retry',
+    title: 'Sync failed - tap to retry',
   },
 };
 

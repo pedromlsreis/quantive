@@ -37,7 +37,7 @@ CREATE TABLE public.user_keys (
   wrapped_dk_recovery  BYTEA,
 
   -- Argon2id salt for recovery_code -> recovery_KEK derivation.
-  -- NULL iff wrapped_dk_recovery is NULL (enforced by paired CHECK below).
+  -- NULL if wrapped_dk_recovery is NULL (enforced by paired CHECK below).
   recovery_kdf_salt    BYTEA,
 
   -- KDF + AEAD parameter version. enc_version=1 means
