@@ -18,11 +18,11 @@ test.describe('Measurement history (edit + delete)', () => {
     await expect(page.getByRole('table')).toBeVisible({ timeout: 6000 });
   });
 
-  test('"View measurements" opens the history modal scoped to one source', async ({ page }) => {
+  test('"Edit measurements" opens the history modal scoped to one source', async ({ page }) => {
     // Open the first source's actions menu.
     const firstActions = page.getByRole('button', { name: /Actions for /i }).first();
     await firstActions.click();
-    await page.getByRole('menuitem', { name: /View measurements/i }).click();
+    await page.getByRole('menuitem', { name: /Edit values/i }).click();
 
     const modal = page.getByRole('dialog', { name: /Measurements for /i });
     await expect(modal).toBeVisible({ timeout: 4000 });
@@ -38,7 +38,7 @@ test.describe('Measurement history (edit + delete)', () => {
     expect(sourceName.length).toBeGreaterThan(0);
 
     await firstActions.click();
-    await page.getByRole('menuitem', { name: /View measurements/i }).click();
+    await page.getByRole('menuitem', { name: /Edit values/i }).click();
     const modal = page.getByRole('dialog', { name: /Measurements for /i });
     await expect(modal).toBeVisible({ timeout: 4000 });
 
@@ -60,7 +60,7 @@ test.describe('Measurement history (edit + delete)', () => {
   test('delete confirmation gates the destructive action', async ({ page }) => {
     const firstActions = page.getByRole('button', { name: /Actions for /i }).first();
     await firstActions.click();
-    await page.getByRole('menuitem', { name: /View measurements/i }).click();
+    await page.getByRole('menuitem', { name: /Edit values/i }).click();
     const modal = page.getByRole('dialog', { name: /Measurements for /i });
     await expect(modal).toBeVisible({ timeout: 4000 });
 
@@ -83,7 +83,7 @@ test.describe('Measurement history (edit + delete)', () => {
   test('confirmed delete removes the row from the history', async ({ page }) => {
     const firstActions = page.getByRole('button', { name: /Actions for /i }).first();
     await firstActions.click();
-    await page.getByRole('menuitem', { name: /View measurements/i }).click();
+    await page.getByRole('menuitem', { name: /Edit values/i }).click();
     const modal = page.getByRole('dialog', { name: /Measurements for /i });
     await expect(modal).toBeVisible({ timeout: 4000 });
 
