@@ -172,7 +172,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       }
 
       if (firstDuplicate) {
-        setValidationError(`"${firstDuplicate}" appears more than once — keep only one row per source.`);
+        setValidationError(`"${firstDuplicate}" appears more than once. Keep only one row per source.`);
         setSaving(false);
         return;
       }

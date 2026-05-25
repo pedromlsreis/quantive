@@ -32,7 +32,7 @@ export function EmailConfirmationBanner() {
       return;
     }
     setSent(true);
-    toast.success('Confirmation email sent — check your inbox.');
+    toast.success('Confirmation email sent, check your inbox.');
     // Re-enable the action after 30s so users can retry if the email never arrives.
     resetTimerRef.current = setTimeout(() => {
       setSent(false);

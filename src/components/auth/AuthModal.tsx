@@ -196,7 +196,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
               </div>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)', lineHeight: 1.5, maxWidth: 360 }}>
                 Sent to <strong style={{ color: 'var(--fg)', fontWeight: 600, wordBreak: 'break-all' }}>{email}</strong>.
-                The link expires in 24 hours. You can close this window — your account is waiting.
+                The link expires in 24 hours. You can close this window - your account is waiting.
               </p>
               <button
                 type="button"

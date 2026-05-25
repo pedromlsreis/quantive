@@ -92,7 +92,7 @@ const SourcesPage = () => {
             {latest.sources.length} accounts and assets tracked
           </p>
           <p style={{ color: 'var(--fg-faint)', fontSize: 12, margin: '4px 0 0', maxWidth: 620 }}>
-            Tag each source as volatile (e.g. stocks, crypto) or stable (e.g. savings, bonds) to power volatility insights. Not sure? Leave it as unknown — you can change it any time.
+            Tag each source as volatile (e.g. stocks, crypto) or stable (e.g. savings, bonds) to power volatility insights. Not sure? Leave it as unknown, you can change it any time.
           </p>
         </div>
         <div style={{ width: 240 }}>
@@ -200,19 +200,19 @@ const SourcesPage = () => {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuItem onSelect={() => setHistorySource(s.name)}>
+                            <History className="mr-2 h-3.5 w-3.5" />
+                            Edit values
+                          </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => startEditVolat(s.name, s.volatType)}>
                             <Pencil className="mr-2 h-3.5 w-3.5" />
-                            Edit volatility…
+                            Edit volatility
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => updateRefSource(s.name, { isLiquid: !s.isLiquid })}
                           >
                             <Droplet className="mr-2 h-3.5 w-3.5" />
                             {s.isLiquid ? 'Mark as non-liquid' : 'Mark as liquid'}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setHistorySource(s.name)}>
-                            <History className="mr-2 h-3.5 w-3.5" />
-                            View measurements
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

@@ -1,13 +1,13 @@
 # Contributing to Quantive
 
-Thanks for your interest in Quantive. This is a small, opinionated project — your time is more valuable than what fits in any contributing guide, so the goal of this document is to be honest about what kinds of contributions are useful right now and which aren't.
+Thanks for your interest in Quantive. This is a small, opinionated project. Your time is more valuable than what fits in any contributing guide, so the goal of this document is to be honest about what kinds of contributions are useful right now and which aren't.
 
 ## What we welcome
 
 - **Bug reports** with a clear reproduction path. The shorter the path, the faster the fix.
-- **Security disclosures** — please follow [SECURITY.md](SECURITY.md), not a public issue.
+- **Security disclosures**: please follow [SECURITY.md](SECURITY.md), not a public issue.
 - **Patches that fix a real bug**, especially in the encryption module ([`src/lib/crypto/`](src/lib/crypto/)) where independent eyes are most welcome. The crypto module is MIT-licensed and intentionally I/O-free for review.
-- **Documentation fixes** — typos, broken links, places where the code and the docs disagree.
+- **Documentation fixes**: typos, broken links, places where the code and the docs disagree.
 - **Suggestions to remove code** that nobody uses. Subtraction is usually the most valuable contribution.
 
 ## What we don't welcome (right now)
@@ -81,6 +81,6 @@ If your employer has a contributor agreement that conflicts with either of those
 
 ## A note on scope
 
-Quantive is a privacy-first personal-finance dashboard, not a budgeting tool, not a transaction tracker, and not an accounting system. Features that depend on connecting to external bank accounts, scraping balances, or storing third-party credentials are out of scope by design — that constraint is what makes the encryption story credible. Suggestions in that direction will be politely declined.
+Quantive is a privacy-first personal-finance dashboard, not a budgeting tool, not a transaction tracker, and not an accounting system. Features that depend on connecting to external bank accounts, scraping balances, or storing third-party credentials are out of scope by design; that constraint is what makes the encryption story credible. Suggestions in that direction will be politely declined.
 
 Thanks for reading this far.

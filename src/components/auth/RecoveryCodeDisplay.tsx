@@ -39,7 +39,7 @@ export function RecoveryCodeDisplay({ code, onConfirmed, onSkipConfirm }: Props)
   const handleDownload = () => {
     const blob = new Blob(
       [
-        'Quantive — recovery code\n',
+        'Quantive - recovery code\n',
         '------------------------------------\n\n',
         code + '\n\n',
         'Treat this like a password. Anyone with this code can unlock your encrypted data.\n',
@@ -153,7 +153,7 @@ export function RecoveryCodeDisplay({ code, onConfirmed, onSkipConfirm }: Props)
           className="q-btn q-btn--ghost q-btn--sm"
           style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}
         >
-          I'll save it later — close anyway
+          I'll save it later, close anyway
         </button>
       </div>
     </>

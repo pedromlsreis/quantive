@@ -14,11 +14,11 @@ const COPY: Record<Entitlement, { title: string; body: string }> = {
   },
   'export.excel': {
     title: 'Export to Excel',
-    body: 'Download your full portfolio as an .xlsx workbook — lossless, ready for spreadsheets.',
+    body: 'Download your full portfolio as an .xlsx lossless workbook, ready for spreadsheets.',
   },
   'export.csv': {
     title: 'Export to CSV',
-    body: 'Download your facts as a .csv file — ready for scripts, notebooks, or any spreadsheet.',
+    body: 'Download your facts as a .csv file, ready for scripts, notebooks, or any spreadsheet.',
   },
   'export.pdf': {
     title: 'Wealth report PDF',

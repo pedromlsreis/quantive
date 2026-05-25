@@ -4,7 +4,7 @@ A privacy-first personal finance cockpit. Track your net worth over time, analys
 
 **Live:** https://usequantive.app · **Try the demo without signing up:** https://usequantive.app/demo
 
-![Quantive dashboard — net worth chart, allocation treemap, KPI cards](public/images/dashboard.jpg)
+![Quantive dashboard - net worth chart, allocation treemap, KPI cards](public/images/dashboard.jpg)
 
 ---
 

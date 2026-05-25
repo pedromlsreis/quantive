@@ -94,7 +94,7 @@ export function ForecastChart({
       <div className="q-card q-card--p-lg">
         <div className="q-section-head"><h2>Trajectory</h2></div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, border: '1px dashed var(--border-raw)', borderRadius: 'var(--r-3)' }}>
-          <p style={{ color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)' }}>No data yet — upload your portfolio to see forecasts.</p>
+          <p style={{ color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)' }}>No data yet, upload your portfolio to see forecasts.</p>
         </div>
       </div>
     );

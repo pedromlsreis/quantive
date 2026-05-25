@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: May 18, 2026_
+_Last updated: May 25, 2026_
 
 ## 1. Introduction
 
@@ -18,7 +18,7 @@ We do not have a Data Protection Officer (DPO). As a solo controller below the h
 
 ## 3. Information We Collect
 
-**Account Information.** When you create an account, we collect your email address. Your password is processed by Supabase Auth (our auth provider), which stores only a salted hash — never the plaintext password.
+**Account Information.** When you create an account, we collect your email address. Your password is processed by Supabase Auth (our auth provider), which stores only a salted hash, never the plaintext password.
 
 **Portfolio Data.** Any portfolio data you enter or import is end-to-end encrypted in your browser before it reaches our servers (see §5 and the [Security & Encryption](https://usequantive.app/security) page). We see ciphertext only and cannot decrypt it. We do not share, sell, or analyse your financial data.
 
@@ -46,7 +46,7 @@ We process your personal data for the following purposes, on the following legal
 
 ## 5. Data Storage & Security
 
-Your portfolio data is **end-to-end encrypted** in your browser before it reaches our servers. We see ciphertext only and cannot decrypt your data — even if we wanted to. Database access is additionally protected by Postgres row-level security. We do not connect to your bank accounts or any third-party financial institutions.
+Your portfolio data is **end-to-end encrypted** in your browser before it reaches our servers. We see ciphertext only and cannot decrypt your data, even if we wanted to. Database access is additionally protected by Postgres row-level security. We do not connect to your bank accounts or any third-party financial institutions.
 
 For details on the cryptographic primitives, threat model, and what we explicitly do _not_ protect against, see the Security & Encryption page at usequantive.app/security.
 
@@ -95,7 +95,7 @@ To exercise any of these rights, email <legal@usequantive.app>. We respond withi
 
 We use **essential** cookies and localStorage entries only for authentication, session management, and remembering your in-app preferences (display currency, number format, privacy mode). We do not use advertising cookies, third-party tracking cookies, or cross-site tracking of any kind.
 
-**Anonymous analytics (opt-in).** PostHog (see §6) is loaded _only_ if you explicitly grant consent via the banner shown on your first visit. If you decline — or simply dismiss the banner without choosing — PostHog is never loaded and no analytics identifier is written to your browser. If you grant consent, PostHog stores an anonymous identifier in **localStorage** (not in a cookie) so events from the same browser can be grouped without us knowing who you are.
+**Anonymous analytics (opt-in).** PostHog (see §6) is loaded _only_ if you explicitly grant consent via the banner shown on your first visit. If you decline, or simply dismiss the banner without choosing, PostHog is never loaded and no analytics identifier is written to your browser. If you grant consent, PostHog stores an anonymous identifier in **localStorage** (not in a cookie) so events from the same browser can be grouped without us knowing who you are.
 
 You can change your choice at any time from Settings → Preferences → Anonymous analytics. Withdrawing consent immediately stops further capture, resets the PostHog identifier, and clears it from localStorage on your next page interaction. Campaign-attribution labels (see §3) are stored in localStorage under the same lifecycle as your consent.
 

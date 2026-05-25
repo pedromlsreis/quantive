@@ -198,7 +198,7 @@ const ResetPassword = () => {
             Invalid or expired reset link
           </h1>
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)', marginBottom: 'var(--s-5)' }}>
-            This link is invalid or has expired. Reset links are single-use and time-limited — please request a new one.
+            This link is invalid or has expired. Reset links are single-use and time-limited. Please request a new one.
           </p>
           <button
             onClick={() => navigate('/')}
