@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   PieChart, Database, Shield,
   Plus, Search, CornerDownLeft,
+  FileText, Lock,
 } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -36,6 +37,18 @@ const EXTRA_SEARCHABLE_PAGES: SearchablePage[] = [
     to: '/security',
     icon: <Shield size={SEARCH_ICON_SIZE} />,
     keywords: 'encryption key recovery',
+  },
+  {
+    label: 'Terms',
+    to: '/terms',
+    icon: <FileText size={SEARCH_ICON_SIZE} />,
+    keywords: 'legal agreement',
+  },
+  {
+    label: 'Privacy',
+    to: '/privacy',
+    icon: <Lock size={SEARCH_ICON_SIZE} />,
+    keywords: 'gdpr data policy',
   },
 ];
 

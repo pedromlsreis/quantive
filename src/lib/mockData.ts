@@ -5,7 +5,7 @@
  * with realistic growth rates and sinusoidal noise.
  */
 
-import { PortfolioData, FactRow, RefSource, Snapshot, EnrichedFact } from './types';
+import { PortfolioData, FactRow, RefSource, Snapshot, EnrichedFact, Goal } from './types';
 
 /** Create a Date for the 1st of the given month (1-indexed). */
 function monthDate(year: number, month: number): Date {
@@ -89,7 +89,49 @@ export function generateMockData(): PortfolioData {
     }
   }
 
-  return { facts, refSources };
+  return { facts, refSources, goals: generateMockGoals() };
+}
+
+function isoDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function generateMockGoals(): Goal[] {
+  const now = new Date();
+  const endOfYear = new Date(now.getFullYear(), 11, 31);
+  const sixMonthsOut = new Date(now);
+  sixMonthsOut.setMonth(sixMonthsOut.getMonth() + 6);
+  const retirementYear = now.getFullYear() + 25;
+
+  return [
+    {
+      id: 'demo-goal-savings',
+      name: 'Hit €120k by year-end',
+      targetAmount: 120000,
+      targetCurrency: 'EUR',
+      targetDate: isoDate(endOfYear),
+      createdAt: new Date(now.getFullYear() - 1, 0, 1).toISOString(),
+    },
+    {
+      id: 'demo-goal-emergency',
+      name: 'Six-month emergency fund',
+      targetAmount: 18000,
+      targetCurrency: 'EUR',
+      targetDate: isoDate(sixMonthsOut),
+      createdAt: new Date(now.getFullYear() - 1, 6, 1).toISOString(),
+    },
+    {
+      id: 'demo-goal-retirement',
+      name: `Retire by ${retirementYear}`,
+      targetAmount: 1000000,
+      targetCurrency: 'EUR',
+      targetDate: `${retirementYear}-01-01`,
+      createdAt: new Date(now.getFullYear() - 2, 0, 1).toISOString(),
+    },
+  ];
 }
 
 /**
