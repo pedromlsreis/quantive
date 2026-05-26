@@ -17,6 +17,11 @@ vi.mock('@/contexts/AuthContext', () => ({
   useAuth: () => authState,
 }));
 
+const portfolioState = { isMockData: false };
+vi.mock('@/contexts/PortfolioContext', () => ({
+  usePortfolio: () => portfolioState,
+}));
+
 import { useEntitlements } from '@/hooks/useEntitlements';
 
 const PRO_PRODUCT_ID = 'prod_UWriaLlxoMTR4K';
@@ -41,6 +46,7 @@ const PRO_SUB: SubscriptionStatus = {
 
 beforeEach(() => {
   authState.subscription = { ...FREE_SUB };
+  portfolioState.isMockData = false;
 });
 
 describe('useEntitlements', () => {
@@ -91,5 +97,15 @@ describe('useEntitlements', () => {
     expect(result.current.has('milestones')).toBe(true);
     expect(result.current.has('benchmarks')).toBe(true);
     expect(result.current.has('support.priority')).toBe(true);
+  });
+
+  it('demo mode short-circuits every entitlement to true even on the free plan', () => {
+    portfolioState.isMockData = true;
+    const { result } = renderHook(() => useEntitlements());
+    expect(result.current.plan.id).toBe('free');
+    expect(result.current.has('history.full')).toBe(true);
+    expect(result.current.has('benchmarks')).toBe(true);
+    expect(result.current.has('milestones')).toBe(true);
+    expect(result.current.has('export.pdf')).toBe(true);
   });
 });

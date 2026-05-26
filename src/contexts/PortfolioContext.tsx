@@ -96,7 +96,10 @@ interface PortfolioContextType {
   loadFile: (file: File) => Promise<void>;
   loadMockData: () => void;
   clearData: () => void;
-  addMeasurement: (entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[]) => void;
+  addMeasurement: (
+    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[],
+    opts?: { date?: Date },
+  ) => void;
   /**
    * Patch the value and/or currency of a single measurement, identified by
    * its (date, idSource) composite key. Idempotent: if no matching fact
@@ -629,13 +632,24 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return `${day} ${month} ${year}`;
   };
 
-  const addMeasurement = useCallback((entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[]) => {
+  const addMeasurement = useCallback((
+    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[],
+    opts?: { date?: Date },
+  ) => {
     if (entries.length === 0) return;
     entries = entries.map(e => ({ ...e, name: sanitizeSourceName(e.name).value })).filter(e => e.name.length > 0);
 
-    const now = new Date();
+    // Default to today; callers may pass a back-dated value for spreadsheet
+    // migrators. Clamp to the past — future dates would distort forecasts.
+    const measurementDate = opts?.date ? new Date(opts.date) : new Date();
     // Normalize to start of day for consistency with Excel ingestion
-    now.setHours(0, 0, 0, 0);
+    measurementDate.setHours(0, 0, 0, 0);
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    if (measurementDate.getTime() > todayMidnight.getTime()) {
+      measurementDate.setTime(todayMidnight.getTime());
+    }
+    const now = measurementDate;
     const nowKey = now.getTime();
 
     setData(prev => {

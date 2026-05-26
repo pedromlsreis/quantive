@@ -81,6 +81,10 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   const [entries, setEntries] = useState<SourceEntry[]>(buildInitialEntries);
   const [saving, setSaving] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  // ISO yyyy-mm-dd of the snapshot the user is logging. Defaults to today;
+  // spreadsheet migrators back-date entries to recreate history.
+  const todayIso = format(new Date(), 'yyyy-MM-dd');
+  const [measurementDateIso, setMeasurementDateIso] = useState<string>(todayIso);
   const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   // Re-seed whenever the modal transitions closed → open. Keeps in-progress
@@ -92,9 +96,10 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     if (open && !prevOpenRef.current) {
       setEntries(buildInitialEntries());
       setValidationError(null);
+      setMeasurementDateIso(todayIso);
     }
     prevOpenRef.current = open;
-  }, [open, buildInitialEntries]);
+  }, [open, buildInitialEntries, todayIso]);
 
   const updateEntries = (newEntries: SourceEntry[]) => {
     setEntries(newEntries);
@@ -205,7 +210,14 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         return;
       }
 
-      addMeasurement(measurement);
+      if (measurementDateIso === todayIso) {
+        addMeasurement(measurement);
+      } else {
+        // Parse the picker value as a *local* date — `new Date('yyyy-mm-dd')`
+        // is UTC midnight and shifts to the previous day in negative timezones.
+        const [y, m, d] = measurementDateIso.split('-').map(Number);
+        addMeasurement(measurement, { date: new Date(y, m - 1, d) });
+      }
       localStorage.removeItem(STORAGE_KEY_ENTRIES);
       onOpenChange(false);
     } finally {
@@ -214,7 +226,9 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   };
 
   const hasValidEntries = entries.some(e => e.name.trim() !== '');
-  const today = format(new Date(), 'dd MMM yyyy');
+  const [yy, mm, dd] = measurementDateIso.split('-').map(Number);
+  const pickedDateLabel = format(new Date(yy, mm - 1, dd), 'dd MMM yyyy');
+  const isBackdated = measurementDateIso !== todayIso;
   const isFirstMeasurement = !data || data.facts.length === 0;
 
   // Show the classification hint only for users who haven't classified any
@@ -276,7 +290,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                 <div className="q-modal-sub">
                   {isFirstMeasurement
                     ? <>Add each account or asset you'd like to track — savings, current accounts, brokerage, pension, crypto wallets. One row per account.</>
-                    : <>Record today's balances ({today}). Each row uses its own currency.</>}
+                    : <>Record balances for {pickedDateLabel}. Each row uses its own currency.</>}
                 </div>
               </div>
               <button
@@ -315,6 +329,37 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 'var(--s-3)',
+                  marginBottom: 'var(--s-3)',
+                  flexWrap: 'wrap',
+                }}
+              >
+                <label
+                  htmlFor="measurement-date"
+                  style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-subtle)' }}
+                >
+                  Snapshot date
+                </label>
+                <input
+                  id="measurement-date"
+                  type="date"
+                  className="q-input"
+                  value={measurementDateIso}
+                  max={todayIso}
+                  onChange={e => setMeasurementDateIso(e.target.value || todayIso)}
+                  style={{ padding: 'var(--s-2) var(--s-3)' }}
+                />
+                {isBackdated && (
+                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-faint)' }}>
+                    Back-dating to {pickedDateLabel}
+                  </span>
+                )}
+              </div>
 
               {needsClassificationHint && (
                 <Notice variant="accent" style={{ marginBottom: 'var(--s-3)' }}>

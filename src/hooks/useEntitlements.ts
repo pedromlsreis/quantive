@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePortfolio } from '@/contexts/PortfolioContext';
 import { type Entitlement, type Plan, PLANS, FREE_PLAN, planHas, resolvePlan } from '@/lib/billing/plans';
 
 /**
@@ -33,12 +34,16 @@ export function useEntitlements(): {
   has: (entitlement: Entitlement) => boolean;
 } {
   const { subscription } = useAuth();
+  const { isMockData } = usePortfolio();
   return useMemo(() => {
     const override = devPlanOverride();
     const plan = override ?? resolvePlan(subscription.subscribed ? subscription.productId : null);
-    return {
-      plan,
-      has: (entitlement: Entitlement) => planHas(plan, entitlement),
-    };
-  }, [subscription.subscribed, subscription.productId]);
+    // Demo mode short-circuits every entitlement to true so the /demo surface
+    // shows the full Pro experience — paywalling the most-persuasive
+    // pre-signup view defeats the demo. Real plan resolution resumes the
+    // moment the user signs up and `isMockData` flips off.
+    const has = (entitlement: Entitlement) =>
+      isMockData ? true : planHas(plan, entitlement);
+    return { plan, has };
+  }, [subscription.subscribed, subscription.productId, isMockData]);
 }
