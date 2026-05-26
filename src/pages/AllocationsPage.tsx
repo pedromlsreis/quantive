@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Check, Snowflake } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Check, Snowflake, Plus } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
@@ -75,7 +76,47 @@ const AllocationsPage = () => {
 
   if (isLoading) return <DashboardSkeleton />;
   if (!data) return <FileUpload />;
-  if (!aggregates) return null;
+  if (!aggregates) {
+    // data exists but no snapshots yet — render a CTA frame instead of a
+    // blank page so the surface stays useful for users who created sources
+    // but haven't logged a measurement.
+    return (
+      <div className="flex flex-col gap-8">
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em', margin: 0 }}>
+            Allocations
+          </h1>
+          <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
+            Add a measurement to see how your portfolio is distributed.
+          </p>
+        </div>
+        <div
+          className="q-card q-card--p-lg"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 'var(--s-3)',
+            minHeight: 260,
+            textAlign: 'center',
+          }}
+        >
+          <p style={{ margin: 0, color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)', maxWidth: 360 }}>
+            No measurements yet. Once you log a snapshot the allocation charts will fill in.
+          </p>
+          <Link
+            to="/dashboard"
+            className="q-btn q-btn--primary q-btn--sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Plus size={14} aria-hidden="true" />
+            Add measurement
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const { latest, positiveSources, negativeSources, totalAssets, totalLiabilities, byVolatility, byLiquidity } = aggregates;
   const netWorth = totalAssets - totalLiabilities;

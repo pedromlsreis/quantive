@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Plus } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useBenchmarks } from '@/hooks/useBenchmarks';
 import { QTabs } from '@/components/ui/q-tabs';
@@ -95,9 +96,21 @@ function BenchmarkOverlayInner() {
 
   // For the benchmark overlay we sample the chosen series at the user's
   // visible snapshot dates, then rebase both series to 100 at the period
-  // start.
+  // start. When the user has no data we still mount the chart and render
+  // the benchmark series alone so the reference line isn't a dead surface
+  // — a centred CTA overlays the empty portfolio line.
   const chartData = useMemo(() => {
-    if (userVisible.length === 0) return [] as Array<Record<string, number | string>>;
+    if (userVisible.length === 0) {
+      if (overlay === 'off') return [] as Array<Record<string, number | string>>;
+      const benchInPeriod = filterByPeriod(series[overlay].points, cutoff);
+      if (benchInPeriod.length === 0) return [];
+      const benchRebased = rebaseToHundred(benchInPeriod);
+      return benchRebased.map((b) => ({
+        date: b.date,
+        benchmark: Number(b.rebased.toFixed(2)),
+        benchmark_raw: b.raw,
+      } as Record<string, number | string>));
+    }
 
     const userRebased = rebaseToHundred(
       userVisible.map((s) => ({ date: s.date, value: s.value })),
@@ -129,7 +142,9 @@ function BenchmarkOverlayInner() {
       }
       return row;
     });
-  }, [userVisible, overlay, series]);
+  }, [userVisible, overlay, series, cutoff]);
+
+  const hasUserData = userVisible.length > 0;
 
   const periodStartDate = chartData[0]?.date as string | undefined;
 
@@ -154,19 +169,6 @@ function BenchmarkOverlayInner() {
         <div className="q-section-head"><h2>Benchmark comparison</h2></div>
         <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg-subtle)', fontSize: 13 }}>
           Loading benchmark data…
-        </div>
-      </div>
-    );
-  }
-
-  if (allSnapshots.length === 0) {
-    return (
-      <div className="q-card q-card--p-lg">
-        <div className="q-section-head"><h2>Benchmark comparison</h2></div>
-        <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed var(--border-raw)', borderRadius: 'var(--r-3)' }}>
-          <p style={{ color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)', margin: 0 }}>
-            No snapshots yet — add measurements to compare against benchmarks.
-          </p>
         </div>
       </div>
     );
@@ -258,7 +260,7 @@ function BenchmarkOverlayInner() {
         </div>
       )}
 
-      <div style={{ width: '100%', height: 340 }} role="img" aria-label="Benchmark overlay chart">
+      <div style={{ width: '100%', height: 340, position: 'relative' }} role="img" aria-label="Benchmark overlay chart">
         <ResponsiveContainer>
           <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
             <CartesianGrid stroke={GRID_COLOR} strokeDasharray="2 4" />
@@ -309,6 +311,45 @@ function BenchmarkOverlayInner() {
             )}
           </LineChart>
         </ResponsiveContainer>
+
+        {!hasUserData && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+            }}
+            aria-live="polite"
+          >
+            <div
+              style={{
+                pointerEvents: 'auto',
+                background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
+                border: '1px solid var(--border-raw)',
+                borderRadius: 'var(--r-3)',
+                padding: 'var(--s-4) var(--s-5)',
+                maxWidth: 360,
+                textAlign: 'center',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+              }}
+            >
+              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
+                Your portfolio line isn&rsquo;t showing yet — add a few measurements to compare against the reference series.
+              </p>
+              <Link
+                to="/dashboard"
+                className="q-btn q-btn--primary q-btn--sm"
+                style={{ marginTop: 'var(--s-3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              >
+                <Plus size={14} aria-hidden="true" />
+                Add measurement
+              </Link>
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ marginTop: 'var(--s-3)', fontSize: 11, color: 'var(--fg-faint)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
