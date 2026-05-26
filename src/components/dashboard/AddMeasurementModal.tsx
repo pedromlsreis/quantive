@@ -352,13 +352,16 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                   value={measurementDateIso}
                   max={todayIso}
                   onChange={e => setMeasurementDateIso(e.target.value || todayIso)}
+                  aria-describedby={isBackdated ? 'measurement-date-help' : undefined}
                   style={{ padding: 'var(--s-2) var(--s-3)' }}
                 />
-                {isBackdated && (
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-faint)' }}>
-                    Back-dating to {pickedDateLabel}
-                  </span>
-                )}
+                <span
+                  id="measurement-date-help"
+                  aria-live="polite"
+                  style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-faint)' }}
+                >
+                  {isBackdated ? `Back-dating to ${pickedDateLabel}` : ''}
+                </span>
               </div>
 
               {needsClassificationHint && (

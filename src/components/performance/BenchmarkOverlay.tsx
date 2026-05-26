@@ -333,7 +333,7 @@ function BenchmarkOverlayInner() {
                 padding: 'var(--s-4) var(--s-5)',
                 maxWidth: 360,
                 textAlign: 'center',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.18)',
+                boxShadow: 'var(--shadow-md)',
               }}
             >
               <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
@@ -341,7 +341,7 @@ function BenchmarkOverlayInner() {
               </p>
               <Link
                 to="/dashboard"
-                className="q-btn q-btn--primary q-btn--sm"
+                className="q-btn q-btn--primary q-btn--md"
                 style={{ marginTop: 'var(--s-3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
               >
                 <Plus size={14} aria-hidden="true" />

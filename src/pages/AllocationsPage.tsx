@@ -107,7 +107,7 @@ const AllocationsPage = () => {
           </p>
           <Link
             to="/dashboard"
-            className="q-btn q-btn--primary q-btn--sm"
+            className="q-btn q-btn--primary q-btn--md"
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
             <Plus size={14} aria-hidden="true" />
