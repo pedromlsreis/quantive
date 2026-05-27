@@ -89,11 +89,29 @@ const SourcesPage = () => {
   }, [filter, searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (editingVolat) editInputRef.current?.focus();
+    if (!editingVolat) return;
+    const raf = requestAnimationFrame(() => {
+      const el = editInputRef.current;
+      if (!el) return;
+      el.focus();
+      el.select();
+    });
+    return () => cancelAnimationFrame(raf);
   }, [editingVolat]);
 
+  // Defer to the next frame so Radix's dropdown-close focus restore (which
+  // hands focus back to the trigger after onSelect) has already run by the
+  // time we focus the input. Without this the trigger steals focus back and
+  // the user has to click into the field manually.
   useEffect(() => {
-    if (editingName) nameInputRef.current?.focus();
+    if (!editingName) return;
+    const raf = requestAnimationFrame(() => {
+      const el = nameInputRef.current;
+      if (!el) return;
+      el.focus();
+      el.select();
+    });
+    return () => cancelAnimationFrame(raf);
   }, [editingName]);
 
   const latestSnapshot = allSnapshots.length ? allSnapshots[allSnapshots.length - 1] : null;
