@@ -107,7 +107,11 @@ const SourcesPage = () => {
         const entry = lastEntryBySource.get(idSource) ?? null;
         const series = last12.map((snap) => snap.sources.find((x) => x.name === idSource)?.value ?? 0);
         const positive = series.length > 1 ? series[series.length - 1] >= series[0] : true;
-        const isStale = !!(entry && latestSnapshot && entry.date.getTime() < latestSnapshot.date.getTime());
+        // Show the "as of" date whenever the figure won't update on its own:
+        // either the source is stopped (value frozen by user), or its last
+        // measurement predates the latest portfolio snapshot date.
+        const dateStale = !!(entry && latestSnapshot && entry.date.getTime() < latestSnapshot.date.getTime());
+        const isStale = !!entry && (dateStale || !!rs.isPaused);
         return { refSource: rs, idSource, entry, series, positive, isStale };
       });
   }, [data, lastEntryBySource, last12, latestSnapshot, filter]);
