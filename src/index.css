@@ -1387,6 +1387,26 @@
   font-weight: 600;
   font-family: var(--font-mono);
 }
+.q-src-row-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px; height: 18px;
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fg-subtle);
+  cursor: pointer;
+  appearance: none;
+  transition: background var(--d-fast) var(--ease-soft), color var(--d-fast) var(--ease-soft);
+}
+.q-src-row-remove:hover,
+.q-src-row-remove:focus-visible {
+  background: var(--negative-faint, var(--surface-strong));
+  color: var(--negative);
+  outline: 0;
+}
 .q-src-row-meta {
   font-size: 11px;
   color: var(--fg-subtle);

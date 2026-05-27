@@ -286,6 +286,24 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     setValidationError(null);
   }
 
+  function removeNewSource(id: string) {
+    setNewSources(prev => prev.filter(s => s.id !== id));
+    setEntries(prev => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setCcyOverrides(prev => {
+      if (!(id in prev)) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setFocusedId(curr => (curr === id ? null : curr));
+    setValidationError(null);
+  }
+
   function addCustomSource(spec: { name: string; volatType: string; category: string; initialCcy: CurrencyCode; initialValue: string; isLiquid: boolean }) {
     const id = 'new:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const src: NewSource = {
@@ -496,6 +514,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                       focused={focusedId === rowKey(r)}
                       onFocus={() => setFocusedId(rowKey(r))}
                       onBlur={() => setFocusedId(null)}
+                      onRemove={r.kind === 'new' ? () => removeNewSource(r.source.id) : undefined}
                       convertAt={convertAt}
                       today={today}
                       allCurrencies={allCurrencies}
@@ -634,7 +653,7 @@ type SrcRow =
   | { kind: 'new'; source: NewSource };
 
 function SourceEntryRow({
-  row, value, ccy, sourceCcy, onChange, onCcyChange, focused, onFocus, onBlur,
+  row, value, ccy, sourceCcy, onChange, onCcyChange, focused, onFocus, onBlur, onRemove,
   convertAt, today, allCurrencies, displayCurrency,
 }: {
   row: SrcRow;
@@ -646,6 +665,7 @@ function SourceEntryRow({
   focused: boolean;
   onFocus: () => void;
   onBlur: () => void;
+  onRemove?: () => void;
   convertAt: (amount: number, from: CurrencyCode, to: CurrencyCode, date: Date) => number;
   today: Date;
   allCurrencies: import('@/lib/currencies').CurrencyConfig[];
@@ -702,6 +722,17 @@ function SourceEntryRow({
         <div className="q-src-row-name">
           <span className="q-src-row-name-text">{name}</span>
           {isNew && <span className="q-src-row-newtag">NEW</span>}
+          {isNew && onRemove && (
+            <button
+              type="button"
+              className="q-src-row-remove"
+              onClick={onRemove}
+              aria-label={`Remove ${name}`}
+              title="Remove this source"
+            >
+              <X size={12} />
+            </button>
+          )}
         </div>
         {subMeta && <div className="q-src-row-meta">{subMeta}</div>}
       </div>
