@@ -798,6 +798,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             idSource: e.name,
             volatType: e.volatType?.trim() || 'Unknown',
             transferableInDays: e.isLiquid ?? false,
+            category: e.category?.trim() || undefined,
           });
         }
       }
