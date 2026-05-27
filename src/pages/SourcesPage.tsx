@@ -31,6 +31,12 @@ const SourcesPage = () => {
   const [editingName, setEditingName] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
+  // Set when the user picks a menu item that opens an inline editor. The
+  // DropdownMenuContent's onCloseAutoFocus reads this and skips Radix's
+  // default focus-restore-to-trigger — otherwise focus lands on the
+  // trigger right after we focus the editor, fires onBlur on the editor,
+  // and immediately unmounts it.
+  const opensEditorRef = useRef(false);
 
   const refMeta = useMemo(() => {
     const m = new Map<string, { category?: string; isPaused?: boolean }>();
@@ -336,8 +342,17 @@ const SourcesPage = () => {
                             <MoreHorizontal size={14} />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
-                          <DropdownMenuItem onSelect={() => startEditName(idSource)}>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-56"
+                          onCloseAutoFocus={(e) => {
+                            if (opensEditorRef.current) {
+                              e.preventDefault();
+                              opensEditorRef.current = false;
+                            }
+                          }}
+                        >
+                          <DropdownMenuItem onSelect={() => { opensEditorRef.current = true; startEditName(idSource); }}>
                             <Type className="mr-2 h-3.5 w-3.5" />
                             Rename source
                           </DropdownMenuItem>
@@ -345,11 +360,11 @@ const SourcesPage = () => {
                             <History className="mr-2 h-3.5 w-3.5" />
                             Edit values
                           </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setEditingCategory(idSource)}>
+                          <DropdownMenuItem onSelect={() => { opensEditorRef.current = true; setEditingCategory(idSource); }}>
                             <Tag className="mr-2 h-3.5 w-3.5" />
                             {category ? 'Edit category' : 'Set category'}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => startEditVolat(idSource, refSource.volatType)}>
+                          <DropdownMenuItem onSelect={() => { opensEditorRef.current = true; startEditVolat(idSource, refSource.volatType); }}>
                             <Pencil className="mr-2 h-3.5 w-3.5" />
                             Edit volatility
                           </DropdownMenuItem>
