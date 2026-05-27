@@ -9,6 +9,7 @@ import { X, Plus, ChevronDown, RefreshCw, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { Notice } from '@/components/ui/Notice';
+import { UITooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { sanitizeSourceName, parseLocalizedNumber } from '@/lib/utils';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { CURRENCIES } from '@/lib/currencies';
@@ -766,6 +767,32 @@ function SourceEntryRow({
   );
 }
 
+// ── Help-icon tooltip ────────────────────────────────────
+// Native `title` was unreliable here: the `?` sits inside a <label>, and
+// browsers can suppress a child element's tooltip in favour of the label/
+// control's hover semantics. Radix renders via portal, so the tooltip is
+// guaranteed to show regardless of the surrounding label.
+function InfoTooltip({ label, content }: { label: string; content: string }) {
+  return (
+    <UITooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="q-new-src-info"
+          aria-label={label}
+          tabIndex={-1}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
+          ?
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" sideOffset={6} className="max-w-[260px] text-xs leading-snug">
+        {content}
+      </TooltipContent>
+    </UITooltip>
+  );
+}
+
 // ── Inline new source form ───────────────────────────────
 function NewSourceForm({
   defaultCurrency,
@@ -834,11 +861,10 @@ function NewSourceForm({
         <label className="q-new-src-field">
           <span className="q-new-src-field-label">
             Volatility
-            <span
-              className="q-new-src-info"
-              aria-label="What is volatility?"
-              title="How much the value tends to swing. Use 'stable' for cash, savings and bonds; 'volatile' for diversified ETFs; 'very_volatile' for single stocks or crypto. Free text — use your own term."
-            >?</span>
+            <InfoTooltip
+              label="What is volatility?"
+              content="How much the value tends to swing. Use 'stable' for cash, savings and bonds; 'volatile' for diversified ETFs; 'very_volatile' for single stocks or crypto. Free text — use your own term."
+            />
           </span>
           <input
             type="text"
@@ -877,11 +903,10 @@ function NewSourceForm({
         <div className="q-new-src-field q-new-src-field--toggle">
           <span className="q-new-src-field-label">
             Liquidity
-            <span
-              className="q-new-src-info"
-              aria-label="What is liquidity?"
-              title="Liquid means you can convert it to cash in days, not months. Stocks, ETFs, crypto and savings are liquid. Real estate, pensions and locked-in plans are not."
-            >?</span>
+            <InfoTooltip
+              label="What is liquidity?"
+              content="Liquid means you can convert it to cash in days, not months. Stocks, ETFs, crypto and savings are liquid. Real estate, pensions and locked-in plans are not."
+            />
           </span>
           <div className="q-new-src-field-toggle-wrap">
             <button

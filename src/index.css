@@ -1597,6 +1597,8 @@
   align-items: center;
   justify-content: center;
   width: 14px; height: 14px;
+  border: 0;
+  padding: 0;
   border-radius: 50%;
   background: var(--surface-strong);
   color: var(--fg-subtle);
@@ -1607,8 +1609,10 @@
   transition: background var(--d-fast) var(--ease-soft), color var(--d-fast) var(--ease-soft);
   text-transform: none;
   letter-spacing: 0;
+  appearance: none;
 }
-.q-new-src-info:hover { background: var(--accent-faint-raw); color: var(--accent-raw); }
+.q-new-src-info:hover,
+.q-new-src-info:focus-visible { background: var(--accent-faint-raw); color: var(--accent-raw); outline: 0; }
 .q-new-src-field-error {
   font-size: 11px;
   color: var(--negative);
