@@ -6,7 +6,8 @@ import { analytics } from '@/lib/analytics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { useKeySession } from './KeySessionContext';
-import { useEntitlements } from '@/hooks/useEntitlements';
+import { devPlanOverride } from '@/hooks/useEntitlements';
+import { planHas, resolvePlan } from '@/lib/billing/plans';
 import { sanitizeSourceName } from '@/lib/utils';
 import {
   attemptCloudSync,
@@ -96,7 +97,10 @@ interface PortfolioContextType {
   loadFile: (file: File) => Promise<void>;
   loadMockData: () => void;
   clearData: () => void;
-  addMeasurement: (entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[]) => void;
+  addMeasurement: (
+    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string; category?: string }[],
+    opts?: { date?: Date },
+  ) => void;
   /**
    * Patch the value and/or currency of a single measurement, identified by
    * its (date, idSource) composite key. Idempotent: if no matching fact
@@ -118,7 +122,10 @@ interface PortfolioContextType {
    * sources" wishlist item).
    */
   deleteMeasurement: (date: Date, idSource: string) => void;
-  updateRefSource: (idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => void;
+  updateRefSource: (
+    idSource: string,
+    patch: { volatType?: string; isLiquid?: boolean; category?: string; isPaused?: boolean },
+  ) => void;
   isLoading: boolean;
   isMockData: boolean;
   syncStatus: SyncStatus;
@@ -186,7 +193,7 @@ function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: 
 }
 
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, subscription } = useAuth();
   const [data, setData] = useState<PortfolioData | null>(null);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [isLoading, setIsLoading] = useState(false);
@@ -221,7 +228,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setIsCloudLoading(user != null);
   }
 
-  const { has } = useEntitlements();
+  // Inline entitlement read for `history.full`. We cannot call useEntitlements
+  // here because it itself depends on usePortfolio (for the demo isMockData
+  // short-circuit), and PortfolioProvider's own render is the first time the
+  // PortfolioContext value exists — calling useEntitlements at this site would
+  // recurse into a null context. Mirrors useEntitlements semantics: demo data
+  // unlocks everything, dev override wins over the real plan.
   const keySession = useKeySession();
   const { currency: displayCurrency } = useCurrency();
   // Each fact carries its own `currency`. We convert per fact at the rate
@@ -239,7 +251,17 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const requestIdRef = useRef(0);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
 
-  const hasFullHistory = has('history.full');
+  const hasFullHistory = useMemo(() => {
+    const override = devPlanOverride();
+    const plan = override ?? resolvePlan(subscription.subscribed ? subscription.productId : null);
+    // Match useEntitlements:
+    //   - dev override wins over demo unlock (Playwright Free-tier specs);
+    //   - demo unlock only applies to unauthed sessions (signed-in Free users
+    //     who load demo data don't get Pro entitlements over their demo view).
+    if (override) return planHas(plan, 'history.full');
+    if (isMockData && !user) return true;
+    return planHas(plan, 'history.full');
+  }, [isMockData, user, subscription.subscribed, subscription.productId]);
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
     const dates = parsed.facts.map(f => f.date.getTime());
     if (dates.length === 0) return;
@@ -311,6 +333,17 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       setIsMockData(false);
       setFilters(defaultFilters);
       setIsCloudLoading(true);
+      // Also drop any guest-era plaintext caches that the modal/dashboard
+      // could otherwise replay into the newly-authed session. The
+      // identity-change branch above handles A→B and A→null; this branch
+      // closes the null→A case for the same hygiene contract.
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(MOCK_FLAG_KEY);
+        localStorage.removeItem(ADD_MEASUREMENT_DRAFT_KEY);
+      } catch {
+        // Storage unavailable; nothing to clean up.
+      }
     }
     previousUserIdRef.current = currentUserId;
   }, [user?.id]);
@@ -629,13 +662,24 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return `${day} ${month} ${year}`;
   };
 
-  const addMeasurement = useCallback((entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[]) => {
+  const addMeasurement = useCallback((
+    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string; category?: string }[],
+    opts?: { date?: Date },
+  ) => {
     if (entries.length === 0) return;
     entries = entries.map(e => ({ ...e, name: sanitizeSourceName(e.name).value })).filter(e => e.name.length > 0);
 
-    const now = new Date();
+    // Default to today; callers may pass a back-dated value for spreadsheet
+    // migrators. Clamp to the past — future dates would distort forecasts.
+    const measurementDate = opts?.date ? new Date(opts.date) : new Date();
     // Normalize to start of day for consistency with Excel ingestion
-    now.setHours(0, 0, 0, 0);
+    measurementDate.setHours(0, 0, 0, 0);
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    if (measurementDate.getTime() > todayMidnight.getTime()) {
+      measurementDate.setTime(todayMidnight.getTime());
+    }
+    const now = measurementDate;
     const nowKey = now.getTime();
 
     setData(prev => {
@@ -651,6 +695,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           idSource: e.name,
           volatType: e.volatType?.trim() || 'Unknown',
           transferableInDays: e.isLiquid ?? false,
+          category: e.category?.trim() || undefined,
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
 
@@ -678,6 +723,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           idSource: e.name,
           volatType: e.volatType?.trim() || 'Unknown',
           transferableInDays: e.isLiquid ?? false,
+          category: e.category?.trim() || undefined,
         }));
         const newData: PortfolioData = { ...prev, facts: newFacts, refSources: newRefSources };
 
@@ -716,6 +762,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
               idSource: e.name,
               volatType: e.volatType?.trim() || 'Unknown',
               transferableInDays: e.isLiquid ?? false,
+              category: e.category?.trim() || undefined,
             });
           }
         }
@@ -751,6 +798,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             idSource: e.name,
             volatType: e.volatType?.trim() || 'Unknown',
             transferableInDays: e.isLiquid ?? false,
+            category: e.category?.trim() || undefined,
           });
         }
       }
@@ -771,7 +819,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     analytics.measurementAdded({ count: entries.length });
   }, [user, isMockData, saveToCloud, setDefaultDateRange]);
 
-  const updateRefSource = useCallback((idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => {
+  const updateRefSource = useCallback((
+    idSource: string,
+    patch: { volatType?: string; isLiquid?: boolean; category?: string; isPaused?: boolean },
+  ) => {
     setData(prev => {
       if (!prev) return prev;
       const target = idSource.trim();
@@ -779,10 +830,16 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       const newRefSources = prev.refSources.map(rs => {
         if (rs.idSource.trim() !== target) return rs;
         changed = true;
+        const nextCategory =
+          patch.category !== undefined
+            ? (patch.category.trim() || undefined)
+            : rs.category;
         return {
           ...rs,
           volatType: patch.volatType !== undefined ? (patch.volatType.trim() || 'Unknown') : rs.volatType,
           transferableInDays: patch.isLiquid !== undefined ? patch.isLiquid : rs.transferableInDays,
+          category: nextCategory,
+          isPaused: patch.isPaused !== undefined ? patch.isPaused : rs.isPaused,
         };
       });
       if (!changed) return prev;

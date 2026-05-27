@@ -15,6 +15,7 @@ import { EmailConfirmationBanner } from '@/components/auth/EmailConfirmationBann
 import { Wordmark } from '@/components/layout/Brand';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import { Topbar } from '@/components/layout/Topbar';
+import { Footer } from '@/components/Footer';
 import { NAV_SECTIONS } from '@/lib/nav-config';
 
 function UserMenu({
@@ -356,6 +357,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
         <main id="main-content" className="q-content q-screen">
           {children}
         </main>
+        <Footer />
         <MobileTabBar />
       </div>
 

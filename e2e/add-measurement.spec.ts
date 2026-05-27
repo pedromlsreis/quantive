@@ -21,21 +21,32 @@ test.describe('Add Measurement Modal', () => {
     await expect(page.getByRole('dialog', { name: /add measurement/i })).toBeVisible();
   });
 
-  test('modal has source name and value inputs', async ({ page }) => {
+  test('modal exposes the source composer name and value inputs', async ({ page }) => {
     await openModalFromEmptyState(page);
-    const nameInput = page.getByPlaceholder(/account or asset/i).first();
-    const valueInput = page.getByRole('dialog').locator('input[inputmode="decimal"]').first();
-    await expect(nameInput).toBeVisible({ timeout: 4000 });
-    await expect(valueInput).toBeVisible({ timeout: 4000 });
+    const dialog = page.getByRole('dialog', { name: /add measurement/i });
+    // For a first-time user, the composer is opened from the "Add a new
+    // source" prompt — there are no pre-existing rows.
+    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    const composer = dialog.locator('.q-new-src-form');
+    await expect(composer).toBeVisible({ timeout: 4000 });
+    await expect(composer.getByPlaceholder(/bank of america/i)).toBeVisible();
+    await expect(composer.locator('input[inputmode="decimal"]')).toBeVisible();
   });
 
-  test('can add a new source row', async ({ page }) => {
+  test('committing a source via the composer adds it to the source list', async ({ page }) => {
     await openModalFromEmptyState(page);
-    const initialRows = await page.getByPlaceholder(/account or asset/i).count();
-    const addSourceBtn = page.getByRole('button', { name: /add data source|add another|add row/i }).first();
-    await addSourceBtn.click();
-    const newRows = await page.getByPlaceholder(/account or asset/i).count();
-    expect(newRows).toBeGreaterThan(initialRows);
+    const dialog = page.getByRole('dialog', { name: /add measurement/i });
+    const rows = dialog.locator('.q-src-row');
+    await expect(rows).toHaveCount(0);
+
+    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    const composer = dialog.locator('.q-new-src-form');
+    await composer.getByPlaceholder(/bank of america/i).fill('Cash ISA');
+    await composer.locator('input[inputmode="decimal"]').fill('2500');
+    await composer.getByRole('button', { name: /^add source$/i }).click();
+
+    await expect(rows).toHaveCount(1, { timeout: 4000 });
+    await expect(rows.first()).toContainText(/Cash ISA/);
   });
 
   test('closes modal on Cancel', async ({ page }) => {

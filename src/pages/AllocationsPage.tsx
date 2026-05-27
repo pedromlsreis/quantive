@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Check, Snowflake } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Check, Snowflake, Plus } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
@@ -55,22 +56,70 @@ const AllocationsPage = () => {
     if (!snapshots.length) return null;
     const latest = snapshots[snapshots.length - 1];
     const positiveSources = latest.sources.filter((s) => s.value > 0);
+    const negativeSources = latest.sources.filter((s) => s.value < 0);
     const totalAssets = positiveSources.reduce((sum, s) => sum + s.value, 0);
+    const totalLiabilities = negativeSources.reduce((sum, s) => sum + Math.abs(s.value), 0);
 
+    // Allocation aggregates are computed over assets only — mixing in a
+    // liability would shrink the volatility/liquidity buckets it lives in
+    // and silently misstate the asset mix.
     return {
       latest,
       positiveSources,
+      negativeSources,
       totalAssets,
-      byVolatility: aggregateBy(latest.sources, (s) => toTitleCase(s.volatType)),
-      byLiquidity:  aggregateBy(latest.sources, (s) => (s.isLiquid ? 'Liquid' : 'Non-liquid')),
+      totalLiabilities,
+      byVolatility: aggregateBy(positiveSources, (s) => toTitleCase(s.volatType)),
+      byLiquidity:  aggregateBy(positiveSources, (s) => (s.isLiquid ? 'Liquid' : 'Non-liquid')),
     };
   }, [snapshots]);
 
   if (isLoading) return <DashboardSkeleton />;
   if (!data) return <FileUpload />;
-  if (!aggregates) return null;
+  if (!aggregates) {
+    // data exists but no snapshots yet — render a CTA frame instead of a
+    // blank page so the surface stays useful for users who created sources
+    // but haven't logged a measurement.
+    return (
+      <div className="flex flex-col gap-8">
+        <div>
+          <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em', margin: 0 }}>
+            Allocations
+          </h1>
+          <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
+            Add a measurement to see how your portfolio is distributed.
+          </p>
+        </div>
+        <div
+          className="q-card q-card--p-lg"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 'var(--s-3)',
+            minHeight: 260,
+            textAlign: 'center',
+          }}
+        >
+          <p style={{ margin: 0, color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)', maxWidth: 360 }}>
+            No measurements yet. Once you log a snapshot the allocation charts will fill in.
+          </p>
+          <Link
+            to="/dashboard"
+            className="q-btn q-btn--primary q-btn--md"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Plus size={14} aria-hidden="true" />
+            Add measurement
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
-  const { latest, positiveSources, totalAssets, byVolatility, byLiquidity } = aggregates;
+  const { latest, positiveSources, negativeSources, totalAssets, totalLiabilities, byVolatility, byLiquidity } = aggregates;
+  const netWorth = totalAssets - totalLiabilities;
   const treemapData = positiveSources.map((s) => ({ id: s.name, name: s.name, value: Math.round(s.value) }));
 
   // Donut shows the same data as treemap/bars (individual positive sources),
@@ -96,7 +145,13 @@ const AllocationsPage = () => {
           Allocations
         </h1>
         <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
-          How {fmtCompact(totalAssets, fmt)} of assets is distributed across {latest.sources.length} sources.
+          How {fmtCompact(totalAssets, fmt)} of assets is distributed across {positiveSources.length} sources
+          {negativeSources.length > 0 && (
+            <>
+              {' '}· Liabilities of {fmtCompact(totalLiabilities, fmt)} shown separately below
+              {' '}· Net worth {fmtCompact(netWorth, fmt)}
+            </>
+          )}.
         </p>
       </div>
 
@@ -174,22 +229,22 @@ const AllocationsPage = () => {
         </div>
       </div>
 
-      {/* Full source table */}
+      {/* Asset table */}
       <div className="q-card q-card--p-none" style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table className="q-table q-table--responsive">
             <thead>
               <tr>
-                <th>Source</th>
+                <th>Asset</th>
                 <th data-col="secondary">Volatility</th>
                 <th data-col="secondary">Liquid</th>
                 <th className="num">Value</th>
-                <th className="num" data-col="secondary">%</th>
+                <th className="num" data-col="secondary">% of assets</th>
               </tr>
             </thead>
             <tbody>
-              {latest.sources.map((s, i) => {
-                const pct = totalAssets > 0 ? (Math.abs(s.value) / totalAssets) * 100 : 0;
+              {positiveSources.map((s, i) => {
+                const pct = totalAssets > 0 ? (s.value / totalAssets) * 100 : 0;
                 return (
                   <tr key={s.name + i}>
                     <td>
@@ -211,10 +266,7 @@ const AllocationsPage = () => {
                         ? <Check     size={14} style={{ color: 'var(--positive)' }} aria-label="Liquid" />
                         : <Snowflake size={14} style={{ color: 'var(--fg-faint)' }} aria-label="Non-liquid — frozen, slow to convert" />}
                     </td>
-                    <td className="num" style={{
-                      color: s.value < 0 ? 'var(--negative)' : 'var(--fg)',
-                      fontFamily: 'var(--font-mono)',
-                    }}>
+                    <td className="num" style={{ fontFamily: 'var(--font-mono)' }}>
                       {fmtFull(s.value)}
                     </td>
                     <td className="num" data-col="secondary" style={{ color: 'var(--fg-muted)' }}>
@@ -227,6 +279,51 @@ const AllocationsPage = () => {
           </table>
         </div>
       </div>
+
+      {/* Liabilities panel — only renders if any source is negative */}
+      {negativeSources.length > 0 && (
+        <div className="q-card q-card--p-lg">
+          <div className="q-section-head">
+            <div>
+              <h2>Liabilities</h2>
+              <div className="q-section-sub">
+                Sources with a negative balance — kept out of allocation percentages so the asset mix stays honest.
+              </div>
+            </div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="q-table q-table--responsive">
+              <thead>
+                <tr>
+                  <th>Source</th>
+                  <th className="num">Owed</th>
+                </tr>
+              </thead>
+              <tbody>
+                {negativeSources.map((s, i) => (
+                  <tr key={s.name + i}>
+                    <td>
+                      <div style={{ fontWeight: 500 }}>{s.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
+                        {toTitleCase(s.volatType)} · {s.isLiquid ? 'Liquid' : 'Non-liquid'}
+                      </div>
+                    </td>
+                    <td className="num" style={{ color: 'var(--negative)', fontFamily: 'var(--font-mono)' }}>
+                      {fmtFull(s.value)}
+                    </td>
+                  </tr>
+                ))}
+                <tr>
+                  <td style={{ fontWeight: 500 }}>Total liabilities</td>
+                  <td className="num" style={{ color: 'var(--negative)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                    {fmtFull(-totalLiabilities)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

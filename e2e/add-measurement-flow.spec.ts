@@ -1,5 +1,23 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Locator } from '@playwright/test';
 import { seedClean } from './helpers/seedClean';
+
+// New-source composer: every source is added through this inline form
+// (post-modal-revamp). Tests share this helper to stay decoupled from
+// composer field ordering.
+async function addSourceInComposer(
+  dialog: Locator,
+  { name, value }: { name: string; value: string },
+) {
+  const composer = dialog.locator('.q-new-src-form');
+  await expect(composer).toBeVisible({ timeout: 4000 });
+  await composer.getByPlaceholder(/bank of america/i).fill(name);
+  // Composer-local value input; the q-new-src-form scope excludes any
+  // already-committed q-src-row inputs.
+  await composer.locator('input[inputmode="decimal"]').fill(value);
+  await composer.getByRole('button', { name: /^add source$/i }).click();
+  // Composer collapses on commit — the "Add a new source" prompt returns.
+  await expect(dialog.getByRole('button', { name: /add a new source/i })).toBeVisible({ timeout: 4000 });
+}
 
 // Full Add-measurement flow that the existing add-measurement.spec.ts only
 // teases at: open the modal from the empty state, fill in source name +
@@ -23,11 +41,10 @@ test.describe('Add Measurement — full submit flow', () => {
     const dialog = page.getByRole('dialog', { name: /add measurement/i });
     await expect(dialog).toBeVisible({ timeout: 6000 });
 
-    // Fill the first row — name + value. Currency defaults to display currency.
-    const nameInput = dialog.getByPlaceholder(/account or asset/i).first();
-    const valueInput = dialog.locator('input[inputmode="decimal"]').first();
-    await nameInput.fill('Checking');
-    await valueInput.fill('12500');
+    // Open the inline new-source composer and fill name + initial value.
+    // First-time users have no existing rows; the composer is the only entry.
+    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    await addSourceInComposer(dialog, { name: 'Checking', value: '12500' });
 
     const saveBtn = dialog.getByRole('button', { name: /save measurement/i });
     await expect(saveBtn).toBeEnabled({ timeout: 4000 });
@@ -48,20 +65,14 @@ test.describe('Add Measurement — full submit flow', () => {
     const dialog = page.getByRole('dialog', { name: /add measurement/i });
     await expect(dialog).toBeVisible({ timeout: 6000 });
 
-    // First row.
-    await dialog.getByPlaceholder(/account or asset/i).first().fill('Checking');
-    await dialog.locator('input[inputmode="decimal"]').first().fill('5000');
+    // First source.
+    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    await addSourceInComposer(dialog, { name: 'Checking', value: '5000' });
 
-    // Add another row via the "Add data source" affordance.
-    const addRow = dialog.getByRole('button', { name: /add data source|add another|add row/i }).first();
-    await addRow.click();
-
-    // Locate the *second* row's inputs — placeholder repeats per row.
-    const names = dialog.getByPlaceholder(/account or asset/i);
-    const values = dialog.locator('input[inputmode="decimal"]');
-    await expect.poll(async () => names.count(), { timeout: 4000 }).toBeGreaterThanOrEqual(2);
-    await names.nth(1).fill('Brokerage');
-    await values.nth(1).fill('25000');
+    // Second source — composer collapses after each "Add source" press, so
+    // re-open it for the next entry.
+    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    await addSourceInComposer(dialog, { name: 'Brokerage', value: '25000' });
 
     await dialog.getByRole('button', { name: /save measurement/i }).click();
     await expect(dialog).not.toBeVisible({ timeout: 6000 });
@@ -82,10 +93,12 @@ test.describe('Add Measurement — full submit flow', () => {
     const dialog = page.getByRole('dialog', { name: /add measurement/i });
     await expect(dialog).toBeVisible({ timeout: 6000 });
 
-    // Fill a row but cancel — values should not persist.
-    await dialog.getByPlaceholder(/account or asset/i).first().fill('Should Not Save');
-    await dialog.locator('input[inputmode="decimal"]').first().fill('99999');
+    // Add a source via the composer, then bail via the modal's Cancel.
+    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    await addSourceInComposer(dialog, { name: 'Should Not Save', value: '99999' });
 
+    // The composer commits to an in-memory row, but until the modal's
+    // Save button is pressed nothing should reach the dashboard.
     await dialog.getByRole('button', { name: /^cancel$/i }).click();
     await expect(dialog).not.toBeVisible({ timeout: 4000 });
 
@@ -93,5 +106,82 @@ test.describe('Add Measurement — full submit flow', () => {
     await expect(page.getByRole('button', { name: /add your first measurement/i })).toBeVisible({ timeout: 6000 });
     // And nothing the partial entry leaked onto the dashboard.
     await expect(page.getByText('Should Not Save')).toHaveCount(0);
+  });
+
+  // ─── New-modal-flow coverage (composer-specific) ────────────────────────
+  //
+  // The composer is the only entry-point for first-time users, so its
+  // contract deserves direct coverage beyond the legacy "happy path" specs
+  // above. We assert the composer's commit/cancel semantics here.
+
+  test('composer Cancel discards in-progress entry without adding a row', async ({ page }) => {
+    const cta = page.getByRole('button', { name: /add your first measurement/i });
+    await expect(cta).toBeVisible({ timeout: 12_000 });
+    await cta.click();
+
+    const dialog = page.getByRole('dialog', { name: /add measurement/i });
+    await expect(dialog).toBeVisible({ timeout: 6000 });
+
+    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    const composer = dialog.locator('.q-new-src-form');
+    await expect(composer).toBeVisible({ timeout: 4000 });
+    await composer.getByPlaceholder(/bank of america/i).fill('Abandoned');
+    await composer.locator('input[inputmode="decimal"]').fill('123');
+
+    // Composer's own Cancel (the .q-new-src-form-foot one) closes the
+    // composer without committing — modal stays open, no row added.
+    await composer.getByRole('button', { name: /^cancel$/i }).click();
+    await expect(composer).not.toBeVisible({ timeout: 4000 });
+    await expect(dialog).toBeVisible();
+
+    // Save remains disabled — nothing was committed.
+    await expect(dialog.getByRole('button', { name: /save measurement/i })).toBeDisabled();
+    // Composer prompt is back, ready for a fresh attempt.
+    await expect(dialog.getByRole('button', { name: /add a new source/i })).toBeVisible();
+  });
+
+  test('committing a source enables Save and renders the new row inline', async ({ page }) => {
+    const cta = page.getByRole('button', { name: /add your first measurement/i });
+    await expect(cta).toBeVisible({ timeout: 12_000 });
+    await cta.click();
+
+    const dialog = page.getByRole('dialog', { name: /add measurement/i });
+    await expect(dialog).toBeVisible({ timeout: 6000 });
+
+    // Initially zero rows + Save disabled.
+    await expect(dialog.locator('.q-src-row')).toHaveCount(0);
+    const saveBtn = dialog.getByRole('button', { name: /save measurement/i });
+    await expect(saveBtn).toBeDisabled();
+
+    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    await addSourceInComposer(dialog, { name: 'Vanguard ETF', value: '7500' });
+
+    // The committed source is rendered as a q-src-row labelled with its name.
+    const rows = dialog.locator('.q-src-row');
+    await expect(rows).toHaveCount(1, { timeout: 4000 });
+    await expect(rows.first()).toContainText(/Vanguard ETF/);
+    // Save flips to enabled because the row's filled value contributes.
+    await expect(saveBtn).toBeEnabled({ timeout: 4000 });
+  });
+
+  test('"Add source" stays disabled until a name is typed', async ({ page }) => {
+    const cta = page.getByRole('button', { name: /add your first measurement/i });
+    await expect(cta).toBeVisible({ timeout: 12_000 });
+    await cta.click();
+
+    const dialog = page.getByRole('dialog', { name: /add measurement/i });
+    await expect(dialog).toBeVisible({ timeout: 6000 });
+    await dialog.getByRole('button', { name: /add a new source/i }).click();
+
+    const composer = dialog.locator('.q-new-src-form');
+    const commit = composer.getByRole('button', { name: /^add source$/i });
+    await expect(commit).toBeDisabled();
+
+    // A 1-character name is treated as below the minimum threshold.
+    await composer.getByPlaceholder(/bank of america/i).fill('A');
+    await expect(commit).toBeDisabled();
+
+    await composer.getByPlaceholder(/bank of america/i).fill('Ally');
+    await expect(commit).toBeEnabled();
   });
 });

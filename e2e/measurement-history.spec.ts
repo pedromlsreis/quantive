@@ -92,7 +92,13 @@ test.describe('Measurement history (edit + delete)', () => {
 
     const confirm = page.getByRole('alertdialog');
     await expect(confirm).toBeVisible({ timeout: 4000 });
-    await confirm.getByRole('button', { name: /^Delete measurement$/ }).click();
+    const deleteBtn = confirm.getByRole('button', { name: /^Delete measurement$/ });
+    await expect(deleteBtn).toBeEnabled();
+    // `noWaitAfter`: the click triggers state updates + toast + Radix focus
+    // restoration, which under heavy parallel load can be mistaken for an
+    // in-flight navigation. Playwright then retries the click and races with
+    // the AlertDialog's exit animation — see flake trace 2026-05-27.
+    await deleteBtn.click({ noWaitAfter: true });
 
     await expect(confirm).not.toBeVisible({ timeout: 4000 });
     // History modal stays open; the row count drops by exactly one.

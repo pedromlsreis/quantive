@@ -100,7 +100,10 @@ export function MotivationalKPIs() {
   // and any arithmetic involving them propagates). Bailing out cleanly here
   // lets the page render the rest of the dashboard until rates arrive.
   const finiteSnapshots = snapshots.filter(s => Number.isFinite(s.total));
-  if (finiteSnapshots.length < 2) return null;
+  // ATH + Milestones work from a single snapshot. Best Month and Total
+  // Wealth Created need at least two, so they're gated separately below.
+  if (finiteSnapshots.length < 1) return null;
+  const hasMultipleSnapshots = finiteSnapshots.length >= 2;
 
   const latest = finiteSnapshots[finiteSnapshots.length - 1];
   const first = finiteSnapshots[0];
@@ -113,32 +116,35 @@ export function MotivationalKPIs() {
   const athProximity = latest.total / ath;
   const isAtATH = athProximity > 0.999;
 
-  // Best Month
-  const sortedSnapshots = [...finiteSnapshots].sort((a, b) => a.date.getTime() - b.date.getTime());
-  const monthlyEnd = new Map<string, { date: Date; total: number }>();
-  for (const snap of sortedSnapshots) {
-    const key = `${snap.date.getFullYear()}-${String(snap.date.getMonth() + 1).padStart(2, '0')}`;
-    const existing = monthlyEnd.get(key);
-    if (!existing || snap.date > existing.date) monthlyEnd.set(key, { date: snap.date, total: snap.total });
-  }
-  const monthKeys = Array.from(monthlyEnd.keys()).sort();
+  // Best Month — only meaningful with ≥2 monthly endpoints.
   let bestMonth = { key: '', gain: -Infinity };
-  for (let i = 1; i < monthKeys.length; i++) {
-    const prev = monthlyEnd.get(monthKeys[i - 1])!;
-    const curr = monthlyEnd.get(monthKeys[i])!;
-    const gain = curr.total - prev.total;
-    if (gain > bestMonth.gain) bestMonth = { key: monthKeys[i], gain };
+  let bestMonthLabel = '';
+  if (hasMultipleSnapshots) {
+    const sortedSnapshots = [...finiteSnapshots].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const monthlyEnd = new Map<string, { date: Date; total: number }>();
+    for (const snap of sortedSnapshots) {
+      const key = `${snap.date.getFullYear()}-${String(snap.date.getMonth() + 1).padStart(2, '0')}`;
+      const existing = monthlyEnd.get(key);
+      if (!existing || snap.date > existing.date) monthlyEnd.set(key, { date: snap.date, total: snap.total });
+    }
+    const monthKeys = Array.from(monthlyEnd.keys()).sort();
+    for (let i = 1; i < monthKeys.length; i++) {
+      const prev = monthlyEnd.get(monthKeys[i - 1])!;
+      const curr = monthlyEnd.get(monthKeys[i])!;
+      const gain = curr.total - prev.total;
+      if (gain > bestMonth.gain) bestMonth = { key: monthKeys[i], gain };
+    }
+    bestMonthLabel = bestMonth.key
+      ? new Date(bestMonth.key + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+      : '';
   }
-  const bestMonthLabel = bestMonth.key
-    ? new Date(bestMonth.key + '-01').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-    : '';
 
-  // Total Wealth Created
+  // Total Wealth Created — degenerate to 0 at length 1; gated with Best Month.
   const totalCreated = latest.total - first.total;
   const totalPct = first.total > 0 ? (totalCreated / first.total) * 100 : 0;
   const daysSinceStart = Math.max(1, Math.round((latest.date.getTime() - first.date.getTime()) / (1000 * 60 * 60 * 24)));
 
-  // Milestones
+  // Milestones — work at any snapshot count.
   const reached = milestones.filter(m => ath >= m);
   const nextMilestone = milestones.find(m => m > ath);
   const progressToNext = nextMilestone ? Math.min((latest.total / nextMilestone) * 100, 100) : 100;
@@ -193,25 +199,29 @@ export function MotivationalKPIs() {
           }
         />
 
-        {/* Best Month */}
-        <StatCard
-          icon={<CalendarHeart className="h-4 w-4 text-primary" />}
-          label="Best month"
-          value={<span style={{ color: POSITIVE_COLOR }}>+{fmtFull(bestMonth.gain)}</span>}
-          meta={bestMonthLabel}
-        />
+        {hasMultipleSnapshots && (
+          <>
+            {/* Best Month */}
+            <StatCard
+              icon={<CalendarHeart className="h-4 w-4 text-primary" />}
+              label="Best month"
+              value={<span style={{ color: POSITIVE_COLOR }}>+{fmtFull(bestMonth.gain)}</span>}
+              meta={bestMonthLabel}
+            />
 
-        {/* Total Wealth Created */}
-        <StatCard
-          icon={<Rocket className="h-4 w-4 text-primary" />}
-          label="Total wealth created"
-          value={
-            <span style={{ color: totalCreated >= 0 ? POSITIVE_COLOR : undefined }}>
-              {totalCreated >= 0 ? '+' : ''}{fmtFull(totalCreated)}
-            </span>
-          }
-          meta={`${formatPercent(totalPct)} since first measurement · ${daysSinceStart} days`}
-        />
+            {/* Total Wealth Created */}
+            <StatCard
+              icon={<Rocket className="h-4 w-4 text-primary" />}
+              label="Total wealth created"
+              value={
+                <span style={{ color: totalCreated >= 0 ? POSITIVE_COLOR : undefined }}>
+                  {totalCreated >= 0 ? '+' : ''}{fmtFull(totalCreated)}
+                </span>
+              }
+              meta={`${formatPercent(totalPct)} since first measurement · ${daysSinceStart} days`}
+            />
+          </>
+        )}
       </motion.div>
 
       {/* Milestones */}

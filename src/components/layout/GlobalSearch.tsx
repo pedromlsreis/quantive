@@ -1,11 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  PieChart, Database, Shield,
+  PieChart, Database,
   Plus, Search, CornerDownLeft,
 } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useUserRole } from '@/hooks/useUserRole';
 import { toTitleCase } from '@/lib/utils';
 import { ALL_NAV_ITEMS } from '@/lib/nav-config';
 
@@ -29,25 +28,16 @@ interface SearchablePage {
   keywords: string;
 }
 
-// Pages reachable only via search (no sidebar / mobile bar entry).
-const EXTRA_SEARCHABLE_PAGES: SearchablePage[] = [
-  {
-    label: 'Security',
-    to: '/security',
-    icon: <Shield size={SEARCH_ICON_SIZE} />,
-    keywords: 'encryption key recovery',
-  },
-];
-
-const PAGES: SearchablePage[] = [
-  ...ALL_NAV_ITEMS.map((item) => ({
-    label: item.label,
-    to: item.to,
-    icon: <item.Icon size={SEARCH_ICON_SIZE} />,
-    keywords: item.keywords ?? '',
-  })),
-  ...EXTRA_SEARCHABLE_PAGES,
-];
+// Legal / security / admin pages are intentionally omitted here — they are
+// reachable from the footer (Security, Privacy, Terms, Impressum) and the
+// sidebar user menu (Admin), so search stays focused on actual workspace
+// navigation rather than casual browsing.
+const PAGES: SearchablePage[] = ALL_NAV_ITEMS.map((item) => ({
+  label: item.label,
+  to: item.to,
+  icon: <item.Icon size={SEARCH_ICON_SIZE} />,
+  keywords: item.keywords ?? '',
+}));
 
 function matches(haystack: string, needle: string): boolean {
   if (!needle) return true;
@@ -57,7 +47,6 @@ function matches(haystack: string, needle: string): boolean {
 export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
   const navigate = useNavigate();
   const { allSources, allVolatTypes, snapshots } = usePortfolio();
-  const { isAdmin } = useUserRole();
 
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -112,17 +101,6 @@ export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
       }
     }
 
-    if (isAdmin && matches('admin', q)) {
-      out.push({
-        kind: 'page',
-        id: 'page:/admin',
-        label: 'Admin',
-        hint: 'Page',
-        icon: <Shield size={14} />,
-        run: () => navigate('/admin'),
-      });
-    }
-
     // Sources — surface the live value when available.
     const latest = snapshots.length ? snapshots[snapshots.length - 1] : null;
     const valueByName = new Map<string, number>();
@@ -166,7 +144,7 @@ export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
     }
 
     return out;
-  }, [query, allSources, allVolatTypes, snapshots, isAdmin, navigate, onAdd]);
+  }, [query, allSources, allVolatTypes, snapshots, navigate, onAdd]);
 
   // Keep active index in range when results change.
   useEffect(() => {

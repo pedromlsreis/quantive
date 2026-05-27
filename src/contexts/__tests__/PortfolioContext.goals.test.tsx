@@ -5,9 +5,14 @@ import React from 'react';
 // Mirrors the mocking style of PortfolioContext.logout.test.tsx so the
 // provider boots in jsdom without touching Supabase or auth.
 
-const authState: { user: { id: string } | null; loading: boolean } = {
+const authState: {
+  user: { id: string } | null;
+  loading: boolean;
+  subscription: { subscribed: boolean; productId: string | null };
+} = {
   user: null,
   loading: false,
+  subscription: { subscribed: false, productId: null },
 };
 
 const keySessionMock = {
@@ -35,7 +40,10 @@ vi.mock('@/contexts/CurrencyContext', () => ({
   useCurrency: () => currencyMock,
 }));
 vi.mock('@/hooks/useFxRates', () => ({ useFxRates: () => fxMock }));
-vi.mock('@/hooks/useEntitlements', () => ({ useEntitlements: () => entitlementsMock }));
+vi.mock('@/hooks/useEntitlements', () => ({
+  useEntitlements: () => entitlementsMock,
+  devPlanOverride: () => null,
+}));
 
 vi.mock('@/integrations/supabase/client', () => {
   const chain: Record<string, unknown> = {};
