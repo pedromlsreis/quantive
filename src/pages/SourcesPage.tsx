@@ -17,7 +17,7 @@ import {
 import { SOURCE_CATEGORIES } from '@/lib/categories';
 
 const SourcesPage = () => {
-  const { data, isLoading, snapshots, updateRefSource, lastCurrencyBySource } = usePortfolio();
+  const { data, isLoading, allSnapshots, updateRefSource, lastCurrencyBySource } = usePortfolio();
   const { fmtFull } = useCurrencyFormatter();
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -78,26 +78,42 @@ const SourcesPage = () => {
     if (editingVolat) editInputRef.current?.focus();
   }, [editingVolat]);
 
-  const latest = snapshots.length ? snapshots[snapshots.length - 1] : null;
+  const latestSnapshot = allSnapshots.length ? allSnapshots[allSnapshots.length - 1] : null;
 
   // Build a 12-month series per source for the sparklines.
-  const last12 = useMemo(() => snapshots.slice(-12), [snapshots]);
+  const last12 = useMemo(() => allSnapshots.slice(-12), [allSnapshots]);
+
+  // Most recent value + date per source, across all snapshots. A paused or
+  // skipped source still belongs on this page — we show its last known figure
+  // with an "as of" hint when it isn't current.
+  const lastEntryBySource = useMemo(() => {
+    const m = new Map<string, { value: number; date: Date }>();
+    for (let i = allSnapshots.length - 1; i >= 0; i--) {
+      const snap = allSnapshots[i];
+      for (const src of snap.sources) {
+        if (!m.has(src.name)) m.set(src.name, { value: src.value, date: snap.date });
+      }
+    }
+    return m;
+  }, [allSnapshots]);
 
   const rows = useMemo(() => {
-    if (!latest) return [];
+    if (!data) return [];
     const needle = filter.trim().toLowerCase();
-    return latest.sources
-      .filter((s) => !needle || s.name.toLowerCase().includes(needle))
-      .map((s) => {
-        const series = last12.map((snap) => snap.sources.find((x) => x.name === s.name)?.value ?? 0);
+    return data.refSources
+      .filter((rs) => !needle || rs.idSource.toLowerCase().includes(needle))
+      .map((rs) => {
+        const idSource = rs.idSource.trim();
+        const entry = lastEntryBySource.get(idSource) ?? null;
+        const series = last12.map((snap) => snap.sources.find((x) => x.name === idSource)?.value ?? 0);
         const positive = series.length > 1 ? series[series.length - 1] >= series[0] : true;
-        return { source: s, series, positive };
+        const isStale = !!(entry && latestSnapshot && entry.date.getTime() < latestSnapshot.date.getTime());
+        return { refSource: rs, idSource, entry, series, positive, isStale };
       });
-  }, [latest, last12, filter]);
+  }, [data, lastEntryBySource, last12, latestSnapshot, filter]);
 
   if (isLoading) return <DashboardSkeleton />;
   if (!data) return <FileUpload />;
-  if (!latest) return null;
 
   return (
     <div className="flex flex-col gap-8">
@@ -108,7 +124,7 @@ const SourcesPage = () => {
             Sources
           </h1>
           <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
-            {latest.sources.length} accounts and assets tracked
+            {data.refSources.length} accounts and assets tracked
           </p>
           <p style={{ color: 'var(--fg-faint)', fontSize: 12, margin: '4px 0 0', maxWidth: 620 }}>
             Tag each source as volatile (e.g. stocks, crypto) or stable (e.g. savings, bonds) to power volatility insights. Not sure? Leave it as unknown, you can change it any time.
@@ -142,26 +158,27 @@ const SourcesPage = () => {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ source: s, series, positive }, i) => {
-                const isEditing = editingVolat === s.name;
-                const meta = refMeta.get(s.name);
-                const isPaused = !!meta?.isPaused;
-                const category = meta?.category;
-                const isEditingCat = editingCategory === s.name;
+              {rows.map(({ refSource, idSource, entry, series, positive, isStale }, i) => {
+                const isEditing = editingVolat === idSource;
+                const isPaused = !!refSource.isPaused;
+                const category = refSource.category;
+                const isEditingCat = editingCategory === idSource;
+                const isLiquid = refSource.transferableInDays;
+                const value = entry?.value ?? null;
                 return (
-                  <tr key={s.name + i} style={isPaused ? { opacity: 0.65 } : undefined}>
+                  <tr key={idSource + i} style={isPaused ? { opacity: 0.65 } : undefined}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <span style={{ width: 4, height: 28, borderRadius: 2, background: `var(--series-${(i % 8) + 1})`, flexShrink: 0 }} />
                         <div>
                           <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            {s.name}
-                            {isPaused && <span className="q-badge q-badge--neutral" style={{ fontSize: 10 }}>Paused</span>}
+                            {idSource}
+                            {isPaused && <span className="q-badge q-badge--neutral" style={{ fontSize: 10 }}>Stopped</span>}
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
                             {category || <span style={{ color: 'var(--fg-faint)' }}>Uncategorised</span>}
                             <span style={{ margin: '0 6px', color: 'var(--fg-faint)' }}>·</span>
-                            {s.isLiquid ? 'Liquid' : 'Non-liquid'}
+                            {isLiquid ? 'Liquid' : 'Non-liquid'}
                           </div>
                         </div>
                       </div>
@@ -173,9 +190,9 @@ const SourcesPage = () => {
                           className="q-input"
                           style={{ height: 28, padding: '0 var(--s-2)' }}
                           defaultValue={category ?? ''}
-                          onChange={(e) => setCategoryFor(s.name, e.target.value)}
+                          onChange={(e) => setCategoryFor(idSource, e.target.value)}
                           onBlur={() => setEditingCategory(null)}
-                          aria-label={`Category for ${s.name}`}
+                          aria-label={`Category for ${idSource}`}
                         >
                           <option value="" disabled>Choose a category…</option>
                           {SOURCE_CATEGORIES.map(c => (
@@ -189,7 +206,7 @@ const SourcesPage = () => {
                             value={volatDraft}
                             placeholder="e.g. volatile, stable"
                             onChange={(e) => setVolatDraft(e.target.value)}
-                            onBlur={() => commitVolat(s.name, s.volatType)}
+                            onBlur={() => commitVolat(idSource, refSource.volatType)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
                               if (e.key === 'Escape') {
@@ -197,11 +214,11 @@ const SourcesPage = () => {
                                 (e.target as HTMLInputElement).blur();
                               }
                             }}
-                            aria-label={`Volatility for ${s.name}`}
+                            aria-label={`Volatility for ${idSource}`}
                           />
                         </label>
                       ) : (
-                        <span className="q-badge q-badge--neutral">{s.volatType.replace(/_/g, ' ')}</span>
+                        <span className="q-badge q-badge--neutral">{refSource.volatType.replace(/_/g, ' ')}</span>
                       )}
                     </td>
                     <td data-col="secondary">
@@ -212,7 +229,7 @@ const SourcesPage = () => {
                         // snapshot rate; hint at that with a small "→ EUR"
                         // suffix so the user can see why their USD broker
                         // shows a different number than their statement.
-                        const sourceCcy = lastCurrencyBySource.get(s.name) ?? currency.code;
+                        const sourceCcy = lastCurrencyBySource.get(idSource) ?? currency.code;
                         const converted = sourceCcy !== currency.code;
                         return (
                           <span className="mono" style={{ fontSize: 12, color: 'var(--fg-muted)' }}>
@@ -225,43 +242,59 @@ const SourcesPage = () => {
                       })()}
                     </td>
                     <td data-col="secondary" style={{ width: 100 }}>
-                      {series.length > 1
+                      {series.length > 1 && series.some(v => v !== 0)
                         ? <Sparkline values={series} positive={positive} width={80} height={24} />
                         : <span style={{ color: 'var(--fg-faint)', fontSize: 11 }}>—</span>}
                     </td>
                     <td className="num" style={{
-                      color: s.value < 0 ? 'var(--negative)' : 'var(--fg)',
+                      color: value !== null && value < 0 ? 'var(--negative)' : 'var(--fg)',
                       fontFamily: 'var(--font-mono)',
                     }}>
-                      {fmtFull(s.value)}
+                      {value !== null ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <span>{fmtFull(value)}</span>
+                          {isStale && entry && (
+                            <span style={{ fontSize: 10, color: 'var(--fg-faint)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
+                              as of {entry.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <span style={{ color: 'var(--fg-faint)' }}>—</span>
+                          <span style={{ fontSize: 10, color: 'var(--fg-faint)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
+                            No measurements yet
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td style={{ width: 40 }}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="q-icon-btn" aria-label={`Actions for ${s.name}`}>
+                          <button className="q-icon-btn" aria-label={`Actions for ${idSource}`}>
                             <MoreHorizontal size={14} />
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
-                          <DropdownMenuItem onSelect={() => setHistorySource(s.name)}>
+                          <DropdownMenuItem onSelect={() => setHistorySource(idSource)}>
                             <History className="mr-2 h-3.5 w-3.5" />
                             Edit values
                           </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setEditingCategory(s.name)}>
+                          <DropdownMenuItem onSelect={() => setEditingCategory(idSource)}>
                             <Tag className="mr-2 h-3.5 w-3.5" />
                             {category ? 'Edit category' : 'Set category'}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => startEditVolat(s.name, s.volatType)}>
+                          <DropdownMenuItem onSelect={() => startEditVolat(idSource, refSource.volatType)}>
                             <Pencil className="mr-2 h-3.5 w-3.5" />
                             Edit volatility
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onSelect={() => updateRefSource(s.name, { isLiquid: !s.isLiquid })}
+                            onSelect={() => updateRefSource(idSource, { isLiquid: !isLiquid })}
                           >
                             <Droplet className="mr-2 h-3.5 w-3.5" />
-                            {s.isLiquid ? 'Mark as non-liquid' : 'Mark as liquid'}
+                            {isLiquid ? 'Mark as non-liquid' : 'Mark as liquid'}
                           </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => togglePaused(s.name)}>
+                          <DropdownMenuItem onSelect={() => togglePaused(idSource)}>
                             {isPaused
                               ? <><Play className="mr-2 h-3.5 w-3.5" />Resume measurements</>
                               : <><Pause className="mr-2 h-3.5 w-3.5" />Stop measurements</>}
@@ -275,7 +308,7 @@ const SourcesPage = () => {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--s-8)', color: 'var(--fg-subtle)' }}>
-                    No sources match “{filter}”
+                    {filter ? `No sources match “${filter}”` : 'No sources yet'}
                   </td>
                 </tr>
               )}
