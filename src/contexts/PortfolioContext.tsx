@@ -126,6 +126,17 @@ interface PortfolioContextType {
     idSource: string,
     patch: { volatType?: string; isLiquid?: boolean; category?: string; isPaused?: boolean },
   ) => void;
+  /**
+   * Rename a source across the portfolio. Rewrites the `refSource` entry and
+   * every `fact` whose `idSource` matches, then re-encrypts and syncs. The
+   * new name is run through `sanitizeSourceName` (trim, collapse whitespace,
+   * 100-char cap, reject control chars). No-op if the new name resolves to
+   * the same trimmed value as the current one. If a different source already
+   * uses the new name (case-insensitive), the call is rejected with a toast
+   * — there's no merge UI yet, and silently collapsing two sources would
+   * lose user intent.
+   */
+  renameSource: (oldId: string, newName: string) => void;
   isLoading: boolean;
   isMockData: boolean;
   syncStatus: SyncStatus;
@@ -850,6 +861,52 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     });
   }, [user, saveToCloud]);
 
+  const renameSource = useCallback((oldId: string, newName: string) => {
+    const oldTrimmed = oldId.trim();
+    const sanitized = sanitizeSourceName(newName);
+    if (sanitized.error) {
+      toast.error(sanitized.error);
+      return;
+    }
+    const next = sanitized.value;
+    if (next === oldTrimmed) return;
+
+    setData(prev => {
+      if (!prev) return prev;
+      // Case-insensitive conflict check against any *other* source — picking
+      // a name already in use would silently merge two sources' history,
+      // which is almost never what the user wants. Surface a toast and bail.
+      const conflict = prev.refSources.some(rs => {
+        const id = rs.idSource.trim();
+        return id !== oldTrimmed && id.toLowerCase() === next.toLowerCase();
+      });
+      if (conflict) {
+        toast.error(`A source named “${next}” already exists`);
+        return prev;
+      }
+      let touched = false;
+      const newRefSources = prev.refSources.map(rs => {
+        if (rs.idSource.trim() !== oldTrimmed) return rs;
+        touched = true;
+        return { ...rs, idSource: next };
+      });
+      if (!touched) return prev;
+      const newFacts = prev.facts.map(f =>
+        f.idSource.trim() === oldTrimmed ? { ...f, idSource: next } : f,
+      );
+      const updated: PortfolioData = { ...prev, refSources: newRefSources, facts: newFacts };
+      if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      saveToCloud(updated);
+      return updated;
+    });
+    // Source-filter state holds names by string id — keep it in sync so a
+    // currently-applied filter doesn't silently drop the renamed source.
+    setFilters(prev => {
+      if (!prev.sources.includes(oldTrimmed)) return prev;
+      return { ...prev, sources: prev.sources.map(s => (s === oldTrimmed ? next : s)) };
+    });
+  }, [user, saveToCloud]);
+
   // ── Individual measurement edit / delete ────────────────────────────────
   //
   // Facts have no stable id today — the (date, idSource) tuple is the
@@ -1215,6 +1272,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     updateMeasurement,
     deleteMeasurement,
     updateRefSource,
+    renameSource,
     isLoading: isLoading || isCloudLoading,
     isMockData,
     syncStatus,

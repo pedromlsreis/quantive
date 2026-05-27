@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MoreHorizontal, Search, Pencil, History, Droplet, Pause, Play, Tag } from 'lucide-react';
+import { MoreHorizontal, Search, Pencil, History, Droplet, Pause, Play, Tag, Type } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { useCurrency } from '@/contexts/CurrencyContext';
@@ -17,7 +17,7 @@ import {
 import { SOURCE_CATEGORIES } from '@/lib/categories';
 
 const SourcesPage = () => {
-  const { data, isLoading, allSnapshots, updateRefSource, lastCurrencyBySource } = usePortfolio();
+  const { data, isLoading, allSnapshots, updateRefSource, renameSource, lastCurrencyBySource } = usePortfolio();
   const { fmtFull } = useCurrencyFormatter();
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,6 +28,9 @@ const SourcesPage = () => {
   const editInputRef = useRef<HTMLInputElement>(null);
   const [historySource, setHistorySource] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState<string | null>(null);
+  const [nameDraft, setNameDraft] = useState('');
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const refMeta = useMemo(() => {
     const m = new Map<string, { category?: string; isPaused?: boolean }>();
@@ -59,6 +62,17 @@ const SourcesPage = () => {
     setEditingCategory(null);
   };
 
+  const startEditName = (idSource: string) => {
+    setEditingName(idSource);
+    setNameDraft(idSource);
+  };
+
+  const commitName = (idSource: string) => {
+    const next = nameDraft.trim();
+    if (next && next !== idSource) renameSource(idSource, next);
+    setEditingName(null);
+  };
+
   // Sync filter ← URL when navigated to with a different ?q=
   useEffect(() => {
     const q = searchParams.get('q') ?? '';
@@ -77,6 +91,10 @@ const SourcesPage = () => {
   useEffect(() => {
     if (editingVolat) editInputRef.current?.focus();
   }, [editingVolat]);
+
+  useEffect(() => {
+    if (editingName) nameInputRef.current?.focus();
+  }, [editingName]);
 
   const latestSnapshot = allSnapshots.length ? allSnapshots[allSnapshots.length - 1] : null;
 
@@ -174,11 +192,32 @@ const SourcesPage = () => {
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <span style={{ width: 4, height: 28, borderRadius: 2, background: `var(--series-${(i % 8) + 1})`, flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
-                            {idSource}
-                            {isPaused && <span className="q-badge q-badge--neutral" style={{ fontSize: 10 }}>Stopped</span>}
-                          </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          {editingName === idSource ? (
+                            <label className="q-input" style={{ height: 28, padding: '0 var(--s-2)', maxWidth: 280 }}>
+                              <input
+                                ref={nameInputRef}
+                                value={nameDraft}
+                                placeholder="Source name"
+                                onChange={(e) => setNameDraft(e.target.value)}
+                                onBlur={() => commitName(idSource)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                  if (e.key === 'Escape') {
+                                    setEditingName(null);
+                                    (e.target as HTMLInputElement).blur();
+                                  }
+                                }}
+                                aria-label={`Rename ${idSource}`}
+                                maxLength={100}
+                              />
+                            </label>
+                          ) : (
+                            <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {idSource}
+                              {isPaused && <span className="q-badge q-badge--neutral" style={{ fontSize: 10 }}>Stopped</span>}
+                            </div>
+                          )}
                           <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
                             {category || <span style={{ color: 'var(--fg-faint)' }}>Uncategorised</span>}
                             <span style={{ margin: '0 6px', color: 'var(--fg-faint)' }}>·</span>
@@ -280,6 +319,10 @@ const SourcesPage = () => {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuItem onSelect={() => startEditName(idSource)}>
+                            <Type className="mr-2 h-3.5 w-3.5" />
+                            Rename source
+                          </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => setHistorySource(idSource)}>
                             <History className="mr-2 h-3.5 w-3.5" />
                             Edit values
