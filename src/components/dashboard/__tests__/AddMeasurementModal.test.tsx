@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 
+vi.mock('@/contexts/AuthContext', () => ({
+  useAuth: vi.fn(),
+}));
+
 vi.mock('@/contexts/PortfolioContext', () => ({
   usePortfolio: vi.fn(),
 }));
@@ -49,6 +53,7 @@ vi.mock('framer-motion', async () => {
   };
 });
 
+import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
@@ -77,10 +82,16 @@ interface SetupOverrides {
   addMeasurement?: ReturnType<typeof vi.fn>;
   lastCurrencyBySource?: Map<string, string>;
   convertAt?: (amount: number, from: CurrencyCode, to: CurrencyCode, date: Date) => number;
+  /** When true, the modal treats the session as authed and skips draft persistence. */
+  authed?: boolean;
 }
 
 function setup(open = true, overrides: SetupOverrides = {}) {
   const addMeasurement = overrides.addMeasurement ?? vi.fn();
+  vi.mocked(useAuth).mockReturnValue({
+    user: overrides.authed ? { id: 'test-user' } : null,
+  } as unknown as ReturnType<typeof useAuth>);
+
   vi.mocked(usePortfolio).mockReturnValue({
     data: overrides.data !== undefined ? overrides.data : null,
     addMeasurement,
@@ -387,7 +398,11 @@ describe('AddMeasurementModal — save success panel', () => {
 });
 
 describe('AddMeasurementModal — draft persistence', () => {
-  it('persists in-progress entries to localStorage and restores them on next open', async () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  it('persists in-progress entries to localStorage and restores them on next open (guest)', async () => {
     const { rerender, onOpenChange } = setup(true, singleSourceSeed('Savings'));
     fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '4321' } });
     // Close (no save) — draft should remain.
@@ -398,5 +413,29 @@ describe('AddMeasurementModal — draft persistence', () => {
       const valueInput = screen.getByLabelText(/Value for Savings/i) as HTMLInputElement;
       expect(valueInput.value).toBe('4321');
     });
+  });
+
+  it('does NOT write the draft to localStorage for authed users (cloud-only contract)', async () => {
+    setup(true, { ...singleSourceSeed('Savings'), authed: true });
+    fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '9999' } });
+    // Settle pending effects so the draft-persistence useEffect has run.
+    await waitFor(() => {
+      const valueInput = screen.getByLabelText(/Value for Savings/i) as HTMLInputElement;
+      expect(valueInput.value).toBe('9999');
+    });
+    // Plaintext draft must not have been persisted.
+    expect(window.localStorage.getItem('add-measurement-draft')).toBeNull();
+  });
+
+  it('ignores a stale guest-era draft when opening as an authed user', async () => {
+    // Seed a guest draft into localStorage from a previous session.
+    window.localStorage.setItem(
+      'add-measurement-draft',
+      JSON.stringify({ date: '2026-01-15', entries: { 'Savings': '7777' } }),
+    );
+    setup(true, { ...singleSourceSeed('Savings'), authed: true });
+    // The modal should NOT have replayed the stale draft.
+    const valueInput = screen.getByLabelText(/Value for Savings/i) as HTMLInputElement;
+    expect(valueInput.value).toBe('');
   });
 });

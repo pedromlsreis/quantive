@@ -251,13 +251,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const hasFullHistory = useMemo(() => {
     const override = devPlanOverride();
     const plan = override ?? resolvePlan(subscription.subscribed ? subscription.productId : null);
-    // Match useEntitlements: dev override wins over demo unlock so test specs
-    // that seed `quantive-test-plan='free'` and then load demo data still
-    // exercise Free-tier date-range floors.
+    // Match useEntitlements:
+    //   - dev override wins over demo unlock (Playwright Free-tier specs);
+    //   - demo unlock only applies to unauthed sessions (signed-in Free users
+    //     who load demo data don't get Pro entitlements over their demo view).
     if (override) return planHas(plan, 'history.full');
-    if (isMockData) return true;
+    if (isMockData && !user) return true;
     return planHas(plan, 'history.full');
-  }, [isMockData, subscription.subscribed, subscription.productId]);
+  }, [isMockData, user, subscription.subscribed, subscription.productId]);
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
     const dates = parsed.facts.map(f => f.date.getTime());
     if (dates.length === 0) return;
@@ -329,6 +330,17 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       setIsMockData(false);
       setFilters(defaultFilters);
       setIsCloudLoading(true);
+      // Also drop any guest-era plaintext caches that the modal/dashboard
+      // could otherwise replay into the newly-authed session. The
+      // identity-change branch above handles A→B and A→null; this branch
+      // closes the null→A case for the same hygiene contract.
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(MOCK_FLAG_KEY);
+        localStorage.removeItem(ADD_MEASUREMENT_DRAFT_KEY);
+      } catch {
+        // Storage unavailable; nothing to clean up.
+      }
     }
     previousUserIdRef.current = currentUserId;
   }, [user?.id]);

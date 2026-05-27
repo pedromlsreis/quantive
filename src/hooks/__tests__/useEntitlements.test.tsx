@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import type { SubscriptionStatus } from '@/lib/billing/plans';
 
-const authState: { subscription: SubscriptionStatus } = {
+const authState: { user: { id: string } | null; subscription: SubscriptionStatus } = {
+  user: null,
   subscription: {
     subscribed: false,
     productId: null,
@@ -45,6 +46,7 @@ const PRO_SUB: SubscriptionStatus = {
 };
 
 beforeEach(() => {
+  authState.user = null;
   authState.subscription = { ...FREE_SUB };
   portfolioState.isMockData = false;
 });
@@ -99,13 +101,35 @@ describe('useEntitlements', () => {
     expect(result.current.has('support.priority')).toBe(true);
   });
 
-  it('demo mode short-circuits every entitlement to true even on the free plan', () => {
+  it('demo mode short-circuits every entitlement to true for unauthed guests on the free plan', () => {
     portfolioState.isMockData = true;
+    authState.user = null;
     const { result } = renderHook(() => useEntitlements());
     expect(result.current.plan.id).toBe('free');
     expect(result.current.has('history.full')).toBe(true);
     expect(result.current.has('benchmarks')).toBe(true);
     expect(result.current.has('milestones')).toBe(true);
+    expect(result.current.has('export.pdf')).toBe(true);
+  });
+
+  it('demo unlock does NOT apply to signed-in Free users — gates stay closed', () => {
+    portfolioState.isMockData = true;
+    authState.user = { id: 'auth-uid-1' };
+    const { result } = renderHook(() => useEntitlements());
+    expect(result.current.plan.id).toBe('free');
+    // Even with mock data loaded, an authed Free session must see Free gates.
+    expect(result.current.has('history.full')).toBe(false);
+    expect(result.current.has('benchmarks')).toBe(false);
+    expect(result.current.has('export.pdf')).toBe(false);
+  });
+
+  it('demo unlock has no effect on a real authed Pro session (entitlements already granted by plan)', () => {
+    portfolioState.isMockData = true;
+    authState.user = { id: 'auth-uid-2' };
+    authState.subscription = { ...PRO_SUB };
+    const { result } = renderHook(() => useEntitlements());
+    expect(result.current.plan.id).toBe('pro');
+    expect(result.current.has('history.full')).toBe(true);
     expect(result.current.has('export.pdf')).toBe(true);
   });
 

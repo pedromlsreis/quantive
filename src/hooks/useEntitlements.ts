@@ -33,7 +33,7 @@ export function useEntitlements(): {
   plan: Plan;
   has: (entitlement: Entitlement) => boolean;
 } {
-  const { subscription } = useAuth();
+  const { user, subscription } = useAuth();
   const { isMockData } = usePortfolio();
   return useMemo(() => {
     const override = devPlanOverride();
@@ -43,16 +43,23 @@ export function useEntitlements(): {
     // pre-signup view defeats the demo. Real plan resolution resumes the
     // moment the user signs up and `isMockData` flips off.
     //
+    // Restricted to unauthed sessions: a signed-in Free user who clicks
+    // "Try demo" otherwise gets the full Pro UI client-side over their demo
+    // data — purely cosmetic but it confuses the gate's contract. The demo
+    // unlock is for the marketing surface, not for converting paying gates
+    // into freebies post-signup.
+    //
     // Exception: when a dev/test plan override is explicitly set, honour it
     // even over the demo unlock. Playwright drives Free-tier specs by
     // seeding `quantive-test-plan='free'` and then calling `loadDemo` to get
     // a populated dashboard; without this carve-out the override is silently
     // ignored and Free-tier gates render as Pro.
+    const demoUnlock = isMockData && !user;
     const has = (entitlement: Entitlement) => {
       if (override) return planHas(plan, entitlement);
-      if (isMockData) return true;
+      if (demoUnlock) return true;
       return planHas(plan, entitlement);
     };
     return { plan, has };
-  }, [subscription.subscribed, subscription.productId, isMockData]);
+  }, [user, subscription.subscribed, subscription.productId, isMockData]);
 }

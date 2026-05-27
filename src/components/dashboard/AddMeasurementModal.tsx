@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
@@ -70,7 +71,14 @@ function fmtMoney(value: number, code: CurrencyCode, locale: string, compact: bo
 }
 
 export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { user } = useAuth();
   const { data, addMeasurement, allSnapshots, lastCurrencyBySource } = usePortfolio();
+  // Drafts are plaintext (source names + in-progress values), so we only
+  // persist them for guests, who already use localStorage as their offline
+  // cache. Authed users go cloud-only; their drafts live in component state
+  // for the session and are lost on reload. Acceptable trade — see
+  // encryption.md §8.3 ("nothing user-tied is plaintext on disk").
+  const persistDraft = !user;
   const { currency: displayCurrency, allCurrencies } = useCurrency();
   const { convertAt } = useFxRates();
 
@@ -133,9 +141,12 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   }, [existingSources, newSources]);
 
   const buildInitial = useCallback(() => {
-    const draft = loadDraft();
-    return draft;
-  }, []);
+    // Authed users never persisted a draft; skip the read so a stale draft
+    // left behind by a previous guest session doesn't replay into the
+    // post-signup modal.
+    if (!persistDraft) return {} as PersistedDraft;
+    return loadDraft();
+  }, [persistDraft]);
 
   const prevOpenRef = useRef(open);
   useEffect(() => {
@@ -155,8 +166,9 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
 
   useEffect(() => {
     if (!open) return;
+    if (!persistDraft) return;
     saveDraft({ date, entries, ccyOverrides, newSources });
-  }, [open, date, entries, ccyOverrides, newSources]);
+  }, [open, persistDraft, date, entries, ccyOverrides, newSources]);
 
   const isToday = date === todayIso;
   const isBackfill = !isToday;
