@@ -22,6 +22,7 @@ vi.mock('@/integrations/supabase/client', () => {
   const get = () => queryResponse;
   const chain = {
     select: () => chain,
+    gte: () => chain,
     order: () => Promise.resolve(get()),
   };
   return {

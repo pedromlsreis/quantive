@@ -45,10 +45,22 @@ export function useFxRates(): FxRatesApi {
     // resolve. Without this, a sign-out → sign-in would briefly expose the
     // previous fetch's data as "ready" before the new fetch settles.
     setRows(null);
+    // Bound the fetch to the last ~10 years. fx_rates grows ~365 × |currencies|
+    // rows per year — without a floor, every authed mount pulls an
+    // ever-growing table. 10 years covers any realistic personal-finance
+    // horizon while keeping the payload bounded for HN-spike traffic.
+    // Snapshots older than the cutoff still compute (fxConvert.convert
+    // returns NaN for an unknown date), which is the same signal a missing
+    // currency would give.
+    const FX_WINDOW_YEARS = 10;
+    const cutoff = new Date();
+    cutoff.setFullYear(cutoff.getFullYear() - FX_WINDOW_YEARS);
+    const cutoffIso = cutoff.toISOString().slice(0, 10);
     (async () => {
       const { data, error } = await supabase
         .from('fx_rates')
         .select('date, currency, rate_to_base')
+        .gte('date', cutoffIso)
         .order('date', { ascending: true });
       if (cancelled) return;
       if (error) {

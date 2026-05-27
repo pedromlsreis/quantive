@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { findStripeCustomer } from "../_shared/stripeCustomer.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
@@ -10,6 +9,25 @@ import {
   viewFromCacheRow,
   type SubscriptionView,
 } from "../_shared/subscriptionCache.ts";
+
+// Note: findStripeCustomer above only uses `import type Stripe`, which is
+// type-only and erased at runtime — it does NOT pull the Stripe SDK on cold
+// start. Only the dynamic loadStripe() below actually fetches Stripe's
+// ~600 KB runtime, and only on the cache-miss path.
+
+// Stripe is heavy (~600 KB) — dynamic-imported only on cache miss, since the
+// hot path here is a cached profile read that never touches the SDK. The
+// import is module-cached after first load, so cache-miss cold starts
+// amortise to one extra ~50 ms on the *first* miss per instance.
+type StripeModule = typeof import("https://esm.sh/stripe@18.5.0");
+type StripeClass = StripeModule["default"];
+let _StripeCtor: StripeClass | null = null;
+async function loadStripe(): Promise<StripeClass> {
+  if (_StripeCtor) return _StripeCtor;
+  const mod = await import("https://esm.sh/stripe@18.5.0");
+  _StripeCtor = mod.default;
+  return _StripeCtor;
+}
 
 const logStep = (step: string, details?: unknown) => {
   const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
@@ -110,6 +128,7 @@ serve(async (req) => {
       logStep("STRIPE_SECRET_KEY not set — returning unsubscribed");
       return respond(emptyView());
     }
+    const Stripe = await loadStripe();
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customer = await findStripeCustomer(stripe, user.id, user.email);
     if (!customer) {
