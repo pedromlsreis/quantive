@@ -264,7 +264,7 @@ const SourcesPage = () => {
                           <DropdownMenuItem onSelect={() => togglePaused(s.name)}>
                             {isPaused
                               ? <><Play className="mr-2 h-3.5 w-3.5" />Resume measurements</>
-                              : <><Pause className="mr-2 h-3.5 w-3.5" />Pause measurements</>}
+                              : <><Pause className="mr-2 h-3.5 w-3.5" />Stop measurements</>}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
