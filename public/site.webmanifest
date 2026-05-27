@@ -1,0 +1,24 @@
+{
+  "name": "Quantive",
+  "short_name": "Quantive",
+  "description": "A privacy-first finance cockpit. Track net worth, analyse allocations, and forecast your future.",
+  "icons": [
+    {
+      "src": "/web-app-manifest-192x192.png?v=20260528",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/web-app-manifest-512x512.png?v=20260528",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "theme_color": "#2ba688",
+  "background_color": "#0a0a0a",
+  "display": "standalone",
+  "start_url": "/dashboard",
+  "scope": "/"
+}
