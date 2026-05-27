@@ -14,7 +14,7 @@ import { type Entitlement, type Plan, PLANS, FREE_PLAN, planHas, resolvePlan } f
  * Vite inlines `import.meta.env.DEV` as `false` in `build`, so the entire
  * branch (and the localStorage read) drops out at minification.
  */
-function devPlanOverride(): Plan | null {
+export function devPlanOverride(): Plan | null {
   if (!import.meta.env.DEV) return null;
   if (typeof window === 'undefined') return null;
   try {
@@ -42,8 +42,17 @@ export function useEntitlements(): {
     // shows the full Pro experience — paywalling the most-persuasive
     // pre-signup view defeats the demo. Real plan resolution resumes the
     // moment the user signs up and `isMockData` flips off.
-    const has = (entitlement: Entitlement) =>
-      isMockData ? true : planHas(plan, entitlement);
+    //
+    // Exception: when a dev/test plan override is explicitly set, honour it
+    // even over the demo unlock. Playwright drives Free-tier specs by
+    // seeding `quantive-test-plan='free'` and then calling `loadDemo` to get
+    // a populated dashboard; without this carve-out the override is silently
+    // ignored and Free-tier gates render as Pro.
+    const has = (entitlement: Entitlement) => {
+      if (override) return planHas(plan, entitlement);
+      if (isMockData) return true;
+      return planHas(plan, entitlement);
+    };
     return { plan, has };
   }, [subscription.subscribed, subscription.productId, isMockData]);
 }

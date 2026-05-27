@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import type { SubscriptionStatus } from '@/lib/billing/plans';
 
@@ -107,5 +107,55 @@ describe('useEntitlements', () => {
     expect(result.current.has('benchmarks')).toBe(true);
     expect(result.current.has('milestones')).toBe(true);
     expect(result.current.has('export.pdf')).toBe(true);
+  });
+
+  describe('dev plan override (quantive-test-plan)', () => {
+    afterEach(() => {
+      try { window.localStorage.removeItem('quantive-test-plan'); } catch { /* noop */ }
+    });
+
+    it('"pro" override resolves to the Pro plan with all entitlements', () => {
+      window.localStorage.setItem('quantive-test-plan', 'pro');
+      const { result } = renderHook(() => useEntitlements());
+      expect(result.current.plan.id).toBe('pro');
+      expect(result.current.has('history.full')).toBe(true);
+      expect(result.current.has('forecasting')).toBe(true);
+    });
+
+    it('"free" override resolves to the Free plan and gates everything', () => {
+      window.localStorage.setItem('quantive-test-plan', 'free');
+      authState.subscription = { ...PRO_SUB }; // override should win over the real Pro sub
+      const { result } = renderHook(() => useEntitlements());
+      expect(result.current.plan.id).toBe('free');
+      expect(result.current.has('history.full')).toBe(false);
+      expect(result.current.has('benchmarks')).toBe(false);
+    });
+
+    it('"free" override wins over demo (isMockData) unlock — tests opting into Free see Free gates', () => {
+      window.localStorage.setItem('quantive-test-plan', 'free');
+      portfolioState.isMockData = true;
+      const { result } = renderHook(() => useEntitlements());
+      expect(result.current.plan.id).toBe('free');
+      // Without the carve-out, isMockData would return true here.
+      expect(result.current.has('history.full')).toBe(false);
+      expect(result.current.has('export.pdf')).toBe(false);
+    });
+
+    it('"pro" override on a demo dashboard is idempotent — every entitlement is on', () => {
+      window.localStorage.setItem('quantive-test-plan', 'pro');
+      portfolioState.isMockData = true;
+      const { result } = renderHook(() => useEntitlements());
+      expect(result.current.plan.id).toBe('pro');
+      expect(result.current.has('history.full')).toBe(true);
+      expect(result.current.has('milestones')).toBe(true);
+    });
+
+    it('unknown override id falls back to real plan resolution', () => {
+      window.localStorage.setItem('quantive-test-plan', 'nonsense');
+      authState.subscription = { ...PRO_SUB };
+      const { result } = renderHook(() => useEntitlements());
+      // Override returned null → plan resolves from subscription → Pro.
+      expect(result.current.plan.id).toBe('pro');
+    });
   });
 });

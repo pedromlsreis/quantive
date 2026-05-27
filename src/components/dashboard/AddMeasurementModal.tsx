@@ -173,16 +173,25 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     return typeof parsed === 'number' ? parsed : null;
   };
 
-  const rowKey = (r: Row) => (r.kind === 'existing' ? r.meta.idSource : r.source.id);
-  const rowSourceCcy = (r: Row): CurrencyCode =>
-    r.kind === 'existing' ? r.meta.lastCurrency : r.source.defaultCurrency;
-  const ccyFor = (r: Row): CurrencyCode => {
-    const key = rowKey(r);
-    return (
-      ccyOverrides[key] ??
-      (r.kind === 'existing' ? lastCurrencyBySource.get(r.meta.idSource) ?? r.meta.lastCurrency : r.source.defaultCurrency)
-    );
-  };
+  const rowKey = useCallback(
+    (r: Row) => (r.kind === 'existing' ? r.meta.idSource : r.source.id),
+    [],
+  );
+  const rowSourceCcy = useCallback(
+    (r: Row): CurrencyCode =>
+      r.kind === 'existing' ? r.meta.lastCurrency : r.source.defaultCurrency,
+    [],
+  );
+  const ccyFor = useCallback(
+    (r: Row): CurrencyCode => {
+      const key = rowKey(r);
+      return (
+        ccyOverrides[key] ??
+        (r.kind === 'existing' ? lastCurrencyBySource.get(r.meta.idSource) ?? r.meta.lastCurrency : r.source.defaultCurrency)
+      );
+    },
+    [ccyOverrides, lastCurrencyBySource, rowKey],
+  );
   const setCcyForRow = (r: Row, code: CurrencyCode) => {
     setCcyOverrides(prev => ({ ...prev, [rowKey(r)]: code }));
   };
@@ -195,7 +204,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       if (parseEntry(entries[rowKey(r)]) !== null) ids.push(rowKey(r));
     }
     return ids;
-  }, [allRows, entries]);
+  }, [allRows, entries, rowKey]);
   const filledCount = filledIds.length;
 
   // FX-aware total delta projected into the user's display currency.
@@ -214,7 +223,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       acc += Number.isFinite(deltaInDisplay) ? deltaInDisplay : 0;
     }
     return acc;
-  }, [allRows, entries, ccyOverrides, lastCurrencyBySource, convertAt, today, displayCurrency.code]);
+  }, [allRows, entries, ccyFor, rowKey, rowSourceCcy, convertAt, today, displayCurrency.code]);
 
   const latestSnapshot = allSnapshots.length > 0 ? allSnapshots[allSnapshots.length - 1] : null;
   const netWorth = latestSnapshot?.total ?? 0;

@@ -6,7 +6,8 @@ import { analytics } from '@/lib/analytics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { useKeySession } from './KeySessionContext';
-import { useEntitlements } from '@/hooks/useEntitlements';
+import { devPlanOverride } from '@/hooks/useEntitlements';
+import { planHas, resolvePlan } from '@/lib/billing/plans';
 import { sanitizeSourceName } from '@/lib/utils';
 import {
   attemptCloudSync,
@@ -189,7 +190,7 @@ function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: 
 }
 
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, subscription } = useAuth();
   const [data, setData] = useState<PortfolioData | null>(null);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [isLoading, setIsLoading] = useState(false);
@@ -224,7 +225,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setIsCloudLoading(user != null);
   }
 
-  const { has } = useEntitlements();
+  // Inline entitlement read for `history.full`. We cannot call useEntitlements
+  // here because it itself depends on usePortfolio (for the demo isMockData
+  // short-circuit), and PortfolioProvider's own render is the first time the
+  // PortfolioContext value exists — calling useEntitlements at this site would
+  // recurse into a null context. Mirrors useEntitlements semantics: demo data
+  // unlocks everything, dev override wins over the real plan.
   const keySession = useKeySession();
   const { currency: displayCurrency } = useCurrency();
   // Each fact carries its own `currency`. We convert per fact at the rate
@@ -242,7 +248,16 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const requestIdRef = useRef(0);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
 
-  const hasFullHistory = has('history.full');
+  const hasFullHistory = useMemo(() => {
+    const override = devPlanOverride();
+    const plan = override ?? resolvePlan(subscription.subscribed ? subscription.productId : null);
+    // Match useEntitlements: dev override wins over demo unlock so test specs
+    // that seed `quantive-test-plan='free'` and then load demo data still
+    // exercise Free-tier date-range floors.
+    if (override) return planHas(plan, 'history.full');
+    if (isMockData) return true;
+    return planHas(plan, 'history.full');
+  }, [isMockData, subscription.subscribed, subscription.productId]);
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
     const dates = parsed.facts.map(f => f.date.getTime());
     if (dates.length === 0) return;

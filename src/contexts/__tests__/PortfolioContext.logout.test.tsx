@@ -3,9 +3,14 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
 
 // Mutable auth state — flipped by tests to simulate sign-in / sign-out.
-const authState: { user: { id: string } | null; loading: boolean } = {
+const authState: {
+  user: { id: string } | null;
+  loading: boolean;
+  subscription: { subscribed: boolean; productId: string | null };
+} = {
   user: null,
   loading: false,
+  subscription: { subscribed: false, productId: null },
 };
 
 const keySessionMock = {
@@ -35,7 +40,10 @@ vi.mock('@/contexts/CurrencyContext', () => ({
   // It only uses it as a type, so this isn't called.
 }));
 vi.mock('@/hooks/useFxRates', () => ({ useFxRates: () => fxMock }));
-vi.mock('@/hooks/useEntitlements', () => ({ useEntitlements: () => entitlementsMock }));
+vi.mock('@/hooks/useEntitlements', () => ({
+  useEntitlements: () => entitlementsMock,
+  devPlanOverride: () => null,
+}));
 
 // Controllable cloud-load responder. Defaults to "no rows, resolved
 // immediately" so legacy tests keep their behaviour. The skeleton-state tests
