@@ -1160,8 +1160,10 @@
   .q-topbar-add .q-topbar-add-label { display: none; }
   .q-topbar-signin { display: none; }
 
-  /* Leave room for the fixed bottom tab bar so content isn't hidden behind it. */
-  .q-content { flex: 1; padding: var(--s-4) var(--s-4) calc(var(--q-tabbar-h) + var(--s-4)); }
+  /* The in-shell Footer sits below .q-content and carries the tab-bar
+     clearance (margin-bottom below) so we don't double-pad the gap. */
+  .q-content { flex: 1; padding: var(--s-4); }
+  .q-main > footer { margin-bottom: var(--q-tabbar-h); }
   .q-grid--kpi { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .q-grid--3 { grid-template-columns: 1fr 1fr; }
 
