@@ -1390,10 +1390,8 @@
 .q-src-row-meta {
   font-size: 11px;
   color: var(--fg-subtle);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.01em;
   margin-top: 1px;
-  font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1611,6 +1609,12 @@
   letter-spacing: 0;
 }
 .q-new-src-info:hover { background: var(--accent-faint-raw); color: var(--accent-raw); }
+.q-new-src-field-error {
+  font-size: 11px;
+  color: var(--negative);
+  margin-top: 2px;
+  line-height: 1.35;
+}
 .q-new-src-field-toggle-wrap { display: flex; align-items: center; gap: 10px; }
 .q-new-src-field-toggle-label { font-size: 12px; color: var(--fg-muted); }
 .q-new-src-field > input,

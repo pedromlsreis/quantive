@@ -12,6 +12,7 @@ import { Notice } from '@/components/ui/Notice';
 import { sanitizeSourceName, parseLocalizedNumber } from '@/lib/utils';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { CURRENCIES } from '@/lib/currencies';
+import { SOURCE_CATEGORIES } from '@/lib/categories';
 import { modalOverlay, modalContent } from '@/lib/motion';
 import type { FactRow } from '@/lib/types';
 
@@ -19,6 +20,7 @@ interface NewSource {
   id: string;          // synthetic id used as the map key during this session
   name: string;
   volatType: string;
+  category: string;
   isLiquid: boolean;
   defaultCurrency: CurrencyCode;
 }
@@ -28,6 +30,7 @@ interface ExistingSourceMeta {
   lastValue: number;
   lastCurrency: CurrencyCode;
   volatType: string;
+  category: string;
   isLiquid: boolean;
   history: number[];
 }
@@ -99,17 +102,40 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   const [saving, setSaving] = useState(false);
   const trapRef = useFocusTrap<HTMLDivElement>(open);
 
+  // Paused sources are excluded from the modal: by definition their last
+  // measurement is held forever, so the user should not be entering new
+  // values for them. They still count toward net worth via existing facts.
+  const pausedSourceIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const rs of data?.refSources ?? []) {
+      if (rs.isPaused) s.add(rs.idSource.trim());
+    }
+    return s;
+  }, [data]);
+
+  // Case-insensitive index of *every* existing source name (paused too),
+  // used to block duplicate-name attempts in NewSourceForm.
+  const existingNamesLower = useMemo(() => {
+    const s = new Set<string>();
+    for (const rs of data?.refSources ?? []) s.add(rs.idSource.trim().toLowerCase());
+    for (const f of data?.facts ?? []) s.add(f.idSource.trim().toLowerCase());
+    return s;
+  }, [data]);
+
   const existingSources: ExistingSourceMeta[] = useMemo(() => {
     if (!data || data.facts.length === 0) return [];
     const liquidMap = new Map<string, boolean>();
     const volatMap = new Map<string, string>();
+    const categoryMap = new Map<string, string>();
     for (const rs of data.refSources ?? []) {
       liquidMap.set(rs.idSource.trim(), rs.transferableInDays);
       volatMap.set(rs.idSource.trim(), rs.volatType);
+      if (rs.category) categoryMap.set(rs.idSource.trim(), rs.category);
     }
     const byId = new Map<string, FactRow[]>();
     for (const f of data.facts) {
       const key = f.idSource.trim();
+      if (pausedSourceIds.has(key)) continue;
       const arr = byId.get(key);
       if (arr) arr.push(f); else byId.set(key, [f]);
     }
@@ -123,12 +149,13 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         lastValue: latest.sourceVl,
         lastCurrency: latest.currency,
         volatType: volatMap.get(id) ?? '',
+        category: categoryMap.get(id) ?? '',
         isLiquid: liquidMap.get(id) ?? false,
         history,
       });
     }
     return result.sort((a, b) => b.lastValue - a.lastValue);
-  }, [data]);
+  }, [data, pausedSourceIds]);
 
   type Row =
     | { kind: 'existing'; meta: ExistingSourceMeta }
@@ -180,7 +207,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   const fmtShort = (d: Date) => d.toLocaleDateString(displayCurrency.locale, { month: 'short', day: 'numeric' });
 
   const parseEntry = (val: string | undefined): number | null => {
-    if (!val) return null;
+    if (!val || val.trim() === '') return null;
     const parsed = parseLocalizedNumber(val);
     return typeof parsed === 'number' ? parsed : null;
   };
@@ -258,12 +285,13 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     setValidationError(null);
   }
 
-  function addCustomSource(spec: { name: string; volatType: string; initialCcy: CurrencyCode; initialValue: string; isLiquid: boolean }) {
+  function addCustomSource(spec: { name: string; volatType: string; category: string; initialCcy: CurrencyCode; initialValue: string; isLiquid: boolean }) {
     const id = 'new:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const src: NewSource = {
       id,
       name: spec.name.trim(),
       volatType: spec.volatType.trim(),
+      category: spec.category.trim(),
       isLiquid: spec.isLiquid,
       defaultCurrency: spec.initialCcy,
     };
@@ -281,7 +309,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     setSaving(true);
     setValidationError(null);
     try {
-      type Entry = { name: string; value: number; currency: CurrencyCode; isLiquid: boolean; volatType: string };
+      type Entry = { name: string; value: number; currency: CurrencyCode; isLiquid: boolean; volatType: string; category?: string };
       const payload: Entry[] = [];
       const seen = new Set<string>();
       let firstDuplicate: string | null = null;
@@ -307,6 +335,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
           currency: ccyFor(r),
           isLiquid: r.kind === 'existing' ? r.meta.isLiquid : r.source.isLiquid,
           volatType: r.kind === 'existing' ? r.meta.volatType : r.source.volatType,
+          category: r.kind === 'existing' ? (r.meta.category || undefined) : (r.source.category || undefined),
         });
       }
 
@@ -479,6 +508,8 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                       onCancel={() => setAddingNew(false)}
                       onAdd={addCustomSource}
                       allCurrencies={allCurrencies}
+                      existingNamesLower={existingNamesLower}
+                      pendingNamesLower={new Set(newSources.map(s => s.name.trim().toLowerCase()))}
                     />
                   ) : (
                     <button
@@ -620,12 +651,17 @@ function SourceEntryRow({
   displayCurrency: import('@/lib/currencies').CurrencyConfig;
 }) {
   const name = row.kind === 'existing' ? row.meta.idSource : row.source.name;
-  const subMeta = row.kind === 'existing' ? row.meta.volatType : row.source.volatType;
+  const subMeta = row.kind === 'existing' ? row.meta.category : row.source.category;
   const lastValue = row.kind === 'existing' ? row.meta.lastValue : 0;
   const history = row.kind === 'existing' ? row.meta.history : [];
   const isNew = row.kind === 'new';
 
+  // Empty input must NOT parse to 0 — `parseLocalizedNumber('')` returns 0,
+  // which would cascade into delta = -lastValue and a misleading -100% badge.
+  // Treat blank as "no value entered" so the row's delta column falls back
+  // to the CSS placeholder "—".
   const parsed = (() => {
+    if (!value || value.trim() === '') return null;
     const p = parseLocalizedNumber(value);
     return typeof p === 'number' ? p : null;
   })();
@@ -736,14 +772,19 @@ function NewSourceForm({
   onCancel,
   onAdd,
   allCurrencies,
+  existingNamesLower,
+  pendingNamesLower,
 }: {
   defaultCurrency: CurrencyCode;
   onCancel: () => void;
-  onAdd: (spec: { name: string; volatType: string; initialCcy: CurrencyCode; initialValue: string; isLiquid: boolean }) => void;
+  onAdd: (spec: { name: string; volatType: string; category: string; initialCcy: CurrencyCode; initialValue: string; isLiquid: boolean }) => void;
   allCurrencies: import('@/lib/currencies').CurrencyConfig[];
+  existingNamesLower: Set<string>;
+  pendingNamesLower: Set<string>;
 }) {
   const [name, setName] = useState('');
   const [volatType, setVolatType] = useState('stable');
+  const [category, setCategory] = useState<string>(SOURCE_CATEGORIES[0]);
   const [value, setValue] = useState('');
   const [ccy, setCcy] = useState<CurrencyCode>(defaultCurrency);
   const [isLiquid, setIsLiquid] = useState(true);
@@ -751,7 +792,9 @@ function NewSourceForm({
 
   useEffect(() => { nameRef.current?.focus(); }, []);
 
-  const canAdd = name.trim().length > 1;
+  const trimmedLower = name.trim().toLowerCase();
+  const nameTaken = trimmedLower.length > 0 && (existingNamesLower.has(trimmedLower) || pendingNamesLower.has(trimmedLower));
+  const canAdd = name.trim().length > 1 && !nameTaken;
   const ccyConf = CURRENCIES[ccy];
 
   return (
@@ -765,7 +808,27 @@ function NewSourceForm({
             placeholder="e.g. Bank of America Savings account"
             value={name}
             onChange={e => setName(e.target.value)}
+            aria-invalid={nameTaken || undefined}
           />
+          {nameTaken && (
+            <span className="q-new-src-field-error" role="alert">
+              A source called “{name.trim()}” already exists. Pick a different name.
+            </span>
+          )}
+        </label>
+
+        <label className="q-new-src-field">
+          <span className="q-new-src-field-label">Category</span>
+          <select
+            className="q-new-src-freetext"
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            aria-label="Source category"
+          >
+            {SOURCE_CATEGORIES.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </label>
 
         <label className="q-new-src-field">
@@ -842,7 +905,7 @@ function NewSourceForm({
         <button
           type="button"
           disabled={!canAdd}
-          onClick={() => onAdd({ name, volatType, initialCcy: ccy, initialValue: value, isLiquid })}
+          onClick={() => onAdd({ name, volatType, category, initialCcy: ccy, initialValue: value, isLiquid })}
           className="q-btn q-btn--primary q-btn--sm"
           style={{ opacity: canAdd ? 1 : 0.5 }}
         >

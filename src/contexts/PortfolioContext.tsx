@@ -98,7 +98,7 @@ interface PortfolioContextType {
   loadMockData: () => void;
   clearData: () => void;
   addMeasurement: (
-    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[],
+    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string; category?: string }[],
     opts?: { date?: Date },
   ) => void;
   /**
@@ -122,7 +122,10 @@ interface PortfolioContextType {
    * sources" wishlist item).
    */
   deleteMeasurement: (date: Date, idSource: string) => void;
-  updateRefSource: (idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => void;
+  updateRefSource: (
+    idSource: string,
+    patch: { volatType?: string; isLiquid?: boolean; category?: string; isPaused?: boolean },
+  ) => void;
   isLoading: boolean;
   isMockData: boolean;
   syncStatus: SyncStatus;
@@ -660,7 +663,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addMeasurement = useCallback((
-    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string }[],
+    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string; category?: string }[],
     opts?: { date?: Date },
   ) => {
     if (entries.length === 0) return;
@@ -692,6 +695,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           idSource: e.name,
           volatType: e.volatType?.trim() || 'Unknown',
           transferableInDays: e.isLiquid ?? false,
+          category: e.category?.trim() || undefined,
         }));
         const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
 
@@ -719,6 +723,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           idSource: e.name,
           volatType: e.volatType?.trim() || 'Unknown',
           transferableInDays: e.isLiquid ?? false,
+          category: e.category?.trim() || undefined,
         }));
         const newData: PortfolioData = { ...prev, facts: newFacts, refSources: newRefSources };
 
@@ -757,6 +762,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
               idSource: e.name,
               volatType: e.volatType?.trim() || 'Unknown',
               transferableInDays: e.isLiquid ?? false,
+              category: e.category?.trim() || undefined,
             });
           }
         }
@@ -812,7 +818,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     analytics.measurementAdded({ count: entries.length });
   }, [user, isMockData, saveToCloud, setDefaultDateRange]);
 
-  const updateRefSource = useCallback((idSource: string, patch: { volatType?: string; isLiquid?: boolean }) => {
+  const updateRefSource = useCallback((
+    idSource: string,
+    patch: { volatType?: string; isLiquid?: boolean; category?: string; isPaused?: boolean },
+  ) => {
     setData(prev => {
       if (!prev) return prev;
       const target = idSource.trim();
@@ -820,10 +829,16 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       const newRefSources = prev.refSources.map(rs => {
         if (rs.idSource.trim() !== target) return rs;
         changed = true;
+        const nextCategory =
+          patch.category !== undefined
+            ? (patch.category.trim() || undefined)
+            : rs.category;
         return {
           ...rs,
           volatType: patch.volatType !== undefined ? (patch.volatType.trim() || 'Unknown') : rs.volatType,
           transferableInDays: patch.isLiquid !== undefined ? patch.isLiquid : rs.transferableInDays,
+          category: nextCategory,
+          isPaused: patch.isPaused !== undefined ? patch.isPaused : rs.isPaused,
         };
       });
       if (!changed) return prev;

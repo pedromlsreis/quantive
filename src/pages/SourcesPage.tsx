@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { MoreHorizontal, Search, Pencil, History, Droplet } from 'lucide-react';
+import { MoreHorizontal, Search, Pencil, History, Droplet, Pause, Play, Tag } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { useCurrency } from '@/contexts/CurrencyContext';
@@ -14,7 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
-import { toTitleCase } from '@/lib/utils';
+import { SOURCE_CATEGORIES } from '@/lib/categories';
 
 const SourcesPage = () => {
   const { data, isLoading, snapshots, updateRefSource, lastCurrencyBySource } = usePortfolio();
@@ -27,6 +27,15 @@ const SourcesPage = () => {
   const [volatDraft, setVolatDraft] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
   const [historySource, setHistorySource] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+
+  const refMeta = useMemo(() => {
+    const m = new Map<string, { category?: string; isPaused?: boolean }>();
+    for (const rs of data?.refSources ?? []) {
+      m.set(rs.idSource.trim(), { category: rs.category, isPaused: rs.isPaused });
+    }
+    return m;
+  }, [data]);
 
   const startEditVolat = (idSource: string, current: string) => {
     setEditingVolat(idSource);
@@ -38,6 +47,16 @@ const SourcesPage = () => {
     const original = current.toLowerCase() === 'unknown' ? '' : current;
     if (next !== original) updateRefSource(idSource, { volatType: next });
     setEditingVolat(null);
+  };
+
+  const togglePaused = (idSource: string) => {
+    const current = refMeta.get(idSource)?.isPaused ?? false;
+    updateRefSource(idSource, { isPaused: !current });
+  };
+
+  const setCategoryFor = (idSource: string, category: string) => {
+    updateRefSource(idSource, { category });
+    setEditingCategory(null);
   };
 
   // Sync filter ← URL when navigated to with a different ?q=
@@ -125,26 +144,50 @@ const SourcesPage = () => {
             <tbody>
               {rows.map(({ source: s, series, positive }, i) => {
                 const isEditing = editingVolat === s.name;
+                const meta = refMeta.get(s.name);
+                const isPaused = !!meta?.isPaused;
+                const category = meta?.category;
+                const isEditingCat = editingCategory === s.name;
                 return (
-                  <tr key={s.name + i}>
+                  <tr key={s.name + i} style={isPaused ? { opacity: 0.65 } : undefined}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <span style={{ width: 4, height: 28, borderRadius: 2, background: `var(--series-${(i % 8) + 1})`, flexShrink: 0 }} />
                         <div>
-                          <div style={{ fontWeight: 500 }}>{s.name}</div>
+                          <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            {s.name}
+                            {isPaused && <span className="q-badge q-badge--neutral" style={{ fontSize: 10 }}>Paused</span>}
+                          </div>
                           <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
+                            {category || <span style={{ color: 'var(--fg-faint)' }}>Uncategorised</span>}
+                            <span style={{ margin: '0 6px', color: 'var(--fg-faint)' }}>·</span>
                             {s.isLiquid ? 'Liquid' : 'Non-liquid'}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td data-col="secondary" style={{ width: 180 }}>
-                      {isEditing ? (
+                      {isEditingCat ? (
+                        <select
+                          autoFocus
+                          className="q-input"
+                          style={{ height: 28, padding: '0 var(--s-2)' }}
+                          defaultValue={category ?? ''}
+                          onChange={(e) => setCategoryFor(s.name, e.target.value)}
+                          onBlur={() => setEditingCategory(null)}
+                          aria-label={`Category for ${s.name}`}
+                        >
+                          <option value="" disabled>Choose a category…</option>
+                          {SOURCE_CATEGORIES.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      ) : isEditing ? (
                         <label className="q-input" style={{ height: 28, padding: '0 var(--s-2)' }}>
                           <input
                             ref={editInputRef}
                             value={volatDraft}
-                            placeholder="e.g. Volatile, Stable"
+                            placeholder="e.g. volatile, stable"
                             onChange={(e) => setVolatDraft(e.target.value)}
                             onBlur={() => commitVolat(s.name, s.volatType)}
                             onKeyDown={(e) => {
@@ -158,7 +201,7 @@ const SourcesPage = () => {
                           />
                         </label>
                       ) : (
-                        <span className="q-badge q-badge--neutral">{toTitleCase(s.volatType)}</span>
+                        <span className="q-badge q-badge--neutral">{s.volatType.replace(/_/g, ' ')}</span>
                       )}
                     </td>
                     <td data-col="secondary">
@@ -199,10 +242,14 @@ const SourcesPage = () => {
                             <MoreHorizontal size={14} />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuContent align="end" className="w-56">
                           <DropdownMenuItem onSelect={() => setHistorySource(s.name)}>
                             <History className="mr-2 h-3.5 w-3.5" />
                             Edit values
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setEditingCategory(s.name)}>
+                            <Tag className="mr-2 h-3.5 w-3.5" />
+                            {category ? 'Edit category' : 'Set category'}
                           </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => startEditVolat(s.name, s.volatType)}>
                             <Pencil className="mr-2 h-3.5 w-3.5" />
@@ -213,6 +260,11 @@ const SourcesPage = () => {
                           >
                             <Droplet className="mr-2 h-3.5 w-3.5" />
                             {s.isLiquid ? 'Mark as non-liquid' : 'Mark as liquid'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => togglePaused(s.name)}>
+                            {isPaused
+                              ? <><Play className="mr-2 h-3.5 w-3.5" />Resume measurements</>
+                              : <><Pause className="mr-2 h-3.5 w-3.5" />Pause measurements</>}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

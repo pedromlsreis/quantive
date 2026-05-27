@@ -32,6 +32,18 @@ export interface RefSource {
   volatType: string;
   /** Whether this source can be liquidated within days. */
   transferableInDays: boolean;
+  /**
+   * Optional category label (e.g. "Equity ETF", "Cash & Savings"). Absent on
+   * legacy blobs predating the categories rollout.
+   */
+  category?: string;
+  /**
+   * When true, the source is paused: we no longer add measurements for it,
+   * and the most recent fact is treated as its perpetual value. Kept in
+   * snapshots and net-worth maths so historical totals stay coherent. Absent
+   * on legacy blobs — read as `false`.
+   */
+  isPaused?: boolean;
 }
 
 /** The raw portfolio data structure as parsed from Excel or entered manually. */
