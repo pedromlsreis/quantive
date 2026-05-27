@@ -9,7 +9,7 @@ import { X, Plus, ChevronDown, RefreshCw, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { Notice } from '@/components/ui/Notice';
-import { UITooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { UITooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import { sanitizeSourceName, parseLocalizedNumber } from '@/lib/utils';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { CURRENCIES } from '@/lib/currencies';
@@ -773,23 +773,28 @@ function SourceEntryRow({
 // control's hover semantics. Radix renders via portal, so the tooltip is
 // guaranteed to show regardless of the surrounding label.
 function InfoTooltip({ label, content }: { label: string; content: string }) {
+  // Wrap with a local Provider so the component is self-contained — it works
+  // both inside App.tsx (which already mounts a Provider; nesting is fine)
+  // and in tests that render the modal without the app shell.
   return (
-    <UITooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          className="q-new-src-info"
-          aria-label={label}
-          tabIndex={-1}
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-        >
-          ?
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6} className="max-w-[260px] text-xs leading-snug">
-        {content}
-      </TooltipContent>
-    </UITooltip>
+    <TooltipProvider>
+      <UITooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            className="q-new-src-info"
+            aria-label={label}
+            tabIndex={-1}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          >
+            ?
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6} className="max-w-[260px] text-xs leading-snug">
+          {content}
+        </TooltipContent>
+      </UITooltip>
+    </TooltipProvider>
   );
 }
 
