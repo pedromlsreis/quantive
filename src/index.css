@@ -1535,7 +1535,7 @@
   white-space: nowrap;
 }
 .q-src-row-delta.is-pos .q-src-row-delta-fx,
-.q-src-row-delta.is-neg .q-src-row-delta-fx { color: currentColor; opacity: 0.55; }
+.q-src-row-delta.is-neg .q-src-row-delta-fx { color: currentcolor; opacity: 0.55; }
 
 .q-add-source-row {
   grid-column: 1 / -1;
@@ -1754,7 +1754,7 @@
   font-size: 11px;
   opacity: 0.7;
   padding-left: 8px;
-  border-left: 1px solid currentColor;
+  border-left: 1px solid currentcolor;
 }
 
 .q-save-success {

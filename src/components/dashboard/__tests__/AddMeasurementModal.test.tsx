@@ -439,3 +439,126 @@ describe('AddMeasurementModal — draft persistence', () => {
     expect(valueInput.value).toBe('');
   });
 });
+
+describe('AddMeasurementModal — empty delta', () => {
+  it('does not show a -100% delta on a row with no value entered', () => {
+    setup(true, singleSourceSeed('Savings'));
+    // Pre-fix, the row would render "-100%" because parseLocalizedNumber('')
+    // returned 0 → delta = -lastValue. The delta cell should fall back to the
+    // CSS placeholder ("—") instead.
+    expect(screen.queryByText(/-?100\.0%/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/−\s?100\.0%/)).not.toBeInTheDocument();
+  });
+
+  it('row delta column carries the is-empty class until a value is typed', () => {
+    const { container } = setup(true, singleSourceSeed('Savings'));
+    const delta = container.querySelector('.q-src-row-delta');
+    expect(delta?.classList.contains('is-empty')).toBe(true);
+    expect(delta?.classList.contains('is-neg')).toBe(false);
+
+    fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '5500' } });
+    expect(delta?.classList.contains('is-empty')).toBe(false);
+  });
+});
+
+describe('AddMeasurementModal — paused sources', () => {
+  function multiSeed() {
+    return {
+      data: {
+        facts: [
+          { date: new Date(2024, 0, 1), idSource: 'Active Pot', sourceVl: 1000, currency: 'EUR' },
+          { date: new Date(2024, 0, 1), idSource: 'Old Account', sourceVl: 500, currency: 'EUR' },
+        ],
+        refSources: [
+          { idSource: 'Active Pot', volatType: 'stable', transferableInDays: true },
+          { idSource: 'Old Account', volatType: 'stable', transferableInDays: true, isPaused: true },
+        ],
+      },
+      allSnapshots: [{ date: new Date(2024, 0, 1), total: 1500, sources: [] }],
+      lastCurrencyBySource: new Map([['Active Pot', 'EUR'], ['Old Account', 'EUR']]),
+    };
+  }
+
+  it('paused sources are excluded from the modal rows', () => {
+    setup(true, multiSeed());
+    expect(screen.getByText('Active Pot')).toBeInTheDocument();
+    expect(screen.queryByText('Old Account')).not.toBeInTheDocument();
+  });
+
+  it('source count reflects only active (non-paused) sources', () => {
+    setup(true, multiSeed());
+    // Format: "<filledCount> of <totalCount> entered". Only one active source ⇒ "of 1".
+    expect(screen.getByText(/of 1 entered/i)).toBeInTheDocument();
+  });
+});
+
+describe('AddMeasurementModal — category dropdown', () => {
+  it('the new-source form shows a Category select seeded with the canonical categories', () => {
+    setup(true, singleSourceSeed());
+    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
+    const select = screen.getByLabelText(/Source category/i) as HTMLSelectElement;
+    const values = Array.from(select.options).map(o => o.value);
+    expect(values).toEqual(expect.arrayContaining([
+      'Equity ETF', 'Single Equity', 'Crypto', 'Bond ETF',
+      'Cash & Savings', 'Pension', 'Real Estate', 'Liability', 'Alternative', 'Other',
+    ]));
+  });
+
+  it('selected category flows through to addMeasurement on save', async () => {
+    const { addMeasurement } = setup(true, singleSourceSeed());
+    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'Bitcoin' } });
+    fireEvent.change(screen.getByLabelText(/Source category/i), { target: { value: 'Crypto' } });
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '500' } });
+    fireEvent.click(screen.getByRole('button', { name: /^add source$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    await waitFor(() => {
+      expect(addMeasurement).toHaveBeenCalledWith(expect.arrayContaining([
+        expect.objectContaining({ name: 'Bitcoin', category: 'Crypto' }),
+      ]));
+    });
+  });
+});
+
+describe('AddMeasurementModal — unique source name', () => {
+  function seedWithName(name: string) {
+    return {
+      data: {
+        facts: [{ date: new Date(2024, 0, 1), idSource: name, sourceVl: 5000, currency: 'EUR' }],
+        refSources: [{ idSource: name, volatType: 'stable', transferableInDays: true }],
+      },
+      allSnapshots: [{ date: new Date(2024, 0, 1), total: 5000, sources: [] }],
+      lastCurrencyBySource: new Map([[name, 'EUR']]),
+    };
+  }
+
+  it('blocks creating a new source whose name matches an existing one (case-insensitive)', () => {
+    setup(true, seedWithName('Santander Savings'));
+    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'SANTANDER savings' } });
+    expect(screen.getByRole('button', { name: /^add source$/i })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent(/already exists/i);
+  });
+
+  it('blocks duplicate names even when the existing source is paused', () => {
+    const data = {
+      facts: [{ date: new Date(2024, 0, 1), idSource: 'Old Pot', sourceVl: 100, currency: 'EUR' }],
+      refSources: [{ idSource: 'Old Pot', volatType: 'stable', transferableInDays: true, isPaused: true }],
+    };
+    setup(true, {
+      data,
+      allSnapshots: [{ date: new Date(2024, 0, 1), total: 100, sources: [] }],
+      lastCurrencyBySource: new Map([['Old Pot', 'EUR']]),
+    });
+    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'old pot' } });
+    expect(screen.getByRole('button', { name: /^add source$/i })).toBeDisabled();
+  });
+
+  it('allows a name that differs from every existing source', () => {
+    setup(true, seedWithName('Santander Savings'));
+    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'Revolut' } });
+    expect(screen.getByRole('button', { name: /^add source$/i })).toBeEnabled();
+  });
+});
