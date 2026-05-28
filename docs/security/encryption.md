@@ -49,7 +49,7 @@ We do **not** claim to defend against an actively malicious server, a compromise
 - Encryption of email addresses or auth metadata (Supabase auth requires plaintext email for password reset / magic links).
 - Multi-device "trust this device" flows (would require storing a wrapped key locally — deferred).
 - Sharing encrypted data between users (relevant to [#38](https://github.com/pedromlsreis/quantive/issues/38) — multi-portfolio).
-- Subresource integrity (SRI) and reproducible build pipelines (see §16 for why this matters and §17 for the path forward).
+- Subresource integrity (SRI) on the two third-party `script-src` origins (`js.stripe.com`, `eu.i.posthog.com`/`eu-assets.i.posthog.com`). The decision and rationale are documented in [`sri-policy.md`](./sri-policy.md). Stripe.js is not loaded from our HTML at all (billing is a hosted-Checkout redirect, not Stripe Elements); PostHog's bundled core ships inside our hashed, immutable assets, and the dynamically-loaded extension bundles have no published per-version hashes to pin against. Reproducible build pipelines remain out of scope (see §16 for why this matters and §17 for the path forward).
 
 ---
 
@@ -514,7 +514,7 @@ A hostile script running in the same origin (XSS) bypasses all of this — see �
 
 We will publish exactly this list on the public privacy / security page so users can self-select.
 
-1. **Active malicious server.** A compromised Supabase project (or a malicious operator) can ship modified JavaScript on the next page load that exfiltrates the password as the user types. The encryption design assumes the JS the browser runs is the JS this repository describes. Mitigations: subresource integrity, signed builds, native clients. Not in v1.
+1. **Active malicious server.** A compromised Supabase project (or a malicious operator) can ship modified JavaScript on the next page load that exfiltrates the password as the user types. The encryption design assumes the JS the browser runs is the JS this repository describes. Our first-party assets are emitted by Vite with hashed filenames and served `immutable`, which means the bytes at any given `/assets/*.js` URL are bound to their hash; an attacker who replaces the bytes must also collide the filename. The stronger mitigations — signed builds, a native client — are not in v1. Subresource integrity on third-party `script-src` origins is documented in [`sri-policy.md`](./sri-policy.md): not applicable to Stripe (we do not load Stripe.js), and not pursued for PostHog's runtime-loaded extension bundles (vendor publishes no per-version hashes; a pinned hash would break on the next silent rotation).
 
 2. **Compromised user device.** Malware, keyloggers, and malicious browser extensions run with the user's privileges and can read everything the user sees. No application-level mitigation.
 
@@ -547,7 +547,7 @@ The module will:
 
 Out of scope for v1, tracked separately:
 
-- **Subresource Integrity + signed bundles** (mitigates active malicious server). Requires hosting changes — couples to [#37](https://github.com/pedromlsreis/quantive/issues/37) (own domain) where we control the deploy pipeline.
+- **Signed bundles** (mitigates active malicious server). Couples to [#37](https://github.com/pedromlsreis/quantive/issues/37) (own domain) where we control the deploy pipeline. Subresource Integrity is *not* in this list — see [`sri-policy.md`](./sri-policy.md) for why pinning hashes on the current third-party origins is counter-productive given the vendor stability guarantees on offer.
 - **Multi-device "remember me"** via a device key wrapped in a hardware-backed CryptoKey (WebAuthn / Passkeys).
 - **Data key rotation** flow for paranoid users (the password wrap and recovery wrap can already rotate independently; the underlying DK does not).
 - **Encrypted sharing** between users for [#38](https://github.com/pedromlsreis/quantive/issues/38) (multi-portfolio). Will require per-portfolio key wrap with member public keys (libsodium `crypto_box`).
@@ -565,7 +565,7 @@ When a user opens the site, the server delivers the JavaScript that runs. If the
 
 This applies equally to **every web-based E2E system in existence**: Bitwarden's web vault, ProtonMail's web app, Standard Notes' web app, Signal's never-shipped web client. It is the reason native apps with verifiable signatures (or browser extensions with reproducible builds) exist.
 
-What we do today: nothing structural, beyond shipping HTTPS and a strict CSP. What we plan to do later (§15): SRI on bundled assets so the browser refuses to run a tampered bundle on subsequent loads. This still does not protect the *first* load (the TOFU problem), but raises the cost of persistent active attack significantly.
+What we do today: HTTPS, HSTS with `preload`, a strict CSP (`default-src 'self'`; no `'unsafe-inline'`, no `'unsafe-eval'`, no broad `https:` script source), and Vite's hashed-filename `immutable` asset pipeline so the URL of every first-party script is itself a content hash — a replacement of the bytes requires a new filename, which requires a deploy. This gives the bundled code roughly the property SRI would provide on a single load, while preserving the ability to ship fixes. SRI on the two third-party `script-src` origins (Stripe and PostHog) was evaluated and not adopted; the rationale and the conditions that would change the decision live in [`sri-policy.md`](./sri-policy.md). Stronger mitigations — signed builds, a native client — remain on the roadmap and would protect against the *first* load (TOFU) which neither hashed filenames nor SRI can.
 
 We will state this explicitly on the public security page. Users who need protection against an actively malicious server should not use a web-based encryption tool (this one or any other).
 

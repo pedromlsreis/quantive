@@ -182,9 +182,22 @@ export default function SecurityPage() {
                 from a server every time you visit. A compromised server
                 could ship modified JS that exfiltrates your password as
                 you type. Bitwarden, ProtonMail, Standard Notes — all
-                web-based E2E systems share this limit. Mitigations
-                (subresource integrity, signed bundles, native apps) are
-                on the roadmap; not in v1.
+                web-based E2E systems share this limit. Our first-party
+                code ships as hashed, immutable assets, which means a
+                replacement of the bytes requires a deploy by us. Signed
+                builds and a native client remain the stronger mitigation;
+                subresource integrity is{' '}
+                <a
+                  href={`${REPO_URL}/blob/main/docs/security/sri-policy.md`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  not applied to our third-party origins
+                </a>{' '}
+                because the vendors do not publish per-version content
+                hashes and a pinned hash would break on the next silent
+                rotation.
               </li>
               <li>
                 <strong className="text-foreground">A compromised device.</strong>
