@@ -30,7 +30,7 @@ describe('UpsellCard', () => {
     ['export.csv',      /export to csv/i],
     ['export.pdf',      /wealth report pdf/i],
     ['milestones',      /milestones/i],
-    ['benchmarks',      /benchmark your portfolio/i],
+    ['benchmarks',      /full benchmark history/i],
     ['support.priority',/priority support/i],
   ])('renders the canonical copy for feature %s', (feature, titlePattern) => {
     renderCard(feature);

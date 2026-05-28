@@ -723,14 +723,27 @@
 }
 .q-tab {
   position: relative; z-index: 1;
-  border: 0; background: transparent; cursor: pointer;
+  border: 1px solid transparent; background: transparent; cursor: pointer;
   padding: 6px 12px; font-size: var(--text-sm); font-weight: 450;
   color: var(--fg-subtle); border-radius: 4px;
   font-family: inherit;
-  transition: color var(--d-fast) var(--ease-soft);
+  transition:
+    color var(--d-fast) var(--ease-soft),
+    background var(--d-base) var(--ease-out),
+    border-color var(--d-base) var(--ease-out),
+    box-shadow var(--d-base) var(--ease-out);
 }
 .q-tab.is-active { color: var(--fg); }
 .q-tabs--sm .q-tab { padding: 4px 10px; font-size: var(--text-xs); }
+/* Multi-select variant — no sliding indicator; each toggle gets its own
+   surface treatment when pressed. Mirrors the .q-tab-indicator look so the
+   visual rhythm stays consistent across single- and multi-select groups. */
+.q-tabs--multi .q-tab[aria-pressed="true"] {
+  background: var(--surface);
+  border-color: var(--border-soft-raw);
+  box-shadow: var(--shadow-sm);
+  color: var(--fg);
+}
 .q-tab-indicator {
   position: absolute; top: 3px; bottom: 3px;
   background: var(--surface); border-radius: 4px;

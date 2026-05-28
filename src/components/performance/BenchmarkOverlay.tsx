@@ -24,12 +24,9 @@ import {
   DEFAULT_STALE_THRESHOLDS,
 } from '@/lib/benchmarkSeries';
 
-type OverlayChoice = 'off' | SeriesId;
-
-const OVERLAY_OPTIONS: { value: OverlayChoice; label: string }[] = [
+const SERIES_OPTIONS: { value: SeriesId; label: string }[] = [
   { value: 'sp500',        label: 'S&P 500' },
-  { value: 'inflation_eu', label: 'Inflation' },
-  { value: 'off',          label: 'Off' },
+  { value: 'inflation_eu', label: 'Inflation EU' },
 ];
 
 const PERIOD_OPTIONS: { value: BenchmarkPeriod; label: string }[] = [
@@ -39,8 +36,20 @@ const PERIOD_OPTIONS: { value: BenchmarkPeriod; label: string }[] = [
 ];
 
 const SERIES_LABEL: Record<SeriesId, string> = {
-  inflation_eu: 'Inflation (HICP, euro area)',
+  inflation_eu: 'Inflation EU (HICP)',
   sp500:        'S&P 500',
+};
+
+const SERIES_COLOR: Record<SeriesId, string> = {
+  sp500:        'var(--series-5, hsl(50 70% 60%))',
+  inflation_eu: 'var(--series-4, hsl(280 60% 65%))',
+};
+
+// Distinct dash patterns so the two reference lines stay distinguishable
+// without relying on colour alone (WCAG: don't convey info by colour only).
+const SERIES_DASH: Record<SeriesId, string> = {
+  sp500:        '6 4',
+  inflation_eu: '2 4',
 };
 
 function formatDateLong(iso: string): string {
@@ -66,14 +75,21 @@ function clampLast12Months(points: { date: string; value: number }[]): { date: s
   return points.filter((p) => p.date >= iso);
 }
 
+function serialiseActive(active: ReadonlySet<SeriesId>): string {
+  if (active.size === 0) return 'off';
+  return [...active].sort().join('+');
+}
+
 function BenchmarkOverlayInner() {
   const { allSnapshots } = usePortfolio();
   const { series, ready, error } = useBenchmarks();
   const { has } = useEntitlements();
   const isPro = has('benchmarks');
 
-  const [overlay, setOverlay] = useState<OverlayChoice>('sp500');
+  const [active, setActive] = useState<Set<SeriesId>>(() => new Set<SeriesId>(['sp500']));
   const [period, setPeriod] = useState<BenchmarkPeriod>('3y');
+
+  const activeList = useMemo(() => [...active] as SeriesId[], [active]);
 
   const userPoints = useMemo(
     () => allSnapshots.map((s) => ({
@@ -94,73 +110,105 @@ function BenchmarkOverlayInner() {
     [userInPeriod, isPro],
   );
 
-  // For the benchmark overlay we sample the chosen series at the user's
-  // visible snapshot dates, then rebase both series to 100 at the period
-  // start. When the user has no data we still mount the chart and render
-  // the benchmark series alone so the reference line isn't a dead surface
-  // — a centred CTA overlays the empty portfolio line.
+  // For the benchmark overlay we sample each chosen series at the user's
+  // visible snapshot dates, then rebase each series to 100 at its own first
+  // intersected date. When the user has no data we still mount the chart and
+  // render the active benchmark series alone on a union of their dates so
+  // the reference line isn't a dead surface — a centred CTA overlays the
+  // empty portfolio line.
   const chartData = useMemo(() => {
     if (userVisible.length === 0) {
-      if (overlay === 'off') return [] as Array<Record<string, number | string>>;
-      const benchInPeriod = filterByPeriod(series[overlay].points, cutoff);
-      if (benchInPeriod.length === 0) return [];
-      const benchRebased = rebaseToHundred(benchInPeriod);
-      return benchRebased.map((b) => ({
-        date: b.date,
-        benchmark: Number(b.rebased.toFixed(2)),
-        benchmark_raw: b.raw,
-      } as Record<string, number | string>));
+      if (activeList.length === 0) return [] as Array<Record<string, number | string>>;
+
+      const rebasedBySeries: Partial<Record<SeriesId, { date: string; rebased: number; raw: number }[]>> = {};
+      for (const s of activeList) {
+        const inPeriod = filterByPeriod(series[s].points, cutoff);
+        if (inPeriod.length > 0) rebasedBySeries[s] = rebaseToHundred(inPeriod);
+      }
+
+      const allDates = new Set<string>();
+      for (const s of activeList) {
+        const arr = rebasedBySeries[s];
+        if (arr) for (const p of arr) allDates.add(p.date);
+      }
+      const sortedDates = [...allDates].sort();
+
+      const byDate: Partial<Record<SeriesId, Map<string, { rebased: number; raw: number }>>> = {};
+      for (const s of activeList) {
+        const arr = rebasedBySeries[s];
+        if (arr) byDate[s] = new Map(arr.map((p) => [p.date, { rebased: p.rebased, raw: p.raw }]));
+      }
+
+      return sortedDates.map((date) => {
+        const row: Record<string, number | string> = { date };
+        for (const s of activeList) {
+          const v = byDate[s]?.get(date);
+          if (v) {
+            row[`benchmark_${s}`] = Number(v.rebased.toFixed(2));
+            row[`benchmark_${s}_raw`] = v.raw;
+          }
+        }
+        return row;
+      });
     }
 
     const userRebased = rebaseToHundred(
       userVisible.map((s) => ({ date: s.date, value: s.value })),
     );
 
-    let benchRebased: { date: string; raw: number; rebased: number }[] = [];
-    if (overlay !== 'off') {
-      const intersected = intersectByDate(
-        series[overlay],
-        userVisible.map((s) => s.date),
-      );
+    const benchByDateBySeries: Partial<Record<SeriesId, Map<string, { rebased: number; raw: number }>>> = {};
+    for (const s of activeList) {
+      const intersected = intersectByDate(series[s], userVisible.map((u) => u.date));
       if (intersected.length > 0) {
-        benchRebased = rebaseToHundred(intersected);
+        const rebased = rebaseToHundred(intersected);
+        benchByDateBySeries[s] = new Map(rebased.map((b) => [b.date, { rebased: b.rebased, raw: b.raw }]));
       }
     }
 
-    const benchByDate = new Map(benchRebased.map((b) => [b.date, b]));
-
     return userRebased.map((u) => {
-      const b = benchByDate.get(u.date);
       const row: Record<string, number | string> = {
         date: u.date,
         portfolio: Number(u.rebased.toFixed(2)),
         portfolio_raw: u.raw,
       };
-      if (b) {
-        row.benchmark = Number(b.rebased.toFixed(2));
-        row.benchmark_raw = b.raw;
+      for (const s of activeList) {
+        const b = benchByDateBySeries[s]?.get(u.date);
+        if (b) {
+          row[`benchmark_${s}`] = Number(b.rebased.toFixed(2));
+          row[`benchmark_${s}_raw`] = b.raw;
+        }
       }
       return row;
     });
-  }, [userVisible, overlay, series, cutoff]);
+  }, [userVisible, activeList, series, cutoff]);
 
   const hasUserData = userVisible.length > 0;
 
   const periodStartDate = chartData[0]?.date as string | undefined;
 
-  const overlayLatest = overlay !== 'off' ? lastDate(series[overlay]) : null;
-  const overlayStale = overlay !== 'off'
-    ? isStale(series[overlay], now, DEFAULT_STALE_THRESHOLDS)
-    : false;
+  const staleSeries = useMemo(
+    () => activeList.filter((s) => isStale(series[s], now, DEFAULT_STALE_THRESHOLDS)),
+    [activeList, series, now],
+  );
 
-  const onOverlayChange = (v: OverlayChoice) => {
-    setOverlay(v);
-    analytics.benchmarkOverlayToggled({ series: v, period });
+  const toggleSeries = (s: SeriesId) => {
+    setActive((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s); else next.add(s);
+      analytics.benchmarkOverlayToggled({ series: serialiseActive(next), period });
+      return next;
+    });
+  };
+
+  const clearActive = () => {
+    if (active.size === 0) return;
+    setActive(new Set());
+    analytics.benchmarkOverlayToggled({ series: 'off', period });
   };
 
   const onPeriodChange = (v: BenchmarkPeriod) => {
     setPeriod(v);
-    analytics.benchmarkOverlayToggled({ series: overlay, period: v });
+    analytics.benchmarkOverlayToggled({ series: serialiseActive(active), period: v });
   };
 
   if (!ready) {
@@ -175,10 +223,9 @@ function BenchmarkOverlayInner() {
   }
 
   type TooltipPayload = { value: number; dataKey: string; color: string; payload: Record<string, number | string> };
-  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
-    if (!active || !payload || payload.length === 0) return null;
+  const CustomTooltip = ({ active: tooltipActive, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
+    if (!tooltipActive || !payload || payload.length === 0) return null;
     const portfolio = payload.find((p) => p.dataKey === 'portfolio')?.value;
-    const benchmark = payload.find((p) => p.dataKey === 'benchmark')?.value;
 
     return (
       <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '10px 14px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', maxWidth: 280 }}>
@@ -187,20 +234,23 @@ function BenchmarkOverlayInner() {
           <span>Your portfolio</span>
           <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{typeof portfolio === 'number' ? portfolio.toFixed(1) : '—'}</span>
         </div>
-        {overlay !== 'off' && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12, color: '#e8ecf0', marginTop: 2 }}>
-            <span>{SERIES_LABEL[overlay]}</span>
-            <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{typeof benchmark === 'number' ? benchmark.toFixed(1) : '—'}</span>
-          </div>
-        )}
+        {activeList.map((s) => {
+          const v = payload.find((p) => p.dataKey === `benchmark_${s}`)?.value;
+          return (
+            <div key={s} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12, color: '#e8ecf0', marginTop: 2 }}>
+              <span>{SERIES_LABEL[s]}</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{typeof v === 'number' ? v.toFixed(1) : '—'}</span>
+            </div>
+          );
+        })}
         {periodStartDate && (
           <p style={{ fontSize: 10, color: AXIS_COLOR, margin: '8px 0 0', lineHeight: 1.4 }}>
-            Both lines start at 100 on {formatDateLong(periodStartDate)}. A reading of 108 vs 112 means the other line returned 4 percentage points more over this period (12% vs 8%).
+            All lines start at 100 on {formatDateLong(periodStartDate)}. A reading of 108 vs 112 means the other line returned 4 percentage points more over this period (12% vs 8%).
           </p>
         )}
-        {overlay === 'sp500' && (
+        {active.has('sp500') && (
           <p style={{ fontSize: 10, color: AXIS_COLOR, margin: '6px 0 0', lineHeight: 1.4 }}>
-            USD-denominated index; the gap reflects currency drift if your base is not USD.
+            S&amp;P 500 is USD-denominated; its gap reflects currency drift if your base is not USD.
           </p>
         )}
       </div>
@@ -217,16 +267,36 @@ function BenchmarkOverlayInner() {
       <div className="q-section-head">
         <div>
           <h2>Benchmark comparison</h2>
-          <div className="q-section-sub">Both lines start at 100 at the period start — read the gap in percentage points.</div>
+          <div className="q-section-sub">All lines start at 100 at the period start — read the gap in percentage points.</div>
         </div>
         <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
-          <QTabs<OverlayChoice>
-            value={overlay}
-            onChange={onOverlayChange}
-            options={OVERLAY_OPTIONS}
-            size="sm"
-            ariaLabel="Benchmark overlay"
-          />
+          <div
+            className="q-tabs q-tabs--sm q-tabs--multi"
+            role="group"
+            aria-label="Benchmark overlay"
+          >
+            {SERIES_OPTIONS.map((o) => (
+              <button
+                key={o.value}
+                type="button"
+                aria-pressed={active.has(o.value)}
+                data-tab={o.value}
+                className="q-tab"
+                onClick={() => toggleSeries(o.value)}
+              >
+                {o.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-pressed={active.size === 0}
+              data-tab="off"
+              className="q-tab"
+              onClick={clearActive}
+            >
+              Off
+            </button>
+          </div>
           <QTabs<BenchmarkPeriod>
             value={period}
             onChange={onPeriodChange}
@@ -237,7 +307,7 @@ function BenchmarkOverlayInner() {
         </div>
       </div>
 
-      {overlayStale && overlayLatest && (
+      {staleSeries.length > 0 && (
         <div
           role="status"
           style={{
@@ -255,12 +325,26 @@ function BenchmarkOverlayInner() {
         >
           <AlertTriangle size={14} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 2 }} />
           <span>
-            Benchmark data hasn&rsquo;t refreshed since {formatDateLong(overlayLatest)} — values may be slightly behind.
+            {staleSeries.length === 1
+              ? <>{SERIES_LABEL[staleSeries[0]]} hasn&rsquo;t refreshed since {formatDateLong(lastDate(series[staleSeries[0]]) ?? '')} — values may be slightly behind.</>
+              : <>Some benchmark series haven&rsquo;t refreshed recently — values may be slightly behind.</>}
           </span>
         </div>
       )}
 
-      <div style={{ width: '100%', height: 340, position: 'relative' }} role="img" aria-label="Benchmark overlay chart">
+      <div
+        style={{ width: '100%', height: 340, position: 'relative' }}
+        role="img"
+        aria-label={(() => {
+          const parts = ['Line chart, your portfolio rebased to 100'];
+          if (activeList.length > 0) {
+            parts.push(`compared against ${activeList.map((s) => SERIES_LABEL[s]).join(' and ')}`);
+          }
+          parts.push(`over the last ${period}`);
+          if (periodStartDate) parts.push(`starting ${formatDateLong(periodStartDate)}`);
+          return `${parts.join(', ')}.`;
+        })()}
+      >
         <ResponsiveContainer>
           <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
             <CartesianGrid stroke={GRID_COLOR} strokeDasharray="2 4" />
@@ -286,7 +370,10 @@ function BenchmarkOverlayInner() {
               wrapperStyle={{ fontSize: 12, color: AXIS_COLOR }}
               formatter={(value: string) => {
                 if (value === 'portfolio') return 'Your portfolio';
-                if (value === 'benchmark' && overlay !== 'off') return SERIES_LABEL[overlay];
+                if (value.startsWith('benchmark_')) {
+                  const id = value.slice('benchmark_'.length) as SeriesId;
+                  return SERIES_LABEL[id] ?? value;
+                }
                 return value;
               }}
             />
@@ -298,17 +385,18 @@ function BenchmarkOverlayInner() {
               dot={false}
               isAnimationActive={false}
             />
-            {overlay !== 'off' && (
+            {activeList.map((s) => (
               <Line
+                key={s}
                 type="monotone"
-                dataKey="benchmark"
-                stroke="var(--series-5, hsl(50 70% 60%))"
+                dataKey={`benchmark_${s}`}
+                stroke={SERIES_COLOR[s]}
                 strokeWidth={1.5}
-                strokeDasharray="4 4"
+                strokeDasharray={SERIES_DASH[s]}
                 dot={false}
                 isAnimationActive={false}
               />
-            )}
+            ))}
           </LineChart>
         </ResponsiveContainer>
 
@@ -354,11 +442,17 @@ function BenchmarkOverlayInner() {
 
       <div style={{ marginTop: 'var(--s-3)', fontSize: 11, color: 'var(--fg-faint)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <span>
-          {overlay === 'off'
-            ? 'Toggle Inflation or S&P 500 above to overlay a reference series.'
-            : (overlayLatest
-                ? <>Last updated {formatDateLong(overlayLatest)}</>
-                : 'Awaiting first ingest')}
+          {activeList.length === 0
+            ? 'Toggle Inflation EU or S&P 500 above to overlay a reference series.'
+            : (() => {
+                const parts = activeList
+                  .map((s) => {
+                    const d = lastDate(series[s]);
+                    return d ? `${SERIES_LABEL[s]} ${formatDateLong(d)}` : null;
+                  })
+                  .filter((x): x is string => x !== null);
+                return parts.length > 0 ? <>Last updated · {parts.join(' · ')}</> : 'Awaiting first ingest';
+              })()}
         </span>
         {!isPro && (
           <span>Showing the last 12 months. Upgrade to Pro for the full horizon.</span>

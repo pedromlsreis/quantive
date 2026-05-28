@@ -182,7 +182,7 @@ export const analytics = {
   goalCompleted(): void {
     capture('goal_completed');
   },
-  benchmarkOverlayToggled(props: { series: 'inflation_eu' | 'sp500' | 'off'; period: '3y' | '1y' | '6m' }): void {
+  benchmarkOverlayToggled(props: { series: string; period: '3y' | '1y' | '6m' }): void {
     capture('benchmark_overlay_toggled', { series: props.series, period: props.period });
   },
   momTableExported(props: { rows: number; freeRedacted: number }): void {

@@ -29,8 +29,8 @@ const COPY: Record<Entitlement, { title: string; body: string }> = {
     body: 'Set net-worth targets and see how close you are.',
   },
   'benchmarks': {
-    title: 'Benchmark your portfolio',
-    body: 'Compare your returns to inflation, the S&P 500, and MSCI World.',
+    title: 'See your full benchmark history',
+    body: 'The free plan only charts the last 12 months. Upgrade to compare every snapshot you\'ve recorded against the S&P 500 and EU inflation.',
   },
   'support.priority': {
     title: 'Priority support',

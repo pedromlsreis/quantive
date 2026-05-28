@@ -81,24 +81,33 @@ test.describe('Performance — benchmark comparison', () => {
     // heading does render).
     await expect(page.getByRole('heading', { name: 'Benchmark comparison' })).toBeVisible({ timeout: 8000 });
 
-    // Overlay tablist has the three options. From here on the assertions
-    // are local to the card so the default timeout is plenty.
-    const overlayTabs = page.getByRole('tablist', { name: 'Benchmark overlay' });
-    await expect(overlayTabs).toBeVisible();
-    await expect(overlayTabs.getByRole('tab', { name: 'Inflation' })).toBeVisible();
-    await expect(overlayTabs.getByRole('tab', { name: /S.*P.*500/ })).toBeVisible();
-    await expect(overlayTabs.getByRole('tab', { name: 'Off' })).toBeVisible();
+    // Overlay control is a multi-select toggle group with three buttons.
+    // From here on the assertions are local to the card so the default
+    // timeout is plenty.
+    const overlayGroup = page.getByRole('group', { name: 'Benchmark overlay' });
+    await expect(overlayGroup).toBeVisible();
+    const sp500Btn = overlayGroup.getByRole('button', { name: /S.*P.*500/ });
+    const inflationBtn = overlayGroup.getByRole('button', { name: 'Inflation EU' });
+    const offBtn = overlayGroup.getByRole('button', { name: 'Off' });
+    await expect(sp500Btn).toBeVisible();
+    await expect(inflationBtn).toBeVisible();
+    await expect(offBtn).toBeVisible();
 
-    // Default selection: S&P 500.
-    await expect(overlayTabs.getByRole('tab', { name: /S.*P.*500/ })).toHaveAttribute('aria-selected', 'true');
+    // Default: S&P 500 on, Inflation EU off, Off not pressed.
+    await expect(sp500Btn).toHaveAttribute('aria-pressed', 'true');
+    await expect(inflationBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(offBtn).toHaveAttribute('aria-pressed', 'false');
 
-    // Toggle to Inflation.
-    await overlayTabs.getByRole('tab', { name: 'Inflation' }).click();
-    await expect(overlayTabs.getByRole('tab', { name: 'Inflation' })).toHaveAttribute('aria-selected', 'true');
+    // Activate Inflation EU alongside S&P 500 — both should now be pressed.
+    await inflationBtn.click();
+    await expect(sp500Btn).toHaveAttribute('aria-pressed', 'true');
+    await expect(inflationBtn).toHaveAttribute('aria-pressed', 'true');
 
-    // Toggle Off.
-    await overlayTabs.getByRole('tab', { name: 'Off' }).click();
-    await expect(overlayTabs.getByRole('tab', { name: 'Off' })).toHaveAttribute('aria-selected', 'true');
+    // Off clears both toggles and becomes pressed itself.
+    await offBtn.click();
+    await expect(sp500Btn).toHaveAttribute('aria-pressed', 'false');
+    await expect(inflationBtn).toHaveAttribute('aria-pressed', 'false');
+    await expect(offBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('Free user sees a 12-month preview with the benchmark upsell', async ({ page }) => {
@@ -138,10 +147,12 @@ test.describe('Performance — benchmark comparison', () => {
     await page.waitForURL('**/performance');
     await expect(page.getByRole('heading', { name: 'Benchmark comparison' })).toBeVisible({ timeout: 8000 });
 
-    // Switch the overlay to S&P 500 — staleness banner is tied to the
-    // currently-selected series.
-    const overlayTabs = page.getByRole('tablist', { name: 'Benchmark overlay' });
-    await overlayTabs.getByRole('tab', { name: /S.*P.*500/ }).click();
+    // S&P 500 is the default active toggle, so the staleness banner for it
+    // should already be visible. The banner is tied to whichever series are
+    // currently active in the multi-select group.
+    const overlayGroup = page.getByRole('group', { name: 'Benchmark overlay' });
+    await expect(overlayGroup.getByRole('button', { name: /S.*P.*500/ }))
+      .toHaveAttribute('aria-pressed', 'true');
 
     // Amber banner with the "hasn't refreshed" copy is visible.
     await expect(page.getByText(/hasn.t refreshed since/i)).toBeVisible();
