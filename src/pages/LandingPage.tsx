@@ -22,7 +22,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'Is Quantive free to use?',
-    a: 'Yes. Core features are free forever with no credit card required. Pro is €9/month or €90/year — see Pricing below for what it adds.',
+    a: 'Yes. Core features are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF wealth report, and Excel/CSV export.',
   },
   {
     q: 'How does Quantive protect my financial data?',
@@ -314,13 +314,13 @@ export default function LandingPage() {
           <div className="lp-feat-col">
             <h3 className="lp-feat-col-title">See where you're heading</h3>
             <p className="lp-feat-col-desc">
-              Project future net worth using a CAGR model with 95% confidence intervals. Understand your trajectory, and how fast you're getting there.
+              Project future net worth with a CAGR model and 95% confidence bands.
             </p>
           </div>
           <div className="lp-feat-col">
             <h3 className="lp-feat-col-title">One view across currencies</h3>
             <p className="lp-feat-col-desc">
-              Hold assets in any of {SUPPORTED_COUNT} currencies ({SUPPORTED_LIST}), or all at once. View your full portfolio in the currency that makes sense to you.
+              Hold assets in any combination of {SUPPORTED_COUNT} currencies ({SUPPORTED_LIST}). View your full portfolio in the currency that makes sense to you.
             </p>
           </div>
         </div>
@@ -431,21 +431,21 @@ export default function LandingPage() {
           <div className="lp-persona lp-reveal" data-d="1">
             <div className="lp-persona-name">Self-directed investors</div>
             <p className="lp-persona-desc">
-              Managing positions across multiple brokers and asset classes. Needing one consolidated view, without sharing credentials anywhere.
+              Positions spread across multiple brokers and asset classes — one consolidated view, without sharing credentials anywhere.
             </p>
             <span className="lp-persona-tag">Many brokers and one view</span>
           </div>
           <div className="lp-persona lp-reveal" data-d="2">
             <div className="lp-persona-name">Globally mobile</div>
             <p className="lp-persona-desc">
-              Holding wealth across currencies, countries, and tax systems. Needing a multi-currency view in one place.
+              Wealth held across currencies, countries, and tax systems — a multi-currency view in one place.
             </p>
             <span className="lp-persona-tag">Wealth across borders</span>
           </div>
           <div className="lp-persona lp-reveal" data-d="3">
             <div className="lp-persona-name">Clarity seekers</div>
             <p className="lp-persona-desc">
-              Done maintaining spreadsheets. Wanting clear answers without handing over bank credentials.
+              Done with spreadsheets — clear answers without handing over bank credentials.
             </p>
             <span className="lp-persona-tag">Own your data</span>
           </div>
