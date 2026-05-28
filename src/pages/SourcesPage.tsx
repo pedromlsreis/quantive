@@ -28,6 +28,7 @@ const SourcesPage = () => {
   const editInputRef = useRef<HTMLInputElement>(null);
   const [historySource, setHistorySource] = useState<string | null>(null);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const categorySelectRef = useRef<HTMLSelectElement>(null);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -119,6 +120,20 @@ const SourcesPage = () => {
     });
     return () => cancelAnimationFrame(raf);
   }, [editingName]);
+
+  // Same dance as editingName: defer focus to after Radix's onCloseAutoFocus
+  // restore runs, then also open the native picker if the browser supports it
+  // so the user sees the options without a second click.
+  useEffect(() => {
+    if (!editingCategory) return;
+    const raf = requestAnimationFrame(() => {
+      const el = categorySelectRef.current;
+      if (!el) return;
+      el.focus();
+      try { el.showPicker?.(); } catch { /* not user-activated; focus alone is fine */ }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [editingCategory]);
 
   const latestSnapshot = allSnapshots.length ? allSnapshots[allSnapshots.length - 1] : null;
 
@@ -245,7 +260,7 @@ const SourcesPage = () => {
                           <div style={{ fontSize: 11, color: 'var(--fg-subtle)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             {isEditingCat ? (
                               <select
-                                autoFocus
+                                ref={categorySelectRef}
                                 className="q-input"
                                 style={{ height: 24, padding: '0 var(--s-2)', fontSize: 11, maxWidth: 220 }}
                                 defaultValue={category ?? ''}
