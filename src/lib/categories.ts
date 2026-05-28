@@ -1,20 +1,23 @@
 /**
  * @module categories
- * Canonical source categories. Mirrors the design prototype's category set
- * (`.design-reference/quantive/project/src/data.js`). User-facing free text —
- * never persisted as an enum — so adding a new entry is safe.
+ * Canonical source categories. Describe the *kind of account/platform* a
+ * source is, not the asset class held inside it — a brokerage holds equities,
+ * ETFs and bonds at once, so asset-class labels can't honestly apply at source
+ * level. Surfaced as a dropdown in the UI; stored as a loose `string` on
+ * RefSource so legacy blobs with retired labels still load.
  */
 
 export const SOURCE_CATEGORIES = [
-  'Equity ETF',
-  'Single Equity',
+  'Bank',
+  'Savings',
+  'Brokerage',
   'Crypto',
-  'Bond ETF',
-  'Cash & Savings',
   'Pension',
-  'Real Estate',
-  'Liability',
+  'Real estate',
+  'P2P & crowdfunding',
+  'Insurance & capitalisation',
   'Alternative',
+  'Liability',
   'Other',
 ] as const;
 

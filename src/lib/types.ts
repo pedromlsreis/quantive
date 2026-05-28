@@ -33,8 +33,8 @@ export interface RefSource {
   /** Whether this source can be liquidated within days. */
   transferableInDays: boolean;
   /**
-   * Optional category label (e.g. "Equity ETF", "Cash & Savings"). Absent on
-   * legacy blobs predating the categories rollout.
+   * Optional category label (e.g. "Brokerage", "Bank"). Absent on legacy
+   * blobs predating the categories rollout.
    */
   category?: string;
   /**

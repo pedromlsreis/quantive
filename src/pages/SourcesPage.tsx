@@ -242,31 +242,33 @@ const SourcesPage = () => {
                               {isPaused && <span className="q-badge q-badge--neutral" style={{ fontSize: 10 }}>Stopped</span>}
                             </div>
                           )}
-                          <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
-                            {category || <span style={{ color: 'var(--fg-faint)' }}>Uncategorised</span>}
-                            <span style={{ margin: '0 6px', color: 'var(--fg-faint)' }}>·</span>
+                          <div style={{ fontSize: 11, color: 'var(--fg-subtle)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            {isEditingCat ? (
+                              <select
+                                autoFocus
+                                className="q-input"
+                                style={{ height: 24, padding: '0 var(--s-2)', fontSize: 11, maxWidth: 220 }}
+                                defaultValue={category ?? ''}
+                                onChange={(e) => setCategoryFor(idSource, e.target.value)}
+                                onBlur={() => setEditingCategory(null)}
+                                aria-label={`Category for ${idSource}`}
+                              >
+                                <option value="" disabled>Choose a category…</option>
+                                {SOURCE_CATEGORIES.map(c => (
+                                  <option key={c} value={c}>{c}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              category || <span style={{ color: 'var(--fg-faint)' }}>Uncategorised</span>
+                            )}
+                            <span style={{ color: 'var(--fg-faint)' }}>·</span>
                             {isLiquid ? 'Liquid' : 'Non-liquid'}
                           </div>
                         </div>
                       </div>
                     </td>
                     <td data-col="secondary" style={{ width: 180 }}>
-                      {isEditingCat ? (
-                        <select
-                          autoFocus
-                          className="q-input"
-                          style={{ height: 28, padding: '0 var(--s-2)' }}
-                          defaultValue={category ?? ''}
-                          onChange={(e) => setCategoryFor(idSource, e.target.value)}
-                          onBlur={() => setEditingCategory(null)}
-                          aria-label={`Category for ${idSource}`}
-                        >
-                          <option value="" disabled>Choose a category…</option>
-                          {SOURCE_CATEGORIES.map(c => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                      ) : isEditing ? (
+                      {isEditing ? (
                         <label className="q-input" style={{ height: 28, padding: '0 var(--s-2)' }}>
                           <input
                             ref={editInputRef}

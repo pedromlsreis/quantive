@@ -499,8 +499,9 @@ describe('AddMeasurementModal — category dropdown', () => {
     const select = screen.getByLabelText(/Source category/i) as HTMLSelectElement;
     const values = Array.from(select.options).map(o => o.value);
     expect(values).toEqual(expect.arrayContaining([
-      'Equity ETF', 'Single Equity', 'Crypto', 'Bond ETF',
-      'Cash & Savings', 'Pension', 'Real Estate', 'Liability', 'Alternative', 'Other',
+      'Bank', 'Savings', 'Brokerage', 'Crypto', 'Pension', 'Real estate',
+      'P2P & crowdfunding', 'Insurance & capitalisation', 'Alternative',
+      'Liability', 'Other',
     ]));
   });
 
