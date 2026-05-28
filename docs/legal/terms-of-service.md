@@ -1,6 +1,6 @@
 # Terms of Service
 
-_Last updated: May 17, 2026_
+_Last updated: May 28, 2026_
 
 ## 1. Acceptance of Terms
 
@@ -55,6 +55,8 @@ Zur Wahrung der Widerrufsfrist reicht es aus, dass Sie die Mitteilung über die 
 
 ### Withdrawal instructions (non-binding English translation)
 
+<div lang="en">
+
 You have the right to withdraw from this contract within 14 days without giving any reason. The withdrawal period is 14 days from the day on which the contract is concluded.
 
 To exercise your right of withdrawal, you must inform us (Pedro Miguel Lima de Sousa Reis, Lützowstraße 31, 40476 Düsseldorf, Germany, <legal@usequantive.app>) by a clear statement (for example, a letter sent by post or an email) of your decision to withdraw from this contract. You may use the model withdrawal form below, but it is not mandatory.
@@ -62,6 +64,8 @@ To exercise your right of withdrawal, you must inform us (Pedro Miguel Lima de S
 To meet the withdrawal deadline, it is sufficient that you send your communication concerning the exercise of the right of withdrawal before the withdrawal period has expired.
 
 **Consequences of withdrawal.** If you withdraw from this contract, we will reimburse all payments received from you without undue delay and no later than 14 days from the day on which we are informed of your decision. We will use the same means of payment that you used for the original transaction, unless expressly agreed otherwise; in no case will you be charged any fees for this reimbursement.
+
+</div>
 
 ### Muster-Widerrufsformular (German, legally binding)
 
@@ -89,6 +93,8 @@ _(*) Unzutreffendes streichen._
 
 ### Model withdrawal form (non-binding English translation)
 
+<div lang="en">
+
 _(Complete and return this form only if you wish to withdraw from the contract.)_
 
 — To Pedro Miguel Lima de Sousa Reis, Lützowstraße 31, 40476 Düsseldorf, Germany, <legal@usequantive.app>:
@@ -106,6 +112,8 @@ _(Complete and return this form only if you wish to withdraw from the contract.)
 — Date:
 
 _(*) Delete as appropriate._
+
+</div>
 
 ## 7. Data Ownership
 
