@@ -29,6 +29,9 @@
     "size:check": "size-limit",
     "prepare": "husky"
   },
+  "overrides": {
+    "tmp": "^0.2.7"
+  },
   "size-limit": [
     {
       "name": "Main bundle (brotli)",
