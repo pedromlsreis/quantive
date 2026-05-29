@@ -72,6 +72,38 @@ test.describe('Sources page — search, edit, liquidity', () => {
     await expect(row.getByText(/^Volatile$/i)).toBeVisible({ timeout: 6000 });
   });
 
+  test('hide-stopped filter is on by default and hides newly stopped sources', async ({ page }) => {
+    // Demo data ships with no stopped sources, so the toggle isn't rendered yet.
+    const toggle = page.getByRole('switch', { name: /hide stopped sources/i });
+    await expect(toggle).toHaveCount(0);
+
+    // Stop the first source via the row actions dropdown.
+    const firstActions = page.getByRole('button', { name: /^Actions for /i }).first();
+    const actionsLabel = await firstActions.getAttribute('aria-label') ?? '';
+    const sourceName = actionsLabel.replace(/^Actions for /i, '').trim();
+
+    await firstActions.click();
+    await page.getByRole('menuitem', { name: /stop measurements/i }).click();
+
+    // Now the toggle appears, on by default, and the row is hidden from the table.
+    await expect(toggle).toBeVisible({ timeout: 4000 });
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('tr').filter({ hasText: sourceName })).toHaveCount(0, { timeout: 4000 });
+    await expect(page.getByText(/1 stopped hidden/i)).toBeVisible();
+
+    // Toggling off reveals the stopped row with its badge.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-checked', 'false');
+    const row = page.locator('tr').filter({ hasText: sourceName }).first();
+    await expect(row).toBeVisible({ timeout: 4000 });
+    await expect(row.getByText(/^Stopped$/)).toBeVisible();
+
+    // Toggling back on hides it again.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('tr').filter({ hasText: sourceName })).toHaveCount(0, { timeout: 4000 });
+  });
+
   test('toggling liquidity from the dropdown swaps the row label', async ({ page }) => {
     const firstActions = page.getByRole('button', { name: /^Actions for /i }).first();
     const actionsLabel = await firstActions.getAttribute('aria-label') ?? '';

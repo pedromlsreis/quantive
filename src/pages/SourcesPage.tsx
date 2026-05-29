@@ -22,6 +22,7 @@ const SourcesPage = () => {
   const { currency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState(() => searchParams.get('q') ?? '');
+  const [hideStopped, setHideStopped] = useState(true);
 
   const [editingVolat, setEditingVolat] = useState<string | null>(null);
   const [volatDraft, setVolatDraft] = useState('');
@@ -154,11 +155,17 @@ const SourcesPage = () => {
     return m;
   }, [allSnapshots]);
 
+  const stoppedCount = useMemo(
+    () => (data?.refSources ?? []).filter((rs) => rs.isPaused).length,
+    [data],
+  );
+
   const rows = useMemo(() => {
     if (!data) return [];
     const needle = filter.trim().toLowerCase();
     return data.refSources
       .filter((rs) => !needle || rs.idSource.toLowerCase().includes(needle))
+      .filter((rs) => !hideStopped || !rs.isPaused)
       .map((rs) => {
         const idSource = rs.idSource.trim();
         const entry = lastEntryBySource.get(idSource) ?? null;
@@ -171,7 +178,7 @@ const SourcesPage = () => {
         const isStale = !!entry && (dateStale || !!rs.isPaused);
         return { refSource: rs, idSource, entry, series, positive, isStale };
       });
-  }, [data, lastEntryBySource, last12, latestSnapshot, filter]);
+  }, [data, lastEntryBySource, last12, latestSnapshot, filter, hideStopped]);
 
   if (isLoading) return <DashboardSkeleton />;
   if (!data) return <FileUpload />;
@@ -185,22 +192,42 @@ const SourcesPage = () => {
             Sources
           </h1>
           <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
-            {data.refSources.length} accounts and assets tracked
+            {hideStopped && stoppedCount > 0
+              ? `${data.refSources.length - stoppedCount} of ${data.refSources.length} tracked · ${stoppedCount} stopped hidden`
+              : `${data.refSources.length} accounts and assets tracked`}
           </p>
           <p style={{ color: 'var(--fg-faint)', fontSize: 12, margin: '4px 0 0', maxWidth: 620 }}>
             Tag each source as volatile (e.g. stocks, crypto) or stable (e.g. savings, bonds) to power volatility insights. Not sure? Leave it as unknown, you can change it any time.
           </p>
         </div>
-        <div style={{ width: 240 }}>
-          <label className="q-input" style={{ height: 32 }}>
-            <span className="q-input-icon"><Search size={14} /></span>
-            <input
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              placeholder="Search sources"
-              aria-label="Search sources"
-            />
-          </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {stoppedCount > 0 && (
+            <button
+              type="button"
+              className={`q-toggle${hideStopped ? ' is-on' : ''}`}
+              onClick={() => setHideStopped((v) => !v)}
+              aria-checked={hideStopped}
+              aria-label={`Hide stopped sources (${stoppedCount})`}
+              role="switch"
+            >
+              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
+              <span className="q-toggle-label">
+                Hide stopped
+                <span className="q-toggle-sub">{stoppedCount} {stoppedCount === 1 ? 'source' : 'sources'}</span>
+              </span>
+            </button>
+          )}
+          <div style={{ width: 240 }}>
+            <label className="q-input" style={{ height: 32 }}>
+              <span className="q-input-icon"><Search size={14} /></span>
+              <input
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                placeholder="Search sources"
+                aria-label="Search sources"
+              />
+            </label>
+          </div>
         </div>
       </div>
 
@@ -405,7 +432,11 @@ const SourcesPage = () => {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--s-8)', color: 'var(--fg-subtle)' }}>
-                    {filter ? `No sources match “${filter}”` : 'No sources yet'}
+                    {filter
+                      ? `No sources match “${filter}”`
+                      : hideStopped && stoppedCount > 0
+                        ? 'All your sources are stopped — toggle “Hide stopped” off to show them.'
+                        : 'No sources yet'}
                   </td>
                 </tr>
               )}
