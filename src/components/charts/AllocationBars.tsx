@@ -27,7 +27,7 @@ export function AllocationBars({ data, fmt, max }: AllocationBarsProps) {
                 <span style={{ color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {d.name}
                 </span>
-                <span style={{
+                <span className="num" style={{
                   color: 'var(--fg-muted)',
                   fontFamily: 'var(--font-mono)',
                   fontVariantNumeric: 'tabular-nums',

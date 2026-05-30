@@ -50,6 +50,55 @@ test.describe('Topbar privacy mode', () => {
       return window.getComputedStyle(el).filter;
     });
     expect(filterValue).toMatch(/blur\(/);
+
+    // The coverage audit propagated the `.num` class to every other money
+    // figure (deltas, table cells, chart readouts, goal targets). Confirm a
+    // representative `.num` element also blurs under the same toggle.
+    const numFilter = await page.locator('.num').first().evaluate((el) => {
+      return window.getComputedStyle(el).filter;
+    });
+    expect(numFilter).toMatch(/blur\(/);
+  });
+
+  test('auto-blur on focus loss hides values when the window blurs and reveals on return', async ({ page }) => {
+    // Hydrate the opt-in preference before the app boots so PreferencesProvider
+    // attaches the focus listeners on mount.
+    await page.addInitScript(() => localStorage.setItem('pref-privacy-auto-blur', 'true'));
+    await loadDemo(page);
+
+    // Focused + visible → values shown.
+    await expect.poll(
+      () => page.evaluate(() => document.documentElement.classList.contains('privacy-mode')),
+      { timeout: 6000 },
+    ).toBe(false);
+
+    // Window loses focus (alt-tab / screen-share picker) → values blur.
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')));
+    await expect.poll(
+      () => page.evaluate(() => document.documentElement.classList.contains('privacy-mode')),
+      { timeout: 6000 },
+    ).toBe(true);
+
+    // Focus returns → values reveal again (no persistent toggle set).
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await expect.poll(
+      () => page.evaluate(() => document.documentElement.classList.contains('privacy-mode')),
+      { timeout: 6000 },
+    ).toBe(false);
+  });
+
+  test('privacy toggle stays reachable in the top bar on a small phone', async ({ page }) => {
+    // A quick blur switch matters most on mobile; it must not be hidden there.
+    await page.setViewportSize({ width: 375, height: 812 });
+    await loadDemo(page);
+
+    const btn = page.getByRole('button', { name: /hide monetary values|show monetary values/i });
+    await expect(btn).toBeVisible({ timeout: 8000 });
+    await btn.click();
+    await expect.poll(
+      () => page.evaluate(() => document.documentElement.classList.contains('privacy-mode')),
+      { timeout: 6000 },
+    ).toBe(true);
   });
 });
 

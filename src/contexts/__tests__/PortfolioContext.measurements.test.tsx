@@ -55,9 +55,10 @@ vi.mock('@/integrations/supabase/client', () => {
 });
 
 // vi.mock factories are hoisted; use vi.hoisted so the spies are too.
-const { measurementEdited, measurementDeleted } = vi.hoisted(() => ({
+const { measurementEdited, measurementDeleted, measurementRestored } = vi.hoisted(() => ({
   measurementEdited: vi.fn(),
   measurementDeleted: vi.fn(),
+  measurementRestored: vi.fn(),
 }));
 
 vi.mock('@/lib/analytics', () => ({
@@ -66,6 +67,7 @@ vi.mock('@/lib/analytics', () => ({
     measurementAdded: vi.fn(),
     measurementEdited,
     measurementDeleted,
+    measurementRestored,
     fileUploaded: vi.fn(),
     fileUploadFailed: vi.fn(),
     cloudSyncFailed: vi.fn(),
@@ -80,14 +82,31 @@ vi.mock('@/lib/analytics', () => ({
   clearAttribution: vi.fn(),
 }));
 
+const { toastSuccess } = vi.hoisted(() => ({ toastSuccess: vi.fn() }));
+
 vi.mock('sonner', () => ({
   toast: {
-    success: vi.fn(),
+    success: toastSuccess,
     error: vi.fn(),
     warning: vi.fn(),
     info: vi.fn(),
   },
 }));
+
+/**
+ * Find the most recent toast that carries an Undo action and invoke it. We
+ * scan for the action rather than taking the last toast because other
+ * mutations (e.g. addMeasurement) fire their own action-less success toasts.
+ */
+function clickUndo() {
+  for (let i = toastSuccess.mock.calls.length - 1; i >= 0; i--) {
+    const opts = toastSuccess.mock.calls[i]?.[1] as { action?: { onClick?: () => void } } | undefined;
+    if (opts?.action?.onClick) {
+      opts.action.onClick();
+      return;
+    }
+  }
+}
 
 import { PortfolioProvider, usePortfolio } from '@/contexts/PortfolioContext';
 
@@ -122,6 +141,8 @@ beforeEach(() => {
   authState.loading = false;
   measurementEdited.mockClear();
   measurementDeleted.mockClear();
+  measurementRestored.mockClear();
+  toastSuccess.mockClear();
 });
 
 describe('PortfolioContext — measurement edit/delete', () => {
@@ -281,6 +302,100 @@ describe('PortfolioContext — measurement edit/delete', () => {
     const cached = JSON.parse(localStorage.getItem('portfolio-data')!) as { facts: Array<{ idSource: string; sourceVl: number; date: string }> };
     const persisted = cached.facts.find(f => f.idSource === 'Checking' && f.date === '2026-01-15T00:00:00.000Z');
     expect(persisted?.sourceVl).toBe(999);
+  });
+
+  it('deleteMeasurement offers an Undo that restores the exact fact', async () => {
+    seedBlob();
+    const { result } = renderHook(() => usePortfolio(), { wrapper });
+    await waitFor(() => expect(result.current.data).not.toBeNull());
+
+    const targetDate = new Date('2026-01-15T00:00:00.000Z');
+    act(() => {
+      result.current.deleteMeasurement(targetDate, 'Checking');
+    });
+    expect(result.current.data!.facts).toHaveLength(3);
+
+    // The toast carries an Undo action — invoking it puts the fact back verbatim.
+    act(() => { clickUndo(); });
+
+    const restored = result.current.data!.facts.find(
+      f => f.idSource === 'Checking' && f.date.getTime() === targetDate.getTime(),
+    );
+    expect(result.current.data!.facts).toHaveLength(4);
+    expect(restored).toMatchObject({ sourceVl: 1000, currency: 'EUR' });
+    expect(measurementRestored).toHaveBeenCalledTimes(1);
+  });
+
+  it('Undo restores every duplicate fact for a (date, source) key', async () => {
+    // Legacy spreadsheet ingest can leave two facts on the same (date, source).
+    localStorage.setItem(
+      'portfolio-data',
+      JSON.stringify({
+        facts: [
+          { date: '2026-01-15T00:00:00.000Z', idSource: 'Checking', sourceVl: 1000, currency: 'EUR' },
+          { date: '2026-01-15T00:00:00.000Z', idSource: 'Checking', sourceVl: 1000, currency: 'EUR' },
+        ],
+        refSources: [{ idSource: 'Checking', volatType: 'Stable', transferableInDays: true }],
+        goals: [],
+      }),
+    );
+    const { result } = renderHook(() => usePortfolio(), { wrapper });
+    await waitFor(() => expect(result.current.data).not.toBeNull());
+
+    act(() => {
+      result.current.deleteMeasurement(new Date('2026-01-15T00:00:00.000Z'), 'Checking');
+    });
+    expect(result.current.data!.facts).toHaveLength(0);
+
+    act(() => { clickUndo(); });
+    expect(result.current.data!.facts.filter(f => f.idSource === 'Checking')).toHaveLength(2);
+  });
+
+  it('Undo is non-clobbering: a value re-entered for the slot survives undo', async () => {
+    // Build the whole scenario through addMeasurement so every (date, source)
+    // key is normalised the same way — avoids a UTC-vs-local-midnight mismatch
+    // between a seeded ISO blob and addMeasurement's start-of-day clamp.
+    const { result } = renderHook(() => usePortfolio(), { wrapper });
+    await act(async () => { await Promise.resolve(); });
+
+    const targetDate = new Date('2026-01-15T12:00:00.000Z');
+    act(() => {
+      result.current.addMeasurement([{ name: 'Checking', value: 1000, currency: 'EUR' }], { date: targetDate });
+    });
+    const seeded = result.current.data!.facts.find(f => f.idSource === 'Checking')!;
+
+    act(() => {
+      result.current.deleteMeasurement(seeded.date, 'Checking');
+    });
+    // User re-enters a fresh value on the same slot before clicking Undo.
+    act(() => {
+      result.current.addMeasurement([{ name: 'Checking', value: 7777, currency: 'EUR' }], { date: targetDate });
+    });
+
+    act(() => { clickUndo(); });
+
+    // The newer value wins; the stale undo does not overwrite it, and the
+    // analytics restore event does not fire on a no-op undo.
+    const checkingJan = result.current.data!.facts.filter(f => f.idSource === 'Checking');
+    expect(checkingJan).toHaveLength(1);
+    expect(checkingJan[0].sourceVl).toBe(7777);
+    expect(measurementRestored).not.toHaveBeenCalled();
+  });
+
+  it('Undo is idempotent: a second click after a restore is a no-op', async () => {
+    seedBlob();
+    const { result } = renderHook(() => usePortfolio(), { wrapper });
+    await waitFor(() => expect(result.current.data).not.toBeNull());
+
+    act(() => {
+      result.current.deleteMeasurement(new Date('2026-01-15T00:00:00.000Z'), 'Checking');
+    });
+    act(() => { clickUndo(); });
+    act(() => { clickUndo(); });
+
+    expect(result.current.data!.facts.filter(f => f.idSource === 'Checking')).toHaveLength(2);
+    // Restore fired exactly once — the second click hit the present-key guard.
+    expect(measurementRestored).toHaveBeenCalledTimes(1);
   });
 
   it('matches by trimmed idSource so whitespace variants resolve to the same fact', async () => {

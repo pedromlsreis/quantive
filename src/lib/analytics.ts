@@ -155,6 +155,14 @@ export const analytics = {
   measurementDeleted(): void {
     capture('measurement_deleted');
   },
+  /**
+   * Fired when a user reverses a delete via the undo toast. Bare event — the
+   * ratio against `measurement_deleted` tells us how often the undo affordance
+   * actually saves someone from a mistaken delete.
+   */
+  measurementRestored(): void {
+    capture('measurement_restored');
+  },
   dataCleared(): void {
     capture('data_cleared');
   },

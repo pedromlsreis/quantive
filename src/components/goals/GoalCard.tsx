@@ -112,7 +112,7 @@ export function GoalCard({
               <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 500, margin: 0 }}>{goal.name}</h3>
             </div>
             <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', margin: '4px 0 0' }}>
-              Target {fmtFull(targetInDisplay)} {goal.targetCurrency !== displayCurrency.code ? `(${goal.targetCurrency})` : ''} by {formatTargetDate(goal.targetDate)}
+              Target <span className="num">{fmtFull(targetInDisplay)}</span> {goal.targetCurrency !== displayCurrency.code ? `(${goal.targetCurrency})` : ''} by {formatTargetDate(goal.targetDate)}
             </p>
           </div>
         </div>
@@ -165,7 +165,7 @@ export function GoalCard({
               {fmtFull(Number.isFinite(targetInDisplay) ? targetInDisplay : goal.targetAmount)}
             </span>{' '}
             {goal.targetCurrency !== displayCurrency.code && (
-              <span style={{ color: 'var(--fg-faint)' }}>
+              <span className="num" style={{ color: 'var(--fg-faint)' }}>
                 ({CURRENCIES[goal.targetCurrency]?.symbol ?? goal.targetCurrency}
                 {goal.targetAmount.toLocaleString()})
               </span>

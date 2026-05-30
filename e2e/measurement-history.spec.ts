@@ -105,4 +105,27 @@ test.describe('Measurement history (edit + delete)', () => {
     await expect(modal).toBeVisible();
     await expect.poll(async () => modal.getByRole('row').count()).toBe(rowsBefore - 1);
   });
+
+  test('Undo on the delete toast restores the removed row', async ({ page }) => {
+    const firstActions = page.getByRole('button', { name: /Actions for /i }).first();
+    await firstActions.click();
+    await page.getByRole('menuitem', { name: /Edit values/i }).click();
+    const modal = page.getByRole('dialog', { name: /Measurements for /i });
+    await expect(modal).toBeVisible({ timeout: 4000 });
+
+    const rowsBefore = await modal.getByRole('row').count();
+    await modal.getByRole('button', { name: /^Delete measurement from /i }).first().click();
+
+    const confirm = page.getByRole('alertdialog');
+    await expect(confirm).toBeVisible({ timeout: 4000 });
+    await confirm.getByRole('button', { name: /^Delete measurement$/ }).click({ noWaitAfter: true });
+    await expect(confirm).not.toBeVisible({ timeout: 4000 });
+    await expect.poll(async () => modal.getByRole('row').count()).toBe(rowsBefore - 1);
+
+    // The confirmation toast carries a one-step Undo — clicking it puts the
+    // row back, so a mistaken delete never loses history.
+    await page.getByRole('button', { name: /^Undo$/ }).click();
+    await expect(modal).toBeVisible();
+    await expect.poll(async () => modal.getByRole('row').count()).toBe(rowsBefore);
+  });
 });

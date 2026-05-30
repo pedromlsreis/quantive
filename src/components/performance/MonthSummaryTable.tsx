@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { usePreferences } from '@/contexts/PreferencesContext';
 import { UpsellCard } from '@/components/billing/UpsellCard';
 import { analytics } from '@/lib/analytics';
 import {
@@ -39,7 +38,6 @@ export function MonthSummaryTable() {
   const { allSnapshots } = usePortfolio();
   const { fmt, fmtFull } = useCurrencyFormatter();
   const { has } = useEntitlements();
-  const { privacyMode } = usePreferences();
 
   const hasFullHistory = has('history.full');
 
@@ -99,8 +97,6 @@ export function MonthSummaryTable() {
     textAlign: 'right',
     whiteSpace: 'nowrap',
   };
-
-  const cellBlur: React.CSSProperties = privacyMode ? { filter: 'blur(6px)' } : {};
 
   return (
     <section className="q-card q-card--p-lg">
@@ -167,10 +163,10 @@ export function MonthSummaryTable() {
                   }}
                 >
                   <td style={{ padding: '6px 10px', color: 'var(--fg)' }}>{row.monthEnd}</td>
-                  <td style={{ ...numeric, padding: '6px 10px', ...cellBlur }}>
+                  <td className="num" style={{ ...numeric, padding: '6px 10px' }}>
                     {maskedCell({ redacted, children: fmtFull(row.netWorth) })}
                   </td>
-                  <td style={{ ...numeric, padding: '6px 10px', color: signColor(row.deltaMonthAbs), ...cellBlur }}>
+                  <td className="num" style={{ ...numeric, padding: '6px 10px', color: signColor(row.deltaMonthAbs) }}>
                     {maskedCell({
                       redacted,
                       children: row.deltaMonthAbs === null ? '—' : (
@@ -180,7 +176,7 @@ export function MonthSummaryTable() {
                       ),
                     })}
                   </td>
-                  <td style={{ ...numeric, padding: '6px 10px', color: signColor(row.deltaYearAbs), ...cellBlur }}>
+                  <td className="num" style={{ ...numeric, padding: '6px 10px', color: signColor(row.deltaYearAbs) }}>
                     {maskedCell({
                       redacted,
                       children: row.deltaYearAbs === null ? '—' : (
@@ -190,7 +186,7 @@ export function MonthSummaryTable() {
                       ),
                     })}
                   </td>
-                  <td style={{ ...numeric, padding: '6px 10px', color: signColor(row.annualisedPct), ...cellBlur }}>
+                  <td className="num" style={{ ...numeric, padding: '6px 10px', color: signColor(row.annualisedPct) }}>
                     {maskedCell({ redacted, children: formatPct(row.annualisedPct) })}
                   </td>
                 </tr>

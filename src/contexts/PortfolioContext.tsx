@@ -946,16 +946,44 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     [user, saveToCloud],
   );
 
+  // Re-insert a set of previously-removed facts. Powers the delete-undo toast.
+  // Idempotent and non-clobbering: a fact is only restored if its (date,
+  // idSource) key is currently absent, so a double-tap on Undo is a no-op and
+  // an undo that lands after the user has already re-entered a value for the
+  // same slot won't overwrite the newer value. The delete it reverses already
+  // committed (and may already have synced), so this is a plain forward
+  // mutation through the same cloud path — no defer/cancel machinery.
+  const restoreFacts = useCallback((facts: FactRow[]) => {
+    if (facts.length === 0) return;
+    setData(prev => {
+      const base: PortfolioData = prev ?? { facts: [], refSources: [], goals: [] };
+      const present = new Set(base.facts.map(f => `${f.date.getTime()}::${f.idSource.trim()}`));
+      const toAdd = facts.filter(f => !present.has(`${f.date.getTime()}::${f.idSource.trim()}`));
+      if (toAdd.length === 0) return prev;
+      const updated: PortfolioData = { ...base, facts: [...base.facts, ...toAdd] };
+      if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      setDefaultDateRange(updated);
+      saveToCloud(updated);
+      analytics.measurementRestored();
+      return updated;
+    });
+  }, [user, saveToCloud, setDefaultDateRange]);
+
   const deleteMeasurement = useCallback(
     (date: Date, idSource: string) => {
       const dateKey = date.getTime();
       const target = idSource.trim();
       setData(prev => {
         if (!prev) return prev;
+        // Snapshot the facts we're about to remove so the undo toast can put
+        // them back verbatim (value + currency + any legacy duplicates).
+        const removed = prev.facts.filter(
+          f => f.date.getTime() === dateKey && f.idSource.trim() === target,
+        );
+        if (removed.length === 0) return prev;
         const nextFacts = prev.facts.filter(
           f => !(f.date.getTime() === dateKey && f.idSource.trim() === target),
         );
-        if (nextFacts.length === prev.facts.length) return prev;
         const updated: PortfolioData = { ...prev, facts: nextFacts };
         if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
         // Date range may have shrunk if we removed the only fact for the
@@ -964,10 +992,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         setDefaultDateRange(updated);
         saveToCloud(updated);
         analytics.measurementDeleted();
+        toast.success(`Deleted measurement from ${format(date, 'dd MMM yyyy')}`, {
+          action: { label: 'Undo', onClick: () => restoreFacts(removed) },
+          duration: 6000,
+        });
         return updated;
       });
     },
-    [user, saveToCloud, setDefaultDateRange],
+    [user, saveToCloud, setDefaultDateRange, restoreFacts],
   );
 
   // ── Goals ───────────────────────────────────────────────────────────────

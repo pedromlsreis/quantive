@@ -25,6 +25,20 @@ export function sanitizeSourceName(raw: string): { value: string; error?: string
 }
 
 /**
+ * Render a stored numeric value as an editable string that round-trips
+ * cleanly back through {@link parseLocalizedNumber}. Grouping is disabled
+ * and fraction digits are capped at two: this sidesteps the "1,234" →
+ * thousand-grouping heuristic (a lone separator with exactly three trailing
+ * digits) that would otherwise re-parse a three-decimal value as an integer.
+ * Money is two-decimal in practice, so the cap is lossless. Used to pre-seed
+ * carry-forward rows in the Add measurement modal.
+ */
+export function toEditable(value: number, locale: string): string {
+  if (!Number.isFinite(value)) return '';
+  return value.toLocaleString(locale, { useGrouping: false, maximumFractionDigits: 2 });
+}
+
+/**
  * Parse a user-entered number that may use either US or European
  * conventions ("1,234.56", "1.234,56", "1 234,56", "1234.56", "1,5",
  * "1.234"). Whitespace (including NBSP) is treated as a thousand

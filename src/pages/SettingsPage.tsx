@@ -113,7 +113,7 @@ export default function SettingsPage() {
     }
   };
   const { currency, setCurrency, allCurrencies } = useCurrency();
-  const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode } = usePreferences();
+  const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode, blurOnUnfocus, setBlurOnUnfocus } = usePreferences();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -534,7 +534,7 @@ export default function SettingsPage() {
                 <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Privacy mode</span>
               </div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                Blur monetary values throughout the app. Hover any value to peek.
+                Blur monetary values throughout the app. Hover a value to peek, or press and hold on touch.
               </p>
             </div>
             <button
@@ -543,6 +543,29 @@ export default function SettingsPage() {
               onClick={() => setPrivacyMode(!privacyMode)}
               aria-checked={privacyMode}
               aria-label="Privacy mode"
+              role="switch"
+            >
+              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
+            </button>
+          </div>
+
+          {/* Auto-blur when the window loses focus */}
+          <div className={PREF_ROW_CLASS}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
+                <EyeOff className="h-4 w-4 text-primary" />
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Hide values when you switch away</span>
+              </div>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
+                Automatically blur values whenever this tab loses focus, and reveal them when you return. Handy on a shared screen or while presenting.
+              </p>
+            </div>
+            <button
+              type="button"
+              className={`q-toggle${blurOnUnfocus ? ' is-on' : ''}`}
+              onClick={() => setBlurOnUnfocus(!blurOnUnfocus)}
+              aria-checked={blurOnUnfocus}
+              aria-label="Hide values when the window loses focus"
               role="switch"
             >
               <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>

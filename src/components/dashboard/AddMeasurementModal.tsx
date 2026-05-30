@@ -10,7 +10,7 @@ import { format } from 'date-fns';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { Notice } from '@/components/ui/Notice';
 import { HelpHint } from '@/components/ui/help-hint';
-import { sanitizeSourceName, parseLocalizedNumber } from '@/lib/utils';
+import { sanitizeSourceName, parseLocalizedNumber, toEditable } from '@/lib/utils';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { CURRENCIES } from '@/lib/currencies';
 import { SOURCE_CATEGORIES } from '@/lib/categories';
@@ -94,6 +94,9 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
 
   const [date, setDate] = useState<string>(todayIso);
   const [entries, setEntries] = useState<Record<string, string>>({});
+  // Last value per existing source (native currency) captured when the modal
+  // opens, so carry-forward rows can be classified as untouched vs edited.
+  const [baseline, setBaseline] = useState<Record<string, number>>({});
   const [ccyOverrides, setCcyOverrides] = useState<Record<string, CurrencyCode>>({});
   const [newSources, setNewSources] = useState<NewSource[]>([]);
   const [addingNew, setAddingNew] = useState(false);
@@ -158,6 +161,35 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     return result.sort((a, b) => b.lastValue - a.lastValue);
   }, [data, pausedSourceIds]);
 
+  // Paused sources are hidden from the editable list, but because each snapshot
+  // is a full restatement (no carry-forward in PortfolioContext), omitting them
+  // would silently drop their balance from the new snapshot's net worth. We
+  // restate them invisibly at their last recorded value on save.
+  const pausedRestatement = useMemo(() => {
+    if (!data) return [] as { name: string; value: number; currency: CurrencyCode; isLiquid: boolean; volatType: string; category?: string }[];
+    const latestBySource = new Map<string, FactRow>();
+    for (const f of data.facts) {
+      const key = f.idSource.trim();
+      if (!pausedSourceIds.has(key)) continue;
+      const prev = latestBySource.get(key);
+      if (!prev || f.date.getTime() > prev.date.getTime()) latestBySource.set(key, f);
+    }
+    const metaById = new Map((data.refSources ?? []).map(rs => [rs.idSource.trim(), rs]));
+    const out: { name: string; value: number; currency: CurrencyCode; isLiquid: boolean; volatType: string; category?: string }[] = [];
+    for (const [id, fact] of latestBySource.entries()) {
+      const meta = metaById.get(id);
+      out.push({
+        name: id,
+        value: fact.sourceVl,
+        currency: fact.currency,
+        isLiquid: meta?.transferableInDays ?? false,
+        volatType: meta?.volatType ?? '',
+        category: meta?.category || undefined,
+      });
+    }
+    return out;
+  }, [data, pausedSourceIds]);
+
   type Row =
     | { kind: 'existing'; meta: ExistingSourceMeta }
     | { kind: 'new'; source: NewSource };
@@ -176,12 +208,29 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     return loadDraft();
   }, [persistDraft]);
 
-  const prevOpenRef = useRef(open);
+  // Initialise to false (not `open`) so a modal that mounts already-open still
+  // runs the open effect once — carry-forward prefill must land on first paint,
+  // not only on a later closed→open toggle.
+  const prevOpenRef = useRef(false);
   useEffect(() => {
     if (open && !prevOpenRef.current) {
       const d = buildInitial();
+      // Carry-forward: pre-seed each existing source with its last value so a
+      // monthly update becomes "confirm what didn't move, edit what did".
+      // Snapshots are full restatements (PortfolioContext has no carry-forward
+      // at the data layer), so every source must be present on save — seeding
+      // them here is both the friction win and a guard against accidentally
+      // dropping a source from the snapshot. A restored guest draft wins over
+      // the carried default so an in-progress edit isn't clobbered.
+      const carried: Record<string, string> = {};
+      const base: Record<string, number> = {};
+      for (const s of existingSources) {
+        carried[s.idSource] = toEditable(s.lastValue, CURRENCIES[s.lastCurrency].locale);
+        base[s.idSource] = s.lastValue;
+      }
       setDate(d.date && d.date <= todayIso ? d.date : todayIso);
-      setEntries(d.entries ?? {});
+      setEntries({ ...carried, ...(d.entries ?? {}) });
+      setBaseline(base);
       setCcyOverrides(d.ccyOverrides ?? {});
       setNewSources(d.newSources ?? []);
       setAddingNew(false);
@@ -190,7 +239,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       setValidationError(null);
     }
     prevOpenRef.current = open;
-  }, [open, buildInitial, todayIso]);
+  }, [open, buildInitial, todayIso, existingSources]);
 
   useEffect(() => {
     if (!open) return;
@@ -246,6 +295,27 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     return ids;
   }, [allRows, entries, rowKey]);
   const filledCount = filledIds.length;
+
+  // Carry-forward classification. A row counts as "changed" when the user
+  // moved its value off the carried baseline, switched its currency, cleared
+  // it, or it's a brand-new source. Carried-but-untouched rows still save
+  // (full restatement) — they just don't count toward the "what moved this
+  // month" signal. Whole thing is keyed off the baseline captured on open.
+  const hasCarryForward = useMemo(() => Object.keys(baseline).length > 0, [baseline]);
+  const changedKeys = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of allRows) {
+      const key = rowKey(r);
+      if (r.kind === 'new') { s.add(key); continue; }
+      const overrode = ccyOverrides[key] != null && ccyOverrides[key] !== r.meta.lastCurrency;
+      const v = parseEntry(entries[key]);
+      const base = baseline[key];
+      if (overrode || v == null || base == null || Math.abs(v - base) > 0.005) s.add(key);
+    }
+    return s;
+  }, [allRows, entries, ccyOverrides, baseline, rowKey]);
+  const changedCount = changedKeys.size;
+  const carriedCount = Math.max(0, filledCount - changedCount);
 
   // FX-aware total delta projected into the user's display currency.
   // Per-row: typed-in-typedCcy → typed-in-source-native → delta-in-source-native → delta-in-display.
@@ -363,6 +433,16 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         setSaving(false);
         return;
       }
+
+      // Keep paused sources in the snapshot at their held value (see
+      // pausedRestatement) so a save doesn't drop them from net worth.
+      for (const p of pausedRestatement) {
+        const { value: cleanName } = sanitizeSourceName(p.name);
+        if (!cleanName || seen.has(cleanName)) continue;
+        seen.add(cleanName);
+        payload.push({ ...p, name: cleanName });
+      }
+
       if (payload.length === 0) {
         setSaving(false);
         return;
@@ -489,17 +569,29 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
 
                 <div className="q-source-list-head">
                   <span className="q-field-label" style={{ margin: 0 }}>Sources</span>
-                  <span className="q-source-list-count">
-                    <strong style={{ color: filledCount > 0 ? 'var(--accent-raw)' : 'var(--fg-muted)' }}>{filledCount}</strong>
-                    <span style={{ color: 'var(--fg-subtle)' }}> of {totalCount} entered</span>
-                  </span>
+                  {hasCarryForward ? (
+                    <span className="q-source-list-count">
+                      <strong style={{ color: changedCount > 0 ? 'var(--accent-raw)' : 'var(--fg-muted)' }}>{changedCount}</strong>
+                      <span style={{ color: 'var(--fg-subtle)' }}> changed · {carriedCount} unchanged</span>
+                    </span>
+                  ) : (
+                    <span className="q-source-list-count">
+                      <strong style={{ color: filledCount > 0 ? 'var(--accent-raw)' : 'var(--fg-muted)' }}>{filledCount}</strong>
+                      <span style={{ color: 'var(--fg-subtle)' }}> of {totalCount} entered</span>
+                    </span>
+                  )}
                 </div>
                 <div className="q-source-list-progress">
                   <div
                     className="q-source-list-progress-fill"
-                    style={{ width: `${(filledCount / Math.max(1, totalCount)) * 100}%` }}
+                    style={{ width: `${((hasCarryForward ? changedCount : filledCount) / Math.max(1, totalCount)) * 100}%` }}
                   />
                 </div>
+                {hasCarryForward && (
+                  <div className="q-source-list-hint">
+                    Pre-filled from your last snapshot. Edit what's moved.
+                  </div>
+                )}
 
                 <div className="q-source-list">
                   {allRows.map(r => (
@@ -509,6 +601,8 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                       value={entryValueFor(r)}
                       ccy={ccyFor(r)}
                       sourceCcy={rowSourceCcy(r)}
+                      changed={changedKeys.has(rowKey(r))}
+                      carryForward={hasCarryForward}
                       onChange={v => setEntryFor(r, v)}
                       onCcyChange={c => setCcyForRow(r, c)}
                       focused={focusedId === rowKey(r)}
@@ -653,13 +747,15 @@ type SrcRow =
   | { kind: 'new'; source: NewSource };
 
 function SourceEntryRow({
-  row, value, ccy, sourceCcy, onChange, onCcyChange, focused, onFocus, onBlur, onRemove,
+  row, value, ccy, sourceCcy, changed, carryForward, onChange, onCcyChange, focused, onFocus, onBlur, onRemove,
   convertAt, today, allCurrencies, displayCurrency,
 }: {
   row: SrcRow;
   value: string;
   ccy: CurrencyCode;
   sourceCcy: CurrencyCode;
+  changed: boolean;
+  carryForward: boolean;
   onChange: (v: string) => void;
   onCcyChange: (c: CurrencyCode) => void;
   focused: boolean;
@@ -676,6 +772,10 @@ function SourceEntryRow({
   const lastValue = row.kind === 'existing' ? row.meta.lastValue : 0;
   const history = row.kind === 'existing' ? row.meta.history : [];
   const isNew = row.kind === 'new';
+  // A carried row is an existing source still sitting at its pre-filled last
+  // value — surfaced quietly so the user can see at a glance what they've
+  // reviewed without editing.
+  const isCarried = carryForward && !isNew && !changed;
 
   // Empty input must NOT parse to 0 — `parseLocalizedNumber('')` returns 0,
   // which would cascade into delta = -lastValue and a misleading -100% badge.
@@ -717,11 +817,12 @@ function SourceEntryRow({
   }, [allCurrencies, ccy, sourceCcy, displayCurrency.code]);
 
   return (
-    <div className={`q-src-row ${hasValue ? 'is-filled' : ''} ${focused ? 'is-focused' : ''}`}>
+    <div className={`q-src-row ${hasValue ? 'is-filled' : ''} ${focused ? 'is-focused' : ''} ${isCarried ? 'is-carried' : ''}`}>
       <div className="q-src-row-info">
         <div className="q-src-row-name">
           <span className="q-src-row-name-text">{name}</span>
           {isNew && <span className="q-src-row-newtag">NEW</span>}
+          {isCarried && <span className="q-src-row-carrytag" title="Unchanged since your last snapshot">carried</span>}
           {isNew && onRemove && (
             <button
               type="button"

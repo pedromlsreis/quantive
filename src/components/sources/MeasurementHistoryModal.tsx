@@ -96,8 +96,9 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
 
   const handleConfirmDelete = () => {
     if (!deleting || !idSource) return;
+    // The context fires the confirmation toast — with a one-step Undo — so the
+    // modal doesn't toast here too.
     deleteMeasurement(deleting.date, idSource);
-    toast.success(`Deleted measurement from ${formatRowDate(deleting.date)}`);
     setDeleting(null);
   };
 
@@ -196,6 +197,7 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
                           <tr key={row.date.getTime()} style={{ borderBottom: '1px solid var(--border-raw)' }}>
                             <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{formatRowDate(row.date)}</td>
                             <td
+                              className="num"
                               style={{
                                 padding: '8px 10px',
                                 textAlign: 'right',
@@ -281,8 +283,8 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
                 </AlertDialogTitle>
                 <AlertDialogDescription>
                   {isLastMeasurement
-                    ? `This is the only measurement for ${idSource}. Deleting it will hide the source from your dashboard until you record a new value.`
-                    : 'This will permanently remove the measurement. This cannot be undone.'}
+                    ? `This is the only measurement for ${idSource}. Removing it hides the source from your dashboard until you record a new value. You can undo for a few seconds afterwards.`
+                    : 'This removes the measurement. You can undo for a few seconds afterwards.'}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

@@ -3,8 +3,9 @@
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────
-   Privacy mode — blur monetary values site-wide. Reveal on hover so
-   the user can briefly check a number without disabling the toggle.
+   Privacy mode — blur monetary values site-wide. Reveal to peek without
+   disabling the toggle: hover on desktop, press-and-hold on touch (the
+   `.is-peeking` class is added on pointerdown by PreferencesContext).
    ─────────────────────────────────────────────────────────────────*/
 .privacy-mode .num,
 .privacy-mode .q-metric-value,
@@ -14,8 +15,16 @@
 }
 .privacy-mode .num:hover,
 .privacy-mode .q-metric-value:hover,
-.privacy-mode .q-table td.num:hover {
+.privacy-mode .q-table td.num:hover,
+.privacy-mode .is-peeking {
   filter: blur(0);
+}
+/* Recharts Y-axis money labels. Scoped to `.q-blur-yaxis` so charts whose
+   Y-axis is non-monetary (e.g. the indexed benchmark overlay, which starts
+   every line at 100) keep their scale readable. No hover-reveal: axis ticks
+   are tiny and not individually hoverable in any useful way. */
+.privacy-mode .q-blur-yaxis .recharts-yAxis .recharts-cartesian-axis-tick-value {
+  filter: blur(6px);
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -1161,15 +1170,15 @@
   .q-sidebar-overlay.is-open { display: block; animation: q-fade-in var(--d-fast) var(--ease-out); }
 
   /* Streamline the topbar: keep menu + primary CTA, hide everything else.
-     The brand monogram is duplicated in the sidebar header, the privacy
-     toggle has a less-prominent home in Settings, and sign-in is reachable
-     via the primary CTA (which acts as Sign up when on mock data). */
+     The brand monogram is duplicated in the sidebar header and sign-in is
+     reachable via the primary CTA (which acts as Sign up when on mock data).
+     The privacy toggle stays — a quick blur switch matters most on mobile
+     (a train, an open-plan office), where it's the only fast peek/hide path. */
   .q-topbar { padding: 10px var(--s-4); gap: var(--s-3); }
   .q-topbar .q-topbar-menu-btn { display: inline-flex; }
   .q-topbar-brand { display: none; }
   .q-topbar-crumbs { display: none; }
   .q-topbar-search { display: none; }
-  .q-topbar-privacy { display: none; }
   .q-topbar-add { padding: 6px 8px; }
   .q-topbar-add .q-topbar-add-label { display: none; }
   .q-topbar-signin { display: none; }

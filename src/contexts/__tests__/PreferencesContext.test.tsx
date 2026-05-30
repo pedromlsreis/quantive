@@ -110,6 +110,108 @@ describe('setPrivacyMode', () => {
   });
 });
 
+describe('blurOnUnfocus (auto-blur on window focus loss)', () => {
+  it('defaults to false', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    expect(result.current.blurOnUnfocus).toBe(false);
+  });
+
+  it('reads blurOnUnfocus=true from localStorage on mount', () => {
+    localStorage.setItem('pref-privacy-auto-blur', 'true');
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    expect(result.current.blurOnUnfocus).toBe(true);
+  });
+
+  it('persists the new value to localStorage', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    act(() => { result.current.setBlurOnUnfocus(true); });
+    expect(localStorage.getItem('pref-privacy-auto-blur')).toBe('true');
+  });
+
+  it('blurs on window blur and reveals on focus when enabled', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    act(() => { result.current.setBlurOnUnfocus(true); });
+
+    // Visible + focused → no blur yet.
+    expect(document.documentElement.classList.contains('privacy-mode')).toBe(false);
+
+    act(() => { window.dispatchEvent(new Event('blur')); });
+    expect(document.documentElement.classList.contains('privacy-mode')).toBe(true);
+
+    act(() => { window.dispatchEvent(new Event('focus')); });
+    expect(document.documentElement.classList.contains('privacy-mode')).toBe(false);
+  });
+
+  it('does nothing on window blur when disabled', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    expect(result.current.blurOnUnfocus).toBe(false);
+    act(() => { window.dispatchEvent(new Event('blur')); });
+    expect(document.documentElement.classList.contains('privacy-mode')).toBe(false);
+  });
+
+  it('persistent privacy mode keeps values hidden even after focus returns', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    act(() => { result.current.setPrivacyMode(true); result.current.setBlurOnUnfocus(true); });
+    act(() => { window.dispatchEvent(new Event('blur')); });
+    act(() => { window.dispatchEvent(new Event('focus')); });
+    // privacyMode still wins, so the class stays applied.
+    expect(document.documentElement.classList.contains('privacy-mode')).toBe(true);
+  });
+});
+
+describe('press-and-hold peek (touch reveal)', () => {
+  /** Dispatch a pointerdown that bubbles to the document-level listener. */
+  function pointerDown(el: Element, pointerType: string) {
+    const ev = new Event('pointerdown', { bubbles: true });
+    Object.defineProperty(ev, 'pointerType', { value: pointerType });
+    el.dispatchEvent(ev);
+  }
+
+  it('reveals a blurred value on touch pointerdown and hides it on release', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    act(() => { result.current.setPrivacyMode(true); });
+
+    const el = document.createElement('span');
+    el.className = 'num';
+    document.body.appendChild(el);
+
+    act(() => { pointerDown(el, 'touch'); });
+    expect(el.classList.contains('is-peeking')).toBe(true);
+
+    act(() => { document.dispatchEvent(new Event('pointerup')); });
+    expect(el.classList.contains('is-peeking')).toBe(false);
+
+    document.body.removeChild(el);
+  });
+
+  it('ignores mouse pointerdown (desktop already peeks via :hover)', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    act(() => { result.current.setPrivacyMode(true); });
+
+    const el = document.createElement('span');
+    el.className = 'num';
+    document.body.appendChild(el);
+
+    act(() => { pointerDown(el, 'mouse'); });
+    expect(el.classList.contains('is-peeking')).toBe(false);
+
+    document.body.removeChild(el);
+  });
+
+  it('does not attach the peek handler when blur is inactive', () => {
+    renderHook(() => usePreferences(), { wrapper });
+
+    const el = document.createElement('span');
+    el.className = 'num';
+    document.body.appendChild(el);
+
+    act(() => { pointerDown(el, 'touch'); });
+    expect(el.classList.contains('is-peeking')).toBe(false);
+
+    document.body.removeChild(el);
+  });
+});
+
 describe('usePreferences guard', () => {
   it('throws when used outside the provider', () => {
     // Suppress React's error boundary noise in the test output.

@@ -184,7 +184,7 @@ export function MotivationalKPIs() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)', marginBottom: 'var(--s-1)' }}>
                   <span>{(athProximity * 100).toFixed(1)}% of ATH</span>
-                  <span>{fmtFull(ath - latest.total)} to go</span>
+                  <span><span className="num">{fmtFull(ath - latest.total)}</span> to go</span>
                 </div>
                 <div style={{ height: 6, width: '100%', overflow: 'hidden', borderRadius: 9999, background: 'color-mix(in oklch, var(--fg) 10%, transparent)' }}>
                   <motion.div
@@ -294,7 +294,7 @@ export function MotivationalKPIs() {
                 }}
               >
                 <Flag className="h-3 w-3" />
-                {fmtMilestone(m)}
+                <span className="num">{fmtMilestone(m)}</span>
                 {editingMilestones && (
                   <button
                     aria-label={`Remove milestone ${fmtMilestone(m)}`}
@@ -322,7 +322,7 @@ export function MotivationalKPIs() {
                 }}
               >
                 <Flag className="h-3 w-3 shrink-0" />
-                <span>{fmtMilestone(nextMilestone)}</span>
+                <span className="num">{fmtMilestone(nextMilestone)}</span>
                 <div style={{ height: 4, width: 56, overflow: 'hidden', borderRadius: 9999, background: 'color-mix(in oklch, var(--fg) 10%, transparent)' }}>
                   <motion.div
                     style={{ height: 4, borderRadius: 9999, background: 'color-mix(in oklch, var(--accent-raw) 60%, transparent)' }}

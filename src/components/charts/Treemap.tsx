@@ -164,7 +164,7 @@ export function Treemap({ data, width = 700, height = 360, fmt }: TreemapProps) 
               )}
 
               {showValue && (
-                <div style={{
+                <div className="num" style={{
                   position: 'absolute', bottom: 10, left: 12, right: 12,
                   color: 'oklch(98% 0 0 / 0.85)',
                   fontSize: 11,
@@ -208,7 +208,7 @@ export function Treemap({ data, width = 700, height = 360, fmt }: TreemapProps) 
           >
             <div style={{ fontWeight: 500, marginBottom: 2 }}>{hoveredCell.name}</div>
             <div style={{ color: 'var(--fg-muted, oklch(70% 0 0))', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
-              {valueLabel} <span style={{ color: 'var(--fg-faint, oklch(55% 0 0))' }}>· {pct.toFixed(1)}%</span>
+              <span className="num">{valueLabel}</span> <span style={{ color: 'var(--fg-faint, oklch(55% 0 0))' }}>· {pct.toFixed(1)}%</span>
             </div>
           </div>
         );

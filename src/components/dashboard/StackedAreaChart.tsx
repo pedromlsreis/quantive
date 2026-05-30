@@ -54,19 +54,19 @@ export function StackedAreaChart() {
     return (
       <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)' }}>
         <p style={{ color: AXIS_COLOR, fontSize: 12, marginBottom: 8 }}>{label}</p>
-        <p style={{ color: '#e8ecf0', fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Total: {fmtFull(total)}</p>
+        <p style={{ color: '#e8ecf0', fontSize: 14, fontWeight: 700, marginBottom: 6 }}>Total: <span className="num">{fmtFull(total)}</span></p>
         {top5.map((p) => (
           <div key={p.dataKey} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: p.fill || p.color }} />
             <span style={{ color: AXIS_COLOR, fontSize: 11 }}>{p.dataKey}</span>
-            <span style={{ color: '#e8ecf0', fontSize: 11, fontWeight: 600, marginLeft: 'auto' }}>{fmtFull(p.value)}</span>
+            <span className="num" style={{ color: '#e8ecf0', fontSize: 11, fontWeight: 600, marginLeft: 'auto' }}>{fmtFull(p.value)}</span>
           </div>
         ))}
         {othersVal > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: AXIS_COLOR }} />
             <span style={{ color: AXIS_COLOR, fontSize: 11 }}>Others</span>
-            <span style={{ color: '#e8ecf0', fontSize: 11, fontWeight: 600, marginLeft: 'auto' }}>{fmtFull(othersVal)}</span>
+            <span className="num" style={{ color: '#e8ecf0', fontSize: 11, fontWeight: 600, marginLeft: 'auto' }}>{fmtFull(othersVal)}</span>
           </div>
         )}
       </div>
@@ -78,7 +78,7 @@ export function StackedAreaChart() {
   return (
     <div className="rounded-xl border border-border bg-card p-6" role="img" aria-label="Stacked area chart showing how each financial source contributes to total net worth over time">
       <h3 className="mb-4 text-sm font-medium text-muted-foreground">Source breakdown over time</h3>
-      <div className="h-[350px]">
+      <div className="h-[350px] q-blur-yaxis">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 40 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={GRID_COLOR} />

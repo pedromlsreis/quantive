@@ -127,6 +127,16 @@ function singleSourceSeed(name = 'Santander Savings', currency: CurrencyCode = '
   };
 }
 
+// First-run seed: a portfolio with no existing sources, so nothing is
+// carried forward and the modal behaves like a blank first measurement.
+function emptySeed() {
+  return {
+    data: { facts: [], refSources: [] },
+    allSnapshots: [],
+    lastCurrencyBySource: new Map(),
+  };
+}
+
 beforeEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
@@ -176,20 +186,20 @@ describe('AddMeasurementModal — chrome', () => {
 });
 
 describe('AddMeasurementModal — Save gating', () => {
-  it('Save is disabled when no values are entered', () => {
-    setup(true, singleSourceSeed());
+  it('Save is disabled on a first-run portfolio with no sources to carry forward', () => {
+    setup(true, emptySeed());
     expect(screen.getByRole('button', { name: /save measurement/i })).toBeDisabled();
   });
 
-  it('Save enables once any row has a value', () => {
+  it('Save is enabled on open when an existing source is pre-filled', () => {
+    // Carry-forward seeds the row with its last value, so the user can confirm
+    // a no-change month with a single click.
     setup(true, singleSourceSeed());
-    const valueInput = screen.getByLabelText(/Value for Santander Savings/i);
-    fireEvent.change(valueInput, { target: { value: '5500' } });
     expect(screen.getByRole('button', { name: /save measurement/i })).toBeEnabled();
   });
 
-  it('empty-state summary shows the prompt when no values are entered', () => {
-    setup(true, singleSourceSeed());
+  it('empty-state summary shows the prompt on a first-run portfolio', () => {
+    setup(true, emptySeed());
     expect(screen.getByText(/Enter at least one value to preview the impact/i)).toBeInTheDocument();
   });
 });
@@ -434,9 +444,11 @@ describe('AddMeasurementModal — draft persistence', () => {
       JSON.stringify({ date: '2026-01-15', entries: { 'Savings': '7777' } }),
     );
     setup(true, { ...singleSourceSeed('Savings'), authed: true });
-    // The modal should NOT have replayed the stale draft.
+    // The stale draft must not replay; the row falls back to the carried-
+    // forward last value instead.
     const valueInput = screen.getByLabelText(/Value for Savings/i) as HTMLInputElement;
-    expect(valueInput.value).toBe('');
+    expect(valueInput.value).not.toBe('7777');
+    expect(valueInput.value).toBe('5000');
   });
 });
 
@@ -450,9 +462,12 @@ describe('AddMeasurementModal — empty delta', () => {
     expect(screen.queryByText(/−\s?100\.0%/)).not.toBeInTheDocument();
   });
 
-  it('row delta column carries the is-empty class until a value is typed', () => {
+  it('row delta column shows the is-empty class once a carried value is cleared', () => {
     const { container } = setup(true, singleSourceSeed('Savings'));
     const delta = container.querySelector('.q-src-row-delta');
+    // Carry-forward seeds the row with its last value, so the cell starts
+    // filled (delta 0%). Clearing it returns the cell to the placeholder.
+    fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '' } });
     expect(delta?.classList.contains('is-empty')).toBe(true);
     expect(delta?.classList.contains('is-neg')).toBe(false);
 
@@ -486,9 +501,12 @@ describe('AddMeasurementModal — paused sources', () => {
   });
 
   it('source count reflects only active (non-paused) sources', () => {
-    setup(true, multiSeed());
-    // Format: "<filledCount> of <totalCount> entered". Only one active source ⇒ "of 1".
-    expect(screen.getByText(/of 1 entered/i)).toBeInTheDocument();
+    const { container } = setup(true, multiSeed());
+    // With carry-forward the header reads "<changed> changed · <unchanged>
+    // unchanged". The one active source is carried (unchanged) on open and the
+    // paused source is excluded entirely, so: 0 changed · 1 unchanged.
+    const count = container.querySelector('.q-source-list-count');
+    expect(count).toHaveTextContent('0 changed · 1 unchanged');
   });
 });
 

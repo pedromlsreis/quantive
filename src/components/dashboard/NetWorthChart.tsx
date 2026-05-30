@@ -208,6 +208,7 @@ export function NetWorthChart() {
                 stroke="var(--border-soft-raw)" strokeDasharray="2 4" strokeWidth="1"
               />
               <text
+                className="num"
                 x={MARGIN.left - 10} y={t.y + 3}
                 textAnchor="end" fill="var(--fg-subtle)"
                 fontSize="10"
@@ -319,7 +320,7 @@ export function NetWorthChart() {
             <div style={{ color: 'var(--fg-subtle)', fontSize: 10, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {format(snapshots[hover].date, 'MMMM yyyy')}
             </div>
-            <div style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--fg)' }}>
+            <div className="num" style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--fg)' }}>
               {fmtFull(snapshots[hover].total)}
             </div>
           </div>

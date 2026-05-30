@@ -210,7 +210,7 @@ export function ForecastChart({
             <g key={i}>
               <line x1={MARGIN.left} x2={MARGIN.left + innerW} y1={t.y} y2={t.y}
                 stroke="var(--border-soft-raw)" strokeDasharray="2 4" strokeWidth="1" />
-              <text x={MARGIN.left - 10} y={t.y + 3} textAnchor="end" fill="var(--fg-subtle)" fontSize="10"
+              <text className="num" x={MARGIN.left - 10} y={t.y + 3} textAnchor="end" fill="var(--fg-subtle)" fontSize="10"
                 style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono)' }}>
                 {fmtCompact(t.v, fmt)}
               </text>
