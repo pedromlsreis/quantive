@@ -132,7 +132,10 @@ export default function SettingsPage() {
   }, [location.hash]);
 
   const [displayName, setDisplayName] = useState<string | null>(null);
-  const [reminderFrequency, setReminderFrequency] = useState<ReminderFrequency>('off');
+  // The reminder_frequency column is NOT NULL and defaults to 'monthly', so
+  // this initial value matches what the fetch below will return for a fresh
+  // account; the fetch then reflects whatever the user has actually saved.
+  const [reminderFrequency, setReminderFrequency] = useState<ReminderFrequency>('monthly');
   const [savingReminder, setSavingReminder] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');

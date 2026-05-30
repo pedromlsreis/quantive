@@ -17,8 +17,13 @@ export const REMINDER_OPTIONS: { value: ReminderFrequency; label: string }[] = [
   { value: 'biannual', label: 'Every 6 months' },
 ];
 
-/** Coerce a raw DB value (possibly null or legacy) into a known cadence. */
+/**
+ * Coerce a raw DB value into a known cadence. The column is NOT NULL and
+ * defaults to `monthly`, so in practice the value is always one of the four;
+ * the fallback to `monthly` only guards against an unexpected/legacy value.
+ * `off` is preserved (it is a real user choice meaning "disabled").
+ */
 export function normaliseReminderFrequency(raw: string | null | undefined): ReminderFrequency {
-  if (raw === 'monthly' || raw === 'quarterly' || raw === 'biannual') return raw;
-  return 'off';
+  if (raw === 'off' || raw === 'monthly' || raw === 'quarterly' || raw === 'biannual') return raw;
+  return 'monthly';
 }
