@@ -11,6 +11,7 @@ import { extractCheckoutErrorCode, messageForPortalError } from '@/lib/billing/c
 import { analytics } from '@/lib/analytics';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, type NumberFormat } from '@/contexts/PreferencesContext';
+import { REMINDER_OPTIONS, normaliseReminderFrequency, type ReminderFrequency } from '@/lib/reminders';
 import { supabase } from '@/integrations/supabase/client';
 import { RecoveryCodeDisplay } from '@/components/auth/RecoveryCodeDisplay';
 import { PdfReportButton } from '@/components/export/PdfReportButton';
@@ -26,6 +27,7 @@ import {
   Hash,
   EyeOff,
   Mail,
+  Bell,
   Download,
   Database,
   CreditCard,
@@ -130,6 +132,8 @@ export default function SettingsPage() {
   }, [location.hash]);
 
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [reminderFrequency, setReminderFrequency] = useState<ReminderFrequency>('off');
+  const [savingReminder, setSavingReminder] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
@@ -154,7 +158,7 @@ export default function SettingsPage() {
     let cancelled = false;
     supabase
       .from('profiles')
-      .select('display_name')
+      .select('display_name, reminder_frequency')
       .eq('user_id', user.id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -163,11 +167,14 @@ export default function SettingsPage() {
           // The display-name field is a nicety, not load-bearing — the page
           // is still usable without it. Surface a quiet toast so the user
           // knows the empty name is a fetch failure, not the truth.
-          console.warn('[settings] display name fetch failed:', error.message);
+          console.warn('[settings] profile fetch failed:', error.message);
           toast.error("Couldn't load your profile. Refresh to try again.");
           return;
         }
-        if (data) setDisplayName(data.display_name);
+        if (data) {
+          setDisplayName(data.display_name);
+          setReminderFrequency(normaliseReminderFrequency(data.reminder_frequency));
+        }
       });
     return () => {
       cancelled = true;
@@ -189,6 +196,27 @@ export default function SettingsPage() {
       setEditing(false);
       toast.success('Display name updated!');
     }
+  };
+
+  const handleReminderChange = async (next: ReminderFrequency) => {
+    if (!user) return;
+    const previous = reminderFrequency;
+    if (next === previous) return;
+    // Optimistic: reflect the choice immediately, roll back on failure.
+    setReminderFrequency(next);
+    setSavingReminder(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ reminder_frequency: next })
+      .eq('user_id', user.id);
+    setSavingReminder(false);
+    if (error) {
+      setReminderFrequency(previous);
+      toast.error("Couldn't save your reminder preference. Please try again.");
+      return;
+    }
+    analytics.reminderFrequencyChanged({ frequency: next });
+    toast.success(next === 'off' ? 'Reminders turned off.' : 'Reminder schedule saved.');
   };
 
   const handleSetUpRecovery = async () => {
@@ -540,6 +568,35 @@ export default function SettingsPage() {
               <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
             </button>
           </div>
+
+          {/* Entry reminders */}
+          {user && (
+            <div className={PREF_ROW_CLASS}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
+                  <Bell className="h-4 w-4 text-primary" />
+                  <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Entry reminders</span>
+                </div>
+                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
+                  Get an email nudge to update your balances if you haven't logged in for a while. We only check when you last synced, never what's in your portfolio.
+                </p>
+              </div>
+              <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
+                <select
+                  value={reminderFrequency}
+                  disabled={savingReminder}
+                  onChange={(e) => handleReminderChange(e.target.value as ReminderFrequency)}
+                  aria-label="Entry reminder schedule"
+                >
+                  {REMINDER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           {/* Email summaries — coming soon */}
           <div className={PREF_ROW_CLASS} style={{ opacity: 0.7 }}>

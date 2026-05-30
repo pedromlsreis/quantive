@@ -188,6 +188,13 @@ export const analytics = {
   momTableExported(props: { rows: number; freeRedacted: number }): void {
     capture('mom_table_exported', { rows: props.rows, free_redacted: props.freeRedacted });
   },
+  /**
+   * Fired when a user changes their entry-reminder cadence. The cadence is a
+   * preference, not portfolio data, so it is safe to attach.
+   */
+  reminderFrequencyChanged(props: { frequency: string }): void {
+    capture('reminder_frequency_changed', { frequency: props.frequency });
+  },
   pdfReportGenerated(props: { period: string; hasForecast: boolean; months: number }): void {
     capture('pdf_report_generated', {
       period: props.period,

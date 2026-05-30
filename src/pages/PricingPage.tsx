@@ -18,7 +18,7 @@ type Interval = 'monthly' | 'yearly';
 export default function PricingPage() {
   usePageMeta({
     title: 'Pricing - Quantive',
-    description: 'Quantive is free forever, with optional Pro for full history, forecasting, and exports — €9/month or €90/year.',
+    description: 'Quantive is free forever, with optional Pro for full history, forecasting, and exports. €9/month or €90/year.',
     path: '/pricing',
   });
 
@@ -39,7 +39,7 @@ export default function PricingPage() {
   const periodLabel = interval === 'yearly' ? '/year' : '/month';
   const caption = interval === 'yearly'
     ? '~€7.50/mo · save €18 vs monthly'
-    : 'Or €90/year — save €18';
+    : 'Or €90/year · save €18';
 
   const subscribeWithPlan = useCallback(async (chosenInterval: Interval) => {
     const chosenPrice = chosenInterval === 'yearly' ? proPlan.prices!.yearly! : proPlan.prices!.monthly!;
@@ -113,7 +113,7 @@ export default function PricingPage() {
     ? 'Confirm your email to subscribe'
     : submitting
     ? 'Redirecting…'
-    : `Subscribe — ${priceLabel}${periodLabel}`;
+    : `Subscribe · ${priceLabel}${periodLabel}`;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -122,7 +122,7 @@ export default function PricingPage() {
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 pb-20 pt-32">
         <h1 className="mb-4 text-center text-4xl font-extrabold text-foreground">Simple, transparent pricing</h1>
         <p className="mx-auto mb-14 max-w-lg text-center text-muted-foreground">
-          Start free. Upgrade when you're ready. End-to-end encryption on every tier — always.
+          Start free. Upgrade when you're ready. End-to-end encryption on every tier, always.
         </p>
 
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
@@ -155,7 +155,7 @@ export default function PricingPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Privacy &amp; control</p>
                 <ul className="mt-2 space-y-2">
                   {[
-                    'End-to-end encrypted — only you can read your data',
+                    'End-to-end encrypted: only you can read your data',
                     'Privacy mode to blur sensitive numbers',
                     'Delete your account and data at any time',
                   ].map((f) => (
@@ -216,11 +216,11 @@ export default function PricingPage() {
                 <ul className="mt-2 space-y-2">
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>Full historical view — every snapshot since you started, charted and tabular</span>
+                    <span>Full historical view: every snapshot since you started, charted and tabular</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>Forecasting engine — CAGR projection with 95% confidence intervals</span>
+                    <span>Forecasting engine: CAGR projection with 95% confidence intervals</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
@@ -291,7 +291,7 @@ export default function PricingPage() {
                   >
                     {user.email}
                   </span>
-                  . We'll open checkout automatically — no need to come back here.
+                  . We'll open checkout automatically, no need to come back here.
                 </p>
               </Notice>
             )}
@@ -314,7 +314,7 @@ export default function PricingPage() {
             Family <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Planned</span>
           </h3>
           <p className="mt-2 text-xs text-muted-foreground">
-            Shared portfolio access for 2 users, plus multiple portfolios per account. Not yet available — requires shared-key encryption work first.
+            Shared portfolio access for 2 users, plus multiple portfolios per account. Not yet available. It needs shared-key encryption work first.
           </p>
         </div>
       </main>

@@ -3,13 +3,15 @@ import { BenchmarkOverlay } from '@/components/performance/BenchmarkOverlay';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FileUpload } from '@/components/dashboard/FileUpload';
 import { MonthSummaryTable } from '@/components/performance/MonthSummaryTable';
+import { DownsideStats } from '@/components/performance/DownsideStats';
 import { PdfReportButton } from '@/components/export/PdfReportButton';
 
 /**
  * Performance — looking-back view that combines benchmark comparison (Agent B)
  * and the month-by-month summary table (Agent C). Two stacked sections:
  *   1. BenchmarkOverlay — inflation / S&P 500 comparison.
- *   2. MonthSummaryTable — month-by-month history with CSV export.
+ *   2. DownsideStats — drawdown, longest decline, best/worst rolling year.
+ *   3. MonthSummaryTable — month-by-month history with CSV export.
  *
  * Forecast lives at /forecast and stays about the future; Performance is the
  * single place to "see how I'm doing relative to the past and the market".
@@ -35,6 +37,8 @@ const PerformancePage = () => {
       </div>
 
       <BenchmarkOverlay />
+
+      <DownsideStats />
 
       <MonthSummaryTable />
     </div>

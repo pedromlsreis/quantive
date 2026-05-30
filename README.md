@@ -40,6 +40,8 @@ The crypto module (`src/lib/crypto/`, 11 files) is pure TypeScript — no I/O, n
 - Full allocation charts — by volatility class, liquidity, and source
 - Multi-currency display — 13 currencies (EUR, USD, GBP, NOK, SEK, DKK, CHF, CAD, AUD, JPY, PLN, BRL, INR); historical snapshots valued at the exchange rate of their original date, not today's rate
 - Spreadsheet import and manual balance entry
+- Drawdown and downside stats — maximum drawdown with recovery time, longest decline, best and worst rolling year
+- Optional email reminders to update your balances on a schedule you set
 - Cloud sync with end-to-end encryption
 - Rolling 12-month history view
 - Demo mode — full dashboard without signing up

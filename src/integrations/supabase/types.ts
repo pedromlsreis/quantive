@@ -150,6 +150,8 @@ export type Database = {
           display_name: string | null
           id: string
           preferred_currency: string | null
+          reminder_frequency: string | null
+          reminder_last_sent_at: string | null
           user_id: string
         }
         Insert: {
@@ -157,6 +159,8 @@ export type Database = {
           display_name?: string | null
           id?: string
           preferred_currency?: string | null
+          reminder_frequency?: string | null
+          reminder_last_sent_at?: string | null
           user_id: string
         }
         Update: {
@@ -164,6 +168,8 @@ export type Database = {
           display_name?: string | null
           id?: string
           preferred_currency?: string | null
+          reminder_frequency?: string | null
+          reminder_last_sent_at?: string | null
           user_id?: string
         }
         Relationships: []

@@ -210,7 +210,7 @@ export default function LandingPage() {
   usePageMeta({
     title: 'Quantive - See Your Financial Life Clearly',
     description:
-      'Quantive is a privacy-first finance cockpit. Track net worth, analyse allocations, and forecast your wealth — end-to-end encrypted, no bank connections. Free forever.',
+      'Quantive is a privacy-first finance cockpit. Track net worth, analyse allocations, and forecast your wealth. End-to-end encrypted, no bank connections. Free forever.',
     path: '/',
   });
 
@@ -235,7 +235,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="lp-hero-sub">
-          Track, analyse, and forecast your net worth across every account and currency — encrypted on your device, never connected to your bank.
+          Track, analyse, and forecast your net worth across every account and currency. Encrypted on your device, never connected to your bank.
         </p>
 
         <div className="lp-hero-ctas">
@@ -251,7 +251,7 @@ export default function LandingPage() {
             className="lp-btn-ghost"
             onClick={() => analytics.landingCtaClicked({ cta: 'try_demo', location: 'hero' })}
           >
-            Try demo — no sign up
+            Try the demo, no sign up
           </Link>
         </div>
 
@@ -377,7 +377,7 @@ export default function LandingPage() {
               We literally can't read it.
             </h2>
             <p className="lp-sub">
-              All data is encrypted on your device before it ever leaves your browser. No plaintext reaches our servers — ever.
+              All data is encrypted on your device before it ever leaves your browser. No plaintext reaches our servers, ever.
             </p>
             <Link to="/security" className="lp-security-link">Read the security details →</Link>
           </div>
@@ -431,21 +431,21 @@ export default function LandingPage() {
           <div className="lp-persona lp-reveal" data-d="1">
             <div className="lp-persona-name">Self-directed investors</div>
             <p className="lp-persona-desc">
-              Positions spread across multiple brokers and asset classes — one consolidated view, without sharing credentials anywhere.
+              Positions spread across multiple brokers and asset classes. One consolidated view, without sharing credentials anywhere.
             </p>
             <span className="lp-persona-tag">Many brokers and one view</span>
           </div>
           <div className="lp-persona lp-reveal" data-d="2">
             <div className="lp-persona-name">Globally mobile</div>
             <p className="lp-persona-desc">
-              Wealth held across currencies, countries, and tax systems — a multi-currency view in one place.
+              Wealth held across currencies, countries, and tax systems, shown as one multi-currency view.
             </p>
             <span className="lp-persona-tag">Wealth across borders</span>
           </div>
           <div className="lp-persona lp-reveal" data-d="3">
             <div className="lp-persona-name">Clarity seekers</div>
             <p className="lp-persona-desc">
-              Done with spreadsheets — clear answers without handing over bank credentials.
+              Done with spreadsheets. Clear answers without handing over bank credentials.
             </p>
             <span className="lp-persona-tag">Own your data</span>
           </div>
