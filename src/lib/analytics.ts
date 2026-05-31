@@ -113,6 +113,7 @@ export type FileUploadFailureReason =
   | 'no_data'
   | 'no_valid_facts'
   | 'parse_error'
+  | 'wrong_type'
   | 'unknown';
 export type CloudSyncFailureReason = 'transient' | 'terminal';
 
@@ -122,6 +123,16 @@ export const analytics = {
   },
   signedUp(): void {
     capture('signed_up');
+  },
+  /**
+   * Fired once when a user lands on the empty-state / first-run upload screen
+   * with no portfolio data yet. Anchors the activation funnel: the share of
+   * `onboarding_empty_state_viewed` that goes on to fire `file_uploaded` or
+   * `measurement_added` is the activation rate, and the time between them is
+   * time-to-activation. No payload — the bare event is the funnel step.
+   */
+  onboardingEmptyStateViewed(): void {
+    capture('onboarding_empty_state_viewed');
   },
   signedIn(): void {
     capture('signed_in');

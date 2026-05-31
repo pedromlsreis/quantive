@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { Download, Play, Plus, Upload } from 'lucide-react';
 import { WelcomeModal } from './WelcomeModal';
@@ -13,12 +14,26 @@ export function FileUpload() {
   const [isDragging, setIsDragging] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
 
+  // Anchor the activation funnel: this screen is where a signed-up user with no
+  // data lands. Fire once per mount so PostHog can measure how many go on to add
+  // a measurement or upload a file, and how long it takes.
+  useEffect(() => {
+    analytics.onboardingEmptyStateViewed();
+  }, []);
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+    if (!file) return;
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
       loadFile(file);
+    } else {
+      // Silent rejection was an invisible activation cliff: a dropped .csv,
+      // .numbers, or Sheets export did nothing at all. Tell the user and record
+      // it so the failure shows up in the funnel like every other upload error.
+      toast.error("That file type isn't supported. Drop an .xlsx file, or download the template below.");
+      analytics.fileUploadFailed({ reason: 'wrong_type' });
     }
   }, [loadFile]);
 
