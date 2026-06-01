@@ -12,6 +12,16 @@
 // App routes (/dashboard, /settings, …) are deliberately NOT prerendered: they
 // render encrypted user data and must stay client-only. The script tags remain
 // in the output, so the SPA still boots and takes over on load.
+//
+// NOT wired into `npm run build` on purpose. This launches headless Chromium,
+// which doesn't run in the Cloudflare Pages build image: that environment is
+// non-root, so `playwright install --with-deps` (which apt-installs Chromium's
+// shared libs) can't run, and the bare browser fails to launch. The same
+// `npm run build` also runs in CI, where the right incantation differs again.
+// Run this manually (`npm run prerender` after `npm run build`) where a browser
+// is available. To re-enable in deploys, do it in a GitHub Actions job that can
+// `playwright install --with-deps chromium`, then push the prerendered dist/ to
+// Cloudflare Pages via `wrangler pages deploy` — not from inside the CF build.
 import { preview } from 'vite';
 import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';

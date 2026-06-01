@@ -15,8 +15,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && npm run prerender",
-    "build:dev": "vite build --mode development && npm run prerender",
+    "build": "vite build",
+    "build:dev": "vite build --mode development",
     "prerender": "node scripts/prerender.mjs",
     "stamp:freshness": "node scripts/stamp-freshness.mjs",
     "lint": "eslint .",
