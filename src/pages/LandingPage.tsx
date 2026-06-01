@@ -212,7 +212,7 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   usePageMeta({
-    title: 'Quantive — private net-worth tracker, no bank connections',
+    title: 'Quantive - See your financial life clearly',
     description:
       'Quantive is a privacy-first net-worth tracker. Track, analyse, and forecast your wealth across every account and currency, end-to-end encrypted, with no bank connections. Free forever.',
     path: '/',
