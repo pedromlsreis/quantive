@@ -5,7 +5,7 @@
      inside docs/legal/ so screen readers switch pronunciation correctly.
      If you ever add a localised UI, swap the static `lang` below for a
      dynamic value driven by the active route/locale. -->
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -61,7 +61,8 @@
           "name": "Quantive",
           "url": "https://usequantive.app",
           "description": "A privacy-first finance cockpit for tracking net worth, analysing asset allocation, and forecasting your financial future.",
-          "inLanguage": "en-US"
+          "inLanguage": "en-GB",
+          "dateModified": "2026-06-01"
         },
         {
           "@type": "Organization",
@@ -75,6 +76,7 @@
             "height": 512
           },
           "description": "Privacy-first personal finance tool for tracking net worth, asset allocation, and wealth forecasting.",
+          "disambiguatingDescription": "Quantive (usequantive.app) is a privacy-first personal finance and net-worth tracking app for individuals. It is unrelated to the strategy and OKR management software of the same name.",
           "email": "hello@usequantive.app",
           "address": {
             "@type": "PostalAddress",
@@ -85,7 +87,11 @@
           },
           "founder": {
             "@type": "Person",
-            "name": "Pedro Reis"
+            "@id": "https://usequantive.app/#founder",
+            "name": "Pedro Reis",
+            "jobTitle": "Founder",
+            "url": "https://usequantive.app",
+            "sameAs": ["https://linkedin.com/in/pedrom-reis"]
           },
           "sameAs": ["https://github.com/pedromlsreis/quantive"]
         },
@@ -97,6 +103,12 @@
           "operatingSystem": "Web browser",
           "url": "https://usequantive.app",
           "description": "Track your net worth across accounts and currencies, analyse asset allocation, and forecast your financial future. End-to-end encrypted - your data never leaves your device unencrypted. No bank connections required.",
+          "disambiguatingDescription": "A personal finance and net-worth tracking app for individuals, not the strategy/OKR management platform of the same name.",
+          "inLanguage": "en-GB",
+          "dateModified": "2026-06-01",
+          "author": {
+            "@id": "https://usequantive.app/#founder"
+          },
           "featureList": [
             "Net worth tracking with unlimited sources",
             "Allocation analysis (volatility and liquidity)",
