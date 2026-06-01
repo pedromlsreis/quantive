@@ -1,10 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { usePageMeta } from '@/hooks/usePageMeta';
+import { usePageMeta, DEFAULT_TITLE, DEFAULT_DESC } from '@/hooks/usePageMeta';
 
-const DEFAULT_TITLE = 'Quantive - See Your Financial Life Clearly';
-const DEFAULT_DESC =
-  'A privacy-first finance cockpit. Upload your spreadsheet, track net worth, analyse allocations, and forecast your future. Free forever.';
 const BASE_URL = 'https://usequantive.app';
 
 // Helpers ─────────────────────────────────────────────────────────────────────

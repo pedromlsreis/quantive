@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
-const DEFAULT_TITLE = 'Quantive - See your financial life clearly';
-const DEFAULT_DESC =
+export const DEFAULT_TITLE = 'Quantive - See your financial life clearly';
+export const DEFAULT_DESC =
   'Quantive is a privacy-first net-worth tracker. Track, analyse, and forecast your wealth across every account and currency, end-to-end encrypted, with no bank connections. Free forever.';
 const BASE_URL = 'https://usequantive.app';
 
