@@ -62,12 +62,12 @@
 
 .lp-btn-primary {
   background: var(--accent-raw); color: var(--accent-fg-raw);
-  padding: 12px 26px; border-radius: var(--r-3);
+  padding: 12px 26px; min-height: 44px; border-radius: var(--r-3);
   font-size: 15px; font-weight: 600; white-space: nowrap;
   box-shadow: 0 8px 28px oklch(58% 0.10 165 / 0.28);
   transition: background var(--d-fast) var(--ease-out),
               transform var(--d-fast) var(--ease-out);
-  display: inline-block;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .lp-btn-primary:hover {
   background: var(--accent-strong-raw);
@@ -77,12 +77,12 @@
   border: 1px solid var(--border-raw);
   background: var(--surface);
   color: var(--fg-muted);
-  padding: 12px 26px; border-radius: var(--r-3);
+  padding: 12px 26px; min-height: 44px; border-radius: var(--r-3);
   font-size: 15px; font-weight: 500; white-space: nowrap;
   transition: border-color var(--d-fast) var(--ease-out),
               color var(--d-fast) var(--ease-out),
               background var(--d-fast) var(--ease-out);
-  display: inline-block;
+  display: inline-flex; align-items: center; justify-content: center;
 }
 .lp-btn-ghost:hover {
   border-color: var(--border-strong-raw);
@@ -229,8 +229,8 @@
 
 /* ─── PRIVACY ────────────────────────────────────────────── */
 .lp-privacy-wrap {
-  background: oklch(17% 0.012 155);
-  border: 1px solid oklch(30% 0.025 155);
+  background: var(--surface-privacy);
+  border: 1px solid var(--border-privacy);
   border-radius: var(--r-5);
   overflow: hidden;
 }
@@ -244,12 +244,12 @@
 .lp-security-link:hover { opacity: 0.75; }
 .lp-privacy-grid {
   display: grid; grid-template-columns: repeat(4, 1fr);
-  border-top: 1px solid oklch(28% 0.018 155);
+  border-top: 1px solid var(--border-privacy-soft);
   margin-top: 40px;
 }
 .lp-privacy-item {
   padding: 28px;
-  border-right: 1px solid oklch(28% 0.018 155);
+  border-right: 1px solid var(--border-privacy-soft);
 }
 .lp-privacy-item:last-child { border-right: none; }
 .lp-privacy-icon { margin-bottom: 10px; color: var(--accent-raw); }
@@ -350,8 +350,9 @@
   text-transform: uppercase; letter-spacing: 0.08em;
 }
 .lp-price-cta {
-  display: block; text-align: center; margin-top: 28px;
-  padding: 11px; border-radius: var(--r-3);
+  display: flex; align-items: center; justify-content: center;
+  text-align: center; margin-top: 28px;
+  padding: 11px; min-height: 44px; border-radius: var(--r-3);
   font-weight: 600; font-size: 14px;
   transition: all var(--d-fast) var(--ease-out);
 }
@@ -403,10 +404,24 @@
 }
 .lp-faq-item.is-open .lp-faq-icon { transform: rotate(45deg); }
 .lp-faq-ans {
-  display: none; padding-bottom: 20px;
+  display: grid; grid-template-rows: 0fr;
+  transition: grid-template-rows var(--d-base) var(--ease-out);
+}
+.lp-faq-item.is-open .lp-faq-ans { grid-template-rows: 1fr; }
+.lp-faq-ans-inner {
+  overflow: hidden; min-height: 0;
+  /* Hidden from the a11y tree while collapsed; kept visible through the
+     collapse transition, then flipped at the end. No padding here — the
+     clipped region must collapse to zero height, so spacing lives on the
+     body below where it gets clipped with the rest of the content. */
+  visibility: hidden;
+  transition: visibility var(--d-base) var(--ease-out);
+}
+.lp-faq-item.is-open .lp-faq-ans-inner { visibility: visible; }
+.lp-faq-ans-body {
+  padding-bottom: 20px;
   font-size: 14px; color: var(--fg-muted); line-height: 1.75;
 }
-.lp-faq-item.is-open .lp-faq-ans { display: block; }
 
 /* ─── FOOTER CTA ─────────────────────────────────────────── */
 .lp-cta {
@@ -449,6 +464,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .lp-reveal { opacity: 1; transform: none; transition: none; }
+  .lp-faq-ans,
+  .lp-faq-ans-inner,
+  .lp-faq-icon { transition: none; }
   .lp-hero-glow,
   .lp-c-actual,
   .lp-c-forecast,
@@ -504,7 +522,7 @@
   .lp-privacy-grid { grid-template-columns: 1fr; }
   .lp-privacy-item {
     border-right: none !important;
-    border-bottom: 1px solid oklch(28% 0.018 155);
+    border-bottom: 1px solid var(--border-privacy-soft);
   }
   .lp-privacy-item:last-child { border-bottom: none; }
 }

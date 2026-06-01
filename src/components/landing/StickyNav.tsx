@@ -32,7 +32,8 @@ export function StickyNav() {
   const scrollToSection = (id: string) => {
     if (!isLanding) return;
     const el = document.getElementById(id);
-    el?.scrollIntoView({ behavior: 'smooth' });
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    el?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
     setMobileOpen(false);
   };
 

@@ -378,7 +378,7 @@ export default function LandingPage() {
             <h2 className="lp-h2" id="lp-priv-h2" style={{ maxWidth: 540 }}>
               Your data stays yours.
               <br />
-              We literally can't read it.
+              We can't read it.
             </h2>
             <p className="lp-sub">
               All data is encrypted on your device before it ever leaves your browser. No plaintext reaches our servers, ever.
@@ -585,7 +585,11 @@ export default function LandingPage() {
                   {item.q}
                   <span className="lp-faq-icon" aria-hidden="true">+</span>
                 </button>
-                <div id={panelId} role="region" aria-labelledby={btnId} className="lp-faq-ans">{item.a}</div>
+                <div id={panelId} role="region" aria-labelledby={btnId} className="lp-faq-ans">
+                  <div className="lp-faq-ans-inner">
+                    <div className="lp-faq-ans-body">{item.a}</div>
+                  </div>
+                </div>
               </div>
             );
           })}

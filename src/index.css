@@ -103,6 +103,12 @@
     --border-soft-raw:    oklch(24%  0.007 240);
     --border-strong-raw:  oklch(36%  0.01  240);
 
+    /* Privacy surface — intentionally warm (emerald-tinted, hue 155) to set
+       the landing privacy block apart from the page's blue-grey surfaces. */
+    --surface-privacy:        oklch(17%  0.012 155);
+    --border-privacy:         oklch(30%  0.025 155);
+    --border-privacy-soft:    oklch(28%  0.018 155);
+
     /* Accent — Emerald (locked) */
     --accent-raw:         oklch(58%  0.10  165);
     --accent-strong-raw:  oklch(52%  0.12  165);
