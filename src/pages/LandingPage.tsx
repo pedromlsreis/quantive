@@ -29,6 +29,10 @@ const FAQS: Array<{ q: string; a: string }> = [
     a: 'All data is encrypted on your device using end-to-end encryption before it ever reaches Quantive’s servers. Quantive cannot read your financial information. Only you hold the decryption key.',
   },
   {
+    q: 'How is Quantive different from a budgeting app?',
+    a: 'Budgeting apps connect to your bank to categorise transactions. Quantive does neither: it tracks net worth and wealth over time from balances you enter or import, with no bank links and end-to-end encryption, so your financial data stays private to you.',
+  },
+  {
     q: 'Does Quantive connect to my bank?',
     a: 'No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually from the dashboard, or import them from an existing spreadsheet.',
   },
@@ -208,9 +212,9 @@ export default function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   usePageMeta({
-    title: 'Quantive - See Your Financial Life Clearly',
+    title: 'Quantive — private net-worth tracker, no bank connections',
     description:
-      'Quantive is a privacy-first finance cockpit. Track net worth, analyse allocations, and forecast your wealth. End-to-end encrypted, no bank connections. Free forever.',
+      'Quantive is a privacy-first net-worth tracker. Track, analyse, and forecast your wealth across every account and currency, end-to-end encrypted, with no bank connections. Free forever.',
     path: '/',
   });
 
@@ -235,7 +239,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="lp-hero-sub">
-          Track, analyse, and forecast your net worth across every account and currency. Encrypted on your device, never connected to your bank.
+          Quantive is a privacy-first net-worth tracker. Record any account, asset, or liability, then track, analyse, and forecast your wealth across every currency, encrypted on your device and never connected to your bank.
         </p>
 
         <div className="lp-hero-ctas">
@@ -296,7 +300,7 @@ export default function LandingPage() {
           <div>
             <h3 className="lp-feat-title">Your entire wealth in a single view</h3>
             <p className="lp-feat-desc">
-              Record any account, asset, or liability. Quantive calculates your total net worth across all sources and currencies. Interactive charts update the moment you add a new measurement. No formulas. No maintenance.
+              Quantive shows your entire wealth in one view. Record any account, asset, or liability and it calculates your total net worth across all sources and currencies, with charts that update the moment you add a measurement. No formulas, no maintenance.
             </p>
           </div>
           <div className="lp-feat-card" aria-hidden="true">
