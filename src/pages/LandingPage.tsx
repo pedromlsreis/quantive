@@ -383,7 +383,7 @@ export default function LandingPage() {
             <p className="lp-sub">
               All data is encrypted on your device before it ever leaves your browser. No plaintext reaches our servers, ever.
             </p>
-            <Link to="/security" className="lp-security-link">Read the security details →</Link>
+            <Link to="/security" target="_blank" rel="noopener noreferrer" className="lp-security-link">Read the security details →</Link>
           </div>
           <div className="lp-privacy-grid">
             <div className="lp-privacy-item">
