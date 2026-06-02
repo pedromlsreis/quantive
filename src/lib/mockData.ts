@@ -24,12 +24,12 @@ const sources: readonly string[] = [
 
 /** Reference metadata for each mock source. */
 const refSources: RefSource[] = [
-  { idSource: 'Savings Account', volatType: 'Non-Volatile', transferableInDays: true },
-  { idSource: 'ETF World', volatType: 'Volatile', transferableInDays: true },
-  { idSource: 'ETF Bonds', volatType: 'Non-Volatile', transferableInDays: true },
-  { idSource: 'Crypto BTC', volatType: 'Highly Volatile', transferableInDays: true },
-  { idSource: 'Real Estate Fund', volatType: 'Volatile', transferableInDays: false },
-  { idSource: 'Pension Plan', volatType: 'Non-Volatile', transferableInDays: false },
+  { idSource: 'Savings Account', volatType: 'Non-Volatile', transferableInDays: true, category: 'Savings' },
+  { idSource: 'ETF World', volatType: 'Volatile', transferableInDays: true, category: 'Brokerage' },
+  { idSource: 'ETF Bonds', volatType: 'Non-Volatile', transferableInDays: true, category: 'Brokerage' },
+  { idSource: 'Crypto BTC', volatType: 'Highly Volatile', transferableInDays: true, category: 'Crypto' },
+  { idSource: 'Real Estate Fund', volatType: 'Volatile', transferableInDays: false, category: 'Real estate' },
+  { idSource: 'Pension Plan', volatType: 'Non-Volatile', transferableInDays: false, category: 'Pension' },
 ];
 
 /** Starting monetary values for each source. */
