@@ -37,7 +37,7 @@ The crypto module (`src/lib/crypto/`, 11 files) is pure TypeScript — no I/O, n
 
 **Free**
 - Net worth tracking with unlimited sources
-- Full allocation charts — by volatility class, liquidity, and source
+- Full allocation charts — by volatility class and liquidity
 - Multi-currency display — 13 currencies (EUR, USD, GBP, NOK, SEK, DKK, CHF, CAD, AUD, JPY, PLN, BRL, INR); historical snapshots valued at the exchange rate of their original date, not today's rate
 - Spreadsheet import and manual balance entry
 - Drawdown and downside stats — maximum drawdown with recovery time, longest decline, best and worst rolling year
@@ -48,9 +48,13 @@ The crypto module (`src/lib/crypto/`, 11 files) is pure TypeScript — no I/O, n
 
 **Pro (€9/month OR €90/year, ~€7.50/mo)**
 - Full historical view — every snapshot since you started, charted and tabular
-- CAGR-based net worth projection with 95% confidence intervals
+- Net worth projection with a 95% confidence cone — pick a conservative/base/optimistic annual rate (5% / 7.2% / 10%); the confidence band is fitted to your own historical variance. The PDF report's forecast is instead driven by your own trailing 3-year CAGR.
+- Milestone & goal tracking — targets with progress and ETA
+- Benchmark comparison — your net worth vs. inflation (Eurostat HICP) and the S&P 500 (FRED); MSCI World coming soon
+- Month-by-month summary table
 - Excel/CSV export — full data portability, any time
-- Priority support
+- PDF wealth report — one-page summary for advisors or an annual review
+- Priority support (24h response)
 
 ---
 
