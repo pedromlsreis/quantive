@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageMeta } from '@/hooks/usePageMeta';
+import { getRouteMeta } from '@/lib/seo/routeMeta';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { CURRENCY_CODES } from '@/lib/currencies';
@@ -211,12 +212,7 @@ export default function LandingPage() {
   const rootRef = useRef<HTMLDivElement>(null);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
-  usePageMeta({
-    title: 'Quantive - See your financial life clearly',
-    description:
-      'Quantive is a privacy-first net-worth tracker. Track, analyse, and forecast your wealth across every account and currency, end-to-end encrypted, with no bank connections. Free forever.',
-    path: '/',
-  });
+  usePageMeta(getRouteMeta('/'));
 
   useScrollReveal(rootRef);
 

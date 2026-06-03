@@ -1,9 +1,8 @@
 import { useEffect } from 'react';
+import { BASE_URL, DEFAULT_TITLE, DEFAULT_DESC } from '@/lib/seo/routeMeta';
 
-export const DEFAULT_TITLE = 'Quantive - See your financial life clearly';
-export const DEFAULT_DESC =
-  'Quantive is a privacy-first net-worth tracker. Track, analyse, and forecast your wealth across every account and currency, end-to-end encrypted, with no bank connections. Free forever.';
-const BASE_URL = 'https://usequantive.app';
+// Re-exported for existing importers and tests that read these from the hook.
+export { DEFAULT_TITLE, DEFAULT_DESC };
 
 function setMeta(selector: string, content: string) {
   const el = document.querySelector(selector) as HTMLMetaElement | null;

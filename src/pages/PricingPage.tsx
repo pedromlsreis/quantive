@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { usePageMeta } from '@/hooks/usePageMeta';
+import { getRouteMeta } from '@/lib/seo/routeMeta';
 import { CURRENCY_CODES } from '@/lib/currencies';
 import { analytics } from '@/lib/analytics';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,11 +17,7 @@ import './landing.css';
 type Interval = 'monthly' | 'yearly';
 
 export default function PricingPage() {
-  usePageMeta({
-    title: 'Pricing - Quantive',
-    description: 'Quantive is free forever, with optional Pro for full history, forecasting, and exports. €9/month or €90/year.',
-    path: '/pricing',
-  });
+  usePageMeta(getRouteMeta('/pricing'));
 
   const { user, subscription } = useAuth();
   const navigate = useNavigate();
