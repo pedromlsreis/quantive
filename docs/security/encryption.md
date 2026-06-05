@@ -109,7 +109,7 @@ The system does NOT defend against:
 
 ## 4. Cryptographic primitives
 
-All primitives are provided by **libsodium** via [`libsodium-wrappers`](https://github.com/jedisct1/libsodium.js) (WASM build of libsodium). The exact pinned version is in `package.json` and is reviewed against the [libsodium audit history](https://download.libsodium.org/doc/installation#integrity-checking) at upgrade time.
+All primitives are provided by **libsodium** via [`libsodium-wrappers-sumo`](https://github.com/jedisct1/libsodium.js) (the WASM build of libsodium; the `sumo` variant is required because it includes the Argon2id `crypto_pwhash` API that the standard build omits). The exact pinned version is in `package.json` and is reviewed against the [libsodium audit history](https://download.libsodium.org/doc/installation#integrity-checking) at upgrade time.
 
 | Concern | Primitive | libsodium API |
 |---|---|---|
