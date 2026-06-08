@@ -11,9 +11,11 @@ export type DatasetCheck = {
   /**
    * Maximum age in whole days before the dataset is considered stale. Tuned
    * per cadence to tolerate the source's *legitimate* gaps without paging:
-   *   - daily series (sp500, fx_rates): markets close weekends + holidays, so
-   *     a healthy "latest" can already be 3 days old on a Monday. 4 days only
-   *     fires once even a Tuesday has no fresh row — i.e. a genuine break.
+   *   - daily series (sp500, fx_rates): markets close weekends + holidays AND
+   *     the upstream (FRED) can lag a trading day, so on a Monday a healthy
+   *     "latest" can be Thursday's close (~4.5 days old) before Friday has even
+   *     propagated. 5 days absorbs that single not-yet-published day while
+   *     still firing well inside a real multi-day freeze.
    *   - monthly series (inflation_eu): ~3-week publication lag + the chance an
    *     expected month simply has not posted yet → 45 days.
    */

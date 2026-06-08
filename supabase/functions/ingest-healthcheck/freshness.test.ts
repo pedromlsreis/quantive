@@ -30,6 +30,14 @@ describe("evaluateFreshness", () => {
     expect(evaluateFreshness([check({ latest: "2026-06-05" })], NOW)).toEqual([]);
   });
 
+  it("does NOT flag Thursday data on a Monday under the production 5-day threshold", () => {
+    // The real day-one case: FRED hadn't yet published Friday's close, so the
+    // freshest row was Thu 4 Jun (~4.6d old). At the tuned daily threshold of
+    // 5 this is benign; at the old 4 it false-paged.
+    expect(evaluateFreshness([check({ latest: "2026-06-04", thresholdDays: 5 })], NOW)).toEqual([]);
+    expect(evaluateFreshness([check({ latest: "2026-06-04", thresholdDays: 4 })], NOW)).toHaveLength(1);
+  });
+
   it("treats the threshold as exclusive (exactly at threshold is fresh)", () => {
     // 2026-06-04T00:00Z → 2026-06-08T18:00Z = 4.75d > 4 → stale.
     // 2026-06-04T18:00Z would be exactly 4d, but latest is date-only (midnight).

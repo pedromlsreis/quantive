@@ -76,8 +76,8 @@ serve(async (req) => {
     ]);
 
     const checks: DatasetCheck[] = [
-      { label: "S&P 500 (benchmarks.sp500)", latest: sp500, thresholdDays: 4 },
-      { label: "FX rates (fx_rates)", latest: fx, thresholdDays: 4 },
+      { label: "S&P 500 (benchmarks.sp500)", latest: sp500, thresholdDays: 5 },
+      { label: "FX rates (fx_rates)", latest: fx, thresholdDays: 5 },
       { label: "Euro-area inflation (benchmarks.inflation_eu)", latest: hicp, thresholdDays: 45 },
     ];
 
