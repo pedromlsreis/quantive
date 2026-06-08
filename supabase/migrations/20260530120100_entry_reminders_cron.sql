@@ -34,7 +34,12 @@ select cron.schedule(
         ),
       'Content-Type', 'application/json'
     ),
-    body := '{}'::jsonb
+    body := '{}'::jsonb,
+    -- pg_net defaults to a 5s client-side timeout; if the function takes
+    -- longer to respond, pg_net drops the connection and the run is lost.
+    -- entry-reminders iterates due users and sends email, so it is the most
+    -- likely of the three crons to exceed 5s. 60s leaves ample headroom.
+    timeout_milliseconds := 60000
   );
   $$
 );

@@ -30,6 +30,9 @@ verify_jwt = false
 [functions.entry-reminders]
 verify_jwt = false
 
+[functions.ingest-healthcheck]
+verify_jwt = false
+
 # Auth email templates. The Supabase CLI applies these on `supabase db push`
 # for self-hosted projects; on hosted projects the content must also be
 # pasted into Authentication → Email Templates in the dashboard (the source

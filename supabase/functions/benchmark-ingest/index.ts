@@ -16,10 +16,20 @@ import {
 //     day publication lag, ~10-year retention on FRED's free CSV endpoint.
 //
 // Body shape:
-//   {}                                 → fetch each series' full available
-//                                        history and upsert (idempotent).
-//   { "series": "inflation_eu" }       → only that series.
-//   { "series": "sp500" }              → only that series.
+//   {}                                 → incremental top-up: fetch only the
+//                                        recent window of each series and
+//                                        upsert (idempotent). This is the
+//                                        daily-cron path; it keeps runtime
+//                                        bounded as the history grows so the
+//                                        call comfortably finishes inside the
+//                                        scheduler's HTTP timeout.
+//   { "full": true }                   → fetch each series' full available
+//                                        history. Use ONCE to seed a fresh
+//                                        environment (the incremental window
+//                                        alone won't populate the 3-year
+//                                        chart), or to repair a gap.
+//   { "series": "inflation_eu" }       → only that series (combine with full).
+//   { "series": "sp500" }              → only that series (combine with full).
 //
 // All fetches are official-source, no API key required. Failures throw and
 // produce a 500 with the error message — visible in Supabase function logs.
@@ -43,8 +53,15 @@ const EUROSTAT_URL =
   "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/" +
   "prc_hicp_midx?format=JSON&coicop=CP00&geo=EA&unit=I15&freq=M";
 
-async function fetchInflationEu(): Promise<Row[]> {
-  const resp = await fetch(EUROSTAT_URL, { signal: AbortSignal.timeout(15_000) });
+// Incremental window for the monthly HICP series. `lastTimePeriod=N` asks
+// Eurostat for only the most recent N periods. 6 months comfortably covers
+// the ~3-week publication lag plus any upstream back-revisions to recent
+// months. The upsert is idempotent so re-writing the overlap is harmless.
+const HICP_RECENT_PERIODS = 6;
+
+async function fetchInflationEu(full: boolean): Promise<Row[]> {
+  const url = full ? EUROSTAT_URL : `${EUROSTAT_URL}&lastTimePeriod=${HICP_RECENT_PERIODS}`;
+  const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!resp.ok) {
     throw new Error(`Eurostat ${resp.status}: ${await resp.text()}`);
   }
@@ -63,8 +80,22 @@ async function fetchInflationEu(): Promise<Row[]> {
 
 const FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500";
 
-async function fetchSp500(): Promise<Row[]> {
-  const resp = await fetch(FRED_URL, { signal: AbortSignal.timeout(15_000) });
+// Incremental window for the daily SP500 series. FRED's CSV endpoint accepts
+// `cosd` (start date); 14 calendar days covers weekends, US market holidays,
+// and a missed run or two. Re-fetching the full ~10-year history every day is
+// what pushed the function past the scheduler's HTTP timeout — bounding the
+// window keeps each run a few hundred bytes / a handful of rows.
+const SP500_RECENT_DAYS = 14;
+
+function isoDaysAgoUtc(days: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+async function fetchSp500(full: boolean): Promise<Row[]> {
+  const url = full ? FRED_URL : `${FRED_URL}&cosd=${isoDaysAgoUtc(SP500_RECENT_DAYS)}`;
+  const resp = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!resp.ok) {
     throw new Error(`FRED ${resp.status}: ${await resp.text()}`);
   }
@@ -74,7 +105,7 @@ async function fetchSp500(): Promise<Row[]> {
 
 // ─── HTTP entry point ──────────────────────────────────────────────────────
 
-type Body = { series?: "inflation_eu" | "sp500" };
+type Body = { series?: "inflation_eu" | "sp500"; full?: boolean };
 
 serve(async (req) => {
   try {
@@ -103,18 +134,21 @@ serve(async (req) => {
       );
     }
 
+    const full = body.full === true;
+    const mode = full ? "full" : "incremental";
+
     const allRows: Row[] = [];
     const fetched: Record<string, number> = {};
 
     if (!body.series || body.series === "inflation_eu") {
-      log("Fetching Eurostat HICP");
-      const rows = await fetchInflationEu();
+      log("Fetching Eurostat HICP", { mode });
+      const rows = await fetchInflationEu(full);
       fetched.inflation_eu = rows.length;
       allRows.push(...rows);
     }
     if (!body.series || body.series === "sp500") {
-      log("Fetching FRED SP500");
-      const rows = await fetchSp500();
+      log("Fetching FRED SP500", { mode });
+      const rows = await fetchSp500(full);
       fetched.sp500 = rows.length;
       allRows.push(...rows);
     }
@@ -141,9 +175,9 @@ serve(async (req) => {
       written += slice.length;
     }
 
-    log("Upserted rows", { written, fetched });
+    log("Upserted rows", { written, fetched, mode });
     return new Response(
-      JSON.stringify({ ok: true, fetched, count: written }),
+      JSON.stringify({ ok: true, mode, fetched, count: written }),
       {
         headers: { "Content-Type": "application/json" },
         status: 200,
