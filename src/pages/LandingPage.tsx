@@ -226,9 +226,9 @@ export default function LandingPage() {
           <div className="lp-hero-kpi-row">
             <div>
               <div className="lp-hero-kpi-label">NET WORTH · APR 2026</div>
-              <div className="lp-hero-kpi-value num">€134,054</div>
+              <div className="lp-hero-kpi-value tabular">€134,054</div>
             </div>
-            <div className="lp-hero-kpi-delta num">+13.4% · 730 days ↑</div>
+            <div className="lp-hero-kpi-delta tabular">+13.4% · 730 days ↑</div>
           </div>
           <div className="lp-hero-chart">
             <HeroChart />
@@ -326,7 +326,7 @@ export default function LandingPage() {
         </div>
         <div className="lp-steps">
           <div className="lp-step lp-reveal">
-            <div className="lp-step-num num" aria-hidden="true">01</div>
+            <div className="lp-step-num tabular" aria-hidden="true">01</div>
             <div>
               <div className="lp-step-eyebrow">STEP 01</div>
               <h3 className="lp-step-title">Add a measurement</h3>
@@ -336,7 +336,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="lp-step lp-reveal">
-            <div className="lp-step-num num" aria-hidden="true">02</div>
+            <div className="lp-step-num tabular" aria-hidden="true">02</div>
             <div>
               <div className="lp-step-eyebrow">STEP 02</div>
               <h3 className="lp-step-title">Explore your dashboard</h3>
@@ -346,7 +346,7 @@ export default function LandingPage() {
             </div>
           </div>
           <div className="lp-step lp-reveal">
-            <div className="lp-step-num num" aria-hidden="true">03</div>
+            <div className="lp-step-num tabular" aria-hidden="true">03</div>
             <div>
               <div className="lp-step-eyebrow">STEP 03</div>
               <h3 className="lp-step-title">Track your progress</h3>
@@ -467,7 +467,7 @@ export default function LandingPage() {
           <div className="lp-price lp-reveal">
             <div className="lp-price-name">Free</div>
             <div>
-              <span className="lp-price-val num">€0</span>
+              <span className="lp-price-val tabular">€0</span>
               <span className="lp-price-period"> / forever</span>
             </div>
             <div className="lp-price-note">No credit card required.</div>
@@ -496,7 +496,7 @@ export default function LandingPage() {
           <div className="lp-price lp-price--pro lp-reveal" data-d="1">
             <div className="lp-price-name">Pro</div>
             <div>
-              <span className="lp-price-val num">€90</span>
+              <span className="lp-price-val tabular">€90</span>
               <span className="lp-price-period"> / year</span>
             </div>
             <div className="lp-price-note">~€7.50/mo · or €9/mo billed monthly</div>
