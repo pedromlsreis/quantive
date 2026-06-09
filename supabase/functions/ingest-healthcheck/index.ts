@@ -1,19 +1,9 @@
-// ingest-healthcheck — a dead-man's switch for the reference-data ingests.
+// ingest-healthcheck — dead-man's switch for the reference-data ingests.
 //
-// Why this exists: the fx-ingest / benchmark-ingest crons can "succeed" at the
-// scheduler level (pg_net enqueues the POST and returns a row id) while every
-// actual write silently fails — exactly what happened when pg_net's 5s timeout
-// killed benchmark-ingest mid-upsert and the SP500 series froze for a week
-// before a user noticed the stale banner. cron success is not a freshness
-// signal; the only trustworthy signal is "did fresh rows actually land".
-//
-// So this function reads the *latest date present* in each ingested dataset and
-// alerts the founder by email if any is older than its cadence allows. Silence
-// means healthy — that's the dead-man's-switch contract.
-//
-// It does NOT dedupe alerts: while a dataset stays stale it emails once per
-// daily run. For a solo operator a daily nag until fixed is the desired
-// behaviour, and it keeps this function stateless.
+// Reads the latest date in each ingested dataset and emails the founder if any
+// is older than its cadence allows; silence means healthy. cron "success" is
+// not a freshness signal (pg_net can enqueue while the write fails), so we
+// check the data itself. Stateless: re-alerts once per daily run while stale.
 //
 // Auth: shared CRON_SECRET, same as the ingest crons. Not browser-callable.
 
@@ -75,6 +65,8 @@ serve(async (req) => {
       latestFxRate(admin),
     ]);
 
+    // Daily series tolerate weekend/holiday gaps (5d); monthly HICP allows for
+    // its ~3-week publication lag (45d).
     const checks: DatasetCheck[] = [
       { label: "S&P 500 (benchmarks.sp500)", latest: sp500, thresholdDays: 5 },
       { label: "FX rates (fx_rates)", latest: fx, thresholdDays: 5 },

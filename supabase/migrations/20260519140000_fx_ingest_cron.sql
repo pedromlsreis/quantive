@@ -43,9 +43,8 @@ select cron.schedule(
       'Content-Type', 'application/json'
     ),
     body := '{}'::jsonb,
-    -- pg_net defaults to a 5s client-side timeout; if the function takes
-    -- longer to respond, pg_net drops the connection and the write is lost.
-    -- 60s of headroom keeps the daily ingest robust against a slow upstream.
+    -- Override pg_net's 5s default: on timeout it drops the connection and the
+    -- write is lost.
     timeout_milliseconds := 60000
   );
   $$

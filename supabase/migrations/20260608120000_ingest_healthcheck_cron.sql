@@ -1,27 +1,14 @@
 -- ===========================================================================
 -- ingest-healthcheck scheduled cron — dead-man's switch for reference data.
 --
--- Runs daily at 18:00 UTC, one hour after the fx-ingest / benchmark-ingest
--- crons (0 17 * * 1-5), so it inspects the result of the day's ingest. Fires
--- every day (incl. weekends): the daily-series thresholds (4 days) tolerate a
--- normal Fri→Mon market-closed gap, so a healthy weekend stays silent.
+-- Runs daily at 18:00 UTC, an hour after the ingest crons, and emails the
+-- founder if any dataset is stale (see ingest-healthcheck/index.ts).
 --
--- The function reads the latest date present in each ingested dataset and
--- emails the founder only if something is stale — silence means healthy. This
--- exists because cron success is NOT a freshness signal: pg_net can enqueue a
--- POST successfully while every write the function attempts fails (the 5s
--- timeout that froze SP500 for a week). See ingest-healthcheck/index.ts.
+-- Auth reads the shared CRON_SECRET from Vault under 'cron_secret' (see
+-- 20260519130000_benchmark_ingest_cron.sql for the one-time setup). Alert
+-- recipient: ALERT_TO_EMAIL → FEEDBACK_TO_EMAIL → hello@usequantive.app.
 --
--- Authorization reads the shared CRON_SECRET from Vault under 'cron_secret' —
--- the same secret used by fx-ingest, benchmark-ingest, and entry-reminders.
--- See 20260519130000_benchmark_ingest_cron.sql for the one-time
--- vault.create_secret setup.
---
--- The alert recipient is ALERT_TO_EMAIL (falls back to FEEDBACK_TO_EMAIL, then
--- hello@usequantive.app). Set it alongside the function's other secrets.
---
--- cron.schedule(jobname, ...) is upsert-by-name, so re-applying this migration
--- updates the schedule rather than creating duplicates.
+-- cron.schedule(jobname, ...) is upsert-by-name, so re-applying just updates.
 -- ===========================================================================
 
 create extension if not exists pg_cron with schema extensions;
@@ -44,9 +31,7 @@ select cron.schedule(
       'Content-Type', 'application/json'
     ),
     body := '{}'::jsonb,
-    -- One small SELECT per dataset + at most one email. Generous headroom so a
-    -- slow Resend call never trips pg_net's default 5s and silences the very
-    -- alert that is supposed to fire.
+    -- Override pg_net's 5s default so a slow Resend call can't silence the alert.
     timeout_milliseconds := 30000
   );
   $$

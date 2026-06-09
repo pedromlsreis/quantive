@@ -10,32 +10,19 @@ import {
 // benchmark-ingest mirrors fx-ingest: a cron-friendly Edge Function that
 // fetches the latest values for a small set of official reference series and
 // upserts them into public.benchmarks. v1 covers two series:
-//   * inflation_eu — Eurostat HICP monthly index (`prc_hicp_midx`, EA, CP00,
+//   * inflation_eu — Eurostat HICP monthly index (`prc_hicp_minr`, EA21,
 //     I15 = 2015=100). Monthly cadence, ~3-week publication lag.
 //   * sp500       — FRED daily series SP500 (USD). Daily cadence, ~1 trading
 //     day publication lag, ~10-year retention on FRED's free CSV endpoint.
 //
 // Body shape:
-//   {}                                 → incremental top-up: fetch only the
-//                                        recent window of each series and
-//                                        upsert (idempotent). This is the
-//                                        daily-cron path; it keeps runtime
-//                                        bounded as the history grows so the
-//                                        call comfortably finishes inside the
-//                                        scheduler's HTTP timeout.
-//   { "full": true }                   → fetch each series' full available
-//                                        history. Use ONCE to seed a fresh
-//                                        environment (the incremental window
-//                                        alone won't populate the 3-year
-//                                        chart), or to repair a gap.
-//   { "series": "inflation_eu" }       → only that series (combine with full).
-//   { "series": "sp500" }              → only that series (combine with full).
+//   {}                           → incremental top-up of the recent window
+//                                  (daily-cron path; bounded runtime).
+//   { "full": true }             → full history. Use once to seed, or to
+//                                  repair a gap.
+//   { "series": "sp500" | "inflation_eu" } → one series only (combine with full).
 //
-// All fetches are official-source, no API key required. Failures throw and
-// produce a 500 with the error message — visible in Supabase function logs.
-//
-// The pure parsing logic (Eurostat JSON → Row[], FRED CSV → Row[]) lives in
-// `./parsers.ts` so it stays under Vitest coverage. This file holds only the
+// Pure parsing lives in ./parsers.ts (under Vitest); this file is the
 // Deno-specific fetch + upsert plumbing.
 
 const log = (step: string, details?: unknown) => {
@@ -45,13 +32,13 @@ const log = (step: string, details?: unknown) => {
 
 // ─── Eurostat HICP (inflation_eu) ──────────────────────────────────────────
 //
-// SDMX 2.1 JSON API. Filter:
-//   coicop=CP00 (all items), geo=EA (euro area, all 20 members), unit=I15
-//   (index 2015=100, the standard rebase), freq=M (monthly).
-
+// ECOICOP-v2 all-items HICP index, euro area (EA21), 2015=100, monthly.
+// Note the dimension is `coicop18` and all-items is `TOTAL` (not coicop=CP00).
+// Every non-time dimension must be pinned to one value: parseEurostatJson maps
+// the flat value index 1:1 to time, which only holds when nothing else varies.
 const EUROSTAT_URL =
   "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/" +
-  "prc_hicp_midx?format=JSON&coicop=CP00&geo=EA&unit=I15&freq=M";
+  "prc_hicp_minr?format=JSON&coicop18=TOTAL&geo=EA21&unit=I15&freq=M";
 
 // Incremental window for the monthly HICP series. `lastTimePeriod=N` asks
 // Eurostat for only the most recent N periods. 6 months comfortably covers
@@ -66,7 +53,12 @@ async function fetchInflationEu(full: boolean): Promise<Row[]> {
     throw new Error(`Eurostat ${resp.status}: ${await resp.text()}`);
   }
   const json = (await resp.json()) as EurostatJson;
-  return parseEurostatJson(json, (reason, ctx) => log(`skipped Eurostat row: ${reason}`, ctx));
+  const rows = parseEurostatJson(json, (reason, ctx) => log(`skipped Eurostat row: ${reason}`, ctx));
+  // Log the newest period so an upstream freeze surfaces in logs, not weeks
+  // later as a staleness banner.
+  const maxPeriod = rows.reduce((m, r) => (r.date > m ? r.date : m), "");
+  log("Eurostat HICP latest period", { maxPeriod, rows: rows.length });
+  return rows;
 }
 
 // ─── FRED SP500 (sp500) ────────────────────────────────────────────────────
@@ -81,10 +73,8 @@ async function fetchInflationEu(full: boolean): Promise<Row[]> {
 const FRED_URL = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500";
 
 // Incremental window for the daily SP500 series. FRED's CSV endpoint accepts
-// `cosd` (start date); 14 calendar days covers weekends, US market holidays,
-// and a missed run or two. Re-fetching the full ~10-year history every day is
-// what pushed the function past the scheduler's HTTP timeout — bounding the
-// window keeps each run a few hundred bytes / a handful of rows.
+// `cosd` (start date); 14 calendar days covers weekends, holidays, and a
+// missed run or two. Keeps each daily run small instead of refetching ~10y.
 const SP500_RECENT_DAYS = 14;
 
 function isoDaysAgoUtc(days: number): string {

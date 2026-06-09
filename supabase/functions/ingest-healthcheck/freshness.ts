@@ -8,17 +8,8 @@ export type DatasetCheck = {
   label: string;
   /** Most recent date present in the dataset (ISO YYYY-MM-DD), or null if empty. */
   latest: string | null;
-  /**
-   * Maximum age in whole days before the dataset is considered stale. Tuned
-   * per cadence to tolerate the source's *legitimate* gaps without paging:
-   *   - daily series (sp500, fx_rates): markets close weekends + holidays AND
-   *     the upstream (FRED) can lag a trading day, so on a Monday a healthy
-   *     "latest" can be Thursday's close (~4.5 days old) before Friday has even
-   *     propagated. 5 days absorbs that single not-yet-published day while
-   *     still firing well inside a real multi-day freeze.
-   *   - monthly series (inflation_eu): ~3-week publication lag + the chance an
-   *     expected month simply has not posted yet → 45 days.
-   */
+  /** Max age in days before the dataset is stale; set per cadence to tolerate
+   *  the source's legitimate gaps (weekends/holidays, publication lag). */
   thresholdDays: number;
 };
 
@@ -36,13 +27,9 @@ export type StaleFinding = {
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
- * Returns one finding per dataset that is either empty or older than its
- * threshold. An empty result means everything is fresh — the dead-man's
- * switch stays silent. `now` is injectable for tests.
- *
- * The age maths mirrors benchmarkSeries.isStale: subtracting a UTC-midnight
- * epoch from `now` (absolute ms-since-epoch) is timezone-safe because both
- * sides are absolute instants.
+ * Returns one finding per dataset that is empty or older than its threshold;
+ * an empty result means everything is fresh. `now` is injectable for tests.
+ * UTC-midnight epoch maths is timezone-safe (both sides are absolute instants).
  */
 export function evaluateFreshness(checks: DatasetCheck[], now: Date): StaleFinding[] {
   const findings: StaleFinding[] = [];

@@ -37,11 +37,8 @@ select cron.schedule(
       'Content-Type', 'application/json'
     ),
     body := '{}'::jsonb,
-    -- pg_net defaults to a 5s client-side timeout. The function fetches an
-    -- upstream series and chunk-upserts before responding, which can exceed
-    -- 5s; when pg_net gives up it drops the connection and the function is
-    -- killed mid-write, so nothing lands and the series silently freezes.
-    -- 60s leaves ample headroom even on a slow upstream day.
+    -- Override pg_net's 5s default: the fetch + chunk-upsert can exceed it, and
+    -- on timeout pg_net drops the connection and the write is lost.
     timeout_milliseconds := 60000
   );
   $$
