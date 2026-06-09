@@ -65,12 +65,18 @@ serve(async (req) => {
       latestFxRate(admin),
     ]);
 
-    // Daily series tolerate weekend/holiday gaps (5d); monthly HICP allows for
-    // its ~3-week publication lag (45d).
+    // Daily series tolerate weekend/holiday gaps (5d). HICP is monthly but its
+    // age is measured from a row stamped at the *first* of the reference month
+    // (see parsers.eurostatPeriodToDate), while Eurostat publishes the final
+    // index ~17 days into the following month. So the freshest legitimate row
+    // runs up to ~78d old — e.g. April (2026-04-01) stays latest until May's
+    // release ~mid-June. 45d sat below that floor and false-paged every month;
+    // 90d clears the worst case with margin and still catches a genuinely
+    // missed monthly release within ~2 weeks.
     const checks: DatasetCheck[] = [
       { label: "S&P 500 (benchmarks.sp500)", latest: sp500, thresholdDays: 5 },
       { label: "FX rates (fx_rates)", latest: fx, thresholdDays: 5 },
-      { label: "Euro-area inflation (benchmarks.inflation_eu)", latest: hicp, thresholdDays: 45 },
+      { label: "Euro-area inflation (benchmarks.inflation_eu)", latest: hicp, thresholdDays: 90 },
     ];
 
     const now = new Date();

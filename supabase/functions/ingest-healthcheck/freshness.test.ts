@@ -12,7 +12,7 @@ describe("evaluateFreshness", () => {
     const checks = [
       check({ label: "sp500", latest: "2026-06-05", thresholdDays: 4 }),       // 3d old
       check({ label: "fx", latest: "2026-06-05", thresholdDays: 4 }),          // 3d old
-      check({ label: "hicp", latest: "2026-05-01", thresholdDays: 45 }),       // ~38d old
+      check({ label: "hicp", latest: "2026-05-01", thresholdDays: 90 }),       // ~38d old
     ];
     expect(evaluateFreshness(checks, NOW)).toEqual([]);
   });
@@ -52,16 +52,19 @@ describe("evaluateFreshness", () => {
   });
 
   it("respects the longer monthly threshold for HICP", () => {
-    // 50 days old monthly series → stale; 40 days → fresh.
-    expect(evaluateFreshness([check({ label: "hicp", latest: "2026-04-19", thresholdDays: 45 })], NOW)).toHaveLength(1);
-    expect(evaluateFreshness([check({ label: "hicp", latest: "2026-04-29", thresholdDays: 45 })], NOW)).toEqual([]);
+    // HICP rows are stamped at the first of the reference month but Eurostat
+    // publishes ~6-7 weeks later, so the freshest legitimate row runs ~78d old.
+    // April-stamped data on an 8 Jun check (~69d) is healthy; March still being
+    // latest (~100d) means a monthly release was genuinely missed.
+    expect(evaluateFreshness([check({ label: "hicp", latest: "2026-04-01", thresholdDays: 90 })], NOW)).toEqual([]);
+    expect(evaluateFreshness([check({ label: "hicp", latest: "2026-03-01", thresholdDays: 90 })], NOW)).toHaveLength(1);
   });
 
   it("collects findings across multiple stale datasets", () => {
     const findings = evaluateFreshness([
       check({ label: "sp500", latest: "2026-06-01" }),
       check({ label: "fx", latest: "2026-06-05" }),       // fresh
-      check({ label: "hicp", latest: "2026-01-01", thresholdDays: 45 }),
+      check({ label: "hicp", latest: "2026-01-01", thresholdDays: 90 }),
     ], NOW);
     expect(findings.map((f) => f.label)).toEqual(["sp500", "hicp"]);
   });
