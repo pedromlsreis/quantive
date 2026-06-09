@@ -1,0 +1,121 @@
+# Recurring dependency hygiene. Once a week (and on demand) this applies the
+# NON-BREAKING half of `npm audit fix`, re-runs the same gates as ci.yml, and
+# opens a PR with the lockfile change only if everything still passes.
+#
+# Why a separate workflow and not a step in ci.yml: ci.yml is verification-only
+# and must never mutate the tree. `npm audit fix` writes package-lock.json, so
+# it lives here and proposes the change as a reviewable PR instead.
+#
+# Why we run the gates here rather than rely on ci.yml: a PR opened with the
+# default GITHUB_TOKEN does NOT trigger other workflows (GitHub's anti-recursion
+# rule), so ci.yml would not run on the bot PR. Running lint/typecheck/test/
+# build/size here means the PR is already known-green when it lands in your
+# queue — no PAT secret to manage, nothing to leak.
+#
+# Breaking fixes (`npm audit fix --force`) are deliberately NOT automated: they
+# can downgrade or major-bump deps (e.g. exceljs, vite) and need a human call.
+
+name: deps-audit-fix
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays 06:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: deps-audit-fix
+  cancel-in-progress: false
+
+jobs:
+  audit-fix:
+    name: npm audit fix (non-breaking) + verify + PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Apply non-breaking audit fixes
+        run: npm audit fix
+
+      - name: Stop early if nothing changed
+        id: changed
+        run: |
+          if git diff --quiet -- package.json package-lock.json; then
+            echo "result=clean" >> "$GITHUB_OUTPUT"
+            echo "No lockfile changes — nothing to propose."
+          else
+            echo "result=dirty" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Same gates ci.yml enforces, so the PR is already verified on arrival.
+      - name: Lint
+        if: steps.changed.outputs.result == 'dirty'
+        run: npm run lint
+
+      - name: Typecheck
+        if: steps.changed.outputs.result == 'dirty'
+        run: npm run typecheck
+
+      - name: Unit tests
+        if: steps.changed.outputs.result == 'dirty'
+        run: npm run test
+
+      - name: Build
+        if: steps.changed.outputs.result == 'dirty'
+        run: npm run build
+
+      - name: Size check
+        if: steps.changed.outputs.result == 'dirty'
+        run: npm run size:check
+
+      - name: Open or update PR
+        if: steps.changed.outputs.result == 'dirty'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BRANCH="chore/npm-audit-fix"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add package.json package-lock.json
+          git commit -m "chore(deps): npm audit fix (non-breaking)"
+          git push --force-with-lease origin "$BRANCH"
+
+          # Remaining advisories (the breaking ones we did NOT touch) go in the
+          # body so the reviewer sees what's still outstanding.
+          {
+            echo "Automated non-breaking \`npm audit fix\`. Verified in-workflow:"
+            echo "lint, typecheck, unit tests, build, and size:check all passed."
+            echo
+            echo "Breaking fixes are intentionally left out — review them by hand."
+            echo
+            echo '<details><summary>Remaining <code>npm audit</code> report</summary>'
+            echo
+            echo '```'
+            npm audit 2>&1 | tail -n 40 || true
+            echo '```'
+            echo '</details>'
+          } > pr-body.md
+
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            echo "PR already open for $BRANCH — branch force-updated, refreshing body."
+            gh pr edit "$BRANCH" --body-file pr-body.md
+          else
+            gh pr create \
+              --base main \
+              --head "$BRANCH" \
+              --title "chore(deps): npm audit fix (non-breaking)" \
+              --body-file pr-body.md
+          fi
