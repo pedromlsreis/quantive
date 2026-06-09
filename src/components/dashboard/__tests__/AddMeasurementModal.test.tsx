@@ -158,7 +158,7 @@ describe('AddMeasurementModal — chrome', () => {
     expect(screen.getByText(/First snapshot/i)).toBeInTheDocument();
   });
 
-  it('shows monthly streak and last-snapshot age when snapshots exist', () => {
+  it('shows months tracked and last-snapshot age when snapshots exist', () => {
     const today = new Date();
     const twoDaysAgo = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2);
     setup(true, {
@@ -167,7 +167,7 @@ describe('AddMeasurementModal — chrome', () => {
         { date: twoDaysAgo, total: 5000, sources: [] },
       ],
     });
-    expect(screen.getByText(/Monthly streak/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tracked/i)).toBeInTheDocument();
     expect(screen.getByText(/2 months/i)).toBeInTheDocument();
     expect(screen.getByText(/2d ago/i)).toBeInTheDocument();
   });

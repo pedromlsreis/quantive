@@ -516,7 +516,7 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
                   <div className="q-modal-sub q-modal-sub--addmeasurement">
                     <span className="q-streak-pill">
                       <span className="q-streak-pill-dot" />
-                      Monthly streak ·{' '}
+                      Tracked ·{' '}
                       <span style={{ color: 'var(--fg)' }}>
                         {streak} {streak === 1 ? 'month' : 'months'}
                       </span>
@@ -1122,7 +1122,7 @@ function SaveSuccessPanel({
         </div>
         {!saved.backfill && (
           <div className="q-save-success-stat">
-            <div className="q-save-success-stat-label">Streak</div>
+            <div className="q-save-success-stat-label">Tracked</div>
             <div className="q-save-success-stat-val">{saved.newStreak} mo</div>
           </div>
         )}

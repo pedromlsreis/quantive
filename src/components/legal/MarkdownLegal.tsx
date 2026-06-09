@@ -33,9 +33,9 @@ export function MarkdownLegal({ source, pageTitle, pageDescription, path }: Mark
       <StickyNav />
 
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-20">
-        <h1 className="mb-6 text-3xl font-bold text-foreground">{title}</h1>
+        <h1 className="mb-6 font-serif text-4xl font-normal tracking-[-0.01em] text-foreground">{title}</h1>
 
-        <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-foreground [&_h3]:text-base [&_h3]:font-semibold [&_h3]:mt-6 [&_h3]:mb-2 [&_strong]:text-foreground [&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:text-foreground [&_th]:font-semibold [&_th]:p-2 [&_th]:border-b [&_th]:border-border [&_td]:p-2 [&_td]:border-b [&_td]:border-border/50 [&_td]:align-top [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-1 [&_code]:text-xs [&_code]:bg-muted/30 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded">
+        <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-xl [&_h2]:font-serif [&_h2]:font-normal [&_h2]:tracking-[-0.01em] [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-foreground [&_h3]:text-base [&_h3]:font-serif [&_h3]:font-normal [&_h3]:mt-6 [&_h3]:mb-2 [&_strong]:text-foreground [&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:text-foreground [&_th]:font-semibold [&_th]:p-2 [&_th]:border-b [&_th]:border-border [&_td]:p-2 [&_td]:border-b [&_td]:border-border/50 [&_td]:align-top [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-1 [&_code]:text-xs [&_code]:bg-muted/30 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             rehypePlugins={[rehypeRaw]}

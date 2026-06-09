@@ -48,6 +48,7 @@
     }
   ],
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.2.9",
     "@fontsource/geist": "^5.2.9",
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@hookform/resolvers": "^3.10.0",

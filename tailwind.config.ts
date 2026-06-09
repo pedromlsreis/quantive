@@ -22,8 +22,8 @@ export default {
         display: ['"JetBrains Mono"', '"Geist Mono"', 'ui-monospace', '"SF Mono"', 'Menlo', 'monospace'],
         // mono: JetBrains Mono
         mono: ['"JetBrains Mono"', '"Geist Mono"', 'ui-monospace', '"SF Mono"', 'Menlo', 'monospace'],
-        // serif: Instrument Serif (available, not active)
-        serif: ['"Instrument Serif"', '"Source Serif 4"', 'Georgia', 'serif'],
+        // serif: Fraunces variable (marketing display face on landing)
+        serif: ['"Fraunces Variable"', '"Fraunces"', '"Source Serif 4"', 'Georgia', 'serif'],
       },
 
       // ── Type scale (modular, from design tokens) ─────────────
@@ -190,14 +190,6 @@ export default {
           from: { opacity: "0", transform: "translate(-50%, 4px)" },
           to:   { opacity: "1", transform: "translate(-50%, 0)" },
         },
-        "hero-glow": {
-          "0%, 100%": { transform: "scale(1)", opacity: "0.2" },
-          "50%":      { transform: "scale(1.15)", opacity: "0.35" },
-        },
-        "hero-glow-slow": {
-          "0%, 100%": { opacity: "0.3" },
-          "50%":      { opacity: "0.5" },
-        },
       },
 
       // ── Animation helpers ─────────────────────────────────────
@@ -209,8 +201,6 @@ export default {
         "q-screen-in":     "q-screen-in 240ms cubic-bezier(0.22, 1, 0.36, 1)",
         "q-fade-in":       "q-fade-in 240ms cubic-bezier(0.22, 1, 0.36, 1)",
         "q-modal-in":      "q-modal-in 420ms cubic-bezier(0.22, 1, 0.36, 1)",
-        "hero-glow":       "hero-glow 6s ease-in-out infinite",
-        "hero-glow-slow":  "hero-glow-slow 8s ease-in-out infinite",
       },
     },
   },
