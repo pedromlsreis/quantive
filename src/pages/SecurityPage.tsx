@@ -25,7 +25,7 @@ export default function SecurityPage() {
       <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-20">
         <div className="mb-2 flex items-center gap-2">
           <ShieldCheck className="h-6 w-6 text-primary" />
-          <h1 className="text-3xl font-bold text-foreground">Security & Encryption</h1>
+          <h1 className="font-serif text-4xl font-normal tracking-[-0.01em] text-foreground">Security & Encryption</h1>
         </div>
         <p className="mb-10 text-sm text-muted-foreground">
           What we do, what we don't do, and how to verify it yourself.
@@ -63,7 +63,7 @@ export default function SecurityPage() {
 
           {/* Key hierarchy diagram */}
           <section>
-            <h2 className="mb-4 text-lg font-semibold text-foreground">
+            <h2 className="mb-4 font-serif text-xl font-normal text-foreground">
               How your key hierarchy works
             </h2>
             <div className="rounded-xl border border-border bg-card/50 p-5 font-mono text-xs leading-relaxed text-foreground/80 overflow-x-auto">
@@ -127,7 +127,7 @@ export default function SecurityPage() {
 
           {/* What we protect against */}
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-foreground">
+            <h2 className="mb-3 font-serif text-xl font-normal text-foreground">
               What we defend against
             </h2>
             <ul className="space-y-2 list-disc pl-5">
@@ -164,7 +164,7 @@ export default function SecurityPage() {
 
           {/* What we DON'T protect against */}
           <section>
-            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-foreground">
+            <h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-normal text-foreground">
               <AlertTriangle className="h-4 w-4 text-amber-400" />
               What we do <em>not</em> protect against
             </h2>
@@ -229,7 +229,7 @@ export default function SecurityPage() {
 
           {/* Recovery */}
           <section>
-            <h2 className="mb-3 flex items-center gap-2 text-lg font-semibold text-foreground">
+            <h2 className="mb-3 flex items-center gap-2 font-serif text-xl font-normal text-foreground">
               <Key className="h-4 w-4 text-primary" />
               Forgotten passwords and recovery codes
             </h2>
@@ -268,7 +268,7 @@ export default function SecurityPage() {
 
           {/* Verifiability */}
           <section>
-            <h2 className="mb-3 text-lg font-semibold text-foreground">
+            <h2 className="mb-3 font-serif text-xl font-normal text-foreground">
               Verify it yourself
             </h2>
             <p className="mb-3">

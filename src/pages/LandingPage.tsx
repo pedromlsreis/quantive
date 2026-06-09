@@ -142,39 +142,6 @@ function HeroChart() {
   );
 }
 
-/* ── Inline SVG: small feature-card net worth area chart ────── */
-function FeatureMiniChart() {
-  return (
-    <svg viewBox="0 0 280 110" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <linearGradient id="lp-feat-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--accent-raw)" stopOpacity="0.2" />
-          <stop offset="100%" stopColor="var(--accent-raw)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <line x1="0" y1="22" x2="280" y2="22" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
-      <line x1="0" y1="52" x2="280" y2="52" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
-      <line x1="0" y1="82" x2="280" y2="82" stroke="var(--border-soft-raw)" strokeWidth="0.5" />
-      <polygon
-        points="0,82 35,80 70,82 105,74 140,68 175,60 210,50 245,38 280,22 280,100 0,100"
-        fill="url(#lp-feat-grad)"
-      />
-      <polyline
-        points="0,82 35,80 70,82 105,74 140,68 175,60 210,50 245,38 280,22"
-        stroke="var(--accent-raw)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <circle cx="280" cy="22" r="4" fill="var(--accent-raw)" />
-      <text x="6" y="14" fill="var(--fg-faint)" fontFamily="var(--font-mono)" fontSize="8">NET WORTH</text>
-      <text x="6" y="26" fill="var(--accent-raw)" fontFamily="var(--font-mono)" fontSize="14" fontWeight="500">€134,054</text>
-      <text x="108" y="14" fill="var(--positive)" fontFamily="var(--font-mono)" fontSize="8">+13.4% ↑</text>
-    </svg>
-  );
-}
-
 /* ── Privacy icons (inline SVG) ─────────────────────────────── */
 const PrivacyIcons = {
   lock: (
@@ -226,7 +193,7 @@ export default function LandingPage() {
 
       {/* ───── HERO ───── */}
       <section className="lp-hero" aria-labelledby="lp-hero-h1">
-        <div className="lp-hero-glow" aria-hidden="true" />
+        <div className="lp-hero-grid" aria-hidden="true" />
 
         <h1 className="lp-hero-h1" id="lp-hero-h1">
           See your financial life{' '}
@@ -269,17 +236,30 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ───── TRUST BAND ───── */}
-      <div className="lp-trust-band" role="list" aria-label="Key product properties">
-        <span className="lp-trust-item" role="listitem">End-to-end encrypted</span>
-        <span className="lp-trust-sep" aria-hidden="true">·</span>
-        <span className="lp-trust-item" role="listitem">No bank connections required</span>
-        <span className="lp-trust-sep" aria-hidden="true">·</span>
-        <span className="lp-trust-item" role="listitem">Free forever, no credit card</span>
-        <span className="lp-trust-sep" aria-hidden="true">·</span>
-        <span className="lp-trust-item" role="listitem">Spreadsheet import included</span>
-        <span className="lp-trust-sep" aria-hidden="true">·</span>
-        <span className="lp-trust-item" role="listitem">{SUPPORTED_COUNT} display currencies</span>
+      {/* ───── SPEC STRIP ───── */}
+      <div className="lp-specbar" aria-label="Key product specifications">
+        <dl className="lp-specbar-inner">
+          <div className="lp-spec">
+            <dt className="lp-spec-label">Encryption</dt>
+            <dd className="lp-spec-value">End-to-end</dd>
+          </div>
+          <div className="lp-spec">
+            <dt className="lp-spec-label">Bank access</dt>
+            <dd className="lp-spec-value">None</dd>
+          </div>
+          <div className="lp-spec">
+            <dt className="lp-spec-label">Price</dt>
+            <dd className="lp-spec-value">Free forever</dd>
+          </div>
+          <div className="lp-spec">
+            <dt className="lp-spec-label">Import</dt>
+            <dd className="lp-spec-value">Spreadsheet</dd>
+          </div>
+          <div className="lp-spec">
+            <dt className="lp-spec-label">Currencies</dt>
+            <dd className="lp-spec-value">{SUPPORTED_COUNT} display</dd>
+          </div>
+        </dl>
       </div>
 
       {/* ───── FEATURES ───── */}
@@ -299,8 +279,19 @@ export default function LandingPage() {
               Quantive shows your entire wealth in one view. Record any account, asset, or liability and it calculates your total net worth across all sources and currencies, with charts that update the moment you add a measurement. No formulas, no maintenance.
             </p>
           </div>
-          <div className="lp-feat-card" aria-hidden="true">
-            <FeatureMiniChart />
+          <div className="lp-shot">
+            <video
+              poster="/landing/dashboard.webp"
+              autoPlay
+              muted
+              loop
+              playsInline
+              preload="metadata"
+              aria-label="Screen recording of Quantive: the dashboard overview, then the allocations view cycling through treemap, bars, and donut charts, then the forecast and performance pages"
+            >
+              <source src="/landing/tour.mp4" type="video/mp4" />
+              <source src="/landing/tour.webm" type="video/webm" />
+            </video>
           </div>
         </div>
 
@@ -324,10 +315,11 @@ export default function LandingPage() {
             </p>
           </div>
         </div>
+
       </section>
 
       {/* ───── HOW IT WORKS ───── */}
-      <section className="lp-sec lp-sec--bordered" id="how" aria-labelledby="lp-how-h2">
+      <section className="lp-sec" id="how" aria-labelledby="lp-how-h2">
         <div className="lp-reveal">
           <span className="lp-eyebrow">How it works</span>
           <h2 className="lp-h2" id="lp-how-h2">Three steps to start tracking.</h2>
@@ -445,7 +437,7 @@ export default function LandingPage() {
           <div className="lp-persona lp-reveal" data-d="3">
             <div className="lp-persona-name">Clarity seekers</div>
             <p className="lp-persona-desc">
-              Done with spreadsheets. Clear answers without handing over bank credentials.
+              Done with spreadsheets, after answers they can read at a glance and trust.
             </p>
             <span className="lp-persona-tag">Own your data</span>
           </div>
@@ -461,12 +453,12 @@ export default function LandingPage() {
       </div>
 
       {/* ───── PRICING ───── */}
-      <section className="lp-sec lp-sec--bordered" id="pricing" aria-labelledby="lp-price-h2">
+      <section className="lp-sec" id="pricing" aria-labelledby="lp-price-h2">
         <div className="lp-hd-center lp-reveal">
           <span className="lp-eyebrow">Pricing</span>
           <h2 className="lp-h2" id="lp-price-h2">Simple, transparent pricing.</h2>
           <p className="lp-sub">
-            Start free. Upgrade when you're ready. End-to-end encryption on every tier, always.
+            Start free. Upgrade when you're ready.
           </p>
         </div>
 
@@ -554,7 +546,7 @@ export default function LandingPage() {
       </section>
 
       {/* ───── FAQ ───── */}
-      <section className="lp-sec lp-sec--bordered" id="faq" aria-labelledby="lp-faq-h2">
+      <section className="lp-sec" id="faq" aria-labelledby="lp-faq-h2">
         <div className="lp-reveal">
           <span className="lp-eyebrow">FAQ</span>
           <h2 className="lp-h2" id="lp-faq-h2">
@@ -594,9 +586,8 @@ export default function LandingPage() {
 
       {/* ───── FOOTER CTA ───── */}
       <div className="lp-cta lp-reveal">
-        <div className="lp-cta-glow" aria-hidden="true" />
         <h2 className="lp-cta-h2">Start tracking your wealth today.</h2>
-        <p className="lp-cta-sub">Free forever. No credit card. No bank logins.</p>
+        <p className="lp-cta-sub">Free forever, no credit card.</p>
         <div className="lp-cta-actions">
           <Link
             to="/dashboard"

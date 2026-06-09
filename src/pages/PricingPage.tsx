@@ -117,9 +117,9 @@ export default function PricingPage() {
       <StickyNav />
 
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 pb-20 pt-32">
-        <h1 className="mb-4 text-center text-4xl font-extrabold text-foreground">Simple, transparent pricing</h1>
+        <h1 className="mb-4 text-center font-serif text-4xl font-normal tracking-[-0.01em] text-foreground">Simple, transparent pricing</h1>
         <p className="mx-auto mb-14 max-w-lg text-center text-muted-foreground">
-          Start free. Upgrade when you're ready. End-to-end encryption on every tier, always.
+          Start free. Upgrade when you're ready.
         </p>
 
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">

@@ -9,6 +9,8 @@ import "@fontsource/geist/600.css";
 import "@fontsource/geist/700.css";
 import "@fontsource/jetbrains-mono/400.css";
 import "@fontsource/jetbrains-mono/500.css";
+// Fraunces: serif display face for landing/marketing headings.
+import "@fontsource-variable/fraunces/standard.css";
 import "./index.css";
 import { initAnalytics, installGlobalErrorHandlers } from "./lib/analytics";
 

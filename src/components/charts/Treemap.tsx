@@ -146,13 +146,6 @@ export function Treemap({ data, width = 700, height = 360, fmt }: TreemapProps) 
                   : 'inset 0 0 0 1px oklch(100% 0 0 / 0.04)',
               }}
             >
-              {/* depth gradient overlay */}
-              <div style={{
-                position: 'absolute', inset: 0,
-                background: 'linear-gradient(135deg, oklch(100% 0 0 / 0.08), oklch(0% 0 0 / 0.1))',
-                pointerEvents: 'none',
-              }} />
-
               {showLabel && (
                 <div style={{
                   position: 'absolute', top: 10, left: 12, right: 12,
