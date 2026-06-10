@@ -33,6 +33,12 @@ describe('formatCurrency', () => {
     expect(formatCurrency(NaN, '€')).toBe('—');
     expect(formatCurrency(Infinity, '$')).toBe('—');
   });
+
+  it('does not roll across the k→M threshold when rounding up (999_999 stays in k)', () => {
+    // 999_999 is below 1M, so it formats as thousands; toFixed(1) rounds the
+    // quotient up to 1000.0. Pinned so the boundary behaviour is intentional.
+    expect(formatCurrency(999_999, '€')).toBe('€1000.0k');
+  });
 });
 
 describe('formatFullCurrency', () => {
@@ -107,6 +113,16 @@ describe('formatNumber', () => {
   it('formats small numbers', () => {
     expect(formatNumber(42)).toBe('42');
   });
+
+  it('formats negative values with the suffix', () => {
+    expect(formatNumber(-7_800)).toBe('-7.8k');
+    expect(formatNumber(-2_500_000)).toBe('-2.5M');
+  });
+
+  it('renders em-dash for non-finite values (axis labels never show NaN)', () => {
+    expect(formatNumber(NaN)).toBe('—');
+    expect(formatNumber(Infinity)).toBe('—');
+  });
 });
 
 describe('formatMilestone', () => {
@@ -116,6 +132,23 @@ describe('formatMilestone', () => {
 
   it('formats thousand milestones', () => {
     expect(formatMilestone(100_000, '$')).toBe('$100k');
+  });
+
+  it('keeps round milestones clean (no trailing .0)', () => {
+    expect(formatMilestone(1_000_000, '€')).toBe('€1M');
+    expect(formatMilestone(2_000, '€')).toBe('€2k');
+    expect(formatMilestone(1_500_000, '€')).toBe('€1.5M');
+  });
+
+  it('shortens non-round user-entered milestones to one decimal', () => {
+    // parseFloat lets users add any positive value; without rounding these
+    // rendered as "€1.234567M" / "€123.456k".
+    expect(formatMilestone(1_234_567, '€')).toBe('€1.2M');
+    expect(formatMilestone(123_456, '€')).toBe('€123.5k');
+  });
+
+  it('renders em-dash for non-finite values', () => {
+    expect(formatMilestone(NaN, '€')).toBe('—');
   });
 
   it('renders Nordic codes as ISO strings', () => {

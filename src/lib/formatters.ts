@@ -73,13 +73,19 @@ export function formatNumber(value: number): string {
   return value.toFixed(0);
 }
 
+/** Compact a scaled value for a badge: at most one decimal, trailing ".0" dropped. */
+function compact(n: number): string {
+  return n.toFixed(1).replace(/\.0$/, '');
+}
+
 /**
- * Format a milestone badge label (e.g. €100k, $1M).
- * Uses whole numbers without decimals for clean badge display.
+ * Format a milestone badge label (e.g. €100k, $1.2M). Round values stay clean
+ * (€1M, not €1.0M); non-round user-entered milestones are shortened to one
+ * decimal rather than rendering a long tail (€1.234567M).
  */
 export function formatMilestone(value: number, symbol: string): string {
   if (!Number.isFinite(value)) return MISSING;
-  if (value >= 1_000_000) return `${symbol}${value / 1_000_000}M`;
-  if (value >= 1_000) return `${symbol}${value / 1_000}k`;
+  if (value >= 1_000_000) return `${symbol}${compact(value / 1_000_000)}M`;
+  if (value >= 1_000) return `${symbol}${compact(value / 1_000)}k`;
   return `${symbol}${value}`;
 }
