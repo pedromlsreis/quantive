@@ -70,8 +70,19 @@ export async function exportPortfolioExcel(
 
 const CSV_HEADERS = ['DATE', 'ID_SOURCE', 'SOURCE_VL', 'CURRENCY'] as const;
 
+// Leading characters spreadsheet apps treat as the start of a formula.
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+
+/**
+ * Escape a free-text field for CSV. Neutralises formula injection (a leading
+ * `=`, `+`, `-`, `@` would otherwise run as a formula in Excel/Sheets) by
+ * prefixing a single quote, then applies RFC 4180 quoting for commas, quotes,
+ * and newlines. Only used for text columns; numeric columns are written raw so
+ * negative values stay numeric.
+ */
 function csvEscape(value: string): string {
-  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  const guarded = FORMULA_TRIGGER.test(value) ? `'${value}` : value;
+  return /[",\r\n]/.test(guarded) ? `"${guarded.replace(/"/g, '""')}"` : guarded;
 }
 
 /**
