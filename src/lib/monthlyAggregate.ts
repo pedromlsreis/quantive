@@ -126,13 +126,12 @@ export function computeMonthlyRows(snapshots: Snapshot[]): MonthlyRow[] {
     const row = rows[i];
     if (i > 0) {
       const prev = rows[i - 1];
-      if (prev.netWorth !== 0) {
-        row.deltaMonthAbs = row.netWorth - prev.netWorth;
-        row.deltaMonthPct = ((row.netWorth - prev.netWorth) / prev.netWorth) * 100;
-      } else {
-        row.deltaMonthAbs = row.netWorth - prev.netWorth;
-        row.deltaMonthPct = null;
-      }
+      row.deltaMonthAbs = row.netWorth - prev.netWorth;
+      // Divide by |base| so the sign tracks the direction of change. Net worth
+      // can be negative (liabilities > assets); a signed base would flip it.
+      row.deltaMonthPct = prev.netWorth !== 0
+        ? ((row.netWorth - prev.netWorth) / Math.abs(prev.netWorth)) * 100
+        : null;
     }
     // YoY: same calendar month, one year prior.
     const [y, m] = row.monthKey.split('-').map(Number);
@@ -140,7 +139,8 @@ export function computeMonthlyRows(snapshots: Snapshot[]): MonthlyRow[] {
     const yoy = byMonth.get(yoyKey);
     if (yoy && yoy.netWorth !== 0) {
       row.deltaYearAbs = row.netWorth - yoy.netWorth;
-      row.deltaYearPct = ((row.netWorth - yoy.netWorth) / yoy.netWorth) * 100;
+      // |base| denominator, same as the MoM delta.
+      row.deltaYearPct = ((row.netWorth - yoy.netWorth) / Math.abs(yoy.netWorth)) * 100;
     }
     // Annualised: CAGR from first row to this row. Only meaningful when the
     // spread is ≥12 months and both endpoints are positive.

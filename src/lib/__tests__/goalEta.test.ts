@@ -3,8 +3,7 @@ import {
   trailingCagr,
   goalProgress,
   projectEtaDate,
-  classifyGoalGate,
-  freeTrialDaysRemaining,
+  classifyGoalTrial,
   latestNetWorth,
   FREE_TRIAL_DAYS,
 } from '@/lib/goalEta';
@@ -107,28 +106,28 @@ describe('projectEtaDate', () => {
   });
 });
 
-describe('classifyGoalGate', () => {
+describe('classifyGoalTrial (gate classification)', () => {
   const now = new Date('2026-05-19T12:00:00Z');
 
-  it('Pro users are always allowed', () => {
+  it('Pro users are always pro (no trial concept)', () => {
     const goals = [
       makeGoal({ id: 'a', createdAt: '2020-01-01T00:00:00Z' }),
       makeGoal({ id: 'b', createdAt: '2024-01-01T00:00:00Z' }),
     ];
-    expect(classifyGoalGate({ hasMilestones: true, goals, goalId: 'a', now })).toBe('allowed');
-    expect(classifyGoalGate({ hasMilestones: true, goals, goalId: 'b', now })).toBe('allowed');
+    expect(classifyGoalTrial({ hasMilestones: true, goals, goalId: 'a', now })).toEqual({ kind: 'pro' });
+    expect(classifyGoalTrial({ hasMilestones: true, goals, goalId: 'b', now })).toEqual({ kind: 'pro' });
   });
 
-  it("Free: first goal within 30 days is allowed", () => {
+  it("Free: first goal within 30 days is in trial", () => {
     const recent = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString();
     const goals = [makeGoal({ id: 'a', createdAt: recent })];
-    expect(classifyGoalGate({ hasMilestones: false, goals, goalId: 'a', now })).toBe('allowed');
+    expect(classifyGoalTrial({ hasMilestones: false, goals, goalId: 'a', now }).kind).toBe('trial');
   });
 
   it('Free: first goal past 30 days is gated', () => {
     const stale = new Date(now.getTime() - 45 * 24 * 60 * 60 * 1000).toISOString();
     const goals = [makeGoal({ id: 'a', createdAt: stale })];
-    expect(classifyGoalGate({ hasMilestones: false, goals, goalId: 'a', now })).toBe('gated');
+    expect(classifyGoalTrial({ hasMilestones: false, goals, goalId: 'a', now })).toEqual({ kind: 'gated' });
   });
 
   it('Free: second goal is gated even within 30 days', () => {
@@ -138,8 +137,8 @@ describe('classifyGoalGate', () => {
       makeGoal({ id: 'a', createdAt: recentA }),
       makeGoal({ id: 'b', createdAt: recentB }),
     ];
-    expect(classifyGoalGate({ hasMilestones: false, goals, goalId: 'a', now })).toBe('allowed');
-    expect(classifyGoalGate({ hasMilestones: false, goals, goalId: 'b', now })).toBe('gated');
+    expect(classifyGoalTrial({ hasMilestones: false, goals, goalId: 'a', now }).kind).toBe('trial');
+    expect(classifyGoalTrial({ hasMilestones: false, goals, goalId: 'b', now })).toEqual({ kind: 'gated' });
   });
 
   it('Free: archived goals do not unlock the next-oldest in the queue', () => {
@@ -151,36 +150,23 @@ describe('classifyGoalGate', () => {
       makeGoal({ id: 'a', createdAt: oldA, archivedAt: now.toISOString() }),
       makeGoal({ id: 'b', createdAt: recentB }),
     ];
-    // 'b' is the first *active* goal, recent enough — allowed.
-    expect(classifyGoalGate({ hasMilestones: false, goals, goalId: 'b', now })).toBe('allowed');
+    // 'b' is the first *active* goal, recent enough — in trial.
+    expect(classifyGoalTrial({ hasMilestones: false, goals, goalId: 'b', now }).kind).toBe('trial');
   });
 
   it('Free: returns gated when there are no active goals', () => {
-    expect(classifyGoalGate({ hasMilestones: false, goals: [], goalId: 'x', now })).toBe('gated');
+    expect(classifyGoalTrial({ hasMilestones: false, goals: [], goalId: 'x', now })).toEqual({ kind: 'gated' });
   });
 
   it("boundary: exactly 30 days old is gated", () => {
     const exactlyOld = new Date(now.getTime() - FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000).toISOString();
     const goals = [makeGoal({ id: 'a', createdAt: exactlyOld })];
-    expect(classifyGoalGate({ hasMilestones: false, goals, goalId: 'a', now })).toBe('gated');
-  });
-});
-
-describe('freeTrialDaysRemaining', () => {
-  it('returns 30 for a goal created right now', () => {
-    const goal = makeGoal({ createdAt: new Date().toISOString() });
-    expect(freeTrialDaysRemaining(goal)).toBeLessThanOrEqual(30);
-    expect(freeTrialDaysRemaining(goal)).toBeGreaterThan(29);
+    expect(classifyGoalTrial({ hasMilestones: false, goals, goalId: 'a', now })).toEqual({ kind: 'gated' });
   });
 
-  it('returns 0 for a goal older than 30 days', () => {
-    const goal = makeGoal({ createdAt: new Date(Date.now() - 60 * 86_400_000).toISOString() });
-    expect(freeTrialDaysRemaining(goal)).toBe(0);
-  });
-
-  it('returns 0 when createdAt is invalid', () => {
-    const goal = makeGoal({ createdAt: 'not-a-date' });
-    expect(freeTrialDaysRemaining(goal)).toBe(0);
+  it('Free: gated when the first goal has an unparseable createdAt', () => {
+    const goals = [makeGoal({ id: 'a', createdAt: 'not-a-date' })];
+    expect(classifyGoalTrial({ hasMilestones: false, goals, goalId: 'a', now })).toEqual({ kind: 'gated' });
   });
 });
 

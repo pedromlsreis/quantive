@@ -5,11 +5,11 @@ import type { Goal } from '@/lib/types';
 import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
 import { useFxRates } from '@/hooks/useFxRates';
 import {
-  classifyGoalGate,
-  freeTrialDaysRemaining,
+  classifyGoalTrial,
   goalProgress,
   projectEtaDate,
   trailingCagr,
+  type GoalTrialState,
 } from '@/lib/goalEta';
 import { fadeIn, progressFill } from '@/lib/motion';
 import { UpsellCard } from '@/components/billing/UpsellCard';
@@ -67,9 +67,9 @@ export function GoalCard({
     return () => document.removeEventListener('mousedown', onDoc);
   }, [menuOpen]);
 
-  const gate = forceLocked
-    ? 'gated'
-    : classifyGoalGate({ hasMilestones, goals, goalId: goal.id });
+  const trial: GoalTrialState = forceLocked
+    ? { kind: 'gated' }
+    : classifyGoalTrial({ hasMilestones, goals, goalId: goal.id });
 
   // Convert the target to the display currency at today's rate. The goal
   // amount is stored in `targetCurrency`; we show progress and ETA against
@@ -96,7 +96,7 @@ export function GoalCard({
 
   // Locked variant: name only, plus an inline upsell. Kept in the same card
   // shell so the page rhythm survives a Pro→Free downgrade.
-  if (gate === 'gated') {
+  if (trial.kind === 'gated') {
     return (
       <motion.div
         variants={fadeIn}
@@ -125,7 +125,7 @@ export function GoalCard({
 
   // Allowed: full live progress + ETA.
   const pct = Math.round(progress * 100);
-  const daysLeft = !hasMilestones ? freeTrialDaysRemaining(goal) : null;
+  const daysLeft = trial.kind === 'trial' ? trial.daysRemaining : null;
 
   let etaCaption: string;
   if (!Number.isFinite(targetInDisplay)) {
