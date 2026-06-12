@@ -489,13 +489,6 @@
   margin-top: auto; display: flex; flex-direction: column;
   gap: var(--s-3); padding: var(--s-2);
 }
-.q-side-card {
-  border: 1px solid var(--border-raw); border-radius: var(--r-3);
-  padding: var(--s-4); background: var(--surface-soft); font-size: var(--text-xs);
-}
-.q-side-card-title { color: var(--fg); font-weight: 500; margin-bottom: 4px; }
-.q-side-card-body { color: var(--fg-subtle); line-height: 1.45; }
-
 .q-side-user {
   display: flex; align-items: center; gap: var(--s-3);
   padding: var(--s-3); border-radius: var(--r-2);

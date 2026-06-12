@@ -20,6 +20,8 @@
     "prerender": "node scripts/prerender.mjs",
     "build:prerender": "vite build && node scripts/prerender.mjs",
     "stamp:freshness": "node scripts/stamp-freshness.mjs",
+    "landing:poster": "node scripts/capture-landing-poster.mjs",
+    "landing:tour": "node scripts/record-landing-tour.mjs",
     "lint": "eslint .",
     "typecheck": "tsc -b",
     "preview": "vite preview",

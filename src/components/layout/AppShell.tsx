@@ -291,12 +291,6 @@ function Sidebar({
 
         {/* Footer */}
         <div className="q-side-foot">
-          <div className="q-side-card">
-            <div className="q-side-card-title">Cloud sync · End-to-end</div>
-            <div className="q-side-card-body">
-              All snapshots encrypted on-device with XChaCha20-Poly1305 before sync.
-            </div>
-          </div>
           {user ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <button
