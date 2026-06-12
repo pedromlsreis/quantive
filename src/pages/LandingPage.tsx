@@ -241,32 +241,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ───── SPEC STRIP ───── */}
-      <div className="lp-specbar" aria-label="Key product specifications">
-        <dl className="lp-specbar-inner">
-          <div className="lp-spec">
-            <dt className="lp-spec-label">Encryption</dt>
-            <dd className="lp-spec-value">End-to-end</dd>
-          </div>
-          <div className="lp-spec">
-            <dt className="lp-spec-label">Bank access</dt>
-            <dd className="lp-spec-value">None</dd>
-          </div>
-          <div className="lp-spec">
-            <dt className="lp-spec-label">Price</dt>
-            <dd className="lp-spec-value">Free forever</dd>
-          </div>
-          <div className="lp-spec">
-            <dt className="lp-spec-label">Import</dt>
-            <dd className="lp-spec-value">Spreadsheet</dd>
-          </div>
-          <div className="lp-spec">
-            <dt className="lp-spec-label">Currencies</dt>
-            <dd className="lp-spec-value">{SUPPORTED_COUNT} display</dd>
-          </div>
-        </dl>
-      </div>
-
       {/* ───── FEATURES ───── */}
       <section className="lp-sec" id="features" aria-labelledby="lp-feat-h2">
         <div className="lp-reveal">
