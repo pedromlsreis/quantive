@@ -7,6 +7,7 @@ import {
   recoveryCodeToEntropy,
   recoveryCodeToKdfInput,
 } from '../recovery';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 
 describe('recovery: generation', () => {
   it('emits 24 BIP-39 words', () => {
@@ -67,11 +68,10 @@ describe('recovery: validation', () => {
   it('rejects a code with a single-word substitution (checksum check)', () => {
     const code = generateRecoveryCode();
     const words = code.split(' ');
-    // Swap last word with another valid BIP-39 word ("zoo" is in the list).
-    // In the rare case "zoo" is already last, the substitution still flips
-    // the checksum because the original has 256 bits of entropy.
-    const alt = words[words.length - 1] === 'zoo' ? 'abandon' : 'zoo';
-    words[words.length - 1] = alt;
+    // Flip a checksum bit (index ^ 1) so the code always fails. A swap for an
+    // arbitrary word would pass the checksum 1/256 of the time, hence flaky.
+    const last = words.length - 1;
+    words[last] = wordlist[wordlist.indexOf(words[last]) ^ 1];
     expect(isValidRecoveryCode(words.join(' '))).toBe(false);
   });
 });
