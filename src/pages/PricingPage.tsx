@@ -5,7 +5,13 @@ import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { usePageMeta } from '@/hooks/usePageMeta';
 import { getRouteMeta } from '@/lib/seo/routeMeta';
-import { CURRENCY_CODES } from '@/lib/currencies';
+import {
+  FREE_SECTIONS,
+  PRO_SECTIONS,
+  PRICING_HEADLINE,
+  PRICING_SUB,
+  VAT_NOTE,
+} from '@/lib/billing/planCopy';
 import { analytics } from '@/lib/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { PLANS } from '@/lib/billing/plans';
@@ -117,10 +123,8 @@ export default function PricingPage() {
       <StickyNav />
 
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 pb-20 pt-32">
-        <h1 className="mb-4 text-center font-serif text-4xl font-normal tracking-[-0.01em] text-foreground">€0 forever, or €90 a year</h1>
-        <p className="mx-auto mb-14 max-w-lg text-center text-muted-foreground">
-          The free tier is permanent, not a trial.
-        </p>
+        <h1 className="mb-4 text-center font-serif text-4xl font-normal tracking-[-0.01em] text-foreground">{PRICING_HEADLINE}</h1>
+        <p className="mx-auto mb-14 max-w-lg text-center text-muted-foreground">{PRICING_SUB}</p>
 
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
           {/* Free */}
@@ -128,41 +132,21 @@ export default function PricingPage() {
             <h2 className="text-lg font-bold text-foreground">Free</h2>
             <p className="mt-1 text-3xl font-extrabold text-foreground">€0<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
             <p className="mt-1 text-xs text-muted-foreground">Forever. No credit card required.</p>
-            <p className="mt-1 text-[11px] text-muted-foreground/70">All prices final. No VAT charged under German legislation (§ 19 UStG).</p>
+            <p className="mt-1 text-[11px] text-muted-foreground/70">{VAT_NOTE}</p>
             <div className="mt-5 space-y-4 text-sm text-muted-foreground">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Everyday tracking</p>
-                <ul className="mt-2 space-y-2">
-                  {[
-                    'Net worth tracking with unlimited sources',
-                    'Allocation charts (volatility & liquidity)',
-                    `Multi-currency display (${CURRENCY_CODES.length} currencies)`,
-                    'Spreadsheet import',
-                    'Manual balance entry',
-                    'Rolling 12-month history view',
-                  ].map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <span className="mt-0.5 text-accent">✓</span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Privacy &amp; control</p>
-                <ul className="mt-2 space-y-2">
-                  {[
-                    'End-to-end encrypted: only you can read your data',
-                    'Privacy mode to blur sensitive numbers',
-                    'Delete your account and data at any time',
-                  ].map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <span className="mt-0.5 text-accent">✓</span>
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {FREE_SECTIONS.map((sec) => (
+                <div key={sec.head}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">{sec.head}</p>
+                  <ul className="mt-2 space-y-2">
+                    {sec.items.map((f) => (
+                      <li key={f} className="flex items-start gap-2">
+                        <span className="mt-0.5 text-accent">✓</span>
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
             <Link
               to="/dashboard"
@@ -205,56 +189,22 @@ export default function PricingPage() {
               <span className="text-sm font-normal text-muted-foreground">{periodLabel}</span>
             </p>
             <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground/70">All prices final. No VAT charged under German legislation (§ 19 UStG).</p>
+            <p className="mt-1 text-[11px] text-muted-foreground/70">{VAT_NOTE}</p>
 
             <div className="mt-5 space-y-4 text-sm text-muted-foreground">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Know if you're on track</p>
-                <ul className="mt-2 space-y-2">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">✓</span>
-                    <span>Full historical view: every snapshot since you started, charted and tabular</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">✓</span>
-                    <span>Forecasting engine: CAGR projection with 95% confidence intervals</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">✓</span>
-                    <span>Milestone &amp; goal tracking</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">✓</span>
-                    <span>Benchmark comparison (S&amp;P 500 and inflation)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">✓</span>
-                    <span>Month-by-month summary table</span>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Get your data out</p>
-                <ul className="mt-2 space-y-2">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">✓</span>
-                    <span>Excel/CSV export</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">✓</span>
-                    <span>PDF wealth report (one-page summary for advisors or annual review)</span>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Support</p>
-                <ul className="mt-2 space-y-2">
-                  <li className="flex items-start gap-2">
-                    <span className="mt-0.5 text-primary">✓</span>
-                    <span>Priority support (24h response)</span>
-                  </li>
-                </ul>
-              </div>
+              {PRO_SECTIONS.map((sec) => (
+                <div key={sec.head}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">{sec.head}</p>
+                  <ul className="mt-2 space-y-2">
+                    {sec.items.map((f) => (
+                      <li key={f} className="flex items-start gap-2">
+                        <span className="mt-0.5 text-primary">✓</span>
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
 
             <button

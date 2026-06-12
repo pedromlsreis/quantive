@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageMeta } from '@/hooks/usePageMeta';
@@ -6,6 +6,13 @@ import { getRouteMeta } from '@/lib/seo/routeMeta';
 import { StickyNav } from '@/components/landing/StickyNav';
 import { Footer } from '@/components/Footer';
 import { CURRENCY_CODES } from '@/lib/currencies';
+import {
+  FREE_SECTIONS,
+  PRO_SECTIONS,
+  PRICING_HEADLINE,
+  PRICING_SUB,
+  VAT_NOTE,
+} from '@/lib/billing/planCopy';
 import { analytics } from '@/lib/analytics';
 import './landing.css';
 
@@ -448,10 +455,8 @@ export default function LandingPage() {
       <section className="lp-sec" id="pricing" aria-labelledby="lp-price-h2">
         <div className="lp-hd-center lp-reveal">
           <span className="lp-eyebrow">Pricing</span>
-          <h2 className="lp-h2" id="lp-price-h2">€0 forever, or €90 a year.</h2>
-          <p className="lp-sub">
-            The free tier is permanent, not a trial.
-          </p>
+          <h2 className="lp-h2" id="lp-price-h2">{PRICING_HEADLINE}.</h2>
+          <p className="lp-sub">{PRICING_SUB}</p>
         </div>
 
         <div className="lp-pricing">
@@ -464,16 +469,17 @@ export default function LandingPage() {
             </div>
             <div className="lp-price-note">No credit card required.</div>
             <ul className="lp-price-features">
-              <li className="lp-price-sec-head">Everyday tracking</li>
-              <li><span className="lp-price-check">✓</span>Net worth tracking: unlimited sources</li>
-              <li><span className="lp-price-check">✓</span>Allocation charts (volatility &amp; liquidity)</li>
-              <li><span className="lp-price-check">✓</span>Multi-currency display ({SUPPORTED_COUNT} currencies)</li>
-              <li><span className="lp-price-check">✓</span>Spreadsheet import</li>
-              <li><span className="lp-price-check">✓</span>Rolling 12-month history view</li>
-              <li className="lp-price-sec-head">Privacy &amp; control</li>
-              <li><span className="lp-price-check">✓</span>End-to-end encrypted: only you can read your data</li>
-              <li><span className="lp-price-check">✓</span>Privacy mode to blur sensitive numbers</li>
-              <li><span className="lp-price-check">✓</span>Delete your account and data at any time</li>
+              {FREE_SECTIONS.map((sec) => (
+                <Fragment key={sec.head}>
+                  <li className="lp-price-sec-head">{sec.head}</li>
+                  {sec.items.map((item) => (
+                    <li key={item}>
+                      <span className="lp-price-check">✓</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </Fragment>
+              ))}
             </ul>
             <Link
               to="/dashboard"
@@ -493,29 +499,17 @@ export default function LandingPage() {
             </div>
             <div className="lp-price-note">~€7.50/mo · or €9/mo billed monthly</div>
             <ul className="lp-price-features">
-              <li className="lp-price-sec-head">Know if you're on track</li>
-              <li><span className="lp-price-check">✓</span>Full historical view: every snapshot, charted</li>
-              <li><span className="lp-price-check">✓</span>Forecasting engine: CAGR with 95% confidence bands</li>
-              <li>
-                <span className="lp-price-check">✓</span>
-                <span>Milestone &amp; goal tracking</span>
-              </li>
-              <li>
-                <span className="lp-price-check">✓</span>
-                <span>Benchmarks (S&amp;P 500 and inflation)</span>
-              </li>
-              <li>
-                <span className="lp-price-check">✓</span>
-                <span>Month-by-month summary table</span>
-              </li>
-              <li className="lp-price-sec-head">Get your data out</li>
-              <li><span className="lp-price-check">✓</span>Excel/CSV export</li>
-              <li>
-                <span className="lp-price-check">✓</span>
-                <span>PDF wealth report: for advisors or annual review</span>
-              </li>
-              <li className="lp-price-sec-head">Support</li>
-              <li><span className="lp-price-check">✓</span>Priority support: 24h response</li>
+              {PRO_SECTIONS.map((sec) => (
+                <Fragment key={sec.head}>
+                  <li className="lp-price-sec-head">{sec.head}</li>
+                  {sec.items.map((item) => (
+                    <li key={item}>
+                      <span className="lp-price-check">✓</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </Fragment>
+              ))}
             </ul>
             <Link
               to="/pricing"
@@ -529,9 +523,7 @@ export default function LandingPage() {
             </Link>
           </div>
         </div>
-        <p className="lp-price-vat-foot">
-          All prices final. No VAT charged under German legislation (§ 19 UStG).
-        </p>
+        <p className="lp-price-vat-foot">{VAT_NOTE}</p>
         <p className="lp-price-postscript">
           A Family tier (shared portfolios for two users) is planned but not yet available.
         </p>
