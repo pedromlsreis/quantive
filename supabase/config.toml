@@ -54,3 +54,35 @@ content_path = "./supabase/templates/auth-magic-link.html"
 subject = "You've been invited to Quantive"
 content_path = "./supabase/templates/auth-invite.html"
 
+# Auth (GoTrue) rate limits. Same hosted-vs-local caveat as the email
+# templates above: the Supabase CLI applies these to the local stack, but on
+# the hosted project they must ALSO be set under Authentication → Rate Limits
+# in the dashboard (dashboard is the source of truth there). This block is the
+# canonical record — keep the two in sync.
+#
+# These guard the endpoints the app code can't throttle itself: sign-up spam,
+# sign-in brute force, and password-reset / magic-link email bombing (which
+# costs SMTP quota and can be aimed at third parties). The per-IP windows below
+# are deliberately generous so a launch-day signup wave is not throttled —
+# tighten later if abuse shows up, rather than risk blocking real sign-ups.
+[auth.rate_limit]
+# Sign-up + sign-in requests per 5-minute window, per IP. Caps credential
+# stuffing / brute force without affecting a normal person who fat-fingers a
+# password a few times.
+sign_in_sign_ups = 30
+
+# OTP / magic-link verification attempts per 5-minute window, per IP.
+token_verifications = 30
+
+# Session-token refreshes per 5-minute window, per IP. High by design — a busy
+# dashboard refreshes legitimately; this only stops a runaway loop.
+token_refresh = 150
+
+# Transactional auth emails (confirmation, recovery, magic link) per hour,
+# PROJECT-WIDE (not per IP). This is the email-bombing backstop. The Supabase
+# default of 2/hr would throttle a launch-day signup wave, so it is raised to a
+# value with launch headroom that still caps catastrophic abuse. Requires the
+# custom SMTP configured in the dashboard (the default Supabase mailer pins
+# this low and ignores the override).
+email_sent = 100
+
