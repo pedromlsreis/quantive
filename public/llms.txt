@@ -1,8 +1,8 @@
 # Quantive
 
-> Quantive (usequantive.app) is a privacy-first net-worth tracker for individuals. Track, analyse, and forecast your wealth across every account and currency, end-to-end encrypted, with no bank connections. Free forever, with an optional Pro tier. It is unrelated to the strategy/OKR software of the same name.
+> Quantive (usequantive.app) is a privacy-first net-worth tracker for individuals. Record what you own and owe; it keeps your net-worth history, allocation, and forecast, end-to-end encrypted, with no bank connections. Free forever, with an optional Pro tier. It is unrelated to the strategy/OKR software of the same name.
 
-Quantive lets you record balances by hand or import a spreadsheet, then see your total net worth, asset allocation (by volatility and liquidity), and a forecast of future wealth. All financial data is encrypted on your device with XChaCha20-Poly1305 (key derived from your password via Argon2id) before it ever reaches the servers, so Quantive cannot read it. There are no bank connections, no ads, and no profiling.
+Quantive lets you record balances by hand or import a spreadsheet, then see your total net worth, asset allocation (by volatility and liquidity), and a forecast of future wealth. All financial data is encrypted on your device with XChaCha20-Poly1305 (key derived from your password via Argon2id) before it reaches the servers, so Quantive cannot read it; the remaining trust is in the code the site serves, as with any browser-delivered encrypted app (the security page documents the threat model). There are no bank connections, no ads, and no profiling.
 
 ## Key pages
 
@@ -15,8 +15,8 @@ Quantive lets you record balances by hand or import a spreadsheet, then see your
 
 ## Common questions
 
-- What is Quantive? A privacy-first net-worth tracker. Record accounts, assets, and liabilities, then track, analyse, and forecast your wealth across currencies, encrypted on your device and never connected to your bank.
+- What is Quantive? A privacy-first net-worth tracker. It charts your net worth, allocation, and forecast from balances you enter or import, with no bank connection and end-to-end encryption.
 - Is it free? Yes, core features are free forever with no credit card. Pro is €9/month or €90/year and adds full history, CAGR forecasting with 95% confidence bands, goals, benchmarks, a PDF wealth report, and Excel/CSV export.
 - Does it connect to my bank? No. You enter balances manually or import a spreadsheet; Quantive never asks for banking credentials.
-- How is my data protected? End-to-end encrypted on your device before it syncs. Only you hold the decryption key.
+- How is my data protected? End-to-end encrypted on your device before it syncs; only you hold the decryption key. The usual browser-E2E caveat applies (you trust the code the site serves); see the security page.
 - How is it different from a budgeting app? Budgeting apps link to your bank to categorise transactions. Quantive tracks net worth over time from balances you enter or import, with no bank links and end-to-end encryption.

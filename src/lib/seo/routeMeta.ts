@@ -14,9 +14,9 @@
 
 export const BASE_URL = 'https://usequantive.app';
 
-export const DEFAULT_TITLE = 'Quantive - See your financial life clearly';
+export const DEFAULT_TITLE = 'Quantive - Privacy-first net-worth tracker';
 export const DEFAULT_DESC =
-  'Quantive is a privacy-first net-worth tracker. Track, analyse, and forecast your wealth across every account and currency, end-to-end encrypted, with no bank connections. Free forever.';
+  'Quantive is a privacy-first net-worth tracker. Record what you own and owe; it keeps your history, allocation, and forecast, end-to-end encrypted, with no bank connections. Free forever.';
 
 export interface RouteMeta {
   /** Canonical path, e.g. "/pricing". */

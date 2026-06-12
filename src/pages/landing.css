@@ -25,21 +25,6 @@
   text-align: center;
   padding: 160px 40px 100px;
 }
-/* Static dot-grid backdrop, masked to fade at the edges, with a faint emerald
-   wash near the top. */
-.lp-hero-grid {
-  position: absolute; inset: -1px 0 auto 0; height: 620px;
-  pointer-events: none; z-index: 0;
-  background-image:
-    radial-gradient(oklch(58% 0.13 165 / 0.20) 0%, transparent 60%),
-    radial-gradient(var(--border-strong-raw) 1px, transparent 1.4px);
-  background-size: 100% 100%, 30px 30px;
-  background-position: 50% -140px, 0 0;
-  background-repeat: no-repeat, repeat;
-  -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 22%, #000 0%, transparent 72%);
-  mask-image: radial-gradient(ellipse 75% 70% at 50% 22%, #000 0%, transparent 72%);
-  opacity: 0.6;
-}
 .lp-hero-h1 {
   position: relative; z-index: 1;
   font-family: var(--font-serif); font-weight: 400;
@@ -242,10 +227,6 @@
   font-family: var(--font-mono); font-size: 6.5rem; font-weight: 600;
   color: var(--fg); opacity: 0.055; line-height: 0.9;
   user-select: none; margin-top: -4px;
-}
-.lp-step-eyebrow {
-  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
-  color: var(--accent-raw); letter-spacing: 0.12em; margin-bottom: 10px;
 }
 .lp-step-title {
   font-weight: 700; font-size: 1.2rem;

@@ -17,7 +17,7 @@ test.describe('Pricing page', () => {
   });
 
   test('renders both Free and Pro tier cards', async ({ page }) => {
-    await expect(page.getByRole('heading', { level: 1, name: /pricing/i })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1, name: /€0 forever/i })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: /^free$/i })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: /^pro$/i })).toBeVisible();
     // Free CTA is a link to /dashboard so guests aren't asked to sign up first.

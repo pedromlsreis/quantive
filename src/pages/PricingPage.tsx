@@ -117,9 +117,9 @@ export default function PricingPage() {
       <StickyNav />
 
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 pb-20 pt-32">
-        <h1 className="mb-4 text-center font-serif text-4xl font-normal tracking-[-0.01em] text-foreground">Simple, transparent pricing</h1>
+        <h1 className="mb-4 text-center font-serif text-4xl font-normal tracking-[-0.01em] text-foreground">€0 forever, or €90 a year</h1>
         <p className="mx-auto mb-14 max-w-lg text-center text-muted-foreground">
-          Start free. Upgrade when you're ready.
+          The free tier is permanent, not a trial.
         </p>
 
         <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
@@ -131,7 +131,7 @@ export default function PricingPage() {
             <p className="mt-1 text-[11px] text-muted-foreground/70">All prices final. No VAT charged under German legislation (§ 19 UStG).</p>
             <div className="mt-5 space-y-4 text-sm text-muted-foreground">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">See your full picture, today</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground">Everyday tracking</p>
                 <ul className="mt-2 space-y-2">
                   {[
                     'Net worth tracking with unlimited sources',
@@ -225,7 +225,7 @@ export default function PricingPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>
-                    <span>Benchmark comparison (vs. S&amp;P 500 and inflation; MSCI World coming soon)</span>
+                    <span>Benchmark comparison (S&amp;P 500 and inflation)</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="mt-0.5 text-primary">✓</span>

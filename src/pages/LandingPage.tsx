@@ -19,7 +19,7 @@ const SUPPORTED_COUNT = CURRENCY_CODES.length;
 const FAQS: Array<{ q: string; a: string }> = [
   {
     q: 'What is Quantive?',
-    a: "Quantive is a privacy-first personal finance cockpit. Track net worth, analyse asset allocations, and forecast future wealth, without connecting to your bank or sharing your financial data with anyone.",
+    a: 'Quantive is a privacy-first net-worth tracker. It charts your net worth, allocation, and forecast from balances you enter or import, with no bank connection and end-to-end encryption.',
   },
   {
     q: 'Is Quantive free to use?',
@@ -27,7 +27,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: 'How does Quantive protect my financial data?',
-    a: 'All data is encrypted on your device using end-to-end encryption before it ever reaches Quantive’s servers. Quantive cannot read your financial information. Only you hold the decryption key.',
+    a: 'All data is encrypted on your device before it reaches Quantive’s servers; the servers store only ciphertext, and only you hold the decryption key. The remaining trust is in the code we serve, as with any encrypted web app; the security page documents the full threat model.',
   },
   {
     q: 'How is Quantive different from a budgeting app?',
@@ -47,7 +47,7 @@ const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "What's included in Quantive Pro?",
-    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, milestone and goal tracking, benchmark comparisons (vs. S&P 500 and inflation; MSCI World coming soon), a month-by-month summary table, a PDF wealth report, and Excel and CSV export. Priority support is included.',
+    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation; MSCI World is on the roadmap), a month-by-month summary table, a PDF wealth report, and Excel and CSV export. Priority support is included.',
   },
   {
     q: 'What if I lose access to my account?',
@@ -193,16 +193,14 @@ export default function LandingPage() {
 
       {/* ───── HERO ───── */}
       <section className="lp-hero" aria-labelledby="lp-hero-h1">
-        <div className="lp-hero-grid" aria-hidden="true" />
-
         <h1 className="lp-hero-h1" id="lp-hero-h1">
-          See your financial life{' '}
+          Your wealth,{' '}
           <br className="lp-hero-h1-br" />
-          <span className="lp-hero-accent">clearly.</span>
+          <span className="lp-hero-accent">measured.</span>
         </h1>
 
         <p className="lp-hero-sub">
-          Quantive is a privacy-first net-worth tracker. Record any account, asset, or liability, then track, analyse, and forecast your wealth across every currency, encrypted on your device and never connected to your bank.
+          Quantive is a privacy-first net-worth tracker. You record what you own and what you owe; it keeps the history, the allocation, and the forecast. Everything is encrypted in your browser before it syncs.
         </p>
 
         <div className="lp-hero-ctas">
@@ -218,7 +216,7 @@ export default function LandingPage() {
             className="lp-btn-ghost"
             onClick={() => analytics.landingCtaClicked({ cta: 'try_demo', location: 'hero' })}
           >
-            Try the demo, no sign up
+            Try the demo, no sign-up
           </Link>
         </div>
 
@@ -267,16 +265,13 @@ export default function LandingPage() {
         <div className="lp-reveal">
           <span className="lp-eyebrow">Features</span>
           <h2 className="lp-h2" id="lp-feat-h2">What Quantive does.</h2>
-          <p className="lp-sub">
-            Four capabilities, made to work together.
-          </p>
         </div>
 
         <div className="lp-feat-hero lp-reveal" data-d="1">
           <div>
             <h3 className="lp-feat-title">Your entire wealth in a single view</h3>
             <p className="lp-feat-desc">
-              Quantive shows your entire wealth in one view. Record any account, asset, or liability and it calculates your total net worth across all sources and currencies, with charts that update the moment you add a measurement. No formulas, no maintenance.
+              Record each account, asset, and liability once; Quantive rolls them into a single net-worth figure across sources and currencies, and the charts update as you add measurements. No formulas to maintain.
             </p>
           </div>
           <div className="lp-shot">
@@ -299,7 +294,7 @@ export default function LandingPage() {
           <div className="lp-feat-col">
             <h3 className="lp-feat-col-title">Know your risk exposure</h3>
             <p className="lp-feat-col-desc">
-              See how your wealth is spread across liquidity tiers and volatility buckets, at a glance.
+              How your wealth is spread across liquidity tiers and volatility buckets.
             </p>
           </div>
           <div className="lp-feat-col">
@@ -309,9 +304,9 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="lp-feat-col">
-            <h3 className="lp-feat-col-title">One view across currencies</h3>
+            <h3 className="lp-feat-col-title">All your currencies</h3>
             <p className="lp-feat-col-desc">
-              Hold assets in any combination of {SUPPORTED_COUNT} currencies ({SUPPORTED_LIST}). View your full portfolio in the currency that makes sense to you.
+              Hold assets in any of {SUPPORTED_COUNT} currencies and read your full portfolio in the one you prefer.
             </p>
           </div>
         </div>
@@ -328,30 +323,27 @@ export default function LandingPage() {
           <div className="lp-step lp-reveal">
             <div className="lp-step-num tabular" aria-hidden="true">01</div>
             <div>
-              <div className="lp-step-eyebrow">STEP 01</div>
               <h3 className="lp-step-title">Add a measurement</h3>
               <p className="lp-step-desc">
-                Record balances directly from the dashboard. Already tracking in a spreadsheet? Import it instead. Your full history comes with it, no data entry required.
+                Record balances directly from the dashboard. If you already track in a spreadsheet, import it and your history comes along.
               </p>
             </div>
           </div>
           <div className="lp-step lp-reveal">
             <div className="lp-step-num tabular" aria-hidden="true">02</div>
             <div>
-              <div className="lp-step-eyebrow">STEP 02</div>
               <h3 className="lp-step-title">Explore your dashboard</h3>
               <p className="lp-step-desc">
-                Charts, KPI cards, allocation breakdowns, and forecasts appear automatically. Nothing to set up or maintain.
+                Charts, KPI cards, allocation breakdowns, and a forecast appear automatically; there is nothing to configure.
               </p>
             </div>
           </div>
           <div className="lp-step lp-reveal">
             <div className="lp-step-num tabular" aria-hidden="true">03</div>
             <div>
-              <div className="lp-step-eyebrow">STEP 03</div>
               <h3 className="lp-step-title">Track your progress</h3>
               <p className="lp-step-desc">
-                Add new measurements over time. Watch your net worth grow, your allocation shift, and your forecast update, month by month.
+                Add new measurements over time. Net worth becomes a number you check monthly, not a number you guess.
               </p>
             </div>
           </div>
@@ -369,9 +361,9 @@ export default function LandingPage() {
               We can't read it.
             </h2>
             <p className="lp-sub">
-              All data is encrypted on your device before it ever leaves your browser. No plaintext reaches our servers, ever.
+              Everything is encrypted on your device before it leaves your browser; the servers store only ciphertext. The honest caveat: you still trust the code we serve, as with any encrypted web app.
             </p>
-            <Link to="/security" target="_blank" rel="noopener noreferrer" className="lp-security-link">Read the security details →</Link>
+            <Link to="/security" target="_blank" rel="noopener noreferrer" className="lp-security-link">Read the full threat model →</Link>
           </div>
           <div className="lp-privacy-grid">
             <div className="lp-privacy-item">
@@ -397,7 +389,7 @@ export default function LandingPage() {
             </div>
             <div className="lp-privacy-item">
               <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.download}</div>
-              <div className="lp-privacy-title">Your data, your way</div>
+              <div className="lp-privacy-title">No lock-in</div>
               <p className="lp-privacy-desc">
                 Import your existing spreadsheet for free. Excel and CSV export come with Pro.
               </p>
@@ -410,36 +402,36 @@ export default function LandingPage() {
       <section className="lp-sec" aria-labelledby="lp-who-h2">
         <div className="lp-hd-center lp-reveal">
           <span className="lp-eyebrow">Who it's for</span>
-          <h2 className="lp-h2" id="lp-who-h2">Who Quantive is built for.</h2>
+          <h2 className="lp-h2" id="lp-who-h2">For people who keep their own records.</h2>
         </div>
         <div className="lp-personas">
           <div className="lp-persona lp-reveal">
             <div className="lp-persona-name">Young professionals</div>
             <p className="lp-persona-desc">
-              Tracking every raise, investment, and decision against a long-term goal.
+              Tracking raises and investments against a long-term goal.
             </p>
             <span className="lp-persona-tag">Playing the long game</span>
           </div>
           <div className="lp-persona lp-reveal" data-d="1">
             <div className="lp-persona-name">Self-directed investors</div>
             <p className="lp-persona-desc">
-              Positions spread across multiple brokers and asset classes. One consolidated view, without sharing credentials anywhere.
+              Positions spread across brokers and asset classes, consolidated without handing credentials to anyone.
             </p>
-            <span className="lp-persona-tag">Many brokers and one view</span>
+            <span className="lp-persona-tag">Multi-broker</span>
           </div>
           <div className="lp-persona lp-reveal" data-d="2">
             <div className="lp-persona-name">Globally mobile</div>
             <p className="lp-persona-desc">
-              Wealth held across currencies, countries, and tax systems, shown as one multi-currency view.
+              Wealth spread across countries and currencies, read as one total in the currency you choose.
             </p>
-            <span className="lp-persona-tag">Wealth across borders</span>
+            <span className="lp-persona-tag">Multi-currency</span>
           </div>
           <div className="lp-persona lp-reveal" data-d="3">
-            <div className="lp-persona-name">Clarity seekers</div>
+            <div className="lp-persona-name">Spreadsheet veterans</div>
             <p className="lp-persona-desc">
-              Done with spreadsheets, after answers they can read at a glance and trust.
+              Kept a hand-built net-worth sheet for years. The import feature exists for them.
             </p>
-            <span className="lp-persona-tag">Own your data</span>
+            <span className="lp-persona-tag">Post-spreadsheet</span>
           </div>
         </div>
       </section>
@@ -447,7 +439,7 @@ export default function LandingPage() {
       {/* ───── FOUNDER ───── */}
       <div className="lp-founder lp-reveal">
         <blockquote className="lp-founder-quote">
-          Every finance app I tried wanted my bank credentials, monetised my data, or buried the basics under features I didn't need. I wanted something simple — track net worth, see clear charts, own my data end to end.
+          Every finance app I tried either wanted my bank login or wanted to monetise my data. I keep my own numbers and I just wanted something simple: to see them charted properly and kept private, as they should be.
         </blockquote>
         <p className="lp-founder-sig">— Pedro Reis, founder · usequantive.app</p>
       </div>
@@ -456,9 +448,9 @@ export default function LandingPage() {
       <section className="lp-sec" id="pricing" aria-labelledby="lp-price-h2">
         <div className="lp-hd-center lp-reveal">
           <span className="lp-eyebrow">Pricing</span>
-          <h2 className="lp-h2" id="lp-price-h2">Simple, transparent pricing.</h2>
+          <h2 className="lp-h2" id="lp-price-h2">€0 forever, or €90 a year.</h2>
           <p className="lp-sub">
-            Start free. Upgrade when you're ready.
+            The free tier is permanent, not a trial.
           </p>
         </div>
 
@@ -472,7 +464,7 @@ export default function LandingPage() {
             </div>
             <div className="lp-price-note">No credit card required.</div>
             <ul className="lp-price-features">
-              <li className="lp-price-sec-head">See your full picture, today</li>
+              <li className="lp-price-sec-head">Everyday tracking</li>
               <li><span className="lp-price-check">✓</span>Net worth tracking: unlimited sources</li>
               <li><span className="lp-price-check">✓</span>Allocation charts (volatility &amp; liquidity)</li>
               <li><span className="lp-price-check">✓</span>Multi-currency display ({SUPPORTED_COUNT} currencies)</li>
@@ -510,7 +502,7 @@ export default function LandingPage() {
               </li>
               <li>
                 <span className="lp-price-check">✓</span>
-                <span>Benchmarks (S&amp;P 500 and inflation; MSCI World coming soon)</span>
+                <span>Benchmarks (S&amp;P 500 and inflation)</span>
               </li>
               <li>
                 <span className="lp-price-check">✓</span>
@@ -541,7 +533,7 @@ export default function LandingPage() {
           All prices final. No VAT charged under German legislation (§ 19 UStG).
         </p>
         <p className="lp-price-postscript">
-          A Family tier (shared portfolios for 2 users) is planned. Not yet available.
+          A Family tier (shared portfolios for two users) is planned but not yet available.
         </p>
       </section>
 
@@ -550,9 +542,7 @@ export default function LandingPage() {
         <div className="lp-reveal">
           <span className="lp-eyebrow">FAQ</span>
           <h2 className="lp-h2" id="lp-faq-h2">
-            Common questions,
-            <br />
-            direct answers.
+            Frequent questions.
           </h2>
         </div>
         <div className="lp-faq-list lp-reveal" data-d="1">
@@ -586,7 +576,7 @@ export default function LandingPage() {
 
       {/* ───── FOOTER CTA ───── */}
       <div className="lp-cta lp-reveal">
-        <h2 className="lp-cta-h2">Start tracking your wealth today.</h2>
+        <h2 className="lp-cta-h2">Start with one measurement.</h2>
         <p className="lp-cta-sub">Free forever, no credit card.</p>
         <div className="lp-cta-actions">
           <Link
