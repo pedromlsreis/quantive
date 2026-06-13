@@ -189,18 +189,57 @@
 .lp-feat-col-title { font-weight: 600; font-size: 14px; margin-bottom: 6px; color: var(--fg); }
 .lp-feat-col-desc { font-size: 13px; color: var(--fg-subtle); line-height: 1.55; }
 
-/* ─── HOW IT WORKS ───────────────────────────────────────── */
-.lp-steps { margin-top: 48px; }
-.lp-step {
-  display: grid; grid-template-columns: 160px 1fr;
-  gap: 24px; align-items: start;
-  padding: 40px 0; border-bottom: 1px solid var(--border-soft-raw);
+/* ─── HOW IT WORKS ───────────────────────────────────────────
+   The steps are plotted like measurements on the net-worth line:
+   an emerald rail runs through one dot per step, then leaves the
+   last as a fading dashed tail — the same actual/forecast
+   vocabulary as the hero chart. */
+.lp-steps {
+  margin-top: 48px; max-width: 640px;
+  list-style: none; padding: 0;
 }
-.lp-step:last-child { border-bottom: none; }
-.lp-step-num {
-  font-family: var(--font-mono); font-size: 6.5rem; font-weight: 600;
-  color: var(--fg); opacity: 0.055; line-height: 0.9;
-  user-select: none; margin-top: -4px;
+.lp-step {
+  position: relative;
+  display: grid; grid-template-columns: 24px 1fr;
+  column-gap: 24px; align-items: start;
+  padding-bottom: 52px;
+}
+.lp-step:last-child { padding-bottom: 0; }
+/* solid segment of the rail; first/last stop at their dot centre */
+.lp-step::before {
+  content: ''; position: absolute;
+  left: 11px; top: 0; bottom: 0;
+  width: 2px; border-radius: 2px;
+  background: var(--accent-soft-raw);
+}
+.lp-step:first-child::before { top: 9px; }
+.lp-step:last-child::before { bottom: auto; height: 9px; }
+/* dashed forecast tail continuing past the final step */
+.lp-step:last-child::after {
+  content: ''; position: absolute;
+  left: 11px; top: 9px;
+  width: 2px; height: 88px;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--accent-soft-raw) 0 5px,
+    transparent 5px 10px
+  );
+  -webkit-mask-image: linear-gradient(to bottom, #000 25%, transparent);
+  mask-image: linear-gradient(to bottom, #000 25%, transparent);
+}
+.lp-step-dot {
+  position: relative; /* paints above the absolutely-positioned rail */
+  width: 10px; height: 10px;
+  margin: 4px auto 0;
+  border-radius: 50%;
+  background: var(--accent-raw);
+  box-shadow: 0 0 0 5px var(--accent-soft-raw);
+}
+.lp-step-when {
+  display: block; margin-bottom: 8px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--fg-faint);
 }
 .lp-step-title {
   font-weight: 700; font-size: 1.2rem;
@@ -469,8 +508,8 @@
     border-bottom: 1px solid var(--border-soft-raw);
   }
   .lp-feat-col:last-child { border-bottom: none; }
-  .lp-step { grid-template-columns: 56px 1fr; gap: 16px; }
-  .lp-step-num { font-size: 2.75rem; opacity: 0.08; }
+  .lp-step { column-gap: 16px; padding-bottom: 40px; }
+  .lp-step:last-child::after { height: 64px; }
   .lp-personas { grid-template-columns: 1fr; }
   .lp-pricing { grid-template-columns: 1fr; max-width: 420px; }
   .lp-privacy-grid { grid-template-columns: repeat(2, 1fr); }

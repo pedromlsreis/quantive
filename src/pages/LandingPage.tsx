@@ -300,35 +300,38 @@ export default function LandingPage() {
           <span className="lp-eyebrow">How it works</span>
           <h2 className="lp-h2" id="lp-how-h2">Three steps to start tracking.</h2>
         </div>
-        <div className="lp-steps">
-          <div className="lp-step lp-reveal">
-            <div className="lp-step-num tabular" aria-hidden="true">01</div>
+        <ol className="lp-steps" role="list">
+          <li className="lp-step lp-reveal">
+            <span className="lp-step-dot" aria-hidden="true" />
             <div>
+              <span className="lp-step-when">Today</span>
               <h3 className="lp-step-title">Add a measurement</h3>
               <p className="lp-step-desc">
                 Record balances directly from the dashboard. If you already track in a spreadsheet, import it and your history comes along.
               </p>
             </div>
-          </div>
-          <div className="lp-step lp-reveal">
-            <div className="lp-step-num tabular" aria-hidden="true">02</div>
+          </li>
+          <li className="lp-step lp-reveal" data-d="1">
+            <span className="lp-step-dot" aria-hidden="true" />
             <div>
+              <span className="lp-step-when">Moments later</span>
               <h3 className="lp-step-title">Explore your dashboard</h3>
               <p className="lp-step-desc">
                 Charts, KPI cards, allocation breakdowns, and a forecast appear automatically; there is nothing to configure.
               </p>
             </div>
-          </div>
-          <div className="lp-step lp-reveal">
-            <div className="lp-step-num tabular" aria-hidden="true">03</div>
+          </li>
+          <li className="lp-step lp-reveal" data-d="2">
+            <span className="lp-step-dot" aria-hidden="true" />
             <div>
+              <span className="lp-step-when">Every month after</span>
               <h3 className="lp-step-title">Track your progress</h3>
               <p className="lp-step-desc">
                 Add new measurements over time. Net worth becomes a number you check monthly, not a number you guess.
               </p>
             </div>
-          </div>
-        </div>
+          </li>
+        </ol>
       </section>
 
       {/* ───── PRIVACY ───── */}
