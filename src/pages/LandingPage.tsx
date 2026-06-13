@@ -388,34 +388,39 @@ export default function LandingPage() {
           <span className="lp-eyebrow">Who it's for</span>
           <h2 className="lp-h2" id="lp-who-h2">For people who keep their own records.</h2>
         </div>
-        <div className="lp-personas">
-          <div className="lp-persona lp-reveal">
-            <div className="lp-persona-name">Young professionals</div>
-            <p className="lp-persona-desc">
-              Tracking raises and investments against a long-term goal.
-            </p>
-            <span className="lp-persona-tag">Playing the long game</span>
+        <div className="lp-fit">
+          <div className="lp-fit-col lp-reveal">
+            <p className="lp-fit-head">Made for you if</p>
+            <ul className="lp-fit-list" role="list">
+              <li className="lp-fit-item">
+                You hold accounts across several brokers, banks, and currencies, and want one honest total.
+              </li>
+              <li className="lp-fit-item">
+                You'd rather enter balances once a month than connect a bank to an aggregator.
+              </li>
+              <li className="lp-fit-item">
+                You're tracking net worth over years, not categorising this week's spending.
+              </li>
+              <li className="lp-fit-item">
+                You've outgrown a hand-built spreadsheet but want to keep its history.
+              </li>
+            </ul>
           </div>
-          <div className="lp-persona lp-reveal" data-d="1">
-            <div className="lp-persona-name">Self-directed investors</div>
-            <p className="lp-persona-desc">
-              Positions spread across brokers and asset classes, consolidated without handing credentials to anyone.
-            </p>
-            <span className="lp-persona-tag">Multi-broker</span>
-          </div>
-          <div className="lp-persona lp-reveal" data-d="2">
-            <div className="lp-persona-name">Globally mobile</div>
-            <p className="lp-persona-desc">
-              Wealth spread across countries and currencies, read as one total in the currency you choose.
-            </p>
-            <span className="lp-persona-tag">Multi-currency</span>
-          </div>
-          <div className="lp-persona lp-reveal" data-d="3">
-            <div className="lp-persona-name">Spreadsheet veterans</div>
-            <p className="lp-persona-desc">
-              Kept a hand-built net-worth sheet for years. The import feature exists for them.
-            </p>
-            <span className="lp-persona-tag">Post-spreadsheet</span>
+          <div className="lp-fit-col lp-fit-col--no lp-reveal" data-d="1">
+            <p className="lp-fit-head">Not for you if</p>
+            <ul className="lp-fit-list" role="list">
+              <li className="lp-fit-item">
+                You want automatic bank sync and transaction feeds.
+                <span className="lp-fit-note">Quantive never connects to your bank, by design.</span>
+              </li>
+              <li className="lp-fit-item">
+                You're after a budgeting app to categorise spending.
+                <span className="lp-fit-note">Quantive tracks wealth, not spending.</span>
+              </li>
+              <li className="lp-fit-item">
+                You need day-trading dashboards or live prices.
+              </li>
+            </ul>
           </div>
         </div>
       </section>

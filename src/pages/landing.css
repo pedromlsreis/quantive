@@ -276,26 +276,49 @@
 .lp-privacy-title { font-weight: 600; font-size: 14px; margin-bottom: 5px; color: var(--fg); }
 .lp-privacy-desc { font-size: 12px; color: var(--fg-subtle); line-height: 1.5; }
 
-/* ─── PERSONAS ───────────────────────────────────────────── */
-.lp-personas {
-  display: grid; grid-template-columns: repeat(2, 1fr);
-  gap: 16px; margin-top: 48px;
+/* ─── WHO IT'S FOR — honest fit qualifier ────────────────────
+   Not persona cards: a two-sided "made for you / not for you"
+   read, in the same editorial-index language (hairline rows,
+   mono kickers, a ledger +/− in the left margin). The right
+   column is shorter and its kicker quieter; turning the wrong
+   visitor away is the point, so it states the mismatch plainly
+   without alarm colours. */
+.lp-fit {
+  margin: 48px auto 0; max-width: 1000px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  column-gap: 64px;
 }
-.lp-persona {
-  background: var(--surface);
-  border: 1px solid var(--border-raw);
-  border-radius: var(--r-4);
-  padding: 28px 32px;
-  transition: border-color var(--d-fast) var(--ease-out);
+.lp-fit-col { min-width: 0; }
+.lp-fit-col + .lp-fit-col {
+  padding-left: 64px;
+  border-left: 1px solid var(--border-soft-raw);
 }
-.lp-persona:hover { border-color: var(--accent-soft-raw); }
-.lp-persona-name { font-weight: 700; font-size: 1.05rem; margin-bottom: 6px; color: var(--fg); }
-.lp-persona-desc { font-size: 14px; color: var(--fg-muted); line-height: 1.6; }
-.lp-persona-tag {
-  display: inline-block; margin-top: 14px;
-  font-family: var(--font-mono); font-size: 10px; color: var(--accent-raw);
-  border: 1px solid var(--accent-soft-raw); border-radius: 999px;
-  padding: 3px 10px;
+.lp-fit-head {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.lp-fit-col .lp-fit-head { color: var(--accent-raw); }
+.lp-fit-col--no .lp-fit-head { color: var(--fg-faint); }
+
+.lp-fit-list { list-style: none; padding: 0; margin: 0; }
+.lp-fit-item {
+  position: relative;
+  padding: 18px 0 18px 28px;
+  border-top: 1px solid var(--border-soft-raw);
+  font-size: 15px; line-height: 1.6; color: var(--fg-muted);
+}
+/* ledger marks: an emerald + for fit, a calm minus for misfit */
+.lp-fit-item::before {
+  position: absolute; left: 0; top: 18px;
+  font-family: var(--font-mono); font-size: 14px; font-weight: 600;
+  line-height: 1.6;
+}
+.lp-fit-col .lp-fit-item::before { content: '+'; color: var(--accent-raw); }
+.lp-fit-col--no .lp-fit-item::before { content: '\2212'; color: var(--fg-faint); }
+.lp-fit-note {
+  display: block; margin-top: 5px;
+  font-size: 13px; color: var(--fg-faint); line-height: 1.55;
 }
 
 /* ─── FOUNDER ────────────────────────────────────────────── */
@@ -510,7 +533,12 @@
   .lp-feat-col:last-child { border-bottom: none; }
   .lp-step { column-gap: 16px; padding-bottom: 40px; }
   .lp-step:last-child::after { height: 64px; }
-  .lp-personas { grid-template-columns: 1fr; }
+  .lp-fit { grid-template-columns: 1fr; }
+  .lp-fit-col + .lp-fit-col {
+    padding-left: 0; border-left: none;
+    margin-top: 28px; padding-top: 28px;
+    border-top: 1px solid var(--border-soft-raw);
+  }
   .lp-pricing { grid-template-columns: 1fr; max-width: 420px; }
   .lp-privacy-grid { grid-template-columns: repeat(2, 1fr); }
   .lp-privacy-item:nth-child(even) { border-right: none; }
