@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { attemptCloudSync, type AttemptCloudSyncDeps } from '@/lib/cloudSync';
 import type { PortfolioData } from '@/lib/types';
 
@@ -145,11 +145,11 @@ describe('saveToCloud retry semantics (integration with retrySync)', () => {
   // Simulates the higher-level retry loop the React component implements:
   // - lastAttemptRef holds the most recent payload
   // - retrySync replays it through attemptCloudSync
-  let upsert: ReturnType<typeof vi.fn>;
+  let upsert: Mock<AttemptCloudSyncDeps['upsert']>;
   let lastAttempt: PortfolioData | null;
 
   beforeEach(() => {
-    upsert = vi.fn();
+    upsert = vi.fn<AttemptCloudSyncDeps['upsert']>();
     lastAttempt = null;
   });
 
