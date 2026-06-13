@@ -35,7 +35,8 @@
     "prepare": "husky"
   },
   "overrides": {
-    "tmp": "^0.2.7"
+    "tmp": "^0.2.7",
+    "esbuild": "^0.28.1"
   },
   "size-limit": [
     {

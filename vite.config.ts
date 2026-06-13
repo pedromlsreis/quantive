@@ -38,7 +38,21 @@ export default defineConfig(({ mode }) => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    // esbuild target pinned explicitly (build + dep pre-bundling) because the
+    // esbuild override (^0.28.1, see package.json) trips on vite 5's default
+    // `'modules'` target: esbuild 0.28 tries to down-level destructuring against
+    // the browser-version array + `supported` overrides and bails
+    // ("Transforming destructuring ... is not supported yet"). `es2020` is
+    // vite's default baseline anyway, so this keeps the same browser support
+    // while avoiding that code path. Both call sites need it — `build.target`
+    // covers `vite build`, `optimizeDeps` covers the dev server's pre-bundle.
+    optimizeDeps: {
+      esbuildOptions: {
+        target: "es2020",
+      },
+    },
     build: {
+      target: "es2020",
       rollupOptions: {
         output: {
           manualChunks: {
