@@ -36,10 +36,15 @@ const distDir = path.resolve(__dirname, '..', 'dist');
 // it is a redirect and is Disallow-ed in robots.txt.
 const ROUTES = ['/', '/pricing', '/security', '/privacy', '/terms', '/impressum'];
 
+// Flat `<route>.html`, not `<route>/index.html`: on Cloudflare Pages a flat file
+// is served at the no-trailing-slash URL (/terms → 200) and 308-redirects the
+// slash form, matching our sitemap and canonical tags. A directory/index.html
+// inverts that and makes /terms 308-redirect to /terms/, which Google reports as
+// "Page with redirect". Must stay consistent with vite-plugins/seo-route-html.ts.
 const outFileFor = (route) =>
   route === '/'
     ? path.join(distDir, 'index.html')
-    : path.join(distDir, route.replace(/^\//, ''), 'index.html');
+    : path.join(distDir, `${route.replace(/^\//, '')}.html`);
 
 async function main() {
   const server = await preview({ preview: { port: 4173, strictPort: true } });

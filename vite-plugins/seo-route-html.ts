@@ -8,10 +8,16 @@ import { PUBLIC_ROUTES, canonicalFor } from '../src/lib/seo/routeMeta';
 // After Vite emits dist/index.html (the SPA shell), this writes a per-route copy
 // for each public route with route-specific <title>, meta description, canonical,
 // and Open Graph / Twitter tags baked into the served HTML. Cloudflare Pages then
-// serves dist/pricing/index.html for /pricing, so a crawler that never runs
-// JavaScript still gets the right head instead of the homepage's tags on every
-// route (which is what makes Google treat the pages as duplicates of the home
-// page today).
+// serves dist/pricing.html for /pricing, so a crawler that never runs JavaScript
+// still gets the right head instead of the homepage's tags on every route (which
+// is what makes Google treat the pages as duplicates of the home page today).
+//
+// The output is a flat `<route>.html`, NOT `<route>/index.html`. Cloudflare Pages
+// serves a flat file at the no-trailing-slash URL (/pricing → 200) and 308-
+// redirects the slash form (/pricing/ → /pricing). A `<route>/index.html` does the
+// opposite: it makes /pricing/ canonical and 308-redirects /pricing → /pricing/,
+// which mismatches our sitemap and <link rel="canonical"> (both no-slash) and made
+// Google report the sitemap URLs as "Page with redirect" / not indexed.
 //
 // It deliberately does NOT server-render the React body. The body stays the SPA
 // shell that boots and hydrates on load. Server-rendering this app would mean
@@ -61,7 +67,7 @@ export function seoRouteHtml(): Plugin {
         html = replaceAttr(html, '<meta name="twitter:title" content="', title);
         html = replaceAttr(html, '<meta name="twitter:description" content="', description);
 
-        const outFile = path.join(outDir, route.path.replace(/^\//, ''), 'index.html');
+        const outFile = path.join(outDir, `${route.path.replace(/^\//, '')}.html`);
         await mkdir(path.dirname(outFile), { recursive: true });
         await writeFile(outFile, html, 'utf8');
         console.log(`  seo-route-html: wrote ${path.relative(outDir, outFile)}`);
