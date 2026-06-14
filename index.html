@@ -62,7 +62,7 @@
           "url": "https://usequantive.app",
           "description": "A privacy-first net-worth tracker for individuals: net-worth history, asset allocation, and forecasting from balances you enter, end-to-end encrypted.",
           "inLanguage": "en-GB",
-          "dateModified": "2026-06-13"
+          "dateModified": "2026-06-14"
         },
         {
           "@type": "Organization",
@@ -105,7 +105,7 @@
           "description": "Net-worth tracking across accounts and currencies, with allocation analysis and forecasting. Data is encrypted on your device before it syncs; no bank connections required.",
           "disambiguatingDescription": "A personal finance and net-worth tracking app for individuals, not the strategy/OKR management platform of the same name.",
           "inLanguage": "en-GB",
-          "dateModified": "2026-06-13",
+          "dateModified": "2026-06-14",
           "author": {
             "@id": "https://usequantive.app/#founder"
           },
@@ -196,6 +196,14 @@
               "acceptedAnswer": {
                 "@type": "Answer",
                 "text": "All data is encrypted on your device before it reaches Quantive's servers; the servers store only ciphertext, and only you hold the decryption key. The remaining trust is in the code we serve, as with any encrypted web app; the security page documents the full threat model."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I self-host Quantive, or is it open source?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The cryptography is open source (MIT) and the rest of the code is source-available, so you can read exactly how your data is encrypted before you trust it. Quantive itself is hosted rather than self-hostable: we run the servers so there's nothing for you to maintain, and because your data is encrypted in your browser first, those servers only ever hold ciphertext. If your priority is keeping data entirely on your own machine, or running and forking your own server, a fully local or self-hosted open-source tracker will suit you better, and that's a fair trade. What Quantive offers instead is hosted convenience and cross-device sync, with a server that still can't read your finances."
               }
             },
             {

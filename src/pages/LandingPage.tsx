@@ -37,6 +37,10 @@ const FAQS: Array<{ q: string; a: string }> = [
     a: 'All data is encrypted on your device before it reaches Quantive’s servers; the servers store only ciphertext, and only you hold the decryption key. The remaining trust is in the code we serve, as with any encrypted web app; the security page documents the full threat model.',
   },
   {
+    q: 'Can I self-host Quantive, or is it open source?',
+    a: 'The cryptography is open source (MIT) and the rest of the code is source-available, so you can read exactly how your data is encrypted before you trust it. Quantive itself is hosted rather than self-hostable: we run the servers so there’s nothing for you to maintain, and because your data is encrypted in your browser first, those servers only ever hold ciphertext. If your priority is keeping data entirely on your own machine, or running and forking your own server, a fully local or self-hosted open-source tracker will suit you better, and that’s a fair trade. What Quantive offers instead is hosted convenience and cross-device sync, with a server that still can’t read your finances.',
+  },
+  {
     q: 'How is Quantive different from a budgeting app?',
     a: 'Budgeting apps connect to your bank to categorise transactions. Quantive does neither: it tracks net worth and wealth over time from balances you enter or import, with no bank links and end-to-end encryption, so your financial data stays private to you.',
   },
