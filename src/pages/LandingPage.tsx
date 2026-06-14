@@ -26,7 +26,7 @@ const SUPPORTED_COUNT = CURRENCY_CODES.length;
 const FAQS: Array<{ q: string; a: string }> = [
   {
     q: 'What is Quantive?',
-    a: 'Quantive is a privacy-first net-worth tracker. It charts your net worth, allocation, and forecast from balances you enter or import, with no bank connection and end-to-end encryption.',
+    a: 'Quantive is a privacy-first net-worth tracker. It charts your net worth and allocation from balances you enter or import, and forecasts where they are heading, with no bank connection and end-to-end encryption.',
   },
   {
     q: 'Is Quantive free to use?',
@@ -269,7 +269,7 @@ export default function LandingPage() {
           <div>
             <h3 className="lp-feat-title">Your entire wealth in a single view</h3>
             <p className="lp-feat-desc">
-              Record each account, asset, and liability once; Quantive rolls them into a single net-worth figure across sources and currencies, and the charts update as you add measurements. No formulas to maintain.
+              Record each account, asset, and liability once; Quantive rolls them into a single net-worth figure across sources and currencies, and the charts update as you add measurements.
             </p>
           </div>
           <div className="lp-shot">
@@ -292,7 +292,7 @@ export default function LandingPage() {
           <div className="lp-feat-col">
             <h3 className="lp-feat-col-title">Know your risk exposure</h3>
             <p className="lp-feat-col-desc">
-              How your wealth is spread across liquidity tiers and volatility buckets.
+              Track how your wealth is spread across liquidity tiers and volatility buckets.
             </p>
           </div>
           <div className="lp-feat-col">
