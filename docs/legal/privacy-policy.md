@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: May 25, 2026_
+_Last updated: June 14, 2026_
 
 ## 1. Introduction
 
@@ -22,13 +22,13 @@ We do not have a Data Protection Officer (DPO). As a solo controller below the h
 
 **Portfolio Data.** Any portfolio data you enter or import is end-to-end encrypted in your browser before it reaches our servers (see §5 and the [Security & Encryption](https://usequantive.app/security) page). We see ciphertext only and cannot decrypt it. We do not share, sell, or analyse your financial data.
 
-**Feedback.** If you submit feedback through the in-app feedback button, we store the message text, the type you selected (e.g. bug, idea), and your account ID so we can follow up. Feedback is not encrypted at rest. Do not include sensitive financial details in feedback messages.
+**Feedback.** If you submit feedback through the in-app feedback button, we store the message text, the type you selected (bug, improvement, or feature request), and your account ID so we can follow up. Feedback is not encrypted at rest. Do not include sensitive financial details in feedback messages.
 
 **Usage Data.** Only if you grant analytics consent (see §9): anonymous product analytics (page views, feature usage) and anonymous web-performance metrics (Largest Contentful Paint, Interaction to Next Paint, Cumulative Layout Shift) via PostHog. No personally identifiable information, financial figures, or account details are included in these events.
 
 **Campaign attribution.** If you arrive at the site via a link we publish that includes `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, or `utm_content` query parameters, those values are stored in your browser's localStorage. They are attached to analytics events only if you have granted analytics consent. They are cleared when you sign out or withdraw consent.
 
-**Server Logs.** Our hosting providers (Supabase, our edge function host) keep short-lived operational logs (IP address, request timestamps, error traces) for reliability and abuse prevention.
+**Server Logs.** Our infrastructure providers — Cloudflare, which hosts and serves the web app, and Supabase, which runs our database and edge functions — keep short-lived operational logs (IP address, request timestamps, error traces) for reliability and abuse prevention.
 
 ## 4. Purposes & Legal Basis
 
@@ -55,6 +55,7 @@ For details on the cryptographic primitives, threat model, and what we explicitl
 We share personal data only with the processors strictly required to run the service. Data processing agreements (Auftragsverarbeitungsverträge) are in place with each.
 
 - **Stripe (Stripe Payments Europe, Ltd., Ireland)** — payment processing. Stripe's privacy policy applies to payment data. Stripe processes a subset of data in the United States; transfers are protected under EU Standard Contractual Clauses and Stripe is certified under the EU-US Data Privacy Framework.
+- **Cloudflare (Cloudflare, Inc., United States)** — hosting and content delivery for the web application. Cloudflare serves the site from its global edge network and processes visitors' IP addresses and request metadata to deliver and secure it. Transfers are protected under EU Standard Contractual Clauses, and Cloudflare is self-certified under the EU-US Data Privacy Framework. See the [Cloudflare privacy policy](https://www.cloudflare.com/privacypolicy/).
 - **Supabase (Supabase Inc., United States; EU data residency)** — authentication, database, and edge functions. Your project data is hosted in the EU; SCCs apply to any incidental US processing.
 - **PostHog (PostHog Inc., United States; EU Cloud)** — anonymous product analytics, loaded only with your consent. Events are stored on PostHog's EU-hosted infrastructure. SCCs apply to any incidental US processing. See the [PostHog privacy policy](https://posthog.com/privacy).
 - **Resend (Resend, Inc., United States)** — transactional email delivery only (password resets, billing receipts, account-deletion confirmation, feedback notifications). SCCs apply to US processing. See the [Resend privacy policy](https://resend.com/legal/privacy-policy).
@@ -68,8 +69,8 @@ We do not sell or share your data with advertisers, data brokers, or any other t
 | Account email and authentication data | Until you delete your account | Deleted from our database and from Supabase Auth |
 | Portfolio data (ciphertext) | Until you delete your account | Deleted from our database |
 | In-app preferences (currency, number format, privacy mode) | Until you delete your account or clear local storage | Deleted |
-| Feedback messages (database) | Retained for product improvement for as long as we find them useful. When you delete your account, the link between your user ID and any feedback you submitted is permanently removed (`ON DELETE SET NULL`); the remaining message text becomes anonymous and is no longer personal data under DSGVO. | Anonymised on account deletion |
-| Feedback messages (support inbox copy) | Retained in our support inbox under normal email retention; pruned manually on a comparable cadence. The user-ID link is severed only in the database, not in any email copy that has already been delivered. | Pruned manually |
+| Feedback messages (database) | Kept while useful for product work, reviewed at least once a year. Deleted in full when you delete your account, together with the rest of your data. | Deleted on account deletion |
+| Feedback messages (support inbox copy) | A notification copy of each feedback message is delivered to our support inbox and kept under normal email retention, pruned at least once a year. Deleting your account removes the message from our database but does not reach copies already delivered by email. | Pruned periodically |
 | Server logs (IP, request timestamps, error traces) | Approximately 14 days, set by our hosting provider | Rotated out by provider |
 | Analytics events (PostHog) | Approximately 12 months, per our PostHog project configuration | Pruned by PostHog |
 | Payment & invoice records held by Stripe | 10 years from the end of the fiscal year, per § 147 AO (German tax-law retention) | Deleted by Stripe after the statutory period |
@@ -112,10 +113,14 @@ We do not carry out automated decision-making within the meaning of Art. 22 DSGV
 
 Where data is required, withholding it prevents account creation or use of the service. Where data is voluntary, withholding it has no consequence for your access.
 
-## 12. Changes to This Policy
+## 12. Children and minimum age
+
+Quantive is not directed to children. You must be at least 16 to create an account. That is the age of digital consent under Art. 8(1) DSGVO in Germany. We do not knowingly collect personal data from anyone under 16; if you believe a child has given us their data, email <legal@usequantive.app> and we will delete it.
+
+## 13. Changes to This Policy
 
 We may update this policy from time to time. We will notify you of significant changes via email or an in-app notification.
 
-## 13. Contact
+## 14. Contact
 
 For questions about this Privacy Policy, or to exercise your rights under §8, contact us at <legal@usequantive.app>.
