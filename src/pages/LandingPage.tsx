@@ -153,36 +153,49 @@ function HeroChart() {
   );
 }
 
-/* ── Privacy icons (inline SVG) ─────────────────────────────── */
-const PrivacyIcons = {
-  lock: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <rect x="3" y="8" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M6 8V6a3 3 0 0 1 6 0v2" stroke="currentColor" strokeWidth="1.5" />
-      <circle cx="9" cy="13" r="1.2" fill="currentColor" />
-    </svg>
-  ),
-  shield: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path d="M9 2 L15 4.5 V9 C15 13 9 16 9 16 C9 16 3 13 3 9 V4.5 Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M6 9 L8 11 L12 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  noEye: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path d="M2 2 L16 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M7 4.5C7.6 4.2 8.3 4 9 4C12.5 4 15 9 15 9C15 9 14.3 10.2 13 11.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M4.5 6C3.3 7.1 3 9 3 9C3 9 5.5 14 9 14C10.3 14 11.5 13.5 12.5 12.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  ),
-  download: (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-      <path d="M9 2 V12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M5.5 8.5 L9 12 L12.5 8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M3 15 H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  ),
-};
+/* ── Lock glyph for the encryption boundary (inline SVG) ─────── */
+const LockIcon = (
+  <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+    <rect x="3" y="8" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M6 8V6a3 3 0 0 1 6 0v2" stroke="currentColor" strokeWidth="1.5" />
+    <circle cx="9" cy="13" r="1.2" fill="currentColor" />
+  </svg>
+);
+
+/* ── Privacy section: the encryption-boundary flow. Plaintext stays in
+   your browser; only ciphertext crosses to our servers. ──────────────── */
+function PrivacyFlow() {
+  return (
+    <>
+      <div className="lp-pb">
+        <div className="lp-pb-node lp-pb-node--you">
+          <span className="lp-pb-label">Your browser</span>
+          <div className="lp-pb-val tabular">€134,054</div>
+          <span className="lp-pb-sub">plaintext, on your device</span>
+        </div>
+        <div className="lp-pb-track" aria-hidden="true">
+          <span className="lp-pb-dot" />
+          <span className="lp-pb-line lp-pb-line--solid" />
+          <span className="lp-pb-boundary">
+            <span className="lp-pb-boundary-label">Argon2id · XChaCha20-Poly1305</span>
+            <span className="lp-pb-boundary-lock">{LockIcon}</span>
+          </span>
+          <span className="lp-pb-line lp-pb-line--dashed" />
+          <span className="lp-pb-ring" />
+        </div>
+        <div className="lp-pb-node lp-pb-node--server">
+          <span className="lp-pb-label">Quantive servers</span>
+          <div className="lp-pb-cipher">9f2a c4e1 7b00</div>
+          <span className="lp-pb-sub">ciphertext only</span>
+        </div>
+      </div>
+      <p className="sr-only">
+        Your balances are encrypted in your browser before they sync. Quantive&apos;s servers receive and
+        store only ciphertext.
+      </p>
+    </>
+  );
+}
 
 /* ============================================================ */
 export default function LandingPage() {
@@ -340,10 +353,10 @@ export default function LandingPage() {
 
       {/* ───── PRIVACY ───── */}
       <section className="lp-sec" id="privacy" aria-labelledby="lp-priv-h2">
-        <div className="lp-privacy-wrap lp-reveal">
-          <div className="lp-privacy-head">
+        <div className="lp-priv lp-reveal">
+          <div className="lp-priv-intro">
             <span className="lp-eyebrow">Privacy &amp; Security</span>
-            <h2 className="lp-h2" id="lp-priv-h2" style={{ maxWidth: 540 }}>
+            <h2 className="lp-h2" id="lp-priv-h2">
               Your data stays yours.
               <br />
               We can't read it.
@@ -353,36 +366,13 @@ export default function LandingPage() {
             </p>
             <Link to="/security" target="_blank" rel="noopener noreferrer" className="lp-security-link">Read the full threat model →</Link>
           </div>
-          <div className="lp-privacy-grid">
-            <div className="lp-privacy-item">
-              <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.lock}</div>
-              <div className="lp-privacy-title">End-to-end encrypted</div>
-              <p className="lp-privacy-desc">
-                XChaCha20-Poly1305, key derived from your password via Argon2id. Your data is locked before it syncs.
-              </p>
-            </div>
-            <div className="lp-privacy-item">
-              <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.shield}</div>
-              <div className="lp-privacy-title">No bank connections</div>
-              <p className="lp-privacy-desc">
-                Quantive never asks for banking credentials or connects to financial institutions.
-              </p>
-            </div>
-            <div className="lp-privacy-item">
-              <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.noEye}</div>
-              <div className="lp-privacy-title">No ads, no profiling</div>
-              <p className="lp-privacy-desc">
-                Anonymous product analytics only: counts, not identities. No ad networks, no cross-site tracking, and we never sell your financial data.
-              </p>
-            </div>
-            <div className="lp-privacy-item">
-              <div className="lp-privacy-icon" aria-hidden="true">{PrivacyIcons.download}</div>
-              <div className="lp-privacy-title">No lock-in</div>
-              <p className="lp-privacy-desc">
-                Import your existing spreadsheet for free. Excel and CSV export come with Pro.
-              </p>
-            </div>
-          </div>
+          <ul className="lp-priv-guarantees" role="list">
+            <li>End-to-end encrypted</li>
+            <li>No bank connections</li>
+            <li>No ads, no profiling</li>
+            <li>No lock-in</li>
+          </ul>
+          <PrivacyFlow />
         </div>
       </section>
 
