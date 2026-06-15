@@ -122,7 +122,7 @@ await browser.close();
 // each encode well under 1 MB.
 const vf = 'scale=1100:-2,fps=30';
 const common = ['-y', '-ss', offset, '-i', rawPath, '-vf', vf, '-an'];
-execFileSync('ffmpeg', [...common, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '24', '-movflags', '+faststart', path.join(outDir, 'tour.mp4')], { stdio: 'ignore' });
+execFileSync('ffmpeg', [...common, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '26', '-movflags', '+faststart', path.join(outDir, 'tour.mp4')], { stdio: 'ignore' });
 execFileSync('ffmpeg', [...common, '-c:v', 'libvpx-vp9', '-b:v', '0', '-crf', '36', path.join(outDir, 'tour.webm')], { stdio: 'ignore' });
 
 for (const f of ['tour.mp4', 'tour.webm']) {
