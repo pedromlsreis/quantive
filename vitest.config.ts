@@ -8,6 +8,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
+    // Keep tests independent of a local Turnstile key in .env (isCaptchaEnabled
+    // would otherwise flip on and gate the auth-form submit).
+    env: { VITE_TURNSTILE_SITE_KEY: "" },
     include: [
       "src/**/*.{test,spec}.{ts,tsx}",
       "supabase/functions/**/*.{test,spec}.ts",
