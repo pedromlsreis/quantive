@@ -1,6 +1,7 @@
 // Re-records the landing tour clip (public/landing/tour.mp4 + tour.webm):
 // dashboard overview scrolling to the end, the allocations view cycling
-// treemap → bars → donut, then the forecast and performance pages.
+// treemap → bars → donut (each once), then the forecast page and the
+// performance page scrolled down to reveal the drawdown / downside stats.
 //
 // Run whenever those screens change visibly, together with
 // capture-landing-poster.mjs so the clip and its poster stay in sync.
@@ -97,18 +98,21 @@ await page.waitForTimeout(1100); // hold at bottom
 await nav(page, /allocations/i, 1200);
 const tabs = page.locator('.q-tab');
 if ((await tabs.count()) >= 3) {
+  // treemap → bars → donut, each shown once (no return to treemap — redundant).
   await tabs.nth(0).click();
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1500);
   await tabs.nth(1).click();
   await page.waitForTimeout(1500);
   await tabs.nth(2).click();
   await page.waitForTimeout(1500);
-  await tabs.nth(0).click();
-  await page.waitForTimeout(1000);
 }
 await nav(page, /forecast/i, 2400);
-await nav(page, /performance/i, 2400);
-await page.waitForTimeout(400);
+
+// Performance opens on the benchmark overlay; scroll down to reveal the
+// drawdown / downside stats that sit below the fold.
+await nav(page, /performance/i, 1400);
+await smoothScroll(page, 3200);
+await page.waitForTimeout(1500);
 
 const rawPath = await page.video().path();
 await ctx.close();
