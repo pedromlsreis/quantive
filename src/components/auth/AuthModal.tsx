@@ -11,6 +11,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Notice } from '@/components/ui/Notice';
 import { mapAuthError } from '@/lib/authError';
 import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
+import { Turnstile } from './Turnstile';
+import { isCaptchaEnabled } from '@/lib/captcha';
 
 interface AuthModalProps {
   open: boolean;
@@ -31,7 +33,19 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
   // tapping and hit a 429.
   const [resendCooldown, setResendCooldown] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
+  // Turnstile token + a nonce that remounts the widget for a fresh token.
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaNonce, setCaptchaNonce] = useState(0);
   const trapRef = useFocusTrap<HTMLDivElement>(open);
+
+  // Tokens are single-use — call after each attempt to get a fresh one.
+  const resetCaptcha = () => {
+    setCaptchaToken(null);
+    setCaptchaNonce(n => n + 1);
+  };
+  // When CAPTCHA is on, block submits until we have a token.
+  const captchaPending = isCaptchaEnabled && !captchaToken;
+  const submitDisabled = submitting || (mode === 'signup' && !acceptedTerms) || captchaPending;
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -52,6 +66,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     setAcceptedTerms(false);
     setSubmitting(false);
     setShowPassword(false);
+    resetCaptcha();
     onClose();
   };
 
@@ -74,7 +89,8 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     setSubmitting(true);
 
     if (mode === 'forgot') {
-      const { error } = await resetPassword(email.trim());
+      const { error } = await resetPassword(email.trim(), captchaToken ?? undefined);
+      resetCaptcha();
       setSubmitting(false);
       if (error) {
         toast.error(mapAuthError(error));
@@ -96,8 +112,11 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
       setSubmitting(false);
       return;
     }
-    const fn = mode === 'signup' ? signUp : signIn;
-    const { error } = await fn(email.trim(), password);
+    const token = captchaToken ?? undefined;
+    const { error } = mode === 'signup'
+      ? await signUp(email.trim(), password, token)
+      : await signIn(email.trim(), password, token);
+    resetCaptcha();
     if (error) {
       setSubmitting(false);
       // 8s instead of the default ~4s — auth errors are the moment the user
@@ -136,9 +155,10 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
   };
 
   const handleResend = async () => {
-    if (resendCooldown > 0 || !email.trim()) return;
+    if (resendCooldown > 0 || !email.trim() || captchaPending) return;
     setResendCooldown(60);
-    const { error } = await resendConfirmation(email.trim());
+    const { error } = await resendConfirmation(email.trim(), captchaToken ?? undefined);
+    resetCaptcha();
     if (error) {
       toast.error(mapAuthError(error));
       setResendCooldown(0);
@@ -198,12 +218,18 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
                 Sent to <strong style={{ color: 'var(--fg)', fontWeight: 600, wordBreak: 'break-all' }}>{email}</strong>.
                 The link expires in 24 hours. You can close this window - your account is waiting.
               </p>
+              <Turnstile
+                key={`confirm-${captchaNonce}`}
+                onVerify={setCaptchaToken}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => setCaptchaToken(null)}
+              />
               <button
                 type="button"
                 onClick={handleResend}
-                disabled={resendCooldown > 0}
+                disabled={resendCooldown > 0 || captchaPending}
                 className="q-btn q-btn--secondary q-btn--md"
-                style={{ width: '100%', opacity: resendCooldown > 0 ? 0.5 : 1 }}
+                style={{ width: '100%', opacity: resendCooldown > 0 || captchaPending ? 0.5 : 1 }}
               >
                 <Mail className="h-4 w-4" />
                 {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend confirmation email'}
@@ -289,11 +315,17 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
                 </span>
               </Notice>
             )}
+            <Turnstile
+              key={`form-${captchaNonce}`}
+              onVerify={setCaptchaToken}
+              onExpire={() => setCaptchaToken(null)}
+              onError={() => setCaptchaToken(null)}
+            />
             <button
               type="submit"
-              disabled={submitting || (mode === 'signup' && !acceptedTerms)}
+              disabled={submitDisabled}
               className="q-btn q-btn--primary q-btn--md"
-              style={{ width: '100%', opacity: submitting || (mode === 'signup' && !acceptedTerms) ? 0.5 : 1 }}
+              style={{ width: '100%', opacity: submitDisabled ? 0.5 : 1 }}
             >
               {mode === 'signin' ? <LogIn className="h-4 w-4" /> : mode === 'signup' ? <UserPlus className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
               {submitting ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Sign up' : 'Send reset link'}

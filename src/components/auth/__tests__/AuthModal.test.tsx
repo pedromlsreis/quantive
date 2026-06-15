@@ -159,7 +159,9 @@ describe('AuthModal — post-signup confirm panel (#2)', () => {
     });
 
     await waitFor(() => {
-      expect(signUp).toHaveBeenCalledWith('pedro@example.com', 'hunter2hunter2');
+      // Third arg is the Turnstile token — undefined here since no site key is
+      // configured in the test env (the widget is inert).
+      expect(signUp).toHaveBeenCalledWith('pedro@example.com', 'hunter2hunter2', undefined);
       // Confirm panel shows: title + email surfaced + resend affordance.
       expect(screen.getByText(/check your inbox/i)).toBeInTheDocument();
       expect(screen.getByText('pedro@example.com')).toBeInTheDocument();

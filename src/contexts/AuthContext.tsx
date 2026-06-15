@@ -10,12 +10,12 @@ interface AuthContextType {
   loading: boolean;
   subscription: SubscriptionStatus;
   checkSubscription: () => Promise<void>;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, captchaToken?: string) => Promise<{ error: string | null }>;
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ error: string | null }>;
+  resetPassword: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
-  resendConfirmation: (emailOverride?: string) => Promise<{ error: string | null }>;
+  resendConfirmation: (emailOverride?: string, captchaToken?: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -145,18 +145,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, [user?.id, user?.email_confirmed_at]);
 
-  const signUp = async (email: string, password: string) => {
+  // captchaToken: needed only once CAPTCHA is enabled in Supabase; ignored
+  // otherwise, so undefined is a safe no-op.
+  const signUp = async (email: string, password: string, captchaToken?: string) => {
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: window.location.origin, captchaToken },
     });
     if (!error) analytics.signedUp();
     return { error: error?.message ?? null };
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const signIn = async (email: string, password: string, captchaToken?: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken },
+    });
     if (!error) analytics.signedIn();
     return { error: error?.message ?? null };
   };
@@ -166,9 +172,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = async (email: string, captchaToken?: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken,
     });
     return { error: error?.message ?? null };
   };
@@ -178,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const resendConfirmation = async (emailOverride?: string) => {
+  const resendConfirmation = async (emailOverride?: string, captchaToken?: string) => {
     // emailOverride covers the post-signup case where no session exists yet
     // and `user` is null — the AuthModal needs to resend to the email the
     // user just typed in.
@@ -187,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: window.location.origin, captchaToken },
     });
     return { error: error?.message ?? null };
   };
