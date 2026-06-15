@@ -48,6 +48,26 @@ function PageViewTracker() {
   return null;
 }
 
+// Reset scroll to the top on route change. The router preserves the window
+// scroll position across client-side navigation, so without this a user who
+// scrolls down one page lands mid-way down the next. Keyed on pathname only,
+// so the landing page's in-page hash anchors (#features, #pricing) are left
+// alone — those change the hash, not the pathname.
+//
+// This deliberately also scrolls to top on back/forward (POP), forgoing
+// native scroll restoration. That's fine here: every in-app route is a
+// self-contained dashboard with no list→detail→back flow whose scroll
+// position would be worth restoring. If such a flow ever appears, gate the
+// reset on useNavigationType() === 'PUSH' rather than reaching for a full
+// createBrowserRouter + <ScrollRestoration> refactor.
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 const LoadingSpinner = () => (
   <div className="flex flex-1 items-center justify-center bg-background">
     <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -126,6 +146,7 @@ const App = () => (
               <PortfolioProvider>
                 <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                   <PageViewTracker />
+                  <ScrollToTop />
                   <RequireUnlock />
                   <RecoveryOfferModal />
                   <AuthModalProvider>
