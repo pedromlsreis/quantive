@@ -3,7 +3,7 @@ import {
   signIn,
   signOutViaProfileMenu,
   readLocalStorageKey,
-  getTestCreds,
+  hasE2EAuth,
 } from './helpers/auth';
 import { seedClean } from './helpers/seedClean';
 
@@ -12,16 +12,13 @@ import { seedClean } from './helpers/seedClean';
  * docs/logout-data-leak-remediation.md. The PortfolioContext user-id watcher
  * is the load-bearing piece — these tests should red if it regresses.
  *
- * Skipped automatically when TEST_USER_EMAIL / TEST_USER_PASSWORD are not
+ * Skipped automatically when the E2E auth secrets (TEST_USER_* plus
+ * SUPABASE_SERVICE_ROLE_KEY, needed for the captcha-free sign-in path) are not
  * set, so a contributor without credentials still sees a clean suite.
  */
-const hasCreds = (() => {
-  try { getTestCreds(); return true; } catch { return false; }
-})();
+const hasCreds = hasE2EAuth(1);
 
-const hasCreds2 = (() => {
-  try { getTestCreds(2); return true; } catch { return false; }
-})();
+const hasCreds2 = hasE2EAuth(2);
 
 test.describe('Logout data persistence', () => {
   test.beforeEach(async ({ page }) => {

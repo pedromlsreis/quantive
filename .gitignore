@@ -19,6 +19,8 @@ dist-ssr
 playwright-report/
 test-results/
 coverage/
+# Minted E2E auth sessions (contain real access tokens)
+e2e/.auth/
 
 # Editor directories and files
 .vscode/*

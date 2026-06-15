@@ -6,6 +6,9 @@ import 'dotenv/config';
 
 export default defineConfig({
   testDir: './e2e',
+  // Mints test-user sessions once (the project enforces CAPTCHA, so specs sign
+  // in via the admin path — see e2e/helpers/auth.ts). No-op without E2E secrets.
+  globalSetup: './e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
