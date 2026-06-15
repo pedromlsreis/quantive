@@ -45,7 +45,11 @@ jobs:
       - run: npm ci
 
       - name: Apply non-breaking audit fixes
-        run: npm audit fix
+        # `npm audit fix` exits non-zero whenever advisories remain afterwards —
+        # including when the only ones left need --force (which we don't run). The
+        # next step decides whether anything actually changed via the git diff, so
+        # the exit code carries no signal; swallow it to avoid a spurious failure.
+        run: npm audit fix || true
 
       - name: Stop early if nothing changed
         id: changed
