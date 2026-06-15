@@ -84,6 +84,7 @@ The system does NOT defend against:
 | **Active server (persistent)** | Modifies stored data AND the served JavaScript | Wins. Out of scope (§3.2.1). |
 | **Network MitM** | Reads / modifies TLS-protected traffic | Stopped by HTTPS + HSTS; we do not add app-level signing on top. |
 | **Other authenticated user** | Has a valid account on the same Supabase project | Stopped by Postgres RLS + AAD binding to user_id. |
+| **Online credential guessing / signup abuse** (bots, credential stuffing) | Automated requests against the auth endpoints | Throttled by GoTrue rate limits and gated by Cloudflare Turnstile CAPTCHA. Perimeter only: it raises the cost of *online* guessing but is not part of the cryptographic guarantee. A leaked database is still gated by Argon2id (§4.2), not by this. |
 
 ### 3.4 Trust boundary
 

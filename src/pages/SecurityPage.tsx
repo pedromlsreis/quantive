@@ -159,6 +159,12 @@ export default function SecurityPage() {
                 {' '}Your encryption key lives only in browser memory and
                 is wiped on sign-out, tab close, and idle timeout.
               </li>
+              <li>
+                <strong className="text-foreground">Automated attacks on the login.</strong>
+                {' '}Sign-up and sign-in are rate-limited and gated by a
+                CAPTCHA (Cloudflare Turnstile), which blunts bot sign-ups
+                and credential-stuffing attempts.
+              </li>
             </ul>
           </section>
 
