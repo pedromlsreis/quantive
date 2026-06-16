@@ -80,7 +80,33 @@ jobs:
 
       # vite build (incl. the seo-route-html plugin for per-route <head>) then
       # the browser prerender that fills in each public route's <body>.
-      - run: npm run build:prerender
+      #
+      # The VITE_* values MUST be present at build time — Vite inlines them into
+      # the bundle. Without them the app throws "Supabase configuration missing"
+      # on boot, so the prerender snapshot AND the live SPA both render a blank
+      # page. They are public, client-exposed values (they ship in the bundle),
+      # so they live as repo Variables (Settings > Secrets and variables >
+      # Actions > Variables), not Secrets. Mirror the Cloudflare Pages project's
+      # Production environment variables exactly.
+      - name: Build and prerender
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ vars.VITE_POSTHOG_HOST }}
+        run: npm run build:prerender
+
+      # Safety net: a missing VITE_* var (or any other prerender failure) yields
+      # an empty <div id="root"></div> shell. Refuse to deploy that — it would
+      # blank the live site, not just the crawler HTML.
+      - name: Assert prerender produced real content
+        run: |
+          if ! grep -q '<h1' dist/index.html; then
+            echo "::error::dist/index.html has no <h1> — prerender produced an empty shell, likely missing VITE_* build variables. Refusing to deploy."
+            exit 1
+          fi
+          echo "Prerender content check passed."
 
       - name: Deploy prerendered dist to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
