@@ -2,16 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-const { proGateHit } = vi.hoisted(() => ({ proGateHit: vi.fn() }));
+const { proUpgradeClicked } = vi.hoisted(() => ({ proUpgradeClicked: vi.fn() }));
 vi.mock('@/lib/analytics', () => ({
-  analytics: { proGateHit },
+  analytics: { proUpgradeClicked },
 }));
 
 import { UpsellCard } from '../UpsellCard';
 import type { Entitlement } from '@/lib/billing/plans';
 
 beforeEach(() => {
-  proGateHit.mockClear();
+  proUpgradeClicked.mockClear();
 });
 
 function renderCard(feature: Entitlement, compact = false) {
@@ -43,11 +43,11 @@ describe('UpsellCard', () => {
     expect(cta.getAttribute('href')).toBe('/pricing');
   });
 
-  it('fires proGateHit analytics when the CTA is clicked', () => {
+  it('fires proUpgradeClicked analytics when the CTA is clicked', () => {
     renderCard('benchmarks');
     fireEvent.click(screen.getByRole('link', { name: /upgrade to pro/i }));
-    expect(proGateHit).toHaveBeenCalledTimes(1);
-    expect(proGateHit).toHaveBeenCalledWith({ feature: 'benchmarks' });
+    expect(proUpgradeClicked).toHaveBeenCalledTimes(1);
+    expect(proUpgradeClicked).toHaveBeenCalledWith({ feature: 'benchmarks' });
   });
 
   it('applies the compact padding modifier when compact=true', () => {

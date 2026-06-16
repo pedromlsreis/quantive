@@ -14,6 +14,7 @@ import { DemoBanner } from '@/components/dashboard/DemoBanner';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
 import { SubscribeIntentNotice } from '@/components/dashboard/SubscribeIntentNotice';
+import { analytics } from '@/lib/analytics';
 
 const Index = () => {
   const { data, isLoading, isMockData, allSnapshots } = usePortfolio();
@@ -30,6 +31,7 @@ const Index = () => {
     if (checkoutPolledRef.current) return;
     checkoutPolledRef.current = true;
 
+    analytics.subscriptionStarted();
     toast.success('Welcome to Pro! Your subscription is active.', { duration: 6000 });
 
     // Strip the param immediately so a refresh doesn't re-trigger.

@@ -47,17 +47,20 @@ export default function PricingPage() {
   const subscribeWithPlan = useCallback(async (chosenInterval: Interval) => {
     const chosenPrice = chosenInterval === 'yearly' ? proPlan.prices!.yearly! : proPlan.prices!.monthly!;
     setSubmitting(true);
+    analytics.checkoutStarted({ interval: chosenInterval });
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: { priceId: chosenPrice.priceId },
       });
       if (error || !data?.url) {
         const code = await extractCheckoutErrorCode(error);
+        analytics.checkoutFailed({ reason: code ?? 'unknown' });
         toast.error(messageForCheckoutError(code));
         return;
       }
       window.location.href = data.url;
     } catch {
+      analytics.checkoutFailed({ reason: 'network' });
       toast.error(messageForCheckoutError(undefined));
     } finally {
       setSubmitting(false);

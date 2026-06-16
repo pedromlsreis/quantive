@@ -11,6 +11,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
 import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
 import { useAuthModalActions } from '@/contexts/AuthModalContext';
+import { analytics } from '@/lib/analytics';
 import { EmailConfirmationBanner } from '@/components/auth/EmailConfirmationBanner';
 import { Wordmark } from '@/components/layout/Brand';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
@@ -329,6 +330,14 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
   const [feedbackTrigger, setFeedbackTrigger] = useState(0);
   const { openAuth } = useAuthModalActions();
 
+  // Wrap auth opens so every in-app sign-in / sign-up entry is captured. This
+  // is the demo→signup bridge: a guest exploring the dashboard who opens
+  // sign-up is the intent signal `demo_loaded` alone can't reach.
+  const openAuthTracked = (mode: 'signin' | 'signup') => {
+    analytics.appAuthOpened({ mode });
+    openAuth(mode);
+  };
+
   return (
     <div className="q-app">
       <a href="#main-content" className="skip-link">Skip to main content</a>
@@ -336,7 +345,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onFeedback={() => setFeedbackTrigger(n => n + 1)}
-        onSignIn={() => { setSidebarOpen(false); openAuth('signin'); }}
+        onSignIn={() => { setSidebarOpen(false); openAuthTracked('signin'); }}
       />
 
       <div className="q-main">
@@ -345,8 +354,8 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
           pathname={pathname}
           onMenuClick={() => setSidebarOpen(true)}
           onAdd={() => setAddOpen(true)}
-          onSignIn={() => openAuth('signin')}
-          onSignUp={() => openAuth('signup')}
+          onSignIn={() => openAuthTracked('signin')}
+          onSignUp={() => openAuthTracked('signup')}
         />
         <main id="main-content" className="q-content q-screen">
           {children}

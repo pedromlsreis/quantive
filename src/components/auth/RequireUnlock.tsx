@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Notice } from '@/components/ui/Notice';
+import { analytics } from '@/lib/analytics';
 import { isProtectedPath } from './protectedPaths';
 
 export function RequireUnlock() {
@@ -41,6 +42,8 @@ export function RequireUnlock() {
     setErrorMessage(null);
     try {
       const { error } = await keySession.unlock(user.id, password);
+      if (error) analytics.unlockFailed();
+      else analytics.unlockSucceeded();
       if (error) {
         // The unlock boundary intentionally does not distinguish wrong
         // password from network failure (see KeySessionContext.unlock). The

@@ -22,6 +22,7 @@ import { AlertTriangle, Lock, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
+import { analytics } from '@/lib/analytics';
 import { RecoveryCodeDisplay } from './RecoveryCodeDisplay';
 
 const STORAGE_PREFIX = 'recovery-offered:';
@@ -50,14 +51,24 @@ export function RecoveryOfferModal() {
   }, [user, keySession.status, keySession.hasRecovery]);
 
   const previousUserIdRef = useRef<string | null>(user?.id ?? null);
+  // Guards a single recovery_offer_shown per user per session.
+  const offerShownRef = useRef(false);
   useEffect(() => {
     const id = user?.id ?? null;
     if (previousUserIdRef.current !== id) {
       setStep('offer');
       setRecoveryCode(null);
+      offerShownRef.current = false;
       previousUserIdRef.current = id;
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    if (shouldOffer && step === 'offer' && !offerShownRef.current) {
+      offerShownRef.current = true;
+      analytics.recoveryOfferShown();
+    }
+  }, [shouldOffer, step]);
 
   if (!user) return null;
   if (step === 'offer' && !shouldOffer) return null;
@@ -75,6 +86,7 @@ export function RecoveryOfferModal() {
     setSubmitting(true);
     try {
       const result = await keySession.setupRecovery(user.id);
+      analytics.recoverySetupCompleted({ source: 'offer_modal' });
       setRecoveryCode(result.recoveryCode);
       setStep('display');
     } catch (e) {
@@ -87,6 +99,7 @@ export function RecoveryOfferModal() {
   };
 
   const handleSkip = () => {
+    analytics.recoverySkipped();
     markOffered();
     setStep('done');
   };
@@ -102,6 +115,8 @@ export function RecoveryOfferModal() {
       toast.info('Either confirm the word or click "I\'ll save it later" below.');
       return;
     }
+    // Dismissing the offer via × is a skip, same as the Skip button.
+    if (step === 'offer') analytics.recoverySkipped();
     markOffered();
     setRecoveryCode(null);
     setStep('done');

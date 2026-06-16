@@ -9,6 +9,7 @@ import { supabaseKeyStore } from '@/lib/keySession';
 import { isValidRecoveryCode } from '@/lib/crypto';
 import { urlLooksLikeRecovery } from '@/lib/recoveryUrl';
 import { mapAuthError } from '@/lib/authError';
+import { analytics } from '@/lib/analytics';
 import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
 
 type LinkState = 'checking' | 'invalid' | 'verifying' | 'ready';
@@ -153,6 +154,7 @@ const ResetPassword = () => {
           );
           return;
         }
+        analytics.recoveryUsed();
         toast.success('Password reset and data unlocked.');
       } else {
         toast.success('Password updated successfully!');

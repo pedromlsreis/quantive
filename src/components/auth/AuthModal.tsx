@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Notice } from '@/components/ui/Notice';
 import { mapAuthError } from '@/lib/authError';
+import { analytics } from '@/lib/analytics';
 import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
 import { Turnstile } from './Turnstile';
 import { isCaptchaEnabled } from '@/lib/captcha';
@@ -129,6 +130,13 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       const { error: unlockErr } = await keySession.unlock(session.user.id, password);
+      // Only count returning-user sign-ins as unlock attempts — a fresh
+      // sign-up provisions keys and effectively never "fails to unlock", so
+      // including it would inflate the success rate of the churn metric.
+      if (mode === 'signin') {
+        if (unlockErr) analytics.unlockFailed();
+        else analytics.unlockSucceeded();
+      }
       if (unlockErr) {
         setSubmitting(false);
         toast.error('Could not unlock encrypted data. Try again or reset your password.');

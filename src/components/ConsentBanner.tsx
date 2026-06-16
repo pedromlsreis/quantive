@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/lib/consent';
+import { analytics } from '@/lib/analytics';
 import { easeOut } from '@/lib/motion';
 
 /**
@@ -50,7 +51,13 @@ export function ConsentBanner() {
             <div className="flex shrink-0 gap-2 sm:flex-col sm:gap-2">
               <button
                 type="button"
-                onClick={() => setConsent('granted')}
+                onClick={() => {
+                  // Order matters: setConsent flips the gate to 'granted' and
+                  // boots PostHog synchronously via its listener, so the
+                  // capture below actually goes through.
+                  setConsent('granted');
+                  analytics.consentGranted();
+                }}
                 className="flex-1 rounded-lg border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 sm:flex-none"
               >
                 Accept

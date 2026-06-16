@@ -11,6 +11,7 @@ import { Sparkline } from '@/components/charts/Sparkline';
 import { Notice } from '@/components/ui/Notice';
 import { HelpHint } from '@/components/ui/help-hint';
 import { sanitizeSourceName, parseLocalizedNumber, toEditable } from '@/lib/utils';
+import { analytics } from '@/lib/analytics';
 import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
 import { CURRENCIES } from '@/lib/currencies';
 import { SOURCE_CATEGORIES } from '@/lib/categories';
@@ -402,11 +403,13 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       const payload: Entry[] = [];
       const seen = new Set<string>();
       let firstDuplicate: string | null = null;
+      let newSourceCount = 0;
 
       for (const r of allRows) {
         const raw = entries[rowKey(r)];
         const num = parseEntry(raw);
         if (num == null) continue;
+        if (r.kind === 'new') newSourceCount++;
         const name = r.kind === 'existing' ? r.meta.idSource : r.source.name;
         const { value: cleanName, error: nameErr } = sanitizeSourceName(name);
         if (nameErr) {
@@ -453,6 +456,8 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       } else {
         addMeasurement(payload, { date: measurementDate });
       }
+
+      if (newSourceCount > 0) analytics.sourceCreated({ count: newSourceCount });
 
       setSaved({
         date: measurementDate,

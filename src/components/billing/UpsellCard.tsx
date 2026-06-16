@@ -79,7 +79,7 @@ export function UpsellCard({
           <Link
             to="/pricing"
             className="q-btn q-btn--primary q-btn--sm"
-            onClick={() => analytics.proGateHit({ feature })}
+            onClick={() => analytics.proUpgradeClicked({ feature })}
           >
             Upgrade to Pro
           </Link>

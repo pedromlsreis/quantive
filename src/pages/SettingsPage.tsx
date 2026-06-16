@@ -91,6 +91,7 @@ export default function SettingsPage() {
     // when we navigate it after the async function call resolves.
     const portalTab = window.open('', '_blank');
     setManagingBilling(true);
+    analytics.billingPortalOpened();
     try {
       const { data: portal, error } = await supabase.functions.invoke('customer-portal');
       if (error || !portal?.url) {
@@ -231,6 +232,7 @@ export default function SettingsPage() {
     setProvisioningRecovery(true);
     try {
       const { recoveryCode } = await keySession.setupRecovery(user.id);
+      analytics.recoverySetupCompleted({ source: 'settings' });
       setShowRecoveryCode(recoveryCode);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to set up recovery code.');
@@ -485,7 +487,11 @@ export default function SettingsPage() {
             <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
               <select
                 value={currency.code}
-                onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
+                onChange={(e) => {
+                  const next = e.target.value as CurrencyCode;
+                  setCurrency(next);
+                  analytics.currencyChanged({ currency: next });
+                }}
               >
                 {[
                   currency,
@@ -540,7 +546,10 @@ export default function SettingsPage() {
             <button
               type="button"
               className={`q-toggle${privacyMode ? ' is-on' : ''}`}
-              onClick={() => setPrivacyMode(!privacyMode)}
+              onClick={() => {
+                setPrivacyMode(!privacyMode);
+                analytics.privacyModeToggled({ enabled: !privacyMode });
+              }}
               aria-checked={privacyMode}
               aria-label="Privacy mode"
               role="switch"

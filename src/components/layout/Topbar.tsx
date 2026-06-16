@@ -6,6 +6,7 @@ import { usePreferences } from '@/contexts/PreferencesContext';
 import { SyncIndicator } from '@/components/dashboard/SyncIndicator';
 import { Monogram } from '@/components/layout/Brand';
 import { GlobalSearch } from '@/components/layout/GlobalSearch';
+import { analytics } from '@/lib/analytics';
 
 const PAGE_TITLES: Record<string, string> = {
   '/dashboard':    'Overview',
@@ -78,7 +79,10 @@ export function Topbar({
 
         <button
           type="button"
-          onClick={() => setPrivacyMode(!privacyMode)}
+          onClick={() => {
+            setPrivacyMode(!privacyMode);
+            analytics.privacyModeToggled({ enabled: !privacyMode });
+          }}
           className="q-icon-btn q-topbar-privacy"
           aria-label={privacyMode ? 'Show monetary values' : 'Hide monetary values'}
           aria-pressed={privacyMode}

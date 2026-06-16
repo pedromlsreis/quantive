@@ -81,6 +81,40 @@ export function initAnalytics(): void {
   if (typeof window === 'undefined') return;
   captureAttribution();
   if (getConsent() === 'granted') bootPosthog();
+  initWebVitals();
+}
+
+/**
+ * Register Core Web Vitals listeners (LCP / INP / CLS). web-vitals is loaded
+ * as a dynamic chunk so it never weighs down the main bundle. Listeners are
+ * attached regardless of consent — they only set up PerformanceObservers, no
+ * network call and no identifier — so we capture accurate metrics across the
+ * page lifecycle. The actual send is consent-gated inside `analytics.webVital`
+ * → `capture`, so nothing leaves the device unless the user opted in. This
+ * matches the privacy-policy disclosure that these metrics are sent only with
+ * consent.
+ */
+let webVitalsInitialised = false;
+function initWebVitals(): void {
+  if (typeof window === 'undefined' || webVitalsInitialised) return;
+  webVitalsInitialised = true;
+  void import('web-vitals')
+    .then(({ onLCP, onINP, onCLS }) => {
+      const report = (metric: { name: string; value: number; rating: string }) => {
+        analytics.webVital({
+          name: metric.name as WebVitalName,
+          value: metric.value,
+          rating: metric.rating as WebVitalRating,
+        });
+      };
+      onLCP(report);
+      onINP(report);
+      onCLS(report);
+    })
+    .catch(() => {
+      // web-vitals failed to load — performance telemetry is best-effort and
+      // never load-bearing, so swallow it.
+    });
 }
 
 // React to consent changes within this tab.
@@ -116,6 +150,11 @@ export type FileUploadFailureReason =
   | 'wrong_type'
   | 'unknown';
 export type CloudSyncFailureReason = 'transient' | 'terminal';
+export type CheckoutInterval = 'monthly' | 'yearly';
+export type RecoverySetupSource = 'offer_modal' | 'settings';
+export type AuthOpenMode = 'signin' | 'signup';
+export type WebVitalName = 'LCP' | 'INP' | 'CLS' | 'FCP' | 'TTFB';
+export type WebVitalRating = 'good' | 'needs-improvement' | 'poor';
 
 export const analytics = {
   pageViewed(path: string): void {
@@ -186,8 +225,128 @@ export const analytics = {
   demoLoaded(props: { source: DemoSource }): void {
     capture('demo_loaded', { source: props.source });
   },
+  /**
+   * Fired when a Pro-gated feature is *shown* as a locked upsell (the
+   * impression). Paired with `proUpgradeClicked` — the ratio between them is
+   * the upsell click-through rate. Keep these two distinct: collapsing them
+   * back into one event makes the conversion funnel unmeasurable.
+   */
   proGateHit(props: { feature: string }): void {
     capture('pro_gate_hit', { feature: props.feature });
+  },
+  /** Fired when the user clicks "Upgrade to Pro" on an upsell card. */
+  proUpgradeClicked(props: { feature: string }): void {
+    capture('pro_upgrade_clicked', { feature: props.feature });
+  },
+  /** Fired right before redirecting to Stripe Checkout. */
+  checkoutStarted(props: { interval: CheckoutInterval }): void {
+    capture('checkout_started', { interval: props.interval });
+  },
+  /**
+   * Fired when creating the Stripe Checkout session fails. `reason` is the
+   * anonymous error code we already derive for the user-facing toast — never
+   * a raw error message (which could carry an email or other detail).
+   */
+  checkoutFailed(props: { reason: string }): void {
+    capture('checkout_failed', { reason: props.reason });
+  },
+  /**
+   * Fired when the user returns from a successful Stripe Checkout (the
+   * `?checkout=success` redirect). This is the conversion endpoint of the
+   * monetisation funnel. Entitlement itself is granted server-side by the
+   * webhook — this event is the client-observed completion, no amounts.
+   */
+  subscriptionStarted(): void {
+    capture('subscription_started');
+  },
+  /** Fired when the user opens the Stripe billing portal (manage/cancel). */
+  billingPortalOpened(): void {
+    capture('billing_portal_opened');
+  },
+  /**
+   * Fired when an existing user successfully unlocks their encrypted data,
+   * and when an unlock attempt fails (wrong password / unreadable wrap). The
+   * fail rate is the leading indicator of forgotten-password churn — the one
+   * silent failure mode the E2E design creates. Bare events: no password, no
+   * portfolio data, not even which failure case (the unlock boundary doesn't
+   * expose it).
+   */
+  unlockSucceeded(): void {
+    capture('unlock_succeeded');
+  },
+  unlockFailed(): void {
+    capture('unlock_failed');
+  },
+  /** Fired when the post-unlock recovery-code offer is shown. */
+  recoveryOfferShown(): void {
+    capture('recovery_offer_shown');
+  },
+  /** Fired when the user generates a recovery code. `source` is where from. */
+  recoverySetupCompleted(props: { source: RecoverySetupSource }): void {
+    capture('recovery_setup_completed', { source: props.source });
+  },
+  /** Fired when the user dismisses the recovery offer without setting one up. */
+  recoverySkipped(): void {
+    capture('recovery_skipped');
+  },
+  /**
+   * Fired when a user successfully recovers access via their 24-word code
+   * during password reset. Proves the recovery path actually saves people —
+   * the payoff metric for `recovery_setup_completed`.
+   */
+  recoveryUsed(): void {
+    capture('recovery_used');
+  },
+  /**
+   * Fired the moment the user grants analytics consent. This is the only
+   * consent transition we can capture (it flips the gate to 'granted' before
+   * this call), and it calibrates every other funnel: activation numbers are
+   * all conditioned on consent, so the grant rate is the funnel's denominator.
+   */
+  consentGranted(): void {
+    capture('consent_granted');
+  },
+  /**
+   * Fired when a measurement save introduces one or more brand-new sources.
+   * Just a count — never the source names, which are portfolio data.
+   */
+  sourceCreated(props: { count: number }): void {
+    capture('source_created', { count: props.count });
+  },
+  /**
+   * Fired when the in-app auth modal is opened from the app shell. Bridges
+   * the demo→signup funnel: a guest exploring demo data who opens sign-up is
+   * the intent signal `demo_loaded` couldn't otherwise reach.
+   */
+  appAuthOpened(props: { mode: AuthOpenMode }): void {
+    capture('app_auth_opened', { mode: props.mode });
+  },
+  /**
+   * Fired when the user changes their display currency. The currency code is
+   * a display preference (like reminder cadence), not a financial figure or
+   * account detail, so it is safe to attach.
+   */
+  currencyChanged(props: { currency: string }): void {
+    capture('currency_changed', { currency: props.currency });
+  },
+  /** Fired when the user toggles privacy (blur) mode. */
+  privacyModeToggled(props: { enabled: boolean }): void {
+    capture('privacy_mode_toggled', { enabled: props.enabled });
+  },
+  /**
+   * Report a Core Web Vital sample (LCP / INP / CLS). Anonymous performance
+   * metric, no payload beyond the metric name, value, and rating bucket —
+   * matches what the privacy policy discloses. Consent-gated like everything
+   * else via `capture`.
+   */
+  webVital(props: { name: WebVitalName; value: number; rating: WebVitalRating }): void {
+    capture('web_vital', {
+      metric: props.name,
+      // Round to avoid spurious precision: ms metrics to integers, the
+      // unitless CLS to 4 dp.
+      value: props.name === 'CLS' ? Math.round(props.value * 10000) / 10000 : Math.round(props.value),
+      rating: props.rating,
+    });
   },
   /**
    * Fired when a user adds a new goal. Do NOT include the goal name or
