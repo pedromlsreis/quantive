@@ -1,10 +1,10 @@
 # Quantive
 
-A privacy-first personal finance cockpit. Track your net worth over time, analyse asset allocations, and forecast your future — with every byte of portfolio data encrypted before it leaves your device.
+A privacy-first net-worth dashboard. Track your net worth over time, analyse your asset allocation, and forecast where it's heading. Every byte of portfolio data is encrypted in your browser before it reaches the server.
 
 **Live:** https://usequantive.app · **Try the demo without signing up:** https://usequantive.app/demo
 
-![Quantive dashboard - net worth chart, allocation treemap, KPI cards](public/images/dashboard.jpg)
+![Quantive dashboard: KPI cards and the net worth over time chart](public/images/dashboard.jpg)
 
 ---
 
@@ -12,7 +12,7 @@ A privacy-first personal finance cockpit. Track your net worth over time, analys
 
 Most finance apps store your data in plaintext on the server. Quantive doesn't.
 
-When you set up an account, a random 256-bit data key (DK) is generated in your browser. That DK is wrapped (encrypted) by a key-encryption key (KEK) derived from your password via **Argon2id** (t=3, m=64 MiB, p=1). The KEK is never stored — it is re-derived on each login. The server only ever receives the wrapped DK and the encrypted snapshot.
+When you set up an account, a random 256-bit data key (DK) is generated in your browser. That DK is wrapped (encrypted) by a key-encryption key (KEK) derived from your password via **Argon2id** (t=3, m=64 MiB, p=1). The KEK is never stored. It is re-derived on each login. The server only ever receives the wrapped DK and the encrypted snapshot.
 
 ```
 Password → Argon2id(salt) → KEK
@@ -21,15 +21,15 @@ KEK → XChaCha20-Poly1305 → wrapped DK          (stored in user_keys)
 DK + random 24-byte nonce → XChaCha20-Poly1305 → encrypted_data  (stored in portfolio_snapshots)
 ```
 
-This separation matters: changing your password re-wraps the DK under a new KEK — it does not re-encrypt your entire history.
+This separation matters: changing your password re-wraps the DK under a new KEK, but does not re-encrypt your entire history.
 
-Each ciphertext includes **AAD** bound to your user ID and schema version, so even with full database write access an attacker cannot transplant one user's ciphertext into another's row — the AEAD tag check fails before any plaintext is exposed.
+Each ciphertext includes **AAD** bound to your user ID and schema version, so even with full database write access an attacker cannot transplant one user's ciphertext into another's row. The AEAD tag check fails before any plaintext is exposed.
 
-A **24-word BIP-39 mnemonic** serves as a recovery path — a second KEK derived from the mnemonic wraps the same DK, so you can regain access without your password. The mnemonic is shown once and never stored. If you skip it and forget your password, your data is gone by design.
+A **24-word BIP-39 mnemonic** serves as a recovery path: a second KEK derived from the mnemonic wraps the same DK, so you can regain access without your password. The mnemonic is shown once and never stored. If you skip it and forget your password, your data is gone by design.
 
-The crypto module (`src/lib/crypto/`, 11 files) is pure TypeScript — no I/O, no side effects — and licensed MIT for independent auditing.
+The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no side effects, and is licensed MIT for independent auditing.
 
-![Recovery code setup — 24-word BIP-39 mnemonic, confirm by typing word #6](public/images/recovery-code.png)
+![Recovery code setup: the 24-word BIP-39 mnemonic, with a confirm step that asks you to type one of the words back](public/images/recovery-code.png)
 
 ---
 
@@ -37,23 +37,23 @@ The crypto module (`src/lib/crypto/`, 11 files) is pure TypeScript — no I/O, n
 
 **Free**
 - Net worth tracking with unlimited sources
-- Full allocation charts — by volatility class and liquidity
-- Multi-currency display — 13 currencies (EUR, USD, GBP, NOK, SEK, DKK, CHF, CAD, AUD, JPY, PLN, BRL, INR); historical snapshots valued at the exchange rate of their original date, not today's rate
+- Full allocation charts by volatility class and liquidity
+- Multi-currency display in 13 currencies (EUR, USD, GBP, NOK, SEK, DKK, CHF, CAD, AUD, JPY, PLN, BRL, INR). Historical snapshots are valued at the exchange rate of their original date, not today's
 - Spreadsheet import and manual balance entry
-- Drawdown and downside stats — maximum drawdown with recovery time, longest decline, best and worst rolling year
+- Drawdown and downside stats: maximum drawdown with recovery time, longest decline, best and worst rolling year
 - Optional email reminders to update your balances on a schedule you set
 - Cloud sync with end-to-end encryption
 - Rolling 12-month history view
-- Demo mode — full dashboard without signing up
+- Demo mode: the full dashboard without signing up
 
-**Pro (€9/month OR €90/year, ~€7.50/mo)**
-- Full historical view — every snapshot since you started, charted and tabular
-- Net worth projection with a 95% confidence cone — pick a conservative/base/optimistic annual rate (5% / 7.2% / 10%); the confidence band is fitted to your own historical variance. The PDF report's forecast is instead driven by your own trailing 3-year CAGR.
-- Milestone & goal tracking — targets with progress and ETA
-- Benchmark comparison — your net worth vs. inflation (Eurostat HICP) and the S&P 500 (FRED); MSCI World coming soon
+**Pro (€9/month or €90/year, ~€7.50/mo)**
+- Full historical view: every snapshot since you started, charted and as a table
+- Net worth projection with a 95% confidence cone. Pick a conservative, base, or optimistic annual rate (5% / 7.2% / 10%); the band is fitted to your own historical variance. The PDF report's forecast instead uses your trailing 3-year CAGR.
+- Milestone and goal tracking: targets with progress and ETA
+- Benchmark comparison: your net worth against inflation (Eurostat HICP) and the S&P 500 (FRED), with MSCI World coming soon
 - Month-by-month summary table
-- Excel/CSV export — full data portability, any time
-- PDF wealth report — one-page summary for advisors or an annual review
+- Excel and CSV export: your full data, any time
+- PDF wealth report: a one-page summary for an adviser or an annual review
 - Priority support (24h response)
 
 ---
@@ -90,8 +90,8 @@ npm run dev            # the dev server runs on http://localhost:8080
 ```
 VITE_SUPABASE_URL=https://<project-id>.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=<anon-key>
-VITE_POSTHOG_KEY=          # optional — analytics
-VITE_POSTHOG_HOST=         # optional — e.g. https://eu.i.posthog.com
+VITE_POSTHOG_KEY=          # optional, analytics
+VITE_POSTHOG_HOST=         # optional, e.g. https://eu.i.posthog.com
 ```
 
 ---
@@ -119,7 +119,7 @@ All four gates must pass before a pull request is mergeable: `lint`, `typecheck`
 
 ```
 src/
-├── lib/crypto/       # Pure crypto module (MIT) — AEAD, KDF, recovery, key wrapping
+├── lib/crypto/       # Pure crypto module (MIT): AEAD, KDF, recovery, key wrapping
 ├── lib/              # forecast, fxConvert, dataProcessor (Excel parser), types
 ├── contexts/         # Auth, Portfolio, KeySession, Currency, Preferences
 ├── pages/            # Dashboard, Allocations, Forecast, Sources, Settings, Admin
@@ -133,15 +133,15 @@ supabase/
 
 ---
 
-## Legal & policy pages
+## Legal and policy pages
 
-`docs/legal/{impressum,privacy-policy,terms-of-service}.md` are the canonical source for the rendered Impressum, Privacy and Terms pages — they are imported via `?raw` by [`src/components/legal/MarkdownLegal.tsx`](src/components/legal/MarkdownLegal.tsx) and rendered with ReactMarkdown. Edit the markdown, not the React page.
+`docs/legal/{impressum,privacy-policy,terms-of-service}.md` are the canonical source for the rendered Impressum, Privacy and Terms pages. They are imported via `?raw` by [`src/components/legal/MarkdownLegal.tsx`](src/components/legal/MarkdownLegal.tsx) and rendered with ReactMarkdown. Edit the markdown, not the React page.
 
 ---
 
 ## Security
 
-Found a vulnerability? Please report it privately — see [SECURITY.md](SECURITY.md).
+Found a vulnerability? Please report it privately. See [SECURITY.md](SECURITY.md).
 
 Crypto patches must reference the relevant section of `docs/security/encryption.md` by heading. New crypto primitives or parameter changes require a written rationale.
 
@@ -149,4 +149,4 @@ Crypto patches must reference the relevant section of `docs/security/encryption.
 
 ## License
 
-Quantive is **source-available**, not OSI-approved open source. The application code is released under the [PolyForm Noncommercial 1.0.0](LICENSE) licence; the crypto module (`src/lib/crypto/`) is released under the MIT licence. Commercial use requires a separate licence — contact <legal@usequantive.app>.
+Quantive is **source-available**, not OSI-approved open source. The application code is released under the [PolyForm Noncommercial 1.0.0](LICENSE) licence; the crypto module (`src/lib/crypto/`) is released under the MIT licence. Commercial use requires a separate licence: contact <legal@usequantive.app>.

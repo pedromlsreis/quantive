@@ -6,7 +6,7 @@ Please **do not** open a public GitHub issue for security vulnerabilities.
 
 Instead, disclose privately:
 
-- **Email:** legal@usequantive.app — include a description, steps to reproduce, and impact.
+- **Email:** legal@usequantive.app. Include a description, steps to reproduce, and impact.
 - **GitHub private advisory:** open one at <https://github.com/pedromlsreis/quantive/security/advisories/new>.
 
 We aim to acknowledge reports within 48 hours and will keep you informed as we address the issue.
