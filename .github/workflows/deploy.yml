@@ -17,21 +17,18 @@
 # deploys the exact commit ci verified (head_sha). Manual runs (workflow_dispatch)
 # deploy current main HEAD.
 #
-# DORMANT BY DEFAULT. The job is skipped unless the repo variable
-# DEPLOY_ENABLED == 'true', so merging this file changes nothing on its own.
+# Cloudflare Pages is on Direct Upload (git integration disconnected), so this
+# workflow is the only deploy path. DEPLOY_ENABLED == 'true' gates the job as a
+# kill switch — set it to anything else to pause deploys without deleting config.
 #
-# Before enabling, complete the one-time cutover (these live in the Cloudflare and
-# GitHub dashboards, not in the repo):
-#   1. Cloudflare Pages: switch the project to Direct Upload, i.e. DISCONNECT the
-#      Git integration. Otherwise CF keeps building on push (no prerender) and
-#      races/overwrites this workflow's upload.
-#   2. GitHub repo secrets: CLOUDFLARE_API_TOKEN (a token with Pages:Edit) and
-#      CLOUDFLARE_ACCOUNT_ID.
-#   3. GitHub repo variables: CF_PAGES_PROJECT (the Pages project name) and
-#      DEPLOY_ENABLED = 'true'.
-# Recommend a dry run first: set CF_PAGES_PROJECT but deploy to a preview branch
-# (change --branch below to a throwaway name), confirm the deployment renders,
-# then point it at the production branch.
+# Required GitHub configuration (Settings > Secrets and variables > Actions):
+#   - Secrets:   CLOUDFLARE_API_TOKEN (Pages:Edit), CLOUDFLARE_ACCOUNT_ID,
+#                VITE_POSTHOG_KEY
+#   - Variables: CF_PAGES_PROJECT, DEPLOY_ENABLED=true, VITE_SUPABASE_URL,
+#                VITE_SUPABASE_PUBLISHABLE_KEY, VITE_TURNSTILE_SITE_KEY,
+#                VITE_POSTHOG_HOST
+# The VITE_* values must mirror the production bundle config (see the build step):
+# the build runs here, not on Cloudflare, so a missing one ships a blank site.
 
 name: deploy
 
