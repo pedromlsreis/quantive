@@ -48,6 +48,7 @@ serve(async (req) => {
     let newThisMonth = 0;
     let confirmedUsers = 0;
     let lastSignInWeek = 0;
+    let lastSignInMonth = 0;
 
     let page = 1;
     const perPage = 1000;
@@ -61,6 +62,7 @@ serve(async (req) => {
         if (u.created_at && u.created_at >= monthAgo) newThisMonth++;
         if (u.email_confirmed_at) confirmedUsers++;
         if (u.last_sign_in_at && u.last_sign_in_at >= weekAgo) lastSignInWeek++;
+        if (u.last_sign_in_at && u.last_sign_in_at >= monthAgo) lastSignInMonth++;
       }
       if (list.length < perPage) break;
       page++;
@@ -110,13 +112,54 @@ serve(async (req) => {
       {},
     );
 
+    // --- Recovery-phrase adoption -----------------------------------------
+    // user_keys has one row per encrypted user. wrapped_dk_recovery is the
+    // DK wrapped by the mnemonic; null means the user never set up recovery
+    // and would lose everything on a forgotten password (zero-knowledge — we
+    // cannot help). This is pure metadata; it reveals nothing about the keys.
+    const { count: keysTotal } = await service
+      .from("user_keys")
+      .select("user_id", { count: "exact", head: true });
+
+    const { count: keysWithRecovery } = await service
+      .from("user_keys")
+      .select("user_id", { count: "exact", head: true })
+      .not("wrapped_dk_recovery", "is", null);
+
+    // --- Profile preference distributions ---------------------------------
+    // preferred_currency + reminder_frequency are plaintext preferences, not
+    // portfolio data, so they're safe to aggregate. A null preferred_currency
+    // means the user never changed it, i.e. the effective default (EUR).
+    const { data: profileRows } = await service
+      .from("profiles")
+      .select("preferred_currency, reminder_frequency");
+
+    const currencyBuckets: Record<string, number> = {};
+    const reminderBuckets: Record<string, number> = {};
+    for (const row of profileRows ?? []) {
+      const cur = row.preferred_currency ?? "EUR";
+      currencyBuckets[cur] = (currencyBuckets[cur] ?? 0) + 1;
+      const rem = row.reminder_frequency ?? "monthly";
+      reminderBuckets[rem] = (reminderBuckets[rem] ?? 0) + 1;
+    }
+
     // --- Subscriptions (Stripe, best-effort) ------------------------------
     let stripeStats: {
       enabled: boolean;
       activeSubs: number | null;
       mrrEur: number | null;
+      arrEur: number | null;
+      annualSubs: number | null;
+      monthlySubs: number | null;
       error?: string;
-    } = { enabled: false, activeSubs: null, mrrEur: null };
+    } = {
+      enabled: false,
+      activeSubs: null,
+      mrrEur: null,
+      arrEur: null,
+      annualSubs: null,
+      monthlySubs: null,
+    };
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (stripeKey) {
@@ -124,11 +167,17 @@ serve(async (req) => {
         const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
         let activeSubs = 0;
         let mrrCents = 0;
+        let annualSubs = 0;
+        let monthlySubs = 0;
         for await (const sub of stripe.subscriptions.list({
           status: "active",
           limit: 100,
         })) {
           activeSubs++;
+          // Pro is single-item, so the first item's interval classifies the sub.
+          const subInterval = sub.items.data[0]?.price.recurring?.interval;
+          if (subInterval === "year") annualSubs++;
+          else if (subInterval === "month") monthlySubs++;
           for (const item of sub.items.data) {
             const price = item.price;
             const unit = price.unit_amount ?? 0;
@@ -144,16 +193,23 @@ serve(async (req) => {
             mrrCents += monthly;
           }
         }
+        const mrrEur = Math.round(mrrCents) / 100;
         stripeStats = {
           enabled: true,
           activeSubs,
-          mrrEur: Math.round(mrrCents) / 100,
+          mrrEur,
+          arrEur: Math.round(mrrCents * 12) / 100,
+          annualSubs,
+          monthlySubs,
         };
       } catch (e) {
         stripeStats = {
           enabled: true,
           activeSubs: null,
           mrrEur: null,
+          arrEur: null,
+          annualSubs: null,
+          monthlySubs: null,
           error: e instanceof Error ? e.message : String(e),
         };
       }
@@ -167,6 +223,7 @@ serve(async (req) => {
         newThisWeek,
         newThisMonth,
         activeThisWeek: lastSignInWeek,
+        activeThisMonth: lastSignInMonth,
       },
       snapshots: {
         total: totalSnapshots ?? 0,
@@ -174,6 +231,12 @@ serve(async (req) => {
         updatedThisWeek: snapshotsWeek ?? 0,
         lastSyncAt: recentSync?.[0]?.updated_at ?? null,
       },
+      keys: {
+        total: keysTotal ?? 0,
+        withRecovery: keysWithRecovery ?? 0,
+      },
+      currencies: currencyBuckets,
+      reminders: reminderBuckets,
       feedback: {
         total: feedbackTotal ?? 0,
         byType: feedbackBuckets,

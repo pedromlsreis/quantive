@@ -10,6 +10,9 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  KeyRound,
+  Coins,
+  Bell,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +37,7 @@ interface AdminStats {
     newThisWeek: number;
     newThisMonth: number;
     activeThisWeek: number;
+    activeThisMonth: number;
   };
   snapshots: {
     total: number;
@@ -41,6 +45,12 @@ interface AdminStats {
     updatedThisWeek: number;
     lastSyncAt: string | null;
   };
+  keys: {
+    total: number;
+    withRecovery: number;
+  };
+  currencies: Record<string, number>;
+  reminders: Record<string, number>;
   feedback: {
     total: number;
     byType: Record<string, number>;
@@ -50,9 +60,17 @@ interface AdminStats {
     enabled: boolean;
     activeSubs: number | null;
     mrrEur: number | null;
+    arrEur: number | null;
+    annualSubs: number | null;
+    monthlySubs: number | null;
     error?: string;
   };
 }
+
+// Percentage of a/b as a short label, e.g. "62%". Returns '—' when there's
+// no denominator so an empty instance never renders NaN.
+const pct = (a: number, b: number) =>
+  b > 0 ? `${Math.round((a / b) * 100)}%` : '—';
 
 interface AdminUser {
   id: string;
@@ -235,10 +253,11 @@ export default function AdminPage() {
             details={
               stats
                 ? [
-                    `${stats.users.confirmed} confirmed`,
+                    `${stats.users.confirmed} confirmed (${pct(stats.users.confirmed, stats.users.total)})`,
                     `+${stats.users.newThisWeek} this week`,
                     `+${stats.users.newThisMonth} this month`,
                     `${stats.users.activeThisWeek} active (7d)`,
+                    `${stats.users.activeThisMonth} active (30d)`,
                   ]
                 : []
             }
@@ -257,8 +276,18 @@ export default function AdminPage() {
                     stats.subscriptions.mrrEur !== null
                       ? `~€${stats.subscriptions.mrrEur.toFixed(2)} MRR`
                       : 'MRR unavailable',
-                    stats.subscriptions.error ? `Stripe error — check secret key` : 'Active subscribers',
-                  ]
+                    stats.subscriptions.arrEur !== null
+                      ? `~€${stats.subscriptions.arrEur.toFixed(2)} ARR`
+                      : 'ARR unavailable',
+                    stats.subscriptions.annualSubs !== null &&
+                    stats.subscriptions.monthlySubs !== null
+                      ? `${stats.subscriptions.annualSubs} annual · ${stats.subscriptions.monthlySubs} monthly`
+                      : 'Plan split unavailable',
+                    stats.subscriptions.activeSubs !== null
+                      ? `${pct(stats.subscriptions.activeSubs, stats.users.total)} of users · ${pct(stats.subscriptions.activeSubs, stats.snapshots.total)} of activated`
+                      : '',
+                    stats.subscriptions.error ? `Stripe error — check secret key` : '',
+                  ].filter(Boolean)
                 : ['STRIPE_SECRET_KEY not set']
             }
           />
@@ -269,6 +298,8 @@ export default function AdminPage() {
             details={
               stats
                 ? [
+                    // One snapshot row per user (upsert), so total ≈ activated users.
+                    `${pct(stats.snapshots.total, stats.users.total)} of users activated`,
                     `${stats.snapshots.encrypted} encrypted (v1)`,
                     `${stats.snapshots.updatedThisWeek} updated this week`,
                     `Last sync ${fmtRelative(stats.snapshots.lastSyncAt)}`,
@@ -289,6 +320,34 @@ export default function AdminPage() {
             }
           />
         </section>
+
+        {/* Adoption & preferences. Plaintext metadata only — portfolio values
+            stay encrypted and are deliberately not surfaced here. */}
+        {stats && (
+          <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <StatCard
+              icon={<KeyRound className="h-4 w-4 text-primary" />}
+              title="Recovery phrase"
+              primary={pct(stats.keys.withRecovery, stats.keys.total)}
+              details={[
+                `${stats.keys.withRecovery} of ${stats.keys.total} keyed users`,
+                `${stats.keys.total - stats.keys.withRecovery} at risk on lost password`,
+              ]}
+            />
+            <DistributionCard
+              icon={<Coins className="h-4 w-4 text-primary" />}
+              title="Display currency"
+              dist={stats.currencies}
+              total={stats.users.total}
+            />
+            <DistributionCard
+              icon={<Bell className="h-4 w-4 text-primary" />}
+              title="Reminder cadence"
+              dist={stats.reminders}
+              total={stats.users.total}
+            />
+          </section>
+        )}
 
         {/* Recent feedback */}
         {stats && stats.feedback.recent.length > 0 && (
@@ -529,6 +588,42 @@ function StatCard({ icon, title, primary, details }: StatCardProps) {
           <li key={i} className="break-all">{d}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+interface DistributionCardProps {
+  icon: React.ReactNode;
+  title: string;
+  dist: Record<string, number>;
+  /** Denominator for the share column (typically total users). */
+  total: number;
+}
+
+function DistributionCard({ icon, title, dist, total }: DistributionCardProps) {
+  const rows = Object.entries(dist).sort((a, b) => b[1] - a[1]);
+  return (
+    <div className="rounded-xl border border-border bg-card/50 p-5">
+      <div className="mb-3 flex items-center gap-2">
+        {icon}
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          {title}
+        </span>
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No data.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {rows.map(([label, count]) => (
+            <li key={label} className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-foreground">{label}</span>
+              <span className="tabular-nums text-muted-foreground">
+                {count} · {pct(count, total)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
