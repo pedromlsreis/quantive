@@ -1,0 +1,90 @@
+# Production deploy with prerendered public routes.
+#
+# Why this is a separate workflow from ci.yml: ci.yml is verification-only and
+# must never deploy. The piece it cannot do is the browser-based prerender. The
+# public marketing/legal routes ship as an empty `<div id="root">` SPA shell, so
+# crawlers that don't run JS (Perplexity, many GPTBot/ClaudeBot fetches, RAG
+# ingestion) see no body content. scripts/prerender.mjs boots the built app in
+# headless Chromium and writes the rendered HTML back into dist/, but it needs
+# `playwright install --with-deps chromium`, which the Cloudflare Pages git-build
+# image (non-root) cannot run. So deployment moves here: this job installs
+# Chromium, runs `build:prerender`, and uploads the prerendered dist/ to
+# Cloudflare Pages via wrangler (direct upload) instead of letting CF build on
+# its own. See quantive-app/scripts/prerender.mjs and the feature-wishlist entry
+# "Re-enable prerendering of public routes for AI crawlers".
+#
+# It triggers AFTER ci.yml succeeds on main, so a red build never deploys, and it
+# deploys the exact commit ci verified (head_sha). Manual runs (workflow_dispatch)
+# deploy current main HEAD.
+#
+# DORMANT BY DEFAULT. The job is skipped unless the repo variable
+# DEPLOY_ENABLED == 'true', so merging this file changes nothing on its own.
+#
+# Before enabling, complete the one-time cutover (these live in the Cloudflare and
+# GitHub dashboards, not in the repo):
+#   1. Cloudflare Pages: switch the project to Direct Upload, i.e. DISCONNECT the
+#      Git integration. Otherwise CF keeps building on push (no prerender) and
+#      races/overwrites this workflow's upload.
+#   2. GitHub repo secrets: CLOUDFLARE_API_TOKEN (a token with Pages:Edit) and
+#      CLOUDFLARE_ACCOUNT_ID.
+#   3. GitHub repo variables: CF_PAGES_PROJECT (the Pages project name) and
+#      DEPLOY_ENABLED = 'true'.
+# Recommend a dry run first: set CF_PAGES_PROJECT but deploy to a preview branch
+# (change --branch below to a throwaway name), confirm the deployment renders,
+# then point it at the production branch.
+
+name: deploy
+
+on:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, prerender, deploy to Cloudflare Pages
+    runs-on: ubuntu-latest
+    # Only when explicitly enabled, and either a manual run or a successful ci
+    # run on a push to main. PR-triggered ci runs are ignored.
+    if: >-
+      ${{ vars.DEPLOY_ENABLED == 'true'
+          && (github.event_name == 'workflow_dispatch'
+              || (github.event.workflow_run.conclusion == 'success'
+                  && github.event.workflow_run.event == 'push'
+                  && github.event.workflow_run.head_branch == 'main')) }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Deploy the exact commit ci verified on a workflow_run trigger; fall
+          # back to the dispatched ref for manual runs.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Chromium plus its apt shared libraries — the bit the Cloudflare build
+      # image can't do, and the whole reason prerender lives here.
+      - run: npx playwright install --with-deps chromium
+
+      # vite build (incl. the seo-route-html plugin for per-route <head>) then
+      # the browser prerender that fills in each public route's <body>.
+      - run: npm run build:prerender
+
+      - name: Deploy prerendered dist to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=${{ vars.CF_PAGES_PROJECT }} --branch=main

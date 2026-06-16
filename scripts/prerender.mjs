@@ -18,10 +18,14 @@
 // non-root, so `playwright install --with-deps` (which apt-installs Chromium's
 // shared libs) can't run, and the bare browser fails to launch. The same
 // `npm run build` also runs in CI, where the right incantation differs again.
-// Run this manually (`npm run prerender` after `npm run build`) where a browser
-// is available. To re-enable in deploys, do it in a GitHub Actions job that can
-// `playwright install --with-deps chromium`, then push the prerendered dist/ to
-// Cloudflare Pages via `wrangler pages deploy` — not from inside the CF build.
+// Run this manually (`npm run prerender` after `npm run build`, or the combined
+// `npm run build:prerender`) where a browser is available.
+//
+// In deploys this runs from .github/workflows/deploy.yml: a GitHub Actions job
+// that `playwright install --with-deps chromium`, runs `build:prerender`, and
+// uploads the prerendered dist/ to Cloudflare Pages via `wrangler pages deploy`
+// — not from inside the CF build. That workflow is dormant until DEPLOY_ENABLED
+// is set; see its header for the one-time cutover steps.
 import { preview } from 'vite';
 import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';

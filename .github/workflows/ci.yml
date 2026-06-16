@@ -2,10 +2,13 @@
 # .husky/pre-push, so any internal push that uses --no-verify and every
 # external pull request still gets the same signal before merge.
 #
-# IMPORTANT: this workflow does NOT deploy. Cloudflare Pages watches the
-# repo independently and builds on push — adding a deploy step here would
-# either race with or shadow that integration. Keep this workflow strictly
-# read-only.
+# IMPORTANT: this workflow does NOT deploy. Keep it strictly read-only.
+# Deployment is owned by deploy.yml, which runs after this workflow succeeds on
+# main, prerenders the public routes (headless Chromium — impossible inside the
+# Cloudflare build image), and uploads dist/ via wrangler. Once that cutover is
+# enabled, Cloudflare Pages' own git integration is disconnected, so nothing here
+# should ever build-and-ship; this workflow only produces the green/red signal
+# deploy.yml gates on.
 #
 # Skips playwright (test:e2e) because the suite needs a running dev server
 # plus per-browser binaries and would more than double CI time. Husky still
