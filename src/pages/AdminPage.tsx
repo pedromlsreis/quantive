@@ -79,7 +79,21 @@ interface AdminUser {
   last_sign_in_at: string | null;
   confirmed: boolean;
   roles: { role: AppRole; granted_at: string }[];
+  subscriptionStatus: string | null;
+  subscriptionEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  preferredCurrency: string | null;
+  lastSnapshotAt: string | null;
+  isEncrypted: boolean;
+  hasRecovery: boolean;
 }
+
+// Stripe statuses that still grant Pro entitlement. Mirrors the server-side
+// ENTITLED set in subscriptionCache.ts so the badge can't disagree with the
+// actual gate. past_due is still entitled (grace period) but worth flagging.
+const PRO_STATUSES = new Set(['active', 'trialing', 'past_due']);
+const isProUser = (u: AdminUser) =>
+  u.subscriptionStatus != null && PRO_STATUSES.has(u.subscriptionStatus);
 
 const fmtDate = (iso: string | null) => {
   if (!iso) return '—';
@@ -244,6 +258,13 @@ export default function AdminPage() {
           </button>
         </div>
 
+        {/* Stats + adoption render as one cohesive block: a skeleton while the
+            admin-stats call is in flight, then everything at once. Avoids the
+            old "empty cards fill in piecemeal" effect. */}
+        {!stats ? (
+          <StatsSkeleton />
+        ) : (
+        <>
         {/* Stats grid */}
         <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
@@ -323,30 +344,30 @@ export default function AdminPage() {
 
         {/* Adoption & preferences. Plaintext metadata only — portfolio values
             stay encrypted and are deliberately not surfaced here. */}
-        {stats && (
-          <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <StatCard
-              icon={<KeyRound className="h-4 w-4 text-primary" />}
-              title="Recovery phrase"
-              primary={pct(stats.keys.withRecovery, stats.keys.total)}
-              details={[
-                `${stats.keys.withRecovery} of ${stats.keys.total} keyed users`,
-                `${stats.keys.total - stats.keys.withRecovery} at risk on lost password`,
-              ]}
-            />
-            <DistributionCard
-              icon={<Coins className="h-4 w-4 text-primary" />}
-              title="Display currency"
-              dist={stats.currencies}
-              total={stats.users.total}
-            />
-            <DistributionCard
-              icon={<Bell className="h-4 w-4 text-primary" />}
-              title="Reminder cadence"
-              dist={stats.reminders}
-              total={stats.users.total}
-            />
-          </section>
+        <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <StatCard
+            icon={<KeyRound className="h-4 w-4 text-primary" />}
+            title="Recovery phrase"
+            primary={pct(stats.keys.withRecovery, stats.keys.total)}
+            details={[
+              `${stats.keys.withRecovery} of ${stats.keys.total} keyed users`,
+              `${stats.keys.total - stats.keys.withRecovery} at risk on lost password`,
+            ]}
+          />
+          <DistributionCard
+            icon={<Coins className="h-4 w-4 text-primary" />}
+            title="Display currency"
+            dist={stats.currencies}
+            total={stats.users.total}
+          />
+          <DistributionCard
+            icon={<Bell className="h-4 w-4 text-primary" />}
+            title="Reminder cadence"
+            dist={stats.reminders}
+            total={stats.users.total}
+          />
+        </section>
+        </>
         )}
 
         {/* Recent feedback */}
@@ -421,6 +442,9 @@ export default function AdminPage() {
               <thead className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="py-2 pr-4 font-medium">Email</th>
+                  <th className="py-2 pr-4 font-medium">Plan</th>
+                  <th className="py-2 pr-4 font-medium">Last snapshot</th>
+                  <th className="py-2 pr-4 font-medium">Recovery</th>
                   <th className="py-2 pr-4 font-medium">Joined</th>
                   <th className="py-2 pr-4 font-medium">Last seen</th>
                   <th className="py-2 pr-4 font-medium">Roles</th>
@@ -428,16 +452,10 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {usersLoading && users.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
-                      Loading…
-                    </td>
-                  </tr>
-                )}
+                {usersLoading && users.length === 0 && <UserRowsSkeleton rows={6} />}
                 {!usersLoading && users.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                    <td colSpan={8} className="py-6 text-center text-muted-foreground">
                       No users found.
                     </td>
                   </tr>
@@ -449,9 +467,25 @@ export default function AdminPage() {
                     <tr key={u.id}>
                       <td className="py-3 pr-4">
                         <div className="text-foreground">{u.email ?? '—'}</div>
-                        {!u.confirmed && (
-                          <div className="text-xs text-muted-foreground">unconfirmed</div>
+                        <div className="flex gap-2 text-xs text-muted-foreground">
+                          {!u.confirmed && <span>unconfirmed</span>}
+                          {u.preferredCurrency && <span>{u.preferredCurrency}</span>}
+                        </div>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <PlanCell user={u} />
+                      </td>
+                      <td className="py-3 pr-4 text-xs text-muted-foreground">
+                        {u.lastSnapshotAt ? (
+                          <span title={fmtDate(u.lastSnapshotAt)}>
+                            {fmtRelative(u.lastSnapshotAt)}
+                          </span>
+                        ) : (
+                          <span style={{ color: 'var(--negative)' }}>no data</span>
                         )}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <RecoveryCell user={u} />
                       </td>
                       <td className="py-3 pr-4 text-xs text-muted-foreground">
                         {fmtDate(u.created_at)}
@@ -625,5 +659,130 @@ function DistributionCard({ icon, title, dist, total }: DistributionCardProps) {
         </ul>
       )}
     </div>
+  );
+}
+
+const badgeBase: React.CSSProperties = {
+  borderRadius: 'var(--r-1)',
+  padding: '2px 6px',
+  fontSize: 'var(--text-xs)',
+  fontWeight: 500,
+  whiteSpace: 'nowrap',
+};
+
+// Plan status from the cached subscription columns on profiles. Pro entitlement
+// mirrors the server gate; past_due and pending-cancel are surfaced because
+// they're the states a paying user is most likely to email about.
+function PlanCell({ user }: { user: AdminUser }) {
+  if (!isProUser(user)) {
+    return <span className="text-xs text-muted-foreground">Free</span>;
+  }
+  const pastDue = user.subscriptionStatus === 'past_due';
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span
+        style={{
+          ...badgeBase,
+          background: 'var(--accent-faint-raw)',
+          color: 'var(--accent-raw)',
+        }}
+      >
+        Pro
+      </span>
+      {pastDue && (
+        <span className="text-xs" style={{ color: 'var(--negative)' }}>
+          past due
+        </span>
+      )}
+      {user.cancelAtPeriodEnd && user.subscriptionEnd && (
+        <span className="text-xs text-muted-foreground">
+          ends {fmtDate(user.subscriptionEnd)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Recovery phrase presence. The "at risk" state (encrypted, no recovery) is the
+// one support needs to spot fast: a forgotten password there is unrecoverable.
+function RecoveryCell({ user }: { user: AdminUser }) {
+  if (!user.isEncrypted) {
+    return (
+      <span className="text-xs text-muted-foreground" title="No encryption keys yet">
+        —
+      </span>
+    );
+  }
+  if (user.hasRecovery) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 text-xs"
+        style={{ color: 'var(--accent-raw)' }}
+        title="Recovery phrase set up"
+      >
+        <KeyRound className="h-3.5 w-3.5" />
+        set
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-xs"
+      style={{ color: 'var(--negative)' }}
+      title="No recovery phrase — a forgotten password means permanent data loss"
+    >
+      <ShieldOff className="h-3.5 w-3.5" />
+      at risk
+    </span>
+  );
+}
+
+// Shimmer placeholders so the stats region appears as one structured block
+// while admin-stats is in flight, instead of empty cards filling in piecemeal.
+function StatsSkeleton() {
+  const bar = (w: string) => (
+    <span className="q-skeleton" style={{ height: 12, width: w, borderRadius: 'var(--r-1)' }} />
+  );
+  const card = (key: number, lines: number) => (
+    <div key={key} className="rounded-xl border border-border bg-card/50 p-5">
+      <div className="mb-3">{bar('40%')}</div>
+      <div className="mb-3">
+        <span className="q-skeleton" style={{ height: 24, width: '50%', borderRadius: 'var(--r-1)' }} />
+      </div>
+      <div className="space-y-1.5">
+        {Array.from({ length: lines }).map((_, i) => (
+          <div key={i}>{bar(`${70 - i * 10}%`)}</div>
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <>
+      <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => card(i, 4))}
+      </section>
+      <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1, 2].map((i) => card(i, 3))}
+      </section>
+    </>
+  );
+}
+
+function UserRowsSkeleton({ rows }: { rows: number }) {
+  return (
+    <>
+      {Array.from({ length: rows }).map((_, i) => (
+        <tr key={i}>
+          {Array.from({ length: 8 }).map((_, c) => (
+            <td key={c} className="py-3 pr-4">
+              <span
+                className="q-skeleton"
+                style={{ height: 12, width: c === 0 ? '80%' : '50%', borderRadius: 'var(--r-1)' }}
+              />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </>
   );
 }

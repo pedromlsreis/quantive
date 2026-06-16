@@ -60,6 +60,54 @@ serve(async (req) => {
         rolesByUser.set(r.user_id, list);
       }
 
+      // Support context, joined in memory from small per-user tables. These
+      // are all metadata — subscription cache, snapshot timestamp, whether a
+      // recovery key exists. None of it touches the encrypted portfolio blob.
+      const { data: profileRows, error: profErr } = await service
+        .from("profiles")
+        .select(
+          "user_id, subscription_status, subscription_end, subscription_cancel_at_period_end, preferred_currency",
+        );
+      if (profErr) throw profErr;
+      const profileByUser = new Map<
+        string,
+        {
+          subscription_status: string | null;
+          subscription_end: string | null;
+          subscription_cancel_at_period_end: boolean;
+          preferred_currency: string | null;
+        }
+      >();
+      for (const p of profileRows ?? []) {
+        profileByUser.set(p.user_id, {
+          subscription_status: p.subscription_status ?? null,
+          subscription_end: p.subscription_end ?? null,
+          subscription_cancel_at_period_end: !!p.subscription_cancel_at_period_end,
+          preferred_currency: p.preferred_currency ?? null,
+        });
+      }
+
+      // One snapshot row per user (upsert on user_id), so updated_at is the
+      // last-sync time and a missing row means "never saved a portfolio".
+      const { data: snapRows, error: snapErr } = await service
+        .from("portfolio_snapshots")
+        .select("user_id, updated_at");
+      if (snapErr) throw snapErr;
+      const snapshotByUser = new Map<string, string>();
+      for (const s of snapRows ?? []) snapshotByUser.set(s.user_id, s.updated_at);
+
+      // user_keys: presence = the account is encrypted; wrapped_dk_recovery
+      // present = the user set up a recovery phrase (else a lost password is
+      // unrecoverable, which is the single most common support escalation).
+      const { data: keyRows, error: keyErr } = await service
+        .from("user_keys")
+        .select("user_id, wrapped_dk_recovery");
+      if (keyErr) throw keyErr;
+      const keyByUser = new Map<string, { hasRecovery: boolean }>();
+      for (const k of keyRows ?? []) {
+        keyByUser.set(k.user_id, { hasRecovery: k.wrapped_dk_recovery != null });
+      }
+
       const users: Array<{
         id: string;
         email: string | null;
@@ -67,6 +115,13 @@ serve(async (req) => {
         last_sign_in_at: string | null;
         confirmed: boolean;
         roles: { role: string; granted_at: string }[];
+        subscriptionStatus: string | null;
+        subscriptionEnd: string | null;
+        cancelAtPeriodEnd: boolean;
+        preferredCurrency: string | null;
+        lastSnapshotAt: string | null;
+        isEncrypted: boolean;
+        hasRecovery: boolean;
       }> = [];
 
       let page = 1;
@@ -77,6 +132,8 @@ serve(async (req) => {
         const list = data?.users ?? [];
         for (const u of list) {
           if (search && !(u.email ?? "").toLowerCase().includes(search)) continue;
+          const prof = profileByUser.get(u.id);
+          const key = keyByUser.get(u.id);
           users.push({
             id: u.id,
             email: u.email ?? null,
@@ -84,6 +141,13 @@ serve(async (req) => {
             last_sign_in_at: u.last_sign_in_at ?? null,
             confirmed: !!u.email_confirmed_at,
             roles: rolesByUser.get(u.id) ?? [],
+            subscriptionStatus: prof?.subscription_status ?? null,
+            subscriptionEnd: prof?.subscription_end ?? null,
+            cancelAtPeriodEnd: prof?.subscription_cancel_at_period_end ?? false,
+            preferredCurrency: prof?.preferred_currency ?? null,
+            lastSnapshotAt: snapshotByUser.get(u.id) ?? null,
+            isEncrypted: !!key,
+            hasRecovery: key?.hasRecovery ?? false,
           });
           if (users.length >= limit) break;
         }
