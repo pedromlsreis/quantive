@@ -224,7 +224,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="lp-hero-sub">
-          Quantive is a privacy-first net-worth tracker. You record what you own and what you owe; it keeps the history, the allocation, and the forecast. Everything is encrypted in your browser before it syncs.
+          Quantive is a net-worth tracker that never connects to your bank. You enter balances or import a spreadsheet, and it tracks your net worth, asset allocation, and forecast across {SUPPORTED_COUNT} currencies. Your data is encrypted in your browser before it syncs, so the server only ever stores ciphertext.
         </p>
 
         <div className="lp-hero-ctas">
