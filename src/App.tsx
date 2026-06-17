@@ -15,6 +15,7 @@ import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { PreferencesProvider } from "@/contexts/PreferencesContext";
 import { EmailConfirmationBanner } from "@/components/auth/EmailConfirmationBanner";
 import { RequireUnlock } from "@/components/auth/RequireUnlock";
+import { IdleAutoLock } from "@/components/auth/IdleAutoLock";
 import { RecoveryOfferModal } from "@/components/auth/RecoveryOfferModal";
 import { QueryCacheGuard } from "@/components/auth/QueryCacheGuard";
 import { RequireAuth } from "@/components/auth/RequireAuth";
@@ -148,6 +149,7 @@ const App = () => (
                   <PageViewTracker />
                   <ScrollToTop />
                   <RequireUnlock />
+                  <IdleAutoLock />
                   <RecoveryOfferModal />
                   <AuthModalProvider>
                     {/* Route-scoped boundary: a page-level crash resets when

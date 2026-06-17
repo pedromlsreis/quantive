@@ -16,6 +16,12 @@ interface PreferencesContextType {
    */
   blurOnUnfocus: boolean;
   setBlurOnUnfocus: (v: boolean) => void;
+  /**
+   * Minutes of inactivity after which the workspace auto-locks: the in-memory
+   * data key is dropped and the unlock prompt returns. 0 means never.
+   */
+  autoLockMinutes: number;
+  setAutoLockMinutes: (minutes: number) => void;
   /** Locale to use for formatting numbers, or undefined to fall back to the currency's locale. */
   numberLocale: string | undefined;
 }
@@ -31,8 +37,17 @@ export function usePreferences() {
 const NF_KEY = 'pref-number-format';
 const PM_KEY = 'pref-privacy-mode';
 const AB_KEY = 'pref-privacy-auto-blur';
+const AL_KEY = 'pref-auto-lock-minutes';
+
+// 0 = never; the rest are inactivity windows in minutes offered in Settings.
+export const AUTO_LOCK_MINUTES_OPTIONS: readonly number[] = [0, 5, 15, 30, 60];
 
 const parseBool = (v: string): boolean | null => (v === 'true' ? true : v === 'false' ? false : null);
+
+const parseAutoLock = (v: string): number | null => {
+  const n = Number(v);
+  return AUTO_LOCK_MINUTES_OPTIONS.includes(n) ? n : null;
+};
 
 const LOCALE_MAP: Record<NumberFormat, string | undefined> = {
   auto: undefined,
@@ -63,6 +78,9 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   );
   const [blurOnUnfocus, setBlurOnUnfocusState] = useState<boolean>(() =>
     readStored<boolean>(AB_KEY, false, parseBool),
+  );
+  const [autoLockMinutes, setAutoLockMinutesState] = useState<number>(() =>
+    readStored<number>(AL_KEY, 0, parseAutoLock),
   );
   // True while the window is blurred / tab hidden. Only tracked when the
   // auto-blur preference is on, so the listeners aren't attached otherwise.
@@ -148,6 +166,14 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     try { localStorage.setItem(AB_KEY, String(v)); } catch { /* ignore */ }
   }, []);
 
+  const setAutoLockMinutes = useCallback((minutes: number) => {
+    // Ignore values outside the offered set so a stray caller can't install a
+    // timeout the UI can neither show nor clear.
+    if (!AUTO_LOCK_MINUTES_OPTIONS.includes(minutes)) return;
+    setAutoLockMinutesState(minutes);
+    try { localStorage.setItem(AL_KEY, String(minutes)); } catch { /* ignore */ }
+  }, []);
+
   const value = useMemo<PreferencesContextType>(() => ({
     numberFormat,
     setNumberFormat,
@@ -155,8 +181,10 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     setPrivacyMode,
     blurOnUnfocus,
     setBlurOnUnfocus,
+    autoLockMinutes,
+    setAutoLockMinutes,
     numberLocale: LOCALE_MAP[numberFormat],
-  }), [numberFormat, setNumberFormat, privacyMode, setPrivacyMode, blurOnUnfocus, setBlurOnUnfocus]);
+  }), [numberFormat, setNumberFormat, privacyMode, setPrivacyMode, blurOnUnfocus, setBlurOnUnfocus, autoLockMinutes, setAutoLockMinutes]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

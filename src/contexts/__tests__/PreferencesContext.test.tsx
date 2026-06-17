@@ -159,6 +159,39 @@ describe('blurOnUnfocus (auto-blur on window focus loss)', () => {
   });
 });
 
+describe('autoLockMinutes (idle auto-lock timeout)', () => {
+  it('defaults to 0 (never)', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    expect(result.current.autoLockMinutes).toBe(0);
+  });
+
+  it('reads a stored value on mount', () => {
+    localStorage.setItem('pref-auto-lock-minutes', '15');
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    expect(result.current.autoLockMinutes).toBe(15);
+  });
+
+  it('falls back to 0 for a value outside the offered set', () => {
+    localStorage.setItem('pref-auto-lock-minutes', '7');
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    expect(result.current.autoLockMinutes).toBe(0);
+  });
+
+  it('persists a valid value', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    act(() => { result.current.setAutoLockMinutes(30); });
+    expect(result.current.autoLockMinutes).toBe(30);
+    expect(localStorage.getItem('pref-auto-lock-minutes')).toBe('30');
+  });
+
+  it('ignores a value outside the offered set', () => {
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    act(() => { result.current.setAutoLockMinutes(15); });
+    act(() => { result.current.setAutoLockMinutes(99); });
+    expect(result.current.autoLockMinutes).toBe(15);
+  });
+});
+
 describe('press-and-hold peek (touch reveal)', () => {
   /** Dispatch a pointerdown that bubbles to the document-level listener. */
   function pointerDown(el: Element, pointerType: string) {

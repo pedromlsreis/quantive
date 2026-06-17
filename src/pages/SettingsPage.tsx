@@ -10,7 +10,7 @@ import { Notice } from '@/components/ui/Notice';
 import { extractCheckoutErrorCode, messageForPortalError } from '@/lib/billing/checkoutError';
 import { analytics } from '@/lib/analytics';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
-import { usePreferences, type NumberFormat } from '@/contexts/PreferencesContext';
+import { usePreferences, AUTO_LOCK_MINUTES_OPTIONS, type NumberFormat } from '@/contexts/PreferencesContext';
 import { REMINDER_OPTIONS, normaliseReminderFrequency, type ReminderFrequency } from '@/lib/reminders';
 import { supabase } from '@/integrations/supabase/client';
 import { RecoveryCodeDisplay } from '@/components/auth/RecoveryCodeDisplay';
@@ -32,6 +32,7 @@ import {
   Database,
   CreditCard,
   BarChart3,
+  Lock,
 } from 'lucide-react';
 import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/lib/consent';
 import { Link } from 'react-router-dom';
@@ -114,7 +115,7 @@ export default function SettingsPage() {
     }
   };
   const { currency, setCurrency, allCurrencies } = useCurrency();
-  const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode, blurOnUnfocus, setBlurOnUnfocus } = usePreferences();
+  const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode, blurOnUnfocus, setBlurOnUnfocus, autoLockMinutes, setAutoLockMinutes } = usePreferences();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -579,6 +580,32 @@ export default function SettingsPage() {
             >
               <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
             </button>
+          </div>
+
+          {/* Auto-lock after inactivity */}
+          <div className={PREF_ROW_CLASS}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
+                <Lock className="h-4 w-4 text-primary" />
+                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Auto-lock when idle</span>
+              </div>
+              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
+                Lock your data after a period of inactivity, so an unattended screen stops showing it. You re-enter your password to unlock.
+              </p>
+            </div>
+            <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
+              <select
+                value={autoLockMinutes}
+                onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
+                aria-label="Auto-lock when idle"
+              >
+                {AUTO_LOCK_MINUTES_OPTIONS.map((m) => (
+                  <option key={m} value={m}>
+                    {m === 0 ? 'Never' : `After ${m} minutes`}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {/* Anonymous analytics */}
