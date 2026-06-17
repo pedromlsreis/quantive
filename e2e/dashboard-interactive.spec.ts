@@ -115,14 +115,14 @@ test.describe('Global search palette', () => {
     await expect(combobox).toBeFocused({ timeout: 4000 });
     await expect(combobox).toHaveAttribute('aria-expanded', 'true');
 
-    // Page entries land in the "Pages" group with the hint "Page".
-    // Match by option role+name (label + hint together) to avoid strict-mode
-    // collisions with volatility-type hints that mention "open allocations".
+    // Page entries land in the "Pages" group. Their option name is just the
+    // label — the redundant per-row "Page" hint was dropped since the group
+    // header already says "Pages".
     const listbox = page.getByRole('listbox');
     await expect(listbox).toBeVisible({ timeout: 4000 });
-    await expect(listbox.getByRole('option', { name: /Overview\s+Page/i })).toBeVisible();
-    await expect(listbox.getByRole('option', { name: /Allocations\s+Page/i })).toBeVisible();
-    await expect(listbox.getByRole('option', { name: /Sources\s+Page/i })).toBeVisible();
+    await expect(listbox.getByRole('option', { name: /Overview/i })).toBeVisible();
+    await expect(listbox.getByRole('option', { name: /Allocations/i })).toBeVisible();
+    await expect(listbox.getByRole('option', { name: /Sources/i })).toBeVisible();
   });
 
   test('typing a keyword narrows results, Escape closes the palette', async ({ page }) => {
@@ -132,10 +132,9 @@ test.describe('Global search palette', () => {
     await combobox.fill('forecast');
 
     const listbox = page.getByRole('listbox');
-    await expect(listbox.getByRole('option', { name: /Forecast\s+Page/i })).toBeVisible({ timeout: 4000 });
-    // Allocations Page should NOT match the query "forecast" — but we look for
-    // the page entry specifically so volatility-type hints don't interfere.
-    await expect(listbox.getByRole('option', { name: /Allocations\s+Page/i })).toHaveCount(0);
+    await expect(listbox.getByRole('option', { name: /Forecast/i })).toBeVisible({ timeout: 4000 });
+    // Allocations should NOT match the query "forecast".
+    await expect(listbox.getByRole('option', { name: /Allocations/i })).toHaveCount(0);
 
     // Escape closes the listbox.
     await combobox.press('Escape');
