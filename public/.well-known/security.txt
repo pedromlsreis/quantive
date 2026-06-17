@@ -1,0 +1,10 @@
+# Security contact for usequantive.app — RFC 9116
+# Please report vulnerabilities privately; do not open a public issue.
+# Policy and threat model: https://usequantive.app/security
+
+Contact: mailto:support@usequantive.app
+Contact: https://github.com/pedromlsreis/quantive/security/advisories/new
+Expires: 2027-06-16T23:59:59.000Z
+Preferred-Languages: en, pt, es, de
+Canonical: https://usequantive.app/.well-known/security.txt
+Policy: https://github.com/pedromlsreis/quantive/blob/main/SECURITY.md
