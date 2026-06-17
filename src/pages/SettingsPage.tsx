@@ -690,7 +690,11 @@ export default function SettingsPage() {
       </section>
 
       {/* Data */}
-      <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
+      <section
+        id="export"
+        className="q-card q-card--p-lg"
+        style={{ marginBottom: 'var(--s-8)', scrollMarginTop: 'calc(var(--q-topbar-h, 0px) + var(--s-4))' }}
+      >
         <div className="q-section-head">
           <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
             <Database className="h-4 w-4 text-primary" />

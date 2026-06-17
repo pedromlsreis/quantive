@@ -364,6 +364,7 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
           onAdd={() => setAddOpen(true)}
           onSignIn={() => openAuthTracked('signin')}
           onSignUp={() => openAuthTracked('signup')}
+          onFeedback={() => setFeedbackTrigger(n => n + 1)}
         />
         <main id="main-content" className="q-content q-screen">
           {children}

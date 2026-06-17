@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  PieChart, Database,
+  Database,
   Plus, Search, CornerDownLeft,
+  Lock, LogOut, Download, Eye, EyeOff, UserPlus, KeyRound, MessageSquare,
 } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { toTitleCase } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { useKeySession } from '@/contexts/KeySessionContext';
+import { usePreferences } from '@/contexts/PreferencesContext';
 import { ALL_NAV_ITEMS } from '@/lib/nav-config';
 
-type ResultKind = 'page' | 'source' | 'volatType' | 'action';
+type ResultKind = 'page' | 'source' | 'action';
 
 interface Result {
   kind: ResultKind;
@@ -44,9 +47,23 @@ function matches(haystack: string, needle: string): boolean {
   return haystack.toLowerCase().includes(needle.toLowerCase());
 }
 
-export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
+interface ActionDef {
+  id: string;
+  label: string;
+  /** Extra terms for fuzzy matching, beyond the visible label. */
+  keywords: string;
+  icon: React.ReactNode;
+  run: () => void;
+  /** Omit or `true` to show; `false` hides the action in the current state. */
+  when?: boolean;
+}
+
+export function GlobalSearch({ onAdd, onSignUp, onFeedback }: { onAdd: () => void; onSignUp: () => void; onFeedback: () => void }) {
   const navigate = useNavigate();
-  const { allSources, allVolatTypes, snapshots } = usePortfolio();
+  const { allSources, snapshots, isMockData } = usePortfolio();
+  const { user, signOut } = useAuth();
+  const { status, lock, hasRecovery } = useKeySession();
+  const { privacyMode, setPrivacyMode } = usePreferences();
 
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -94,57 +111,116 @@ export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
           kind: 'page',
           id: 'page:' + p.to,
           label: p.label,
-          hint: 'Page',
           icon: p.icon,
           run: () => navigate(p.to),
         });
       }
     }
 
-    // Sources — surface the live value when available.
-    const latest = snapshots.length ? snapshots[snapshots.length - 1] : null;
-    const valueByName = new Map<string, number>();
-    latest?.sources.forEach((s) => valueByName.set(s.name, s.value));
+    // Sources — only once the user has typed. On an empty palette they'd be an
+    // arbitrary first-8 dump; pages + actions carry the discoverability, and
+    // sources are something you look up by name, not browse blind.
+    // A source absent from the latest snapshot is flagged "no value" rather
+    // than implying a current figure. We don't surface the amount itself: it
+    // would need currency formatting and privacy-mode handling, and the
+    // palette is for navigation, not at-a-glance balances.
+    if (q) {
+      const latest = snapshots.length ? snapshots[snapshots.length - 1] : null;
+      const valuedNames = new Set<string>();
+      latest?.sources.forEach((s) => valuedNames.add(s.name));
 
-    const sourceMatches = allSources.filter((s) => matches(s, q));
-    for (const name of sourceMatches.slice(0, 8)) {
-      const v = valueByName.get(name);
-      out.push({
-        kind: 'source',
-        id: 'src:' + name,
-        label: name,
-        hint: v != null ? 'Source' : 'Source · no value yet',
-        icon: <Database size={14} />,
-        run: () => navigate(`/sources?q=${encodeURIComponent(name)}`),
-      });
+      const sourceMatches = allSources.filter((s) => matches(s, q));
+      for (const name of sourceMatches.slice(0, 8)) {
+        out.push({
+          kind: 'source',
+          id: 'src:' + name,
+          label: name,
+          hint: valuedNames.has(name) ? undefined : 'No value',
+          icon: <Database size={14} />,
+          run: () => navigate(`/sources?q=${encodeURIComponent(name)}`),
+        });
+      }
     }
 
-    const typeMatches = allVolatTypes.filter((t) => matches(t, q));
-    for (const t of typeMatches.slice(0, 4)) {
-      out.push({
-        kind: 'volatType',
-        id: 'type:' + t,
-        label: toTitleCase(t),
-        hint: 'Volatility type · open allocations',
-        icon: <PieChart size={14} />,
-        run: () => navigate('/allocations'),
-      });
-    }
+    // Actions — workspace commands. Each is keyword-matched and gated to the
+    // states where it makes sense (e.g. Lock only while unlocked). In demo
+    // mode the primary action mirrors the topbar's "sign up" swap.
+    const actionDefs: ActionDef[] = [
+      isMockData
+        ? {
+            id: 'action:signup',
+            label: 'Sign up to track yours',
+            keywords: 'sign up signup register create account add measurement track',
+            icon: <UserPlus size={14} />,
+            run: onSignUp,
+          }
+        : {
+            id: 'action:add',
+            label: 'Add measurement',
+            keywords: 'add measurement new entry record snapshot',
+            icon: <Plus size={14} />,
+            run: onAdd,
+          },
+      {
+        id: 'action:privacy',
+        label: privacyMode ? 'Show values' : 'Hide values',
+        keywords: 'privacy hide show values blur mask sensitive amounts',
+        icon: privacyMode ? <Eye size={14} /> : <EyeOff size={14} />,
+        run: () => setPrivacyMode(!privacyMode),
+      },
+      {
+        id: 'action:export',
+        label: 'Export data',
+        keywords: 'export download csv excel xlsx pdf report backup data',
+        icon: <Download size={14} />,
+        run: () => navigate('/settings#export'),
+        when: !!user,
+      },
+      {
+        id: 'action:feedback',
+        label: 'Send feedback',
+        keywords: 'feedback contact support bug report suggestion idea help',
+        icon: <MessageSquare size={14} />,
+        run: onFeedback,
+      },
+      {
+        id: 'action:recovery',
+        label: 'Set up recovery code',
+        keywords: 'recovery code backup mnemonic forgot password restore',
+        icon: <KeyRound size={14} />,
+        run: () => navigate('/settings#recovery'),
+        when: !!user && hasRecovery === false,
+      },
+      {
+        id: 'action:lock',
+        label: 'Lock session',
+        keywords: 'lock secure session privacy',
+        icon: <Lock size={14} />,
+        run: lock,
+        when: status === 'unlocked-encrypted',
+      },
+      {
+        id: 'action:signout',
+        label: 'Sign out',
+        keywords: 'sign out signout log out logout leave',
+        icon: <LogOut size={14} />,
+        run: () => { void signOut(); },
+        when: !!user,
+      },
+    ];
 
-    // Action: only show "Add measurement" when query is empty or matches it.
-    if (matches('add measurement new entry record', q)) {
-      out.push({
-        kind: 'action',
-        id: 'action:add',
-        label: 'Add measurement',
-        hint: 'Action',
-        icon: <Plus size={14} />,
-        run: () => onAdd(),
-      });
+    for (const a of actionDefs) {
+      if (a.when === false) continue;
+      if (matches(a.label + ' ' + a.keywords, q)) {
+        out.push({ kind: 'action', id: a.id, label: a.label, icon: a.icon, run: a.run });
+      }
     }
 
     return out;
-  }, [query, allSources, allVolatTypes, snapshots, navigate, onAdd]);
+  }, [
+    query, allSources, snapshots, navigate, onAdd, onSignUp, onFeedback,
+    isMockData, privacyMode, setPrivacyMode, user, hasRecovery, status, lock, signOut,
+  ]);
 
   // Keep active index in range when results change.
   useEffect(() => {
@@ -152,11 +228,10 @@ export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
   }, [query]);
 
   const groups = useMemo(() => {
-    const order: ResultKind[] = ['page', 'source', 'volatType', 'action'];
+    const order: ResultKind[] = ['page', 'source', 'action'];
     const labels: Record<ResultKind, string> = {
       page: 'Pages',
       source: 'Sources',
-      volatType: 'Volatility types',
       action: 'Actions',
     };
     return order
@@ -165,6 +240,24 @@ export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
   }, [results]);
 
   const flatItems = useMemo(() => groups.flatMap((g) => g.items), [groups]);
+
+  // id → flat index, so each rendered option can find its position without an
+  // O(n) indexOf per row.
+  const flatIndexById = useMemo(() => {
+    const m = new Map<string, number>();
+    flatItems.forEach((it, i) => m.set(it.id, i));
+    return m;
+  }, [flatItems]);
+
+  // Keep the active row visible while arrowing through a list taller than the
+  // dropdown. aria-activedescendant alone doesn't scroll, because focus stays
+  // on the input — the options never receive it.
+  useEffect(() => {
+    if (!open) return;
+    const active = flatItems[activeIdx];
+    if (!active) return;
+    document.getElementById(`q-gs-${active.id}`)?.scrollIntoView({ block: 'nearest' });
+  }, [open, activeIdx, flatItems]);
 
   const selectAt = (idx: number) => {
     const item = flatItems[idx];
@@ -209,7 +302,7 @@ export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={onInputKeyDown}
-          placeholder="Search sources, pages…  (press /)"
+          placeholder="Search pages, sources, actions…  (/ or ⌘K)"
           aria-label="Quick search"
           role="combobox"
           aria-expanded={open}
@@ -260,7 +353,7 @@ export function GlobalSearch({ onAdd }: { onAdd: () => void }) {
                   {group.label}
                 </div>
                 {group.items.map((item) => {
-                  const flatIdx = flatItems.indexOf(item);
+                  const flatIdx = flatIndexById.get(item.id) ?? -1;
                   const isActive = flatIdx === activeIdx;
                   return (
                     <button

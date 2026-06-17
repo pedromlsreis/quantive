@@ -25,12 +25,14 @@ export function Topbar({
   onAdd,
   onSignIn,
   onSignUp,
+  onFeedback,
 }: {
   pathname: string;
   onMenuClick: () => void;
   onAdd: () => void;
   onSignIn: () => void;
   onSignUp: () => void;
+  onFeedback: () => void;
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -71,7 +73,7 @@ export function Topbar({
       </div>
 
       {/* Search — fills remaining space so actions land flush-right */}
-      <GlobalSearch onAdd={onAdd} />
+      <GlobalSearch onAdd={onAdd} onSignUp={onSignUp} onFeedback={onFeedback} />
 
       {/* Right-aligned actions */}
       <div className="q-topbar-actions">

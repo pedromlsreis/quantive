@@ -56,6 +56,7 @@ function setup({
   const onAdd = vi.fn();
   const onSignIn = vi.fn();
   const onSignUp = vi.fn();
+  const onFeedback = vi.fn();
   render(
     <Topbar
       pathname="/dashboard"
@@ -63,9 +64,10 @@ function setup({
       onAdd={onAdd}
       onSignIn={onSignIn}
       onSignUp={onSignUp}
+      onFeedback={onFeedback}
     />,
   );
-  return { setPrivacyMode, onMenuClick, onAdd, onSignIn, onSignUp };
+  return { setPrivacyMode, onMenuClick, onAdd, onSignIn, onSignUp, onFeedback };
 }
 
 beforeEach(() => {
