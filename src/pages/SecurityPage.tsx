@@ -352,10 +352,10 @@ export default function SecurityPage() {
               If you find a security issue, please disclose it responsibly —
               do not open a public issue. Email{' '}
               <a
-                href="mailto:hello@usequantive.app"
+                href="mailto:support@usequantive.app"
                 className="text-primary hover:underline"
               >
-                hello@usequantive.app
+                support@usequantive.app
               </a>
               {' '}or use a{' '}
               <a
