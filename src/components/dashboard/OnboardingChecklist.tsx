@@ -40,9 +40,12 @@ export function OnboardingChecklist() {
   });
 
   const steps = useMemo<Step[]>(() => {
-    const sources = data?.refSources.length ?? 0;
-    const goals = data?.goals.length ?? 0;
-    const hasBalances = !!data && !isMockData && data.facts.length > 0;
+    // PortfolioContext builds fresh data without a goals field (first
+    // measurement, Excel import), so these arrays can be absent at runtime
+    // despite the type — read them defensively.
+    const sources = data?.refSources?.length ?? 0;
+    const goals = data?.goals?.length ?? 0;
+    const hasBalances = !isMockData && (data?.facts?.length ?? 0) > 0;
     return [
       { id: 'balances', label: 'Log your first balances', done: hasBalances },
       {
