@@ -30,8 +30,10 @@ export default defineConfig({
     url: 'http://localhost:8080',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    // Force the Turnstile key empty so E2E renders no widget (no gating, no
-    // Cloudflare script). Overrides .env; only applies when Playwright starts dev.
-    env: { VITE_TURNSTILE_SITE_KEY: '' },
+    // Overrides .env; only applies when Playwright starts dev. Force the
+    // Turnstile key empty so E2E renders no widget (no gating, no Cloudflare
+    // script), and force dev-auto-login off so specs start logged out and drive
+    // auth themselves (see e2e/helpers/auth.ts).
+    env: { VITE_TURNSTILE_SITE_KEY: '', DEV_AUTOLOGIN: '0' },
   },
 });

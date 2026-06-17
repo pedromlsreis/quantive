@@ -80,7 +80,10 @@ export function devAutoLogin(): Plugin {
     configResolved(config) {
       // Load all .env vars (prefix '') so we can read the non-VITE secrets.
       env = loadEnv(config.mode, config.root, '');
-      enabled = env.DEV_AUTOLOGIN === '1' || env.DEV_AUTOLOGIN === 'true';
+      // A real env var wins over the .env file value, so Playwright's webServer
+      // can force this off (DEV_AUTOLOGIN=0) even though .env sets it to 1.
+      const flag = process.env.DEV_AUTOLOGIN ?? env.DEV_AUTOLOGIN;
+      enabled = flag === '1' || flag === 'true';
     },
     async transformIndexHtml(html) {
       if (!enabled) return html;
@@ -91,9 +94,12 @@ export function devAutoLogin(): Plugin {
       // isn't instantly resurrected mid-session, and so we never clobber a
       // fresher token the running app rotated in. An expired/absent session on
       // a later full reload gets a freshly minted one.
+      // Skip automated browsers (navigator.webdriver) so this never logs in a
+      // Playwright session — even if E2E reuses an already-running dev server
+      // that has auto-login on. The E2E specs control auth themselves.
       const json = JSON.stringify(entries);
       const script =
-        `<script>(function(){try{var s=${json};` +
+        `<script>(function(){try{if(navigator.webdriver)return;var s=${json};` +
         `for(var k in s){if(!localStorage.getItem(k))localStorage.setItem(k,s[k]);}` +
         `}catch(e){}})();</script>`;
       return html.replace('<head>', `<head>\n    ${script}`);
