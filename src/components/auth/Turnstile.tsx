@@ -63,6 +63,12 @@ export function Turnstile({ onVerify, onExpire, onError }: TurnstileProps) {
           'expired-callback': () => cbRef.current.onExpire?.(),
           'error-callback': () => cbRef.current.onError?.(),
           theme: 'dark',
+          // Stay invisible unless Cloudflare actually needs a human interaction;
+          // most legit users never see a box and the token is issued silently.
+          appearance: 'interaction-only',
+          // When it does show, span the container width so its edges line up
+          // with the inputs and submit button instead of a narrow left box.
+          size: 'flexible',
         });
       })
       .catch(() => cbRef.current.onError?.());
