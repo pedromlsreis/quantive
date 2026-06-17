@@ -13,8 +13,8 @@ interface Props {
 /**
  * Shown on `/dashboard` for logged-out users who arrived via the Pro Subscribe
  * CTA on /pricing. Bridges the logged-out → signup gap so the round-trip to
- * checkout actually completes. UI follows the q-insight pattern (familiar from
- * FreshStartNudge) with an action area on the right.
+ * checkout actually completes. UI follows the q-insight card pattern with an
+ * action area on the right.
  *
  * Per the UX rule `modal-vs-navigation` (HIG), this is an inline notice rather
  * than an auto-pop modal: the user clicks the primary button to open AuthModal,

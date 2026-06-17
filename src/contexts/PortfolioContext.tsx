@@ -28,6 +28,7 @@ const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
 const ADD_MEASUREMENT_DRAFT_KEY = 'add-measurement-draft';
 const CUSTOM_MILESTONES_KEY = 'portfolio-custom-milestones';
 const RECOVERY_OFFERED_PREFIX = 'recovery-offered:';
+const ONBOARDING_DISMISSED_PREFIX = 'onboarding-dismissed:';
 
 /**
  * Safely parse a date value, returning null for invalid dates.
@@ -328,6 +329,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem(ADD_MEASUREMENT_DRAFT_KEY);
         localStorage.removeItem(CUSTOM_MILESTONES_KEY);
         localStorage.removeItem(`${RECOVERY_OFFERED_PREFIX}${previousUserId}`);
+        localStorage.removeItem(`${ONBOARDING_DISMISSED_PREFIX}${previousUserId}`);
         clearAttribution();
       } catch {
         // Storage unavailable; nothing to clean up.

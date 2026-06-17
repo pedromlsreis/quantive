@@ -338,6 +338,14 @@ export function AppShell({ children, pathname }: { children: React.ReactNode; pa
     openAuth(mode);
   };
 
+  // Let descendants (e.g. the dashboard onboarding checklist) open the
+  // Add-measurement modal without threading a callback through the tree.
+  useEffect(() => {
+    const open = () => setAddOpen(true);
+    window.addEventListener('quantive:add-measurement', open);
+    return () => window.removeEventListener('quantive:add-measurement', open);
+  }, []);
+
   return (
     <div className="q-app">
       <a href="#main-content" className="skip-link">Skip to main content</a>

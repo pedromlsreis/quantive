@@ -12,12 +12,12 @@ import { MotivationalKPIs } from '@/components/dashboard/MotivationalKPIs';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { DemoBanner } from '@/components/dashboard/DemoBanner';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
-import { FreshStartNudge } from '@/components/dashboard/FreshStartNudge';
 import { SubscribeIntentNotice } from '@/components/dashboard/SubscribeIntentNotice';
+import { OnboardingChecklist } from '@/components/dashboard/OnboardingChecklist';
 import { analytics } from '@/lib/analytics';
 
 const Index = () => {
-  const { data, isLoading, isMockData, allSnapshots } = usePortfolio();
+  const { data, isLoading, isMockData } = usePortfolio();
   const { user, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -101,7 +101,7 @@ const Index = () => {
       {/* Use allSnapshots (not the filtered list) so a user with many
           measurements doesn't get the "just starting out" nudge after
           narrowing the date filter. */}
-      {!isMockData && allSnapshots.length === 1 && <FreshStartNudge />}
+      <OnboardingChecklist />
 
       <DashboardSection id="performance" title="Performance">
         <KPICards />

@@ -1,4 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type NumberFormat = 'auto' | 'us' | 'eu' | 'in';
 
@@ -68,6 +70,7 @@ function readStored<T>(key: string, fallback: T, parse: (v: string) => T | null)
 }
 
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [numberFormat, setNumberFormatState] = useState<NumberFormat>(() =>
     readStored<NumberFormat>(NF_KEY, 'auto', (v) =>
       v === 'auto' || v === 'us' || v === 'eu' || v === 'in' ? v : null,
@@ -80,8 +83,37 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     readStored<boolean>(AB_KEY, false, parseBool),
   );
   const [autoLockMinutes, setAutoLockMinutesState] = useState<number>(() =>
-    readStored<number>(AL_KEY, 0, parseAutoLock),
+    readStored<number>(AL_KEY, 15, parseAutoLock),
   );
+
+  // Auto-lock is an account-level security setting (unlike the device-local
+  // prefs here), so the profile is the source of truth: adopt it on sign-in
+  // and cache it locally. Mirrors CurrencyContext's preferred_currency sync.
+  const hydratedForUserRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!user) {
+      hydratedForUserRef.current = null;
+      return;
+    }
+    if (hydratedForUserRef.current === user.id) return;
+    hydratedForUserRef.current = user.id;
+
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('auto_lock_minutes')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const remote = data?.auto_lock_minutes;
+      if (typeof remote === 'number' && AUTO_LOCK_MINUTES_OPTIONS.includes(remote)) {
+        setAutoLockMinutesState(remote);
+        try { localStorage.setItem(AL_KEY, String(remote)); } catch { /* cache only */ }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
   // True while the window is blurred / tab hidden. Only tracked when the
   // auto-blur preference is on, so the listeners aren't attached otherwise.
   const [windowAway, setWindowAway] = useState(false);
@@ -172,7 +204,16 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     if (!AUTO_LOCK_MINUTES_OPTIONS.includes(minutes)) return;
     setAutoLockMinutesState(minutes);
     try { localStorage.setItem(AL_KEY, String(minutes)); } catch { /* ignore */ }
-  }, []);
+    if (user) {
+      supabase
+        .from('profiles')
+        .update({ auto_lock_minutes: minutes })
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) console.error('Failed to persist auto-lock setting:', error);
+        });
+    }
+  }, [user]);
 
   const value = useMemo<PreferencesContextType>(() => ({
     numberFormat,

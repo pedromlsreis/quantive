@@ -146,6 +146,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auto_lock_minutes: number
           created_at: string
           display_name: string | null
           id: string
@@ -155,6 +156,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_lock_minutes?: number
           created_at?: string
           display_name?: string | null
           id?: string
@@ -164,6 +166,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_lock_minutes?: number
           created_at?: string
           display_name?: string | null
           id?: string

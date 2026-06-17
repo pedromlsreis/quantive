@@ -1,6 +1,29 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import React from 'react';
+
+// PreferencesProvider now reads useAuth + the profile (auto-lock is an
+// account-synced setting), so both are mocked. Default user null keeps the
+// device-local pref tests unaffected; hydration tests set authState.user.
+const authState: { user: { id: string } | null } = { user: null };
+const profileResult: { data: { auto_lock_minutes?: number } | null; error: { message: string } | null } = { data: null, error: null };
+const updateResult: { error: { message: string } | null } = { error: null };
+
+vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => authState }));
+
+vi.mock('@/integrations/supabase/client', () => {
+  const profileChain = {
+    select: () => profileChain,
+    eq: () => ({ maybeSingle: () => Promise.resolve(profileResult) }),
+  };
+  const updateChain = { update: () => ({ eq: () => Promise.resolve(updateResult) }) };
+  return {
+    supabase: {
+      from: (table: string) => (table === 'profiles' ? { ...profileChain, ...updateChain } : profileChain),
+    },
+  };
+});
+
 import { PreferencesProvider, usePreferences } from '@/contexts/PreferencesContext';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -11,6 +34,10 @@ beforeEach(() => {
   localStorage.clear();
   // Reset privacy-mode class that may have been set by a previous test.
   document.documentElement.classList.remove('privacy-mode');
+  authState.user = null;
+  profileResult.data = null;
+  profileResult.error = null;
+  updateResult.error = null;
 });
 
 describe('PreferencesContext defaults', () => {
@@ -160,9 +187,9 @@ describe('blurOnUnfocus (auto-blur on window focus loss)', () => {
 });
 
 describe('autoLockMinutes (idle auto-lock timeout)', () => {
-  it('defaults to 0 (never)', () => {
+  it('defaults to 15 (on) when nothing is stored', () => {
     const { result } = renderHook(() => usePreferences(), { wrapper });
-    expect(result.current.autoLockMinutes).toBe(0);
+    expect(result.current.autoLockMinutes).toBe(15);
   });
 
   it('reads a stored value on mount', () => {
@@ -171,10 +198,10 @@ describe('autoLockMinutes (idle auto-lock timeout)', () => {
     expect(result.current.autoLockMinutes).toBe(15);
   });
 
-  it('falls back to 0 for a value outside the offered set', () => {
+  it('falls back to 15 for a value outside the offered set', () => {
     localStorage.setItem('pref-auto-lock-minutes', '7');
     const { result } = renderHook(() => usePreferences(), { wrapper });
-    expect(result.current.autoLockMinutes).toBe(0);
+    expect(result.current.autoLockMinutes).toBe(15);
   });
 
   it('persists a valid value', () => {
@@ -189,6 +216,13 @@ describe('autoLockMinutes (idle auto-lock timeout)', () => {
     act(() => { result.current.setAutoLockMinutes(15); });
     act(() => { result.current.setAutoLockMinutes(99); });
     expect(result.current.autoLockMinutes).toBe(15);
+  });
+
+  it('adopts the profile value when a user signs in', async () => {
+    authState.user = { id: 'u1' };
+    profileResult.data = { auto_lock_minutes: 30 };
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    await waitFor(() => expect(result.current.autoLockMinutes).toBe(30));
   });
 });
 
