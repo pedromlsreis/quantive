@@ -22,6 +22,7 @@ const sample: PortfolioData = {
     { idSource: 'Savings', volatType: 'Non-Volatile', transferableInDays: true },
     { idSource: 'ETF World', volatType: 'Volatile', transferableInDays: false },
   ],
+  goals: [],
 };
 
 describe('Excel round-trip: export → parse', () => {
@@ -77,6 +78,7 @@ describe('Excel round-trip: export → parse', () => {
       refSources: [
         { idSource: 'X', volatType: 'Volatile', transferableInDays: true },
       ],
+      goals: [],
     };
     const buf = await buildPortfolioWorkbook(data);
     const parsed = await parsePortfolioExcel(buf);
@@ -95,6 +97,7 @@ describe('Excel round-trip: export → parse', () => {
         { idSource: 'Crédit Agricole', volatType: 'Non-Volatile', transferableInDays: true },
         { idSource: '日本株式', volatType: 'Volatile', transferableInDays: true },
       ],
+      goals: [],
     };
     const buf = await buildPortfolioWorkbook(data);
     const parsed = await parsePortfolioExcel(buf);
@@ -108,6 +111,7 @@ describe('Excel round-trip: export → parse', () => {
         { date: new Date(2024, 0, 1), idSource: 'X', sourceVl: 100, currency: 'EUR' },
       ],
       refSources: [],
+      goals: [],
     };
     const buf = await buildPortfolioWorkbook(data);
     const parsed = await parsePortfolioExcel(buf);
@@ -127,7 +131,7 @@ describe('Excel round-trip: export → parse', () => {
       volatType: i % 2 === 0 ? 'Non-Volatile' : 'Volatile',
       transferableInDays: i % 3 === 0,
     }));
-    const buf = await buildPortfolioWorkbook({ facts, refSources });
+    const buf = await buildPortfolioWorkbook({ facts, refSources, goals: [] });
     const parsed = await parsePortfolioExcel(buf);
     expect(parsed.facts).toHaveLength(1000);
     expect(parsed.refSources).toHaveLength(10);

@@ -26,6 +26,7 @@ const SAMPLE: PortfolioData = {
     { idSource: 'Santander', volatType: 'Non-Volatile', transferableInDays: true },
     { idSource: 'Revolut', volatType: 'Non-Volatile', transferableInDays: true },
   ],
+  goals: [],
 };
 
 type UpsertPayload = {

@@ -53,10 +53,11 @@ export interface PortfolioData {
   /** Reference source metadata (volatility, liquidity). */
   refSources: RefSource[];
   /**
-   * Per-user goals, persisted inside the encrypted portfolio blob. Absent in
-   * legacy snapshots — read as `[]` when missing.
+   * Per-user goals, persisted inside the encrypted portfolio blob. Always an
+   * array in memory: `coerceGoals` normalises legacy snapshots that lack the
+   * field on load, and every in-memory constructor sets it.
    */
-  goals?: Goal[];
+  goals: Goal[];
 }
 
 /**

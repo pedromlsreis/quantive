@@ -13,7 +13,7 @@ const { navigate, analytics, state } = vi.hoisted(() => ({
   },
   state: {
     user: { id: 'u1' } as { id: string } | null,
-    data: null as { facts: unknown[]; refSources: unknown[]; goals?: unknown[] } | null,
+    data: null as { facts: unknown[]; refSources: unknown[]; goals: unknown[] } | null,
     isMockData: false,
     hasRecovery: null as boolean | null,
   },
@@ -60,14 +60,6 @@ describe('OnboardingChecklist', () => {
     expect(screen.getByText('Add your other accounts')).toBeTruthy();
     expect(analytics.onboardingChecklistShown).toHaveBeenCalledTimes(1);
     expect(analytics.onboardingChecklistShown).toHaveBeenCalledWith({ completed: 1 });
-  });
-
-  it('renders without crashing when data has no goals array', () => {
-    // PortfolioContext builds fresh data without a goals field right after the
-    // first measurement, so the component must tolerate goals being absent.
-    state.data = { facts: [{}], refSources: [{}] };
-    const { container } = render(<OnboardingChecklist />);
-    expect(container.textContent).toContain('Getting started');
   });
 
   it('hides once every step is done', () => {

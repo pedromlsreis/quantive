@@ -54,6 +54,7 @@ describe('exportPortfolioExcel', () => {
     refSources: [
       { idSource: 'Savings', volatType: 'Non-Volatile', transferableInDays: true },
     ],
+    goals: [],
   };
 
   it('triggers a download with default filename', async () => {
@@ -79,6 +80,7 @@ describe('buildPortfolioCsv', () => {
         { date: new Date(2024, 1, 15), idSource: 'Savings', sourceVl: 10500.5, currency: 'EUR' },
       ],
       refSources: [],
+      goals: [],
     });
     expect(csv).toBe(
       'DATE,ID_SOURCE,SOURCE_VL,CURRENCY\r\n' +
@@ -88,7 +90,7 @@ describe('buildPortfolioCsv', () => {
   });
 
   it('emits only the header when there are no facts', () => {
-    const csv = buildPortfolioCsv({ facts: [], refSources: [] });
+    const csv = buildPortfolioCsv({ facts: [], refSources: [], goals: [] });
     expect(csv).toBe('DATE,ID_SOURCE,SOURCE_VL,CURRENCY');
   });
 
@@ -100,6 +102,7 @@ describe('buildPortfolioCsv', () => {
         { date: new Date(2024, 0, 3), idSource: 'line1\nline2', sourceVl: 3, currency: 'EUR' },
       ],
       refSources: [],
+      goals: [],
     });
     const rows = csv.split('\r\n');
     expect(rows[1]).toBe('2024-01-01,"Acme, Inc.",1,EUR');
@@ -113,6 +116,7 @@ describe('buildPortfolioCsv', () => {
         { date: new Date(2024, 0, 1), idSource: 'A', sourceVl: 1234567.89, currency: 'USD' },
       ],
       refSources: [],
+      goals: [],
     });
     expect(csv).toContain(',1234567.89,');
   });
@@ -128,6 +132,7 @@ describe('buildPortfolioCsv', () => {
         { date: new Date(2024, 0, 4), idSource: '-1+2', sourceVl: 4, currency: 'EUR' },
       ],
       refSources: [],
+      goals: [],
     });
     const rows = csv.split('\r\n');
     expect(rows[1]).toBe("2024-01-01,'=1+1,1,EUR");
@@ -142,6 +147,7 @@ describe('buildPortfolioCsv', () => {
         { date: new Date(2024, 0, 1), idSource: '=HYPERLINK("http://x")', sourceVl: 1, currency: 'EUR' },
       ],
       refSources: [],
+      goals: [],
     });
     expect(csv.split('\r\n')[1]).toBe('2024-01-01,"\'=HYPERLINK(""http://x"")",1,EUR');
   });
@@ -154,6 +160,7 @@ describe('buildPortfolioCsv', () => {
         { date: new Date(2024, 0, 1), idSource: 'Mortgage', sourceVl: -250000, currency: 'EUR' },
       ],
       refSources: [],
+      goals: [],
     });
     expect(csv.split('\r\n')[1]).toBe('2024-01-01,Mortgage,-250000,EUR');
   });
@@ -165,6 +172,7 @@ describe('exportPortfolioCsv', () => {
       { date: new Date(2024, 0, 1), idSource: 'Savings', sourceVl: 10000, currency: 'EUR' },
     ],
     refSources: [],
+    goals: [],
   };
 
   it('triggers a download with the default filename', () => {

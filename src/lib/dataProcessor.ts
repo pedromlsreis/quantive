@@ -226,5 +226,6 @@ export async function parsePortfolioExcel(buffer: ArrayBuffer): Promise<Portfoli
 
   if (facts.length === 0) throw new Error('No valid fact records found');
 
-  return { facts, refSources };
+  // Excel import carries no goals; they live only in the encrypted blob.
+  return { facts, refSources, goals: [] };
 }

@@ -59,6 +59,7 @@ describe('enrichFacts', () => {
     const data: PortfolioData = {
       facts: [{ date: new Date(), idSource: 'Mystery', sourceVl: 100, currency: 'EUR' }],
       refSources: [],
+      goals: [],
     };
     const enriched = enrichFacts(data);
     expect(enriched[0].volatType).toBe('Unknown');

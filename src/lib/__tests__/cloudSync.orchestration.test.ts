@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vite
 import { attemptCloudSync, type AttemptCloudSyncDeps } from '@/lib/cloudSync';
 import type { PortfolioData } from '@/lib/types';
 
-const payload: PortfolioData = { facts: [], refSources: [] };
+const payload: PortfolioData = { facts: [], refSources: [], goals: [] };
 
 function makeDeps(overrides: Partial<AttemptCloudSyncDeps> = {}): {
   deps: AttemptCloudSyncDeps;
@@ -159,7 +159,7 @@ describe('saveToCloud retry semantics (integration with retrySync)', () => {
 
   it('manual retry replays the last attempted payload', async () => {
     upsert.mockRejectedValueOnce({ status: 403 });
-    const payloadA: PortfolioData = { facts: [{ date: new Date(0), idSource: 'A', sourceVl: 1, currency: 'EUR' }], refSources: [] };
+    const payloadA: PortfolioData = { facts: [{ date: new Date(0), idSource: 'A', sourceVl: 1, currency: 'EUR' }], refSources: [], goals: [] };
     const { deps } = makeDeps({ upsert });
 
     // Initial attempt — fails terminally.

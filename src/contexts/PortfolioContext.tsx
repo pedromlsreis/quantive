@@ -710,7 +710,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           transferableInDays: e.isLiquid ?? false,
           category: e.category?.trim() || undefined,
         }));
-        const newData: PortfolioData = { facts: newFacts, refSources: newRefSources };
+        const newData: PortfolioData = { facts: newFacts, refSources: newRefSources, goals: [] };
 
         // Persist (guests only — authed users go cloud-only)
         if (!user) {
