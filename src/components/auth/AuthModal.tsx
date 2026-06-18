@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { LogIn, UserPlus, X, Mail, KeyRound, MailCheck, Eye, EyeOff } from 'lucide-react';
+import { LogIn, UserPlus, X, Mail, KeyRound, MailCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Notice } from '@/components/ui/Notice';
@@ -47,6 +47,11 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
   // When CAPTCHA is on, block submits until we have a token.
   const captchaPending = isCaptchaEnabled && !captchaToken;
   const submitDisabled = submitting || (mode === 'signup' && !acceptedTerms) || captchaPending;
+  // Turnstile runs invisibly (interaction-only), so the only signal a user gets
+  // is the disabled button. Surface it as a label when the captcha is the *sole*
+  // remaining blocker — not while terms are still unchecked (that's a different
+  // disabled reason with its own affordance).
+  const captchaVerifying = captchaPending && !submitting && (mode !== 'signup' || acceptedTerms);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -236,11 +241,16 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
                 type="button"
                 onClick={handleResend}
                 disabled={resendCooldown > 0 || captchaPending}
+                aria-busy={captchaVerifying && resendCooldown <= 0}
                 className="q-btn q-btn--secondary q-btn--md"
                 style={{ width: '100%', opacity: resendCooldown > 0 || captchaPending ? 0.5 : 1 }}
               >
-                <Mail className="h-4 w-4" />
-                {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend confirmation email'}
+                {captchaVerifying && resendCooldown <= 0
+                  ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  : <Mail className="h-4 w-4" />}
+                {resendCooldown > 0 ? `Resend in ${resendCooldown}s`
+                  : captchaVerifying ? "Verifying you're human…"
+                  : 'Resend confirmation email'}
               </button>
               <button
                 type="button"
@@ -332,11 +342,16 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
             <button
               type="submit"
               disabled={submitDisabled}
+              aria-busy={submitting || captchaVerifying}
               className="q-btn q-btn--primary q-btn--md"
               style={{ width: '100%', opacity: submitDisabled ? 0.5 : 1 }}
             >
-              {mode === 'signin' ? <LogIn className="h-4 w-4" /> : mode === 'signup' ? <UserPlus className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-              {submitting ? 'Please wait…' : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Sign up' : 'Send reset link'}
+              {submitting || captchaVerifying
+                ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                : mode === 'signin' ? <LogIn className="h-4 w-4" /> : mode === 'signup' ? <UserPlus className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+              {submitting ? 'Please wait…'
+                : captchaVerifying ? "Verifying you're human…"
+                : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Sign up' : 'Send reset link'}
             </button>
           </form>
           )}
