@@ -14,7 +14,8 @@ interface PreferencesContextType {
    * When true, monetary values are blurred automatically whenever the window
    * loses focus or the tab is hidden (screen-share, alt-tab, stepping away),
    * and revealed again on return — independent of the persistent `privacyMode`
-   * toggle. Off by default.
+   * toggle. On by default — for a privacy-first product the safe default is to
+   * hide values when you step away. Account-synced via the profile.
    */
   blurOnUnfocus: boolean;
   setBlurOnUnfocus: (v: boolean) => void;
@@ -80,15 +81,16 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     readStored<boolean>(PM_KEY, false, parseBool),
   );
   const [blurOnUnfocus, setBlurOnUnfocusState] = useState<boolean>(() =>
-    readStored<boolean>(AB_KEY, false, parseBool),
+    readStored<boolean>(AB_KEY, true, parseBool),
   );
   const [autoLockMinutes, setAutoLockMinutesState] = useState<number>(() =>
     readStored<number>(AL_KEY, 15, parseAutoLock),
   );
 
-  // Auto-lock is an account-level security setting (unlike the device-local
-  // prefs here), so the profile is the source of truth: adopt it on sign-in
-  // and cache it locally. Mirrors CurrencyContext's preferred_currency sync.
+  // Auto-lock and auto-blur are account-synced settings (unlike number format
+  // and the manual privacy toggle, which stay device-local), so the profile is
+  // the source of truth: adopt them on sign-in and cache locally. Mirrors
+  // CurrencyContext's preferred_currency sync.
   const hydratedForUserRef = useRef<string | null>(null);
   useEffect(() => {
     if (!user) {
@@ -102,14 +104,19 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     (async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('auto_lock_minutes')
+        .select('auto_lock_minutes, blur_on_unfocus')
         .eq('user_id', user.id)
         .maybeSingle();
       if (cancelled) return;
-      const remote = data?.auto_lock_minutes;
-      if (typeof remote === 'number' && AUTO_LOCK_MINUTES_OPTIONS.includes(remote)) {
-        setAutoLockMinutesState(remote);
-        try { localStorage.setItem(AL_KEY, String(remote)); } catch { /* cache only */ }
+      const remoteLock = data?.auto_lock_minutes;
+      if (typeof remoteLock === 'number' && AUTO_LOCK_MINUTES_OPTIONS.includes(remoteLock)) {
+        setAutoLockMinutesState(remoteLock);
+        try { localStorage.setItem(AL_KEY, String(remoteLock)); } catch { /* cache only */ }
+      }
+      const remoteBlur = data?.blur_on_unfocus;
+      if (typeof remoteBlur === 'boolean') {
+        setBlurOnUnfocusState(remoteBlur);
+        try { localStorage.setItem(AB_KEY, String(remoteBlur)); } catch { /* cache only */ }
       }
     })();
     return () => { cancelled = true; };
@@ -196,7 +203,16 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const setBlurOnUnfocus = useCallback((v: boolean) => {
     setBlurOnUnfocusState(v);
     try { localStorage.setItem(AB_KEY, String(v)); } catch { /* ignore */ }
-  }, []);
+    if (user) {
+      supabase
+        .from('profiles')
+        .update({ blur_on_unfocus: v })
+        .eq('user_id', user.id)
+        .then(({ error }) => {
+          if (error) console.error('Failed to persist auto-blur setting:', error);
+        });
+    }
+  }, [user]);
 
   const setAutoLockMinutes = useCallback((minutes: number) => {
     // Ignore values outside the offered set so a stray caller can't install a

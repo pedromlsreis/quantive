@@ -6,7 +6,7 @@ import React from 'react';
 // account-synced setting), so both are mocked. Default user null keeps the
 // device-local pref tests unaffected; hydration tests set authState.user.
 const authState: { user: { id: string } | null } = { user: null };
-const profileResult: { data: { auto_lock_minutes?: number } | null; error: { message: string } | null } = { data: null, error: null };
+const profileResult: { data: { auto_lock_minutes?: number; blur_on_unfocus?: boolean } | null; error: { message: string } | null } = { data: null, error: null };
 const updateResult: { error: { message: string } | null } = { error: null };
 
 vi.mock('@/contexts/AuthContext', () => ({ useAuth: () => authState }));
@@ -138,15 +138,15 @@ describe('setPrivacyMode', () => {
 });
 
 describe('blurOnUnfocus (auto-blur on window focus loss)', () => {
-  it('defaults to false', () => {
-    const { result } = renderHook(() => usePreferences(), { wrapper });
-    expect(result.current.blurOnUnfocus).toBe(false);
-  });
-
-  it('reads blurOnUnfocus=true from localStorage on mount', () => {
-    localStorage.setItem('pref-privacy-auto-blur', 'true');
+  it('defaults to true', () => {
     const { result } = renderHook(() => usePreferences(), { wrapper });
     expect(result.current.blurOnUnfocus).toBe(true);
+  });
+
+  it('reads blurOnUnfocus=false from localStorage on mount', () => {
+    localStorage.setItem('pref-privacy-auto-blur', 'false');
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    expect(result.current.blurOnUnfocus).toBe(false);
   });
 
   it('persists the new value to localStorage', () => {
@@ -171,6 +171,7 @@ describe('blurOnUnfocus (auto-blur on window focus loss)', () => {
 
   it('does nothing on window blur when disabled', () => {
     const { result } = renderHook(() => usePreferences(), { wrapper });
+    act(() => { result.current.setBlurOnUnfocus(false); });
     expect(result.current.blurOnUnfocus).toBe(false);
     act(() => { window.dispatchEvent(new Event('blur')); });
     expect(document.documentElement.classList.contains('privacy-mode')).toBe(false);
@@ -183,6 +184,13 @@ describe('blurOnUnfocus (auto-blur on window focus loss)', () => {
     act(() => { window.dispatchEvent(new Event('focus')); });
     // privacyMode still wins, so the class stays applied.
     expect(document.documentElement.classList.contains('privacy-mode')).toBe(true);
+  });
+
+  it('adopts the profile value when a user signs in', async () => {
+    authState.user = { id: 'u1' };
+    profileResult.data = { blur_on_unfocus: true };
+    const { result } = renderHook(() => usePreferences(), { wrapper });
+    await waitFor(() => expect(result.current.blurOnUnfocus).toBe(true));
   });
 });
 

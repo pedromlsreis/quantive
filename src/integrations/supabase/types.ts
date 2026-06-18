@@ -147,6 +147,7 @@ export type Database = {
       profiles: {
         Row: {
           auto_lock_minutes: number
+          blur_on_unfocus: boolean
           created_at: string
           display_name: string | null
           id: string
@@ -157,6 +158,7 @@ export type Database = {
         }
         Insert: {
           auto_lock_minutes?: number
+          blur_on_unfocus?: boolean
           created_at?: string
           display_name?: string | null
           id?: string
@@ -167,6 +169,7 @@ export type Database = {
         }
         Update: {
           auto_lock_minutes?: number
+          blur_on_unfocus?: boolean
           created_at?: string
           display_name?: string | null
           id?: string
