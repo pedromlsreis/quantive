@@ -60,7 +60,7 @@
           "@id": "https://usequantive.app/#website",
           "name": "Quantive",
           "url": "https://usequantive.app",
-          "description": "A privacy-first net-worth tracker for individuals: net-worth history, asset allocation, and forecasting from balances you enter, end-to-end encrypted.",
+          "description": "A net-worth tracker for people who manage their own investments manually: net-worth history, asset allocation, and forecasting from balances you enter, end-to-end encrypted.",
           "inLanguage": "en-GB",
           "dateModified": "2026-06-19"
         },
@@ -75,8 +75,8 @@
             "width": 512,
             "height": 512
           },
-          "description": "Privacy-first personal finance tool for tracking net worth, asset allocation, and wealth forecasting.",
-          "disambiguatingDescription": "Quantive (usequantive.app) is a privacy-first personal finance and net-worth tracking app for individuals. It is unrelated to the strategy and OKR management software of the same name.",
+          "description": "Personal finance tool for tracking net worth, asset allocation, and wealth forecasting — end-to-end encrypted, no bank connections.",
+          "disambiguatingDescription": "Quantive (usequantive.app) is a personal finance and net-worth tracking app for individuals. It is unrelated to the strategy and OKR management software of the same name.",
           "email": "hello@usequantive.app",
           "address": {
             "@type": "PostalAddress",
@@ -179,7 +179,7 @@
               "name": "What is Quantive?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Quantive is a privacy-first net-worth tracker. It charts your net worth and allocation from balances you enter or import, and forecasts where they are heading, with no bank connection and end-to-end encryption."
+                "text": "Quantive is a net-worth tracker for people who manage their own investments manually — across brokers, banks, pension accounts, real estate, crypto, or whatever else you hold. Enter your balances or import your existing spreadsheet, and Quantive shows your net worth, allocation, and forecast in one place. No bank logins, no transaction feeds, and everything is encrypted on your device before it reaches our servers."
               }
             },
             {
@@ -188,22 +188,6 @@
               "acceptedAnswer": {
                 "@type": "Answer",
                 "text": "Yes. Core features are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF wealth report, and Excel/CSV export."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "How does Quantive protect my financial data?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "All data is encrypted on your device before it reaches Quantive's servers; the servers store only ciphertext, and only you hold the decryption key. The remaining trust is in the code we serve, as with any encrypted web app; the security page documents the full threat model."
-              }
-            },
-            {
-              "@type": "Question",
-              "name": "Can I self-host Quantive, or is it open source?",
-              "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "The cryptography is open source (MIT) and the rest of the code is source-available, so you can read exactly how your data is encrypted before you trust it. Quantive itself is hosted rather than self-hostable: we run the servers so there's nothing for you to maintain, and because your data is encrypted in your browser first, those servers only ever hold ciphertext. If your priority is keeping data entirely on your own machine, or running and forking your own server, a fully local or self-hosted open-source tracker will suit you better, and that's a fair trade. What Quantive offers instead is hosted convenience and cross-device sync, with a server that still can't read your finances."
               }
             },
             {
@@ -228,6 +212,30 @@
               "acceptedAnswer": {
                 "@type": "Answer",
                 "text": "Yes. Spreadsheet import is included in the free plan. Upload your existing spreadsheet and your historical balance data is preserved in Quantive."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I access my portfolio on my phone?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Yes. Quantive is a web app and works in any mobile browser — open it on your phone and your current net worth is right there. A native iOS and Android app is on the roadmap."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "How does Quantive protect my financial data?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "All data is encrypted on your device before it reaches Quantive's servers; the servers store only ciphertext, and only you hold the decryption key. The remaining trust is in the code we serve, as with any encrypted web app; the security page documents the full threat model."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Can I self-host Quantive, or is it open source?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "The cryptography is open source (MIT) and the rest of the code is source-available, so you can read exactly how your data is encrypted before you trust it. Quantive itself is hosted rather than self-hostable: we run the servers so there's nothing to maintain, and because your data is encrypted in your browser first, those servers only ever hold ciphertext. If your priority is keeping data entirely on your own machine or running your own server, a local-first open-source desktop tracker will suit you better. What Quantive offers instead is zero setup, cross-device access from any browser, and a server that still can't read your finances."
               }
             },
             {

@@ -25,44 +25,48 @@ const SUPPORTED_COUNT = CURRENCY_CODES.length;
 /* ── FAQ data — single source of truth, also feeds JSON-LD below */
 const FAQS: Array<{ q: string; a: string }> = [
   {
-    q: 'What is Quantive?',
-    a: 'Quantive is a privacy-first net-worth tracker. It charts your net worth and allocation from balances you enter or import, and forecasts where they are heading, with no bank connection and end-to-end encryption.',
+    q: "What is Quantive?",
+    a: "Quantive is a net-worth tracker for people who manage their own investments manually — across brokers, banks, pension accounts, real estate, crypto, or whatever else you hold. Enter your balances or import your existing spreadsheet, and Quantive shows your net worth, allocation, and forecast in one place. No bank logins, no transaction feeds, and everything is encrypted on your device before it reaches our servers.",
   },
   {
-    q: 'Is Quantive free to use?',
-    a: 'Yes. Core features are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF wealth report, and Excel/CSV export.',
+    q: "Is Quantive free to use?",
+    a: "Yes. Core features are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF wealth report, and Excel/CSV export.",
   },
   {
-    q: 'How does Quantive protect my financial data?',
-    a: 'All data is encrypted on your device before it reaches Quantive’s servers; the servers store only ciphertext, and only you hold the decryption key. The remaining trust is in the code we serve, as with any encrypted web app; the security page documents the full threat model.',
+    q: "How is Quantive different from a budgeting app?",
+    a: "Budgeting apps connect to your bank to categorise transactions. Quantive does neither: it tracks net worth and wealth over time from balances you enter or import, with no bank links and end-to-end encryption, so your financial data stays private to you.",
   },
   {
-    q: 'Can I self-host Quantive, or is it open source?',
-    a: 'The cryptography is open source (MIT) and the rest of the code is source-available, so you can read exactly how your data is encrypted before you trust it. Quantive itself is hosted rather than self-hostable: we run the servers so there’s nothing for you to maintain, and because your data is encrypted in your browser first, those servers only ever hold ciphertext. If your priority is keeping data entirely on your own machine, or running and forking your own server, a fully local or self-hosted open-source tracker will suit you better, and that’s a fair trade. What Quantive offers instead is hosted convenience and cross-device sync, with a server that still can’t read your finances.',
+    q: "Does Quantive connect to my bank?",
+    a: "No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually from the dashboard, or import them from an existing spreadsheet.",
   },
   {
-    q: 'How is Quantive different from a budgeting app?',
-    a: 'Budgeting apps connect to your bank to categorise transactions. Quantive does neither: it tracks net worth and wealth over time from balances you enter or import, with no bank links and end-to-end encryption, so your financial data stays private to you.',
+    q: "Can I import my existing spreadsheet?",
+    a: "Yes. Spreadsheet import is included in the free plan. Upload your existing spreadsheet and your historical balance data is preserved in Quantive.",
   },
   {
-    q: 'Does Quantive connect to my bank?',
-    a: 'No. Quantive never connects to your bank accounts or requests login credentials. You enter balances manually from the dashboard, or import them from an existing spreadsheet.',
+    q: "Can I access my portfolio on my phone?",
+    a: "Yes. Quantive is a web app and works in any mobile browser — open it on your phone and your current net worth is right there. A native iOS and Android app is on the roadmap.",
   },
   {
-    q: 'Can I import my existing spreadsheet?',
-    a: 'Yes. Spreadsheet import is included in the free plan. Upload your existing spreadsheet and your historical balance data is preserved in Quantive.',
+    q: "How does Quantive protect my financial data?",
+    a: "All data is encrypted on your device before it reaches Quantive's servers; the servers store only ciphertext, and only you hold the decryption key. The remaining trust is in the code we serve, as with any encrypted web app; the security page documents the full threat model.",
   },
   {
-    q: 'What currencies does Quantive support?',
+    q: "Can I self-host Quantive, or is it open source?",
+    a: "The cryptography is open source (MIT) and the rest of the code is source-available, so you can read exactly how your data is encrypted before you trust it. Quantive itself is hosted rather than self-hostable: we run the servers so there's nothing to maintain, and because your data is encrypted in your browser first, those servers only ever hold ciphertext. If your priority is keeping data entirely on your own machine or running your own server, a local-first open-source desktop tracker will suit you better. What Quantive offers instead is zero setup, cross-device access from any browser, and a server that still can't read your finances.",
+  },
+  {
+    q: "What currencies does Quantive support?",
     a: `Quantive supports ${SUPPORTED_COUNT} display currencies (${SUPPORTED_LIST}). You can hold assets in any of them and view your full portfolio in your preferred currency.`,
   },
   {
     q: "What's included in Quantive Pro?",
-    a: 'Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation; MSCI World is on the roadmap), a month-by-month summary table, a PDF wealth report, and Excel and CSV export. Priority support is included.',
+    a: "Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation; MSCI World is on the roadmap), a month-by-month summary table, a PDF wealth report, and Excel and CSV export. Priority support is included.",
   },
   {
-    q: 'What if I lose access to my account?',
-    a: 'During cloud sync setup, Quantive issues a 24-word recovery phrase (BIP-39 mnemonic). Storing it safely lets you recover your encrypted data even if you lose account access.',
+    q: "What if I lose access to my account?",
+    a: "During cloud sync setup, Quantive issues a 24-word recovery phrase (BIP-39 mnemonic). Storing it safely lets you recover your encrypted data even if you lose account access.",
   },
 ];
 
