@@ -1,0 +1,17 @@
+# Normalize line endings: text files are stored LF in the repo regardless of a
+# contributor's core.autocrlf. Stops CRLF drift from Windows editors/PowerShell.
+# Note: git has no attribute that strips a UTF-8 BOM — that is enforced by the
+# check:bom pre-commit guard (scripts/check-bom.mjs). A BOM in package.json
+# silently breaks Vite's PostCSS config resolution and blanks the app.
+* text=auto
+
+# Binary assets — never normalize line endings or attempt textual diffs.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.webp  binary
+*.ico   binary
+*.mp4   binary
+*.webm  binary
+*.woff  binary
+*.woff2 binary

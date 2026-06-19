@@ -20,6 +20,7 @@
     "prerender": "node scripts/prerender.mjs",
     "build:prerender": "vite build && node scripts/prerender.mjs",
     "stamp:freshness": "node scripts/stamp-freshness.mjs",
+    "check:bom": "node scripts/check-bom.mjs",
     "landing:poster": "node scripts/capture-landing-poster.mjs",
     "landing:tour": "node scripts/record-landing-tour.mjs",
     "readme:dashboard": "node scripts/capture-readme-shots.mjs",

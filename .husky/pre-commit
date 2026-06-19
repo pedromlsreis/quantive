@@ -1,3 +1,4 @@
+npm run check:bom
 npm run lint
 npm run typecheck
 npm run stamp:freshness
