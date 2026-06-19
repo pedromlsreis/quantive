@@ -142,6 +142,7 @@ function capture(event: string, props?: Record<string, unknown>): void {
 export type LandingCta = 'get_started' | 'try_demo' | 'pro_signup' | 'sign_in';
 export type LandingCtaLocation = 'hero' | 'footer' | 'nav' | 'pricing_card';
 export type DemoSource = 'route' | 'in_app_button';
+export type EmailCaptureLocation = 'landing';
 export type FileUploadFailureReason =
   | 'no_sheets'
   | 'no_data'
@@ -241,6 +242,16 @@ export const analytics = {
   },
   demoLoaded(props: { source: DemoSource }): void {
     capture('demo_loaded', { source: props.source });
+  },
+  /**
+   * Fired when a visitor submits the landing-page email capture. The share of
+   * `page_viewed` that reaches this is the email-capture rate — the HN2 metric
+   * for visitors not ready to create an account yet. Consent-gated like every
+   * event here, so the provider's own subscriber count is the source of truth
+   * for the rate; this event is for funnel analysis among consented visitors.
+   */
+  emailCaptured(props: { location: EmailCaptureLocation }): void {
+    capture('landing_email_captured', { location: props.location });
   },
   /**
    * Fired when a Pro-gated feature is *shown* as a locked upsell (the

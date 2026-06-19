@@ -18,6 +18,7 @@ const DEFAULT_ALLOWED_ORIGINS = [
   "https://usequantive.app",
   "http://localhost:5173",
   "http://localhost:3000",
+  "http://localhost:8080", // Vite dev server (npm run dev)
 ];
 
 const ALLOWED_HEADERS = [

@@ -14,6 +14,8 @@ import {
   VAT_NOTE,
 } from '@/lib/billing/planCopy';
 import { analytics } from '@/lib/analytics';
+import { EmailCapture } from '@/components/landing/EmailCapture';
+import { EMAIL_CAPTURE_ENABLED } from '@/lib/emailSignup';
 import './landing.css';
 
 // Built from the canonical list so marketing copy can't drift when a new
@@ -566,6 +568,8 @@ export default function LandingPage() {
             Try demo first
           </Link>
         </div>
+
+        {EMAIL_CAPTURE_ENABLED && <EmailCapture location="landing" />}
       </div>
 
       </main>

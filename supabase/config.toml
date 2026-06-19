@@ -3,6 +3,9 @@ project_id = "zopuheksdstvptorphck"
 [functions.submit-feedback]
 verify_jwt = false
 
+[functions.email-signup]
+verify_jwt = false
+
 [functions.check-subscription]
 verify_jwt = false
 
