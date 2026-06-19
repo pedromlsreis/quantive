@@ -218,13 +218,13 @@ export default function LandingPage() {
       {/* ───── HERO ───── */}
       <section className="lp-hero" aria-labelledby="lp-hero-h1">
         <h1 className="lp-hero-h1" id="lp-hero-h1">
-          Your wealth,{' '}
+          The net-worth spreadsheet{' '}
           <br className="lp-hero-h1-br" />
-          <span className="lp-hero-accent">measured.</span>
+          you've{' '}<span className="lp-hero-accent">outgrown.</span>
         </h1>
 
         <p className="lp-hero-sub">
-          Quantive is a net-worth tracker that never connects to your bank. You enter balances or import a spreadsheet, and it tracks your net worth, asset allocation, and forecast across {SUPPORTED_COUNT} currencies. Your data is encrypted in your browser before it syncs, so the server only ever stores ciphertext.
+          Quantive replaces the spreadsheet you keep across brokers, banks, and {SUPPORTED_COUNT} currencies. Enter your balances or import what you already track, and read your net worth, allocation, and forecast in one place. No bank logins, on any device.
         </p>
 
         <div className="lp-hero-ctas">

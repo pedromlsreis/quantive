@@ -81,6 +81,6 @@ If your employer has a contributor agreement that conflicts with either of those
 
 ## A note on scope
 
-Quantive is a privacy-first personal-finance dashboard, not a budgeting tool, not a transaction tracker, and not an accounting system. Features that depend on connecting to external bank accounts, scraping balances, or storing third-party credentials are out of scope by design; that constraint is what makes the encryption story credible. Suggestions in that direction will be politely declined.
+Quantive is a net-worth dashboard for people who've outgrown tracking their wealth in a spreadsheet. It is not a budgeting tool, not a transaction tracker, and not an accounting system. Features that depend on connecting to external bank accounts, scraping balances, or storing third-party credentials are out of scope by design. We never hold a credential that could pull your balances. That is what lets us encrypt everything in the browser, and it's the whole reason to trust the thing with your net worth. Suggestions in that direction will be politely declined.
 
 Thanks for reading this far.

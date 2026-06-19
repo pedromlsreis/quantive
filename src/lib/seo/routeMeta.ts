@@ -14,9 +14,9 @@
 
 export const BASE_URL = 'https://usequantive.app';
 
-export const DEFAULT_TITLE = 'Quantive - Privacy-first net-worth tracker';
+export const DEFAULT_TITLE = 'Quantive - The net-worth tracker that replaces your spreadsheet';
 export const DEFAULT_DESC =
-  'Quantive is a net-worth tracker that never connects to your bank. Enter or import balances; track net worth, allocation, and forecast in multiple currencies, end-to-end encrypted. Free forever.';
+  'Quantive replaces the spreadsheet you keep across brokers, banks, and currencies. Enter or import balances; track net worth, allocation, and forecast, with no bank logins. End-to-end encrypted. Free forever.';
 
 export interface RouteMeta {
   /** Canonical path, e.g. "/pricing". */

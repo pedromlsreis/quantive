@@ -1,6 +1,6 @@
 # Quantive
 
-A privacy-first net-worth dashboard. Track your net worth over time, analyse your asset allocation, and forecast where it's heading. Every byte of portfolio data is encrypted in your browser before it reaches the server.
+The net-worth spreadsheet you've outgrown. If you track your wealth in a spreadsheet that has sprawled across brokers, banks, and currencies, Quantive replaces it: net worth over time, asset allocation, and a forecast of where it's heading, on any device, with no bank logins to set up. And because it's your money, every byte of portfolio data is encrypted in your browser before it reaches the server.
 
 **Live:** https://usequantive.app · **Try the demo without signing up:** https://usequantive.app/demo
 
@@ -8,9 +8,17 @@ A privacy-first net-worth dashboard. Track your net worth over time, analyse you
 
 ---
 
-## How the encryption works
+## What it replaces
 
-Most finance apps store your data in plaintext on the server. Quantive doesn't.
+A spreadsheet is where most people start tracking net worth, and for a while it's fine. It stops being fine when the assets pile up: a brokerage in one country, a pension in another, some cash in a third currency, a flat you can only mark to market by hand, a couple of things a bank dashboard will never see. You end up maintaining FX columns and copy-pasting balances once a month, and the sheet you built to give you clarity now just nags at you.
+
+Quantive is that sheet, rebuilt. Enter balances by hand or import them, tag each source by volatility and liquidity, and read your net worth over time, your allocation, and a forecast without rebuilding a single formula. Historical snapshots stay valued at the exchange rate of their original date, so last year's number doesn't drift when today's rates move. There are no bank logins and nothing to connect to an aggregator, which is the point: it tracks the illiquid and cross-border holdings a bank dashboard can't, and it works the same on your laptop and your phone.
+
+---
+
+## Why your data stays yours
+
+This is the reason to pick Quantive over the next spreadsheet replacement. Most finance apps store your data in plaintext on the server. Quantive doesn't.
 
 When you set up an account, a random 256-bit data key (DK) is generated in your browser. That DK is wrapped (encrypted) by a key-encryption key (KEK) derived from your password via **Argon2id** (t=3, m=64 MiB, p=1). The KEK is never stored. It is re-derived on each login. The server only ever receives the wrapped DK and the encrypted snapshot.
 
