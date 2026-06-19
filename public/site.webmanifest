@@ -1,7 +1,7 @@
 {
   "name": "Quantive",
   "short_name": "Quantive",
-  "description": "A privacy-first net-worth tracker. Net worth, allocation, and forecast from balances you enter, end-to-end encrypted.",
+  "description": "A privacy-first net worth tracker. Net worth, allocation, and forecast from balances you enter, end-to-end encrypted.",
   "icons": [
     {
       "src": "/web-app-manifest-192x192.png?v=20260528",

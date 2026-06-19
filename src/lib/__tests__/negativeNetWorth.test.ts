@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 import { computeMonthlyRows } from '@/lib/monthlyAggregate';
 import {
   computeMaxDrawdown,
@@ -123,7 +123,7 @@ describe('computeDownsideStats with negative net worth', () => {
 describe('generateForecast with negative net worth', () => {
   it('clamps the central forecast to 0 and keeps every bound finite & non-negative', () => {
     // A negative base can't be projected, so the forecast is clamped to 0 —
-    // we don't draw a negative-net-worth trajectory.
+    // we don't draw a negative-net worth trajectory.
     const result = generateForecast([
       { date: new Date(2024, 0, 1), total: -1000 },
       { date: new Date(2024, 6, 1), total: -2000 },

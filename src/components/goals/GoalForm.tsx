@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import type { Goal } from '@/lib/types';
@@ -145,7 +145,7 @@ export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
                   {goal ? 'Edit goal' : 'Add a goal'}
                 </div>
                 <div className="q-modal-sub">
-                  Set a net-worth milestone and we'll show you how close you are.
+                  Set a net worth milestone and we'll show you how close you are.
                 </div>
               </div>
               <button

@@ -1,6 +1,6 @@
-# Quantive
+﻿# Quantive
 
-The net-worth spreadsheet you've outgrown. If you track your wealth in a spreadsheet that has sprawled across brokers, banks, and currencies, Quantive replaces it: net worth over time, asset allocation, and a forecast of where it's heading, on any device, with no bank logins to set up. And because it's your money, every byte of portfolio data is encrypted in your browser before it reaches the server.
+The net worth spreadsheet you've outgrown. If you track your wealth in a spreadsheet that has sprawled across brokers, banks, and currencies, Quantive replaces it: net worth over time, asset allocation, and a forecast of where it's heading, on any device, with no bank logins to set up. And because it's your money, every byte of portfolio data is encrypted in your browser before it reaches the server.
 
 **Live:** https://usequantive.app · **Try the demo without signing up:** https://usequantive.app/demo
 

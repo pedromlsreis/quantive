@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+﻿import { Link } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { analytics } from '@/lib/analytics';
 import type { Entitlement } from '@/lib/billing/plans';
@@ -26,7 +26,7 @@ const COPY: Record<Entitlement, { title: string; body: string }> = {
   },
   'milestones': {
     title: 'Track milestones & goals',
-    body: 'Set net-worth targets and see how close you are.',
+    body: 'Set net worth targets and see how close you are.',
   },
   'benchmarks': {
     title: 'See your full benchmark history',

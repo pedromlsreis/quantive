@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Target } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
@@ -74,7 +74,7 @@ const GoalsPage = () => {
             Goals
           </h1>
           <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
-            Set net-worth milestones and watch your trajectory toward them.
+            Set net worth milestones and watch your trajectory toward them.
           </p>
         </div>
         <button

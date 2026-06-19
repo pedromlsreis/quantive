@@ -1,4 +1,4 @@
-// Single source of truth for per-route SEO metadata.
+﻿// Single source of truth for per-route SEO metadata.
 //
 // Consumed in two places that must always agree:
 //   1. usePageMeta (runtime): updates the document head client-side once the
@@ -14,7 +14,7 @@
 
 export const BASE_URL = 'https://usequantive.app';
 
-export const DEFAULT_TITLE = 'Quantive - The net-worth tracker that replaces your spreadsheet';
+export const DEFAULT_TITLE = 'Quantive - The net worth tracker that replaces your spreadsheet';
 export const DEFAULT_DESC =
   'Quantive replaces the spreadsheet you keep across brokers, banks, and currencies. Enter or import balances; track net worth, allocation, and forecast, with no bank logins. End-to-end encrypted. Free forever.';
 

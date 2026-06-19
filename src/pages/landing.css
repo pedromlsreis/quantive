@@ -1,4 +1,4 @@
-/* ─────────────────────────────────────────────────────────────────
+﻿/* ─────────────────────────────────────────────────────────────────
    Landing page — adapted from the "Quantive Sterling Emerald"
    design prototype. All classes are prefixed `lp-` so they cannot
    collide with the rest of the app. Colors map onto the existing
@@ -190,7 +190,7 @@
 .lp-feat-col-desc { font-size: 13px; color: var(--fg-subtle); line-height: 1.55; }
 
 /* ─── HOW IT WORKS ───────────────────────────────────────────
-   The steps are plotted like measurements on the net-worth line:
+   The steps are plotted like measurements on the net worth line:
    an emerald rail runs through one dot per step, then leaves the
    last as a fading dashed tail — the same actual/forecast
    vocabulary as the hero chart. */

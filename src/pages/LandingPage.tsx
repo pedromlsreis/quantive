@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+﻿import { Fragment, useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePageMeta } from '@/hooks/usePageMeta';
@@ -28,7 +28,7 @@ const SUPPORTED_COUNT = CURRENCY_CODES.length;
 const FAQS: Array<{ q: string; a: string }> = [
   {
     q: "What is Quantive?",
-    a: "Quantive is a net-worth tracker for people who manage their own investments manually — across brokers, banks, pension accounts, real estate, crypto, or whatever else you hold. Enter your balances or import your existing spreadsheet, and Quantive shows your net worth, allocation, and forecast in one place. No bank logins, no transaction feeds, and everything is encrypted on your device before it reaches our servers.",
+    a: "Quantive is a net worth tracker for people who manage their own investments manually — across brokers, banks, pension accounts, real estate, crypto, or whatever else you hold. Enter your balances or import your existing spreadsheet, and Quantive shows your net worth, allocation, and forecast in one place. No bank logins, no transaction feeds, and everything is encrypted on your device before it reaches our servers.",
   },
   {
     q: "Is Quantive free to use?",
@@ -224,7 +224,7 @@ export default function LandingPage() {
       {/* ───── HERO ───── */}
       <section className="lp-hero" aria-labelledby="lp-hero-h1">
         <h1 className="lp-hero-h1" id="lp-hero-h1">
-          The net-worth spreadsheet{' '}
+          The net worth spreadsheet{' '}
           <br className="lp-hero-h1-br" />
           you've{' '}<span className="lp-hero-accent">outgrown.</span>
         </h1>
@@ -275,7 +275,7 @@ export default function LandingPage() {
           <div>
             <h3 className="lp-feat-title">Your entire wealth in a single view</h3>
             <p className="lp-feat-desc">
-              Record each account, asset, and liability once; Quantive rolls them into a single net-worth figure across sources and currencies, and the charts update as you add measurements.
+              Record each account, asset, and liability once; Quantive rolls them into a single net worth figure across sources and currencies, and the charts update as you add measurements.
             </p>
           </div>
           <div className="lp-shot">

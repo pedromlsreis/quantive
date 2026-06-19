@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
@@ -671,7 +671,7 @@ export default function SettingsPage() {
                 </span>
               </div>
               <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                Monthly digest of net-worth movement, allocation drift, and forecast updates.
+                Monthly digest of net worth movement, allocation drift, and forecast updates.
               </p>
             </div>
             <button

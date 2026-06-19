@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @module types
  * Core domain types for the Quantive application.
  * These types model the portfolio data structure from Excel ingestion
@@ -40,7 +40,7 @@ export interface RefSource {
   /**
    * When true, the source is paused: we no longer add measurements for it,
    * and the most recent fact is treated as its perpetual value. Kept in
-   * snapshots and net-worth maths so historical totals stay coherent. Absent
+   * snapshots and net worth maths so historical totals stay coherent. Absent
    * on legacy blobs — read as `false`.
    */
   isPaused?: boolean;
@@ -61,7 +61,7 @@ export interface PortfolioData {
 }
 
 /**
- * A net-worth milestone the user is tracking. Stored client-side inside the
+ * A net worth milestone the user is tracking. Stored client-side inside the
  * encrypted portfolio blob — never visible to the server.
  *
  * Amounts are stored in `targetCurrency`, not the user's base currency, so a
