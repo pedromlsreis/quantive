@@ -54,8 +54,7 @@ export interface SubscriptionView {
   has_stripe_history: boolean;
 }
 
-// The three Stripe statuses that grant Pro access. `past_due` is in here
-// deliberately — see subscription-tiers.md "Payment failures and dunning".
+// The three Stripe statuses that grant Pro access. `past_due` is in here deliberately.
 const ENTITLED = new Set(["active", "trialing", "past_due"]);
 
 export function viewFromCacheRow(row: {
