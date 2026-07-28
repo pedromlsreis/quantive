@@ -1,4 +1,4 @@
-﻿# Quantive
+# Quantive
 
 The net worth spreadsheet you've outgrown. If you track your wealth in a spreadsheet that has sprawled across brokers, banks, and currencies, Quantive replaces it: net worth over time, asset allocation, and a forecast of where it's heading, on any device, with no bank logins to set up. And because it's your money, every byte of portfolio data is encrypted in your browser before it reaches the server.
 
@@ -46,7 +46,7 @@ The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no sid
 **Free**
 - Net worth tracking with unlimited sources
 - Full allocation charts by volatility class and liquidity
-- Multi-currency display in 13 currencies (EUR, USD, GBP, NOK, SEK, DKK, CHF, CAD, AUD, JPY, PLN, BRL, INR). Historical snapshots are valued at the exchange rate of their original date, not today's
+- Multi-currency display in 14 currencies (EUR, USD, GBP, NOK, SEK, DKK, CHF, CAD, AUD, JPY, PLN, BRL, INR, ZAR). Historical snapshots are valued at the exchange rate of their original date, not today's
 - Spreadsheet import and manual balance entry
 - Drawdown and downside stats: maximum drawdown with recovery time, longest decline, best and worst rolling year
 - Optional email reminders to update your balances on a schedule you set

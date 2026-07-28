@@ -30,6 +30,7 @@ export const CURRENCY_CODES = [
   'PLN',
   'BRL',
   'INR',
+  'ZAR',
 ] as const;
 
 export type CurrencyCode = typeof CURRENCY_CODES[number];
@@ -62,6 +63,7 @@ export const CURRENCIES: Record<CurrencyCode, CurrencyConfig> = {
   PLN: { code: 'PLN', name: 'Polish Złoty',      symbol: 'zł',  locale: 'pl-PL' },
   BRL: { code: 'BRL', name: 'Brazilian Real',    symbol: 'R$',  locale: 'pt-BR' },
   INR: { code: 'INR', name: 'Indian Rupee',      symbol: '₹',   locale: 'en-IN' },
+  ZAR: { code: 'ZAR', name: 'South African Rand', symbol: 'R',  locale: 'en-ZA' },
 };
 
 /** Lookup set for `coerceCurrency` and runtime validation. */

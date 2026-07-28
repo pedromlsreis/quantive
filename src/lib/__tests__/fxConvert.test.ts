@@ -194,9 +194,9 @@ describe('coerceCurrency', () => {
   });
 
   it('falls back to EUR for unsupported currency codes', () => {
-    // CNY, ZAR are not in SUPPORTED_CURRENCIES — they round-trip to EUR.
+    // CNY, MXN are not in SUPPORTED_CURRENCIES — they round-trip to EUR.
     expect(coerceCurrency('CNY')).toBe('EUR');
-    expect(coerceCurrency('ZAR')).toBe('EUR');
+    expect(coerceCurrency('MXN')).toBe('EUR');
     expect(coerceCurrency('XXX')).toBe('EUR');
     expect(coerceCurrency(42)).toBe('EUR'); // numbers etc.
   });
