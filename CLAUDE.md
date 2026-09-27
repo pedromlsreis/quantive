@@ -29,6 +29,8 @@ npm run size:check     # size-limit bundle budget (enforced; see package.json `s
 Run a single unit test: `npx vitest run src/lib/forecast.test.ts` (or `-t "name"` to filter by title).
 Run a single E2E spec: `npx playwright test e2e/auth.spec.ts`.
 
+**E2E auth:** Supabase enforces Turnstile CAPTCHA on password sign-in with the real production secret, so headless tests can't submit the `AuthModal` form. Instead [e2e/global-setup.ts](e2e/global-setup.ts) mints one session per test user via the service-role `admin.generateLink` + `verifyOtp` path (see `prepareSessions` in [e2e/helpers/auth.ts](e2e/helpers/auth.ts)), and specs inject it before driving the real unlock UI. Needs `SUPABASE_SERVICE_ROLE_KEY` and `TEST_USER_*` in `.env` (see `.env.example`); without them the auth specs skip. Don't set `VITE_TURNSTILE_SITE_KEY` to Cloudflare's always-pass test key: the real secret rejects its token.
+
 The four merge gates are `lint`, `typecheck`, `test`, `build`. `.husky/pre-commit` runs lint + typecheck + `stamp:freshness`; `.husky/pre-push` runs the full `test:all` + build + `size:check`. CI ([.github/workflows/ci.yml](.github/workflows/ci.yml)) mirrors the gates but **skips E2E** and never deploys — keep it read-only.
 
 Deployment is owned by [.github/workflows/deploy.yml](.github/workflows/deploy.yml): it runs after CI succeeds on `main`, prerenders the public routes via headless Chromium (impossible inside Cloudflare's non-root build image), and uploads `dist/` through `wrangler pages deploy`. Cloudflare Pages is on **Direct Upload** (git integration disconnected), so this workflow is the only deploy path. Do not add a deploy step to `ci.yml`.
@@ -78,7 +80,7 @@ Pages are lazy-loaded. Errors use a route-scoped boundary (resets on navigation)
 
 ### Other domain pieces
 
-- **Multi-currency**: 14 display currencies; historical snapshots are valued at the FX rate **of their original date**, not today's — see [src/lib/fxConvert.ts](src/lib/fxConvert.ts) and the `fx-ingest` function.
+- **Multi-currency**: 14 display currencies; historical snapshots are valued at the FX rate **of their original date**, not today's — see [src/lib/fxConvert.ts](src/lib/fxConvert.ts) and the `fx-ingest` function. To add a currency, edit only [src/lib/currencies.ts](src/lib/currencies.ts) (`CURRENCY_CODES` + its `CURRENCIES` entry); `fx-ingest` has no list and already stores every code Frankfurter publishes. `fxConvert.test.ts` hardcodes a few codes as *unsupported* (e.g. CNY, MXN) — swap one out if you're adding it. The count in [README.md](README.md) and this file is hand-maintained.
 - **Forecast/stats**: [src/lib/forecast.ts](src/lib/forecast.ts), `scenarioForecast.ts`, `drawdownStats.ts`, `goalEta.ts`. The in-app projection cone is fitted to the user's own variance; the PDF report's forecast uses trailing 3-year CAGR (intentionally different).
 - **Billing/plans**: [src/lib/billing/plans.ts](src/lib/billing/plans.ts) holds Stripe `prod_`/`price_` IDs and the free/Pro entitlement map (`planHas`). Pro is EUR-only, €9/mo or €90/yr.
 - **Legal pages**: edit the markdown in [docs/legal/](docs/legal/) — it's the source of truth, imported via `?raw` and rendered by [MarkdownLegal.tsx](src/components/legal/MarkdownLegal.tsx). Don't edit the React page bodies.
@@ -90,7 +92,9 @@ Pages are lazy-loaded. Errors use a route-scoped boundary (resets on navigation)
 - Comments explain **why**, not what — reserve them for invariants, hidden constraints, or surprises a reader couldn't infer.
 - Don't add error handling for cases that can't happen. Validate at boundaries (user input, decoded JSON, network responses), trust internal types elsewhere.
 - In-repo file references use markdown links, not backticks (most reading happens through GitHub/IDE).
-- Scope is deliberately narrow: a privacy-first net worth dashboard, **not** a budgeting/transaction/bank-syncing tool. Bank-connection or credential-storing features are out of scope by design — that constraint is what makes the encryption story credible.
+- String literals: use the straight apostrophe `'` (U+0027), never curly `’` (U+2019); write prose containing apostrophes as double-quoted strings.
+- User-facing copy: sentence case (headings, labels, buttons, chart titles, legend entries) and British spelling (`Customise`, `analyse`). Exclamation marks only in success toasts confirming a user action.
+- Scope is deliberately narrow: an end-to-end encrypted net worth dashboard, **not** a budgeting/transaction/bank-syncing tool. Bank-connection or credential-storing features are out of scope by design — that constraint is what makes the encryption story credible.
 
 ## Working with quantive-internal/
 

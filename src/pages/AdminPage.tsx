@@ -314,12 +314,14 @@ export default function AdminPage() {
           />
           <StatCard
             icon={<DatabaseIcon className="h-4 w-4 text-primary" />}
-            title="Snapshots"
+            title="Users with data"
             primary={stats?.snapshots.total ?? '—'}
             details={
               stats
                 ? [
-                    // One snapshot row per user (upsert), so total ≈ activated users.
+                    // portfolio_snapshots holds one upserted row per user; the
+                    // per-date snapshot count lives inside the ciphertext, so the
+                    // server can only count users, not snapshots.
                     `${pct(stats.snapshots.total, stats.users.total)} of users activated`,
                     `${stats.snapshots.encrypted} encrypted (v1)`,
                     `${stats.snapshots.updatedThisWeek} updated this week`,
