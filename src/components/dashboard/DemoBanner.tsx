@@ -60,7 +60,7 @@ export function DemoBanner() {
       </span>
 
       <span style={{ whiteSpace: 'nowrap' }}>
-        Demo data — figures are illustrative
+        Demo data: figures are illustrative
       </span>
 
       <button

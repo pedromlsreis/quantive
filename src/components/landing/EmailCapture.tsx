@@ -24,6 +24,9 @@ export function EmailCapture({ location = 'landing' }: { location?: EmailCapture
   // Turnstile tokens are single-use; bump this to remount the widget for a fresh
   // one after a failed submit or an expiry.
   const [captchaNonce, setCaptchaNonce] = useState(0);
+  // Turnstile's third-party script loads on first focus of the field, not on
+  // page load: most visitors never use this form.
+  const [captchaArmed, setCaptchaArmed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const fieldId = useId();
@@ -91,6 +94,7 @@ export function EmailCapture({ location = 'landing' }: { location?: EmailCapture
             autoComplete="email"
             placeholder="you@example.com"
             value={email}
+            onFocus={() => setCaptchaArmed(true)}
             onChange={(e) => {
               setEmail(e.target.value);
               if (status === 'error') {
@@ -105,7 +109,7 @@ export function EmailCapture({ location = 'landing' }: { location?: EmailCapture
           />
           <button
             type="submit"
-            className="lp-btn-primary lp-email-btn"
+            className="pub-btn pub-btn--secondary lp-email-btn"
             disabled={submitting}
             aria-busy={submitting}
           >
@@ -113,7 +117,7 @@ export function EmailCapture({ location = 'landing' }: { location?: EmailCapture
           </button>
         </div>
 
-        {isCaptchaEnabled && (
+        {isCaptchaEnabled && captchaArmed && (
           <div className="lp-email-cf">
             <Turnstile
               key={captchaNonce}

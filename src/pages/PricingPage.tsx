@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { StickyNav } from '@/components/landing/StickyNav';
-import { Footer } from '@/components/Footer';
+import { PublicPage } from '@/components/landing/PublicPage';
+import { RollingFigure } from '@/components/landing/RollingFigure';
 import { usePageMeta } from '@/hooks/usePageMeta';
 import { getRouteMeta } from '@/lib/seo/routeMeta';
 import {
@@ -18,7 +18,7 @@ import { PLANS } from '@/lib/billing/plans';
 import { extractCheckoutErrorCode, messageForCheckoutError } from '@/lib/billing/checkoutError';
 import { supabase } from '@/integrations/supabase/client';
 import { Notice } from '@/components/ui/Notice';
-import './landing.css';
+import './pricing.css';
 
 type Interval = 'monthly' | 'yearly';
 
@@ -39,10 +39,10 @@ export default function PricingPage() {
 
   const proPlan = PLANS.find((p) => p.id === 'pro')!;
   const priceLabel = interval === 'yearly' ? '€90' : '€9';
-  const periodLabel = interval === 'yearly' ? '/year' : '/month';
+  const periodLabel = interval === 'yearly' ? 'a year' : 'a month';
   const caption = interval === 'yearly'
-    ? '~€7.50/mo · save €18 vs monthly'
-    : 'Or €90/year · save €18';
+    ? 'About €7.50 a month. You save €18 against monthly.'
+    : 'Or €90 a year, and save €18.';
 
   const subscribeWithPlan = useCallback(async (chosenInterval: Interval) => {
     const chosenPrice = chosenInterval === 'yearly' ? proPlan.prices!.yearly! : proPlan.prices!.monthly!;
@@ -119,157 +119,185 @@ export default function PricingPage() {
     ? 'Confirm your email to subscribe'
     : submitting
     ? 'Redirecting…'
-    : `Subscribe · ${priceLabel}${periodLabel}`;
+    : `Subscribe for ${priceLabel} ${periodLabel}`;
+
+  const intervals: { id: Interval; label: string; hint: string }[] = [
+    { id: 'yearly', label: 'Yearly', hint: '€90' },
+    { id: 'monthly', label: 'Monthly', hint: '€9' },
+  ];
+  const radios = useRef<(HTMLButtonElement | null)[]>([]);
+  const onIntervalKey = (e: KeyboardEvent<HTMLButtonElement>, i: number) => {
+    const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+    if (!dir) return;
+    e.preventDefault();
+    const next = intervals[(i + dir + intervals.length) % intervals.length];
+    setInterval(next.id);
+    radios.current[intervals.indexOf(next)]?.focus();
+  };
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <StickyNav />
+    <PublicPage>
+      <div className="pub-wrap pp">
+        <header className="pp-head">
+          <h1 className="pub-display">{PRICING_HEADLINE}</h1>
+          <p className="pub-lede">{PRICING_SUB} Pro is also available monthly, at €9.</p>
+        </header>
 
-      <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 pb-20 pt-32">
-        <h1 className="mb-4 text-center font-serif text-4xl font-normal tracking-[-0.01em] text-foreground">{PRICING_HEADLINE}</h1>
-        <p className="mx-auto mb-14 max-w-lg text-center text-muted-foreground">{PRICING_SUB}</p>
-
-        <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
-          {/* Free */}
-          <div className="flex flex-col rounded-xl border border-border/40 bg-card/50 p-8">
-            <h2 className="text-lg font-bold text-foreground">Free</h2>
-            <p className="mt-1 text-3xl font-extrabold text-foreground">€0<span className="text-sm font-normal text-muted-foreground">/mo</span></p>
-            <p className="mt-1 text-xs text-muted-foreground">Forever. No credit card required.</p>
-            <p className="mt-1 text-[11px] text-muted-foreground/70">{VAT_NOTE}</p>
-            <div className="mt-5 space-y-4 text-sm text-muted-foreground">
-              {FREE_SECTIONS.map((sec) => (
-                <div key={sec.head}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">{sec.head}</p>
-                  <ul className="mt-2 space-y-2">
-                    {sec.items.map((f) => (
-                      <li key={f} className="flex items-start gap-2">
-                        <span className="mt-0.5 text-accent">✓</span>
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-            <Link
-              to="/dashboard"
-              className="mt-auto block rounded-lg border border-border bg-secondary py-2.5 text-center text-sm font-medium text-secondary-foreground transition-transform hover:scale-105"
-              onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'pricing_card' })}
-            >
-              Get Started
-            </Link>
-          </div>
-
-          {/* Pro */}
-          <div className="relative rounded-xl border-2 border-primary/50 bg-card p-8">
-            <div
-              role="radiogroup"
-              aria-label="Billing interval"
-              className="absolute -top-3 right-6 flex overflow-hidden rounded-full border border-primary/40 bg-background text-xs font-medium"
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={interval === 'monthly'}
-                onClick={() => setInterval('monthly')}
-                className={`px-3 py-0.5 transition-colors ${interval === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={interval === 'yearly'}
-                onClick={() => setInterval('yearly')}
-                className={`px-3 py-0.5 transition-colors ${interval === 'yearly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-              >
-                Yearly
-              </button>
-            </div>
-            <h2 className="text-lg font-bold text-foreground">Pro</h2>
-            <p className="mt-1 text-3xl font-extrabold text-foreground">
-              {priceLabel}
-              <span className="text-sm font-normal text-muted-foreground">{periodLabel}</span>
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">{caption}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground/70">{VAT_NOTE}</p>
-
-            <div className="mt-5 space-y-4 text-sm text-muted-foreground">
-              {PRO_SECTIONS.map((sec) => (
-                <div key={sec.head}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground">{sec.head}</p>
-                  <ul className="mt-2 space-y-2">
-                    {sec.items.map((f) => (
-                      <li key={f} className="flex items-start gap-2">
-                        <span className="mt-0.5 text-primary">✓</span>
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-
+        <div role="radiogroup" aria-label="Billing interval" className="pp-interval" data-active={interval}>
+          <span className="pp-interval-thumb" aria-hidden="true" />
+          {intervals.map((opt, i) => (
             <button
+              key={opt.id}
+              ref={(el) => (radios.current[i] = el)}
               type="button"
-              onClick={handleSubscribe}
-              disabled={submitting || needsEmailConfirmation}
-              aria-disabled={submitting || needsEmailConfirmation}
-              className="lp-price-cta lp-price-cta--pro mt-6 w-full"
-              style={{ opacity: submitting || needsEmailConfirmation ? 0.6 : 1, cursor: needsEmailConfirmation ? 'not-allowed' : undefined }}
+              role="radio"
+              aria-checked={interval === opt.id}
+              tabIndex={interval === opt.id ? 0 : -1}
+              onClick={() => setInterval(opt.id)}
+              onKeyDown={(e) => onIntervalKey(e, i)}
+              className="pp-interval-opt"
             >
-              {proCtaLabel}
+              {opt.label}
+              <span className="pp-interval-hint">{opt.hint}</span>
             </button>
-            {!user && (
-              <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                Sign up first; you'll be able to subscribe from your dashboard.
-              </p>
-            )}
-            {user && needsEmailConfirmation && (
-              <Notice
-                variant="warning"
-                role="status"
-                className="mt-3"
-                style={{ flexDirection: 'column', alignItems: 'stretch', gap: 2, fontSize: '11px' }}
+          ))}
+        </div>
+
+        <div className="pp-cards">
+          <section className="pp-card" aria-labelledby="pp-free">
+            <h2 id="pp-free" className="pub-h3">Free</h2>
+            <p className="pp-price">
+              <span className="pub-fig">€0</span>
+              <span className="pp-period">forever</span>
+            </p>
+            <div className="pub-double-rule pp-rule" aria-hidden="true" />
+            <p className="pp-caption">No credit card required.</p>
+            <PlanSections sections={FREE_SECTIONS} />
+            <div className="pp-cta">
+              <Link
+                to="/dashboard"
+                className="pub-btn pub-btn--secondary pp-cta-btn"
+                onClick={() => analytics.landingCtaClicked({ cta: 'get_started', location: 'pricing_card' })}
               >
-                <p style={{ fontWeight: 600, margin: 0 }}>Confirm your email first</p>
-                <p style={{ margin: 0, opacity: 0.9 }}>
-                  Click the link we sent to{' '}
-                  <span
-                    style={{ fontWeight: 500, wordBreak: 'break-all' }}
-                    title={user.email}
-                  >
-                    {user.email}
-                  </span>
-                  . We'll open checkout automatically, no need to come back here.
-                </p>
-              </Notice>
-            )}
-            {user && !subscription.subscribed && !needsEmailConfirmation && (
-              <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                Secure checkout by Stripe. Cancel anytime.
-              </p>
-            )}
-            {user && subscription.subscribed && (
-              <p className="mt-3 text-center text-[11px] text-muted-foreground">
-                You're already on Pro. Manage your subscription from Settings.
-              </p>
-            )}
-          </div>
+                Get started free
+              </Link>
+            </div>
+          </section>
+
+          <section className="pp-card pp-card--pro" aria-labelledby="pp-pro">
+            <h2 id="pp-pro" className="pub-h3">Pro</h2>
+            <p className="pp-price">
+              <RollingFigure value={priceLabel} className="pub-fig" rollMs={240} />
+              <span className="pp-period">{periodLabel}</span>
+            </p>
+            <div className="pub-double-rule pp-rule" aria-hidden="true" />
+            <p className="pp-caption">{caption}</p>
+            <p className="pp-vat">{VAT_NOTE}</p>
+            <PlanSections sections={PRO_SECTIONS} />
+
+            <div className="pp-cta">
+              <button
+                type="button"
+                onClick={handleSubscribe}
+                disabled={submitting || needsEmailConfirmation}
+                aria-disabled={submitting || needsEmailConfirmation}
+                className="pub-btn pub-btn--primary pp-cta-btn"
+              >
+                {proCtaLabel}
+              </button>
+              {!user && (
+                <p className="pp-helper">Sign up first. Once you confirm your email, checkout opens by itself.</p>
+              )}
+              {user && needsEmailConfirmation && (
+                <Notice
+                  variant="warning"
+                  role="status"
+                  className="mt-3"
+                  style={{ flexDirection: 'column', alignItems: 'stretch', gap: 2, fontSize: '12px' }}
+                >
+                  <p style={{ fontWeight: 600, margin: 0 }}>Confirm your email first</p>
+                  <p style={{ margin: 0, opacity: 0.9 }}>
+                    Click the link we sent to{' '}
+                    <span style={{ fontWeight: 500, wordBreak: 'break-all' }} title={user.email}>
+                      {user.email}
+                    </span>
+                    . We'll open checkout automatically, no need to come back here.
+                  </p>
+                </Notice>
+              )}
+              {user && !subscription.subscribed && !needsEmailConfirmation && (
+                <p className="pp-helper">Secure checkout by Stripe. Cancel anytime.</p>
+              )}
+              {user && subscription.subscribed && (
+                <p className="pp-helper">You're already on Pro. Manage your subscription from Settings.</p>
+              )}
+              <p className="pp-helper">Payment runs on Stripe's hosted checkout. Your card details never reach Quantive.</p>
+            </div>
+          </section>
         </div>
 
-        {/* Family — planned */}
-        <div className="mx-auto mt-10 max-w-3xl rounded-xl border border-dashed border-border/60 bg-card/30 p-6 text-center">
-          <h3 className="text-sm font-semibold text-foreground">
-            Family <span className="ml-2 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">Planned</span>
-          </h3>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Shared portfolio access for 2 users, plus multiple portfolios per account. Not yet available. It needs shared-key encryption work first.
-          </p>
-        </div>
-      </main>
+        <p className="pp-demo">
+          <Link
+            to="/demo"
+            className="pub-link"
+            onClick={() => analytics.landingCtaClicked({ cta: 'try_demo', location: 'pricing_page' })}
+          >
+            See every Pro feature in the demo
+          </Link>
+          <span className="pub-fine"> It opens with illustrative data and every Pro view unlocked.</span>
+        </p>
 
-      <Footer />
+        <section className="pp-faq" aria-labelledby="pp-faq-h">
+          <h2 id="pp-faq-h" className="pub-h2">Before you subscribe</h2>
+          <dl className="pp-faq-list">
+            <div>
+              <dt>Can I cancel?</dt>
+              <dd>
+                Yes, at any time from Settings. Billing runs through Stripe's customer portal, and refunds and the
+                withdrawal right are set out in the <Link to="/terms" className="pub-link">Terms of Service</Link>.
+              </dd>
+            </div>
+            <div>
+              <dt>What happens to my data if I cancel?</dt>
+              <dd>Nothing is deleted. Your view returns to the last 12 months, and older entries stay stored.</dd>
+            </div>
+            <div>
+              <dt>Why is no VAT charged?</dt>
+              <dd>Quantive is a small business under § 19 UStG (the German Kleinunternehmer rule), so prices are final and include no VAT.</dd>
+            </div>
+          </dl>
+        </section>
+
+        <p className="pp-family">
+          <span className="pub-label">Planned</span>
+          <span>
+            Family: shared portfolio access for two people, plus multiple portfolios per account. Not yet available; it
+            needs shared-key encryption work first.
+          </span>
+        </p>
+
+        <p className="pp-cross">
+          Questions about your data? <Link to="/#faq" className="pub-link">Read the FAQ</Link> or see{' '}
+          <Link to="/security" className="pub-link">how encryption works</Link>.
+        </p>
+      </div>
+    </PublicPage>
+  );
+}
+
+function PlanSections({ sections }: { sections: typeof FREE_SECTIONS }) {
+  return (
+    <div className="pp-sections">
+      {sections.map((sec) => (
+        <div key={sec.head}>
+          <p className="pp-sec-head">{sec.head}</p>
+          <ul className="pp-list" role="list">
+            {sec.items.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }

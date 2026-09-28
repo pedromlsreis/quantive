@@ -1,10 +1,19 @@
 import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { StickyNav } from "@/components/landing/StickyNav";
-import { Footer } from "@/components/Footer";
+import { PublicPage } from "@/components/landing/PublicPage";
+import { useAuth } from "@/contexts/AuthContext";
+import { analytics } from "@/lib/analytics";
+import "@/styles/doc.css";
+
+const EXITS = [
+  { to: "/demo", label: "Demo", desc: "The app with illustrative data" },
+  { to: "/pricing", label: "Pricing", desc: "Free forever, or €90 a year" },
+  { to: "/security", label: "Security", desc: "How your data is encrypted, and what we can't protect" },
+];
 
 const NotFound = () => {
   const location = useLocation();
+  const { user } = useAuth();
 
   useEffect(() => {
     // A 404 from a mistyped URL or dead deep-link is normal traffic, not an
@@ -14,27 +23,38 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <StickyNav />
-
-      <main className="flex flex-1 items-center justify-center px-6 pb-20 pt-32 text-center">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-wide text-muted-foreground">Error 404</p>
-          <h1 className="mt-3 text-4xl font-extrabold text-foreground sm:text-5xl">Page not found</h1>
-          <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">
-            The page you're looking for doesn't exist or has been moved.
-          </p>
-          <Link
-            to="/"
-            className="mt-8 inline-flex items-center justify-center rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Return to home
-          </Link>
+    <PublicPage>
+      <div className="pub-wrap nf">
+        <h1 className="pub-display">Page not found</h1>
+        <p className="pub-lede">
+          Nothing is published at{" "}
+          <code className="pub-mono nf-path" translate="no">{location.pathname}</code>. The link may be mistyped or out
+          of date.
+        </p>
+        <div className="lp-actions">
+          {user ? (
+            <Link to="/dashboard" className="pub-btn pub-btn--primary">Go to your dashboard</Link>
+          ) : (
+            <Link to="/" className="pub-btn pub-btn--primary">Back to the homepage</Link>
+          )}
         </div>
-      </main>
-
-      <Footer />
-    </div>
+        <ul className="nf-index" role="list">
+          {EXITS.map((exit) => (
+            <li key={exit.to}>
+              <Link
+                to={exit.to}
+                onClick={() => {
+                  if (exit.to === "/demo") analytics.landingCtaClicked({ cta: "try_demo", location: "not_found" });
+                }}
+              >
+                <span>{exit.label}</span>
+                <span>{exit.desc}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </PublicPage>
   );
 };
 

@@ -168,7 +168,7 @@
     --font-display: "JetBrains Mono", "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
     --font-body:    "Geist", "Inter Tight", -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono:    "JetBrains Mono", "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
-    --font-serif:   "Fraunces Variable", "Fraunces", "Source Serif 4", Georgia, serif;
+    --font-serif:   "Fraunces Variable", "Fraunces fallback", "Fraunces", "Source Serif 4", Georgia, serif;
 
     /* Type scale */
     --text-xs:      0.6875rem;
@@ -206,6 +206,41 @@
     --series-7: oklch(76%  0.06  140);   /* sage    */
     --series-8: oklch(56%  0.08  340);   /* rose    */
   }
+
+  /* From 1024px the cover H1 is ≥ 80px, where Fraunces' optical sizing
+     makes it much narrower; see the fallback faces below. */
+  @media (min-width: 1024px) {
+    :root {
+      --font-serif: "Fraunces Variable", "Fraunces display fallback", "Fraunces", "Source Serif 4", Georgia, serif;
+    }
+  }
+}
+
+/* Metric-matched Georgia stand-ins for Fraunces, so the swap after the web
+   font loads doesn't rewrap the prerendered H1 (the LCP element) and shift the
+   page. Fraunces' width relative to Georgia depends on size because of the
+   opsz axis: about 1.02× at 44px (the mobile cover H1) and 0.85-0.90× at
+   80-104px (the desktop cover H1), measured in Chromium at weight 380. One
+   face can't match both, hence two faces and the media query above; they
+   reproduce Fraunces' H1 line count at 320-768px and 1024-1600px.
+   Vertical metrics are Fraunces' typo metrics (USE_TYPO_METRICS set):
+   ascent 1956 / descent 510 / UPM 2000, divided by size-adjust.
+   Systems without Georgia (Android, most Linux) skip these faces. */
+@font-face {
+  font-family: "Fraunces fallback";
+  src: local("Georgia");
+  size-adjust: 102%;
+  ascent-override: 95.9%;
+  descent-override: 25%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Fraunces display fallback";
+  src: local("Georgia");
+  size-adjust: 86%;
+  ascent-override: 113.7%;
+  descent-override: 29.7%;
+  line-gap-override: 0%;
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -227,6 +262,11 @@
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "ss01", "cv11";
     text-rendering: optimizeLegibility;
+  }
+
+  /* Anchor jumps and focus scrolling clear the fixed 64px public nav. */
+  html {
+    scroll-padding-top: calc(64px + 16px);
   }
 
   button {

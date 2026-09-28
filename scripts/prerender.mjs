@@ -55,7 +55,16 @@ async function main() {
   const base = server.resolvedUrls?.local?.[0]?.replace(/\/$/, '') ?? 'http://localhost:4173';
 
   const browser = await chromium.launch();
-  const page = await browser.newPage();
+  // Reduced motion makes every public page render its final, static state, so
+  // the snapshot never captures a mid-animation value or a hidden element.
+  const context = await browser.newContext({ reducedMotion: 'reduce', viewport: { width: 1280, height: 800 } });
+  await context.addInitScript(() => {
+    // Flags the run so motion gates stay off even if a page ignores the media query.
+    window.__QV_PRERENDER__ = true;
+    // A stored decision keeps the analytics consent dialog out of the static HTML.
+    try { localStorage.setItem('quantive_analytics_consent', 'denied'); } catch { /* storage blocked */ }
+  });
+  const page = await context.newPage();
 
   try {
     for (const route of ROUTES) {
@@ -68,6 +77,26 @@ async function main() {
         .waitForSelector('main, h1, [role="main"]', { timeout: 15000 })
         .catch(() => console.warn(`  ! ${route}: no content selector matched, snapshotting anyway`));
       await page.waitForTimeout(300);
+
+      // Fail the build rather than ship text that a no-JS reader or a
+      // screenshotting crawler would never see.
+      const invisible = await page.evaluate(() =>
+        [...document.querySelectorAll('main *')]
+          .filter((el) => el.childElementCount === 0 && el.textContent.trim())
+          .filter((el) => !el.closest('.sr-only, svg title'))
+          .filter((el) => !el.checkVisibility({ opacityProperty: true, visibilityProperty: true }))
+          // Collapsed disclosures and decorative (aria-hidden) responsive alternates are hidden by design.
+          .filter((el) => !el.closest('[hidden], [aria-hidden="true"], details:not([open]), .lp-faq-ans'))
+          .map((el) => el.textContent.trim().slice(0, 60)),
+      );
+      if (invisible.length) {
+        throw new Error(`${route}: ${invisible.length} text elements invisible in snapshot, e.g. ${JSON.stringify(invisible.slice(0, 3))}`);
+      }
+
+      // Third-party challenge markup is per-visit state, not page content.
+      await page.evaluate(() => {
+        document.querySelectorAll('script[src*="challenges.cloudflare.com"], iframe[src*="challenges.cloudflare.com"]').forEach((el) => el.remove());
+      });
 
       const html = await page.content();
       const outFile = outFileFor(route);

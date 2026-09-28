@@ -1,10 +1,10 @@
 # Privacy Policy
 
-_Last updated: June 14, 2026_
+_Last updated: 14 June 2026_
 
 ## 1. Introduction
 
-Quantive ("we", "our", "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our web application at usequantive.app, and sets out the rights you have under the EU General Data Protection Regulation (DSGVO).
+This Privacy Policy explains how Quantive ("we", "our", "us") collects, uses and safeguards your information when you use our web application at usequantive.app, and sets out the rights you have under the EU General Data Protection Regulation (DSGVO).
 
 ## 2. Controller
 
@@ -16,53 +16,53 @@ Lützowstraße 31, 40476 Düsseldorf, Germany
 
 We do not have a Data Protection Officer (DPO). As a solo controller below the headcount threshold of § 38 BDSG, none is required.
 
-## 3. Information We Collect
+## 3. Information we collect
 
-**Account Information.** When you create an account, we collect your email address. Your password is processed by Supabase Auth (our auth provider), which stores only a salted hash, never the plaintext password.
+**Account information.** When you create an account, we collect your email address. Your password is processed by Supabase Auth (our auth provider), which stores only a salted hash, never the plaintext password.
 
-**Portfolio Data.** Any portfolio data you enter or import is end-to-end encrypted in your browser before it reaches our servers (see §5 and the [Security & Encryption](https://usequantive.app/security) page). We see ciphertext only and cannot decrypt it. We do not share, sell, or analyse your financial data.
+**Portfolio data.** Any portfolio data you enter or import is end-to-end encrypted in your browser before it reaches our servers (see §5 and the [security and encryption](https://usequantive.app/security) page). We see ciphertext only and cannot decrypt it. We do not share, sell, or analyse your financial data.
 
 **Feedback.** If you submit feedback through the in-app feedback button, we store the message text, the type you selected (bug, improvement, or feature request), and your account ID so we can follow up. Feedback is not encrypted at rest. Do not include sensitive financial details in feedback messages.
 
-**Usage Data.** Only if you grant analytics consent (see §9): anonymous product analytics (page views, feature usage) and anonymous web-performance metrics (Largest Contentful Paint, Interaction to Next Paint, Cumulative Layout Shift) via PostHog. No personally identifiable information, financial figures, or account details are included in these events.
+**Usage data.** Only if you grant analytics consent (see §9): anonymous product analytics (page views, feature usage) and anonymous web-performance metrics (Largest Contentful Paint, Interaction to Next Paint, Cumulative Layout Shift) via PostHog. No personally identifiable information, financial figures, or account details are included in these events.
 
 **Campaign attribution.** If you arrive at the site via a link we publish that includes `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, or `utm_content` query parameters, those values are stored in your browser's localStorage. They are attached to analytics events only if you have granted analytics consent. They are cleared when you sign out or withdraw consent.
 
-**Server Logs.** Our infrastructure providers — Cloudflare, which hosts and serves the web app, and Supabase, which runs our database and edge functions — keep short-lived operational logs (IP address, request timestamps, error traces) for reliability and abuse prevention.
+**Server logs.** Our infrastructure providers, Cloudflare (which hosts and serves the web app) and Supabase (which runs our database and edge functions), keep short-lived operational logs (IP address, request timestamps, error traces) for reliability and abuse prevention.
 
-## 4. Purposes & Legal Basis
+## 4. Purposes and legal basis
 
 We process your personal data for the following purposes, on the following legal bases under Art. 6(1) DSGVO:
 
 | Purpose | Data | Legal basis |
 |---|---|---|
-| Provide and maintain the service | Account email, portfolio ciphertext | Art. 6(1)(b) — performance of contract |
-| Authenticate your identity and protect your account | Password hash, session data | Art. 6(1)(b) — performance of contract |
-| Process subscription payments | Stripe customer/subscription identifiers, billing data held by Stripe | Art. 6(1)(b) — performance of contract; Art. 6(1)(c) — compliance with German tax law (§ 147 AO) for invoice records |
-| Send transactional emails (password reset, account-deletion confirmation, billing receipts) | Email address | Art. 6(1)(b) — performance of contract |
-| Respond to feedback you submit and improve the product | Feedback message text + account ID | Art. 6(1)(f) — our legitimate interest in improving the service |
-| Anonymous product analytics | PostHog identifier (localStorage), event metadata | Art. 6(1)(a) — your explicit consent (see §9) |
-| Operate and secure the platform (rate limiting, abuse detection, error tracking) | IP address, request timestamps, error traces | Art. 6(1)(f) — our legitimate interest in service availability and security |
+| Provide and maintain the service | Account email, portfolio ciphertext | Art. 6(1)(b): performance of contract |
+| Authenticate your identity and protect your account | Password hash, session data | Art. 6(1)(b): performance of contract |
+| Process subscription payments | Stripe customer/subscription identifiers, billing data held by Stripe | Art. 6(1)(b): performance of contract; Art. 6(1)(c): compliance with German tax law (§ 147 AO) for invoice records |
+| Send transactional emails (password reset, account-deletion confirmation, billing receipts) | Email address | Art. 6(1)(b): performance of contract |
+| Respond to feedback you submit and improve the product | Feedback message text + account ID | Art. 6(1)(f): our legitimate interest in improving the service |
+| Anonymous product analytics | PostHog identifier (localStorage), event metadata | Art. 6(1)(a): your explicit consent (see §9) |
+| Operate and secure the platform (rate limiting, abuse detection, error tracking) | IP address, request timestamps, error traces | Art. 6(1)(f): our legitimate interest in service availability and security |
 
-## 5. Data Storage & Security
+## 5. Data storage and security
 
 Your portfolio data is **end-to-end encrypted** in your browser before it reaches our servers. We see ciphertext only and cannot decrypt your data, even if we wanted to. Database access is additionally protected by Postgres row-level security. We do not connect to your bank accounts or any third-party financial institutions.
 
-For details on the cryptographic primitives, threat model, and what we explicitly do _not_ protect against, see the Security & Encryption page at usequantive.app/security.
+For details on the cryptographic primitives, threat model, and what we explicitly do _not_ protect against, see the security and encryption page at usequantive.app/security.
 
-## 6. Recipients & Third-Party Services
+## 6. Recipients and third-party services
 
 We share personal data only with the processors strictly required to run the service. Data processing agreements (Auftragsverarbeitungsverträge) are in place with each.
 
-- **Stripe (Stripe Payments Europe, Ltd., Ireland)** — payment processing. Stripe's privacy policy applies to payment data. Stripe processes a subset of data in the United States; transfers are protected under EU Standard Contractual Clauses and Stripe is certified under the EU-US Data Privacy Framework.
-- **Cloudflare (Cloudflare, Inc., United States)** — hosting and content delivery for the web application. Cloudflare serves the site from its global edge network and processes visitors' IP addresses and request metadata to deliver and secure it. Transfers are protected under EU Standard Contractual Clauses, and Cloudflare is self-certified under the EU-US Data Privacy Framework. See the [Cloudflare privacy policy](https://www.cloudflare.com/privacypolicy/).
-- **Supabase (Supabase Inc., United States; EU data residency)** — authentication, database, and edge functions. Your project data is hosted in the EU; SCCs apply to any incidental US processing.
-- **PostHog (PostHog Inc., United States; EU Cloud)** — anonymous product analytics, loaded only with your consent. Events are stored on PostHog's EU-hosted infrastructure. SCCs apply to any incidental US processing. See the [PostHog privacy policy](https://posthog.com/privacy).
-- **Resend (Resend, Inc., United States)** — transactional email delivery only (password resets, billing receipts, account-deletion confirmation, feedback notifications). SCCs apply to US processing. See the [Resend privacy policy](https://resend.com/legal/privacy-policy).
+- **Stripe (Stripe Payments Europe, Ltd., Ireland)**: payment processing. Stripe's privacy policy applies to payment data. Stripe processes a subset of data in the United States; transfers are protected under EU Standard Contractual Clauses and Stripe is certified under the EU-US Data Privacy Framework.
+- **Cloudflare (Cloudflare, Inc., United States)**: hosting and content delivery for the web application. Cloudflare serves the site from its global edge network and processes visitors' IP addresses and request metadata to deliver and secure it. Transfers are protected under EU Standard Contractual Clauses, and Cloudflare is self-certified under the EU-US Data Privacy Framework. See the [Cloudflare privacy policy](https://www.cloudflare.com/privacypolicy/).
+- **Supabase (Supabase Inc., United States; EU data residency)**: authentication, database and edge functions. Your project data is hosted in the EU; SCCs apply to any incidental US processing.
+- **PostHog (PostHog Inc., United States; EU Cloud)**: anonymous product analytics, loaded only with your consent. Events are stored on PostHog's EU-hosted infrastructure. SCCs apply to any incidental US processing. See the [PostHog privacy policy](https://posthog.com/privacy).
+- **Resend (Resend, Inc., United States)**: transactional email delivery only (password resets, billing receipts, account-deletion confirmation, feedback notifications). SCCs apply to US processing. See the [Resend privacy policy](https://resend.com/legal/privacy-policy).
 
 We do not sell or share your data with advertisers, data brokers, or any other third party.
 
-## 7. Data Retention
+## 7. Data retention
 
 | Category | Retention period | What happens at end |
 |---|---|---|
@@ -77,7 +77,7 @@ We do not sell or share your data with advertisers, data brokers, or any other t
 
 You can request export or deletion of any of the above at any time (see §8). Where statutory retention applies (notably tax-law records at Stripe), data will continue to be held by the relevant processor for the statutory period even after you delete your account.
 
-## 8. Your Rights
+## 8. Your rights
 
 Under the DSGVO, you have the right to:
 
@@ -85,14 +85,14 @@ Under the DSGVO, you have the right to:
 - **Rectification** of inaccurate data (Art. 16)
 - **Erasure** ("right to be forgotten") of your data (Art. 17)
 - **Restriction** of processing (Art. 18)
-- **Data portability** — receive your data in a structured, machine-readable format (Art. 20)
+- **Data portability**: receive your data in a structured, machine-readable format (Art. 20)
 - **Object** to processing carried out on the basis of legitimate interest (Art. 21)
 - **Withdraw consent** at any time, without affecting the lawfulness of processing carried out before withdrawal (Art. 7(3))
 - **Lodge a complaint** with a supervisory authority (Art. 77). Our competent authority is the Landesbeauftragte für Datenschutz und Informationsfreiheit Nordrhein-Westfalen (LDI NRW), Kavalleriestraße 2–4, 40213 Düsseldorf, <https://www.ldi.nrw.de>
 
 To exercise any of these rights, email <legal@usequantive.app>. We respond within 1 business day and resolve substantive requests within the 30-day statutory window (Art. 12(3)).
 
-## 9. Cookies & local storage
+## 9. Cookies and local storage
 
 We use **essential** cookies and localStorage entries only for authentication, session management, and remembering your in-app preferences (display currency, number format, privacy mode). We do not use advertising cookies, third-party tracking cookies, or cross-site tracking of any kind.
 
@@ -106,10 +106,10 @@ We do not carry out automated decision-making within the meaning of Art. 22 DSGV
 
 ## 11. Is providing your data required?
 
-- **Account email** — required to use the service. Without it, we cannot authenticate you or send you transactional emails.
-- **Portfolio data** — voluntary. The demo at usequantive.app/demo works without any data entry. You can use Quantive purely with sample data.
-- **Feedback** — voluntary. You decide whether and when to submit it.
-- **Analytics consent** — voluntary. The service works identically whether you grant or withhold it.
+- **Account email**: required to use the service. Without it, we cannot authenticate you or send you transactional emails.
+- **Portfolio data**: voluntary. The demo at usequantive.app/demo works without any data entry. You can use Quantive purely with sample data.
+- **Feedback**: voluntary. You decide whether and when to submit it.
+- **Analytics consent**: voluntary. The service works identically whether you grant or withhold it.
 
 Where data is required, withholding it prevents account creation or use of the service. Where data is voluntary, withholding it has no consequence for your access.
 
@@ -117,7 +117,7 @@ Where data is required, withholding it prevents account creation or use of the s
 
 Quantive is not directed to children. You must be at least 16 to create an account. That is the age of digital consent under Art. 8(1) DSGVO in Germany. We do not knowingly collect personal data from anyone under 16; if you believe a child has given us their data, email <legal@usequantive.app> and we will delete it.
 
-## 13. Changes to This Policy
+## 13. Changes to this policy
 
 We may update this policy from time to time. We will notify you of significant changes via email or an in-app notification.
 

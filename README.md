@@ -51,6 +51,7 @@ The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no sid
 - Drawdown and downside stats: maximum drawdown with recovery time, longest decline, best and worst rolling year
 - Optional email reminders to update your balances on a schedule you set
 - Cloud sync with end-to-end encryption
+- CSV export of every measurement, at any time
 - Rolling 12-month history view
 - Demo mode: the full dashboard without signing up
 
@@ -60,7 +61,7 @@ The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no sid
 - Milestone and goal tracking: targets with progress and ETA
 - Benchmark comparison: your net worth against inflation (Eurostat HICP) and the S&P 500 (FRED), with MSCI World coming soon
 - Month-by-month summary table
-- Excel and CSV export: your full data, any time
+- Excel export: your full data as a workbook
 - PDF wealth report: a one-page summary for an adviser or an annual review
 - Priority support (24h response)
 

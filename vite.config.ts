@@ -4,6 +4,7 @@ import path from "path";
 import { visualizer } from "rollup-plugin-visualizer";
 import { seoRouteHtml } from "./vite-plugins/seo-route-html";
 import { devAutoLogin } from "./vite-plugins/dev-auto-login";
+import { fontPreload } from "./vite-plugins/font-preload";
 
 // https://vitejs.dev/config/
 //
@@ -25,6 +26,8 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      // Before seoRouteHtml, which copies the finished index.html per route.
+      fontPreload(),
       seoRouteHtml(),
       devAutoLogin(),
       wantVisualizer &&

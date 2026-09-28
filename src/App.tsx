@@ -1,9 +1,9 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigationType } from "react-router-dom";
 import { analytics } from "@/lib/analytics";
 import { ErrorBoundary, RouteScopedErrorBoundary } from "@/components/ErrorBoundary";
 import { ConsentBanner } from "@/components/ConsentBanner";
@@ -20,15 +20,20 @@ import { RecoveryOfferModal } from "@/components/auth/RecoveryOfferModal";
 import { QueryCacheGuard } from "@/components/auth/QueryCacheGuard";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
+// The six prerendered public pages are preloadable (see main.tsx); every
+// other route below stays on plain lazy().
+import {
+  Impressum,
+  LandingPage,
+  PricingPage,
+  PrivacyPolicy,
+  SecurityPage,
+  TermsOfService,
+} from "@/routes/publicRoutes";
 
-const LandingPage = lazy(() => import("./pages/LandingPage"));
 const Index = lazy(() => import("./pages/Index"));
-const PricingPage = lazy(() => import("./pages/PricingPage"));
 const DemoRedirect = lazy(() => import("./pages/DemoRedirect"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
-const TermsOfService = lazy(() => import("./pages/TermsOfService"));
-const SecurityPage = lazy(() => import("./pages/SecurityPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const ForecastPage = lazy(() => import("./pages/ForecastPage"));
 const PerformancePage = lazy(() => import("./pages/PerformancePage"));
@@ -36,7 +41,6 @@ const GoalsPage = lazy(() => import("./pages/GoalsPage"));
 const AllocationsPage = lazy(() => import("./pages/AllocationsPage"));
 const SourcesPage = lazy(() => import("./pages/SourcesPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
-const Impressum = lazy(() => import("./pages/Impressum"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -49,11 +53,16 @@ function PageViewTracker() {
   return null;
 }
 
+// Only fragment ids count as anchors. Auth callbacks put tokens in the hash
+// (`#access_token=…&type=recovery`); those must not suppress the scroll reset.
+function anchorIdFrom(hash: string): string | null {
+  return /^#[A-Za-z][\w-]*$/.test(hash) ? hash.slice(1) : null;
+}
+
 // Reset scroll to the top on route change. The router preserves the window
 // scroll position across client-side navigation, so without this a user who
-// scrolls down one page lands mid-way down the next. Keyed on pathname only,
-// so the landing page's in-page hash anchors (#features, #pricing) are left
-// alone — those change the hash, not the pathname.
+// scrolls down one page lands mid-way down the next. URLs with an anchor
+// (`/#features`) are left to ScrollToHash.
 //
 // This deliberately also scrolls to top on back/forward (POP), forgoing
 // native scroll restoration. That's fine here: every in-app route is a
@@ -62,10 +71,45 @@ function PageViewTracker() {
 // reset on useNavigationType() === 'PUSH' rather than reaching for a full
 // createBrowserRouter + <ScrollRestoration> refactor.
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   useEffect(() => {
+    if (anchorIdFrom(hash)) return;
     window.scrollTo(0, 0);
-  }, [pathname]);
+  }, [pathname, hash]);
+  return null;
+}
+
+// BrowserRouter does not scroll to `#id` targets, so `/#faq` links from other
+// pages would land at the top. The target may not exist yet (lazy page behind
+// Suspense), so poll once per frame for up to 2 s. Arriving from another page
+// jumps; a same-page anchor glides unless reduced motion is on. The offset
+// under the fixed nav comes from `scroll-padding-top` in index.css.
+function ScrollToHash() {
+  const { pathname, hash, key } = useLocation();
+  const navigationType = useNavigationType();
+  const lastPathname = useRef<string | null>(null);
+
+  useEffect(() => {
+    const samePage = lastPathname.current === pathname;
+    lastPathname.current = pathname;
+    const id = anchorIdFrom(hash);
+    if (!id) return;
+
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const behavior: ScrollBehavior = samePage && navigationType !== "POP" && !reduced ? "smooth" : "auto";
+    const deadline = performance.now() + 2000;
+    let frame = 0;
+    const scrollWhenPresent = () => {
+      const target = document.getElementById(id);
+      if (target) {
+        target.scrollIntoView({ behavior, block: "start" });
+      } else if (performance.now() < deadline) {
+        frame = requestAnimationFrame(scrollWhenPresent);
+      }
+    };
+    scrollWhenPresent();
+    return () => cancelAnimationFrame(frame);
+  }, [pathname, hash, key, navigationType]);
   return null;
 }
 
@@ -148,6 +192,7 @@ const App = () => (
                 <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                   <PageViewTracker />
                   <ScrollToTop />
+                  <ScrollToHash />
                   <RequireUnlock />
                   <IdleAutoLock />
                   <RecoveryOfferModal />

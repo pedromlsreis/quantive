@@ -76,12 +76,12 @@ describe('useEntitlements', () => {
     expect(result.current.has('history.full')).toBe(false);
   });
 
-  it('has() returns false for every entitlement on the free plan', () => {
+  it('has() grants only the CSV export on the free plan', () => {
     const { result } = renderHook(() => useEntitlements());
     expect(result.current.has('history.full')).toBe(false);
     expect(result.current.has('forecasting')).toBe(false);
     expect(result.current.has('export.excel')).toBe(false);
-    expect(result.current.has('export.csv')).toBe(false);
+    expect(result.current.has('export.csv')).toBe(true);
     expect(result.current.has('export.pdf')).toBe(false);
     expect(result.current.has('milestones')).toBe(false);
     expect(result.current.has('benchmarks')).toBe(false);

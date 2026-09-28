@@ -50,6 +50,34 @@
       "name": "PDF report chunk (brotli, lazy-loaded)",
       "path": "dist/assets/pdfReport-*.js",
       "limit": "365 KB"
+    },
+    {
+      "name": "Landing page chunk (brotli, lazy-loaded)",
+      "path": "dist/assets/LandingPage-*.js",
+      "limit": "20 KB"
+    },
+    {
+      "name": "Pricing page chunk (brotli, lazy-loaded)",
+      "path": "dist/assets/PricingPage-*.js",
+      "limit": "6 KB"
+    },
+    {
+      "name": "Security page chunk (brotli, lazy-loaded)",
+      "path": "dist/assets/SecurityPage-*.js",
+      "limit": "8 KB"
+    },
+    {
+      "name": "Legal markdown chunk (brotli, lazy-loaded)",
+      "path": "dist/assets/MarkdownLegal-*.js",
+      "limit": "90 KB"
+    },
+    {
+      "name": "Lazy CSS chunks, i.e. public pages (brotli)",
+      "path": [
+        "dist/assets/*.css",
+        "!dist/assets/index-*.css"
+      ],
+      "limit": "12 KB"
     }
   ],
   "dependencies": {

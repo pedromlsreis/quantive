@@ -43,9 +43,11 @@ describe('resolvePlan', () => {
 });
 
 describe('planHas', () => {
-  it('free plan grants no entitlements', () => {
+  it('free plan grants only the CSV export', () => {
+    expect(FREE_PLAN.entitlements).toEqual(['export.csv']);
+    expect(planHas(FREE_PLAN, 'export.csv')).toBe(true);
+    expect(planHas(FREE_PLAN, 'export.excel')).toBe(false);
     expect(planHas(FREE_PLAN, 'forecasting')).toBe(false);
-    expect(planHas(FREE_PLAN, 'export.csv')).toBe(false);
     expect(planHas(FREE_PLAN, 'history.full')).toBe(false);
   });
 

@@ -65,7 +65,7 @@ describe('FeatureGate', () => {
   it('renders a custom fallback when one is provided', () => {
     entitlements.has = () => false;
     renderGate(
-      <FeatureGate feature="export.csv" fallback={<div data-testid="custom-fallback">nope</div>}>
+      <FeatureGate feature="export.excel" fallback={<div data-testid="custom-fallback">nope</div>}>
         <div>kept hidden</div>
       </FeatureGate>,
     );

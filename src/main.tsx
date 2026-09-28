@@ -13,8 +13,14 @@ import "@fontsource/jetbrains-mono/500.css";
 import "@fontsource-variable/fraunces/standard.css";
 import "./index.css";
 import { initAnalytics, installGlobalErrorHandlers } from "./lib/analytics";
+import { preloadPublicRoute } from "./routes/publicRoutes";
 
 initAnalytics();
 installGlobalErrorHandlers();
 
-createRoot(document.getElementById("root")!).render(<App />);
+// On a prerendered public route the static HTML stays on screen until React's
+// first commit. Loading the page chunk first makes that commit the page
+// itself, not the Suspense spinner. Other routes render immediately.
+preloadPublicRoute(window.location.pathname).then(() => {
+  createRoot(document.getElementById("root")!).render(<App />);
+});

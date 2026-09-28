@@ -41,7 +41,7 @@ describe('MarkdownLegal', () => {
     expect(screen.getByRole('heading', { level: 1, name: /Privacy Policy/i })).toBeInTheDocument();
     // Section headings that must be present per the DSGVO audit.
     expect(screen.getByRole('heading', { name: /Controller/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /Purposes & Legal Basis/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Purposes and legal basis/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Data Retention/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Your Rights/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /Automated decision-making/i })).toBeInTheDocument();

@@ -55,8 +55,7 @@ test.describe('Pricing page', () => {
   });
 
   test('legal microcopy mentions §19 UStG (Kleinunternehmer)', async ({ page }) => {
-    // Both tier cards carry the VAT disclosure — there should be more than one
-    // match because both Free and Pro reproduce it.
+    // The Pro price and the "Why is no VAT charged?" answer both cite it.
     const count = await page.getByText(/§\s*19\s*UStG/i).count();
     expect(count).toBeGreaterThanOrEqual(2);
   });

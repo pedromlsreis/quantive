@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
@@ -706,9 +706,16 @@ export default function SettingsPage() {
             <div style={{ minWidth: 0 }}>
               <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>Export your data</p>
               <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                Excel preserves the full workbook (snapshots, per-source values, reference metadata).
-                CSV flattens the facts sheet for spreadsheets, notebooks, and scripts.
+                {canExportExcel
+                  ? 'Excel preserves the full workbook (snapshots, per-source values, reference metadata). CSV flattens the facts sheet for spreadsheets, notebooks, and scripts.'
+                  : 'Download every measurement you have recorded as a CSV file, for spreadsheets, notebooks, and scripts. Available on every plan.'}
               </p>
+              {!canExportExcel && (
+                <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
+                  Excel workbooks and the PDF wealth report come with{' '}
+                  <Link to="/pricing" className="text-primary hover:underline">Pro</Link>.
+                </p>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 'var(--s-2)', flexShrink: 0 }}>
               {canExportExcel && (

@@ -1,22 +1,22 @@
 # Terms of Service
 
-_Last updated: May 28, 2026_
+_Last updated: 28 May 2026_
 
-## 1. Acceptance of Terms
+## 1. Acceptance of terms
 
 By creating an account or using Quantive ("the Service"), you agree to be bound by these Terms of Service. If you do not agree, please do not use the Service.
 
-## 2. Description of Service
+## 2. Description of the Service
 
 Quantive is a personal finance dashboard that allows you to upload, visualise, and track your portfolio data over time. The Service is provided "as is" and is intended for personal, informational use only.
 
-## 3. User Accounts
+## 3. User accounts
 
 - You must provide a valid email address to create an account.
 - You are responsible for maintaining the security of your account credentials.
 - You must not share your account with others or create multiple accounts.
 
-## 4. Acceptable Use
+## 4. Acceptable use
 
 You agree not to:
 
@@ -25,13 +25,13 @@ You agree not to:
 - Upload malicious files or attempt to exploit the Service
 - Reverse-engineer, scrape, or redistribute the Service
 
-## 5. Subscriptions & Payments
+## 5. Subscriptions and payments
 
 The Service offers a free tier and a paid Pro tier. Pro subscriptions are billed monthly or annually via Stripe. You can cancel at any time; access continues until the end of your billing period.
 
 We reserve the right to change pricing with 30 days' notice. Refunds are handled on a case-by-case basis.
 
-## 6. Right of Withdrawal (Widerrufsrecht)
+## 6. Right of withdrawal (Widerrufsrecht)
 
 If you are a consumer within the European Union, you have the right to withdraw from this contract within **14 days** without giving any reason. The withdrawal period begins on the date your subscription is confirmed.
 
@@ -39,7 +39,7 @@ If you are a consumer within the European Union, you have the right to withdraw 
 
 If you wish to exercise your right of withdrawal before the Service has started, notify us in writing at <legal@usequantive.app> within the 14-day period. Upon a valid withdrawal, we will refund all payments received from you without undue delay.
 
-### Widerrufsbelehrung (statutory model — German, legally binding)
+### Widerrufsbelehrung (statutory model, German, legally binding)
 
 <div lang="de">
 
@@ -115,7 +115,7 @@ _(*) Delete as appropriate._
 
 </div>
 
-## 7. Data Ownership
+## 7. Data ownership
 
 You retain full ownership of your portfolio data. We do not claim any rights over your uploaded content. You can export or delete your data at any time.
 
@@ -123,7 +123,7 @@ You retain full ownership of your portfolio data. We do not claim any rights ove
 
 The Service is not financial advice. We do not provide investment recommendations. You are solely responsible for your financial decisions. The Service is provided without warranties of any kind, express or implied.
 
-## 9. Limitation of Liability
+## 9. Limitation of liability
 
 To the maximum extent permitted by law, Quantive and its creators shall not be liable for any indirect, incidental, or consequential damages arising from your use of the Service.
 
@@ -131,11 +131,11 @@ To the maximum extent permitted by law, Quantive and its creators shall not be l
 
 We may suspend or terminate your account if you violate these terms. You may delete your account at any time. Upon termination, your data will be permanently removed.
 
-## 11. Changes to These Terms
+## 11. Changes to these terms
 
 We may update these terms from time to time. Continued use of the Service after changes constitutes acceptance. We will notify you of material changes via email.
 
-## 12. Governing Law
+## 12. Governing law
 
 These terms are governed by the laws of the Federal Republic of Germany, excluding its conflict-of-law provisions. If you are a consumer in the EU, you also benefit from mandatory protections of your country of residence. The place of jurisdiction is Düsseldorf, Germany.
 
