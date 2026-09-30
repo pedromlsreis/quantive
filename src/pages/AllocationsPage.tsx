@@ -1,328 +1,173 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Check, Snowflake, Plus } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
-import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
-import { FileUpload } from '@/components/dashboard/FileUpload';
+import { useFormat } from '@/hooks/useFormat';
+import { useSourceColors } from '@/hooks/useSourceColors';
+import { PageSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { RouteEmpty } from '@/components/dashboard/EmptyState';
 import { Treemap } from '@/components/charts/Treemap';
-import { Donut } from '@/components/charts/Donut';
 import { AllocationBars } from '@/components/charts/AllocationBars';
 import { QTabs } from '@/components/ui/q-tabs';
-import { SourceDetail } from '@/lib/types';
-import { toTitleCase } from '@/lib/utils';
+import { openComposer } from '@/lib/appEvents';
+import { sentenceCase } from '@/lib/utils';
+import type { SourceDetail } from '@/lib/types';
 
-type View = 'treemap' | 'bars' | 'donut';
+type View = 'treemap' | 'bars';
 
 const VIEW_OPTIONS: { value: View; label: string }[] = [
   { value: 'treemap', label: 'Treemap' },
-  { value: 'bars',    label: 'Bars'    },
-  { value: 'donut',   label: 'Donut'   },
+  { value: 'bars', label: 'Bars' },
 ];
 
-function aggregateBy(
-  sources: SourceDetail[],
-  keyFn: (s: SourceDetail) => string,
-): { name: string; value: number }[] {
+// Volatility is ordinal, so groups keep their natural order, not size order.
+const VOLATILITY_ORDER = ['non-volatile', 'volatile', 'highly volatile'];
+
+function groupBy(sources: SourceDetail[], keyFn: (s: SourceDetail) => string) {
   const groups = new Map<string, number>();
-  sources.forEach((s) => {
-    const key = keyFn(s);
-    groups.set(key, (groups.get(key) || 0) + s.value);
-  });
+  sources.forEach((s) => groups.set(keyFn(s), (groups.get(keyFn(s)) || 0) + s.value));
   return Array.from(groups.entries())
     .filter(([, v]) => v > 0)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
-}
-
-function fmtCompact(v: number, fmt: (n: number) => string): string {
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000) return fmt(Math.round(v / 100_000) / 10) + 'M';
-  if (abs >= 1_000)     return fmt(Math.round(v / 100) / 10).replace(/\.0$/, '') + 'k';
-  return fmt(v);
+    .map(([name, value]) => ({ name, value }));
 }
 
 const AllocationsPage = () => {
   const { data, isLoading, snapshots } = usePortfolio();
-  const { fmt, fmtFull } = useCurrencyFormatter();
-  const [view, setView] = useState<View>(() => {
-    if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
-      return 'bars';
-    }
-    return 'treemap';
-  });
+  const f = useFormat();
+  const colorOf = useSourceColors();
+  const [view, setView] = useState<View>(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 'bars' : 'treemap',
+  );
 
-  const aggregates = useMemo(() => {
+  const agg = useMemo(() => {
     if (!snapshots.length) return null;
     const latest = snapshots[snapshots.length - 1];
-    const positiveSources = latest.sources.filter((s) => s.value > 0);
-    const negativeSources = latest.sources.filter((s) => s.value < 0);
-    const totalAssets = positiveSources.reduce((sum, s) => sum + s.value, 0);
-    const totalLiabilities = negativeSources.reduce((sum, s) => sum + Math.abs(s.value), 0);
-
-    // Allocation aggregates are computed over assets only — mixing in a
-    // liability would shrink the volatility/liquidity buckets it lives in
-    // and silently misstate the asset mix.
-    return {
-      latest,
-      positiveSources,
-      negativeSources,
-      totalAssets,
-      totalLiabilities,
-      byVolatility: aggregateBy(positiveSources, (s) => toTitleCase(s.volatType)),
-      byLiquidity:  aggregateBy(positiveSources, (s) => (s.isLiquid ? 'Liquid' : 'Non-liquid')),
-    };
+    const assets = latest.sources.filter((s) => s.value > 0).sort((a, b) => b.value - a.value);
+    const liabilities = latest.sources.filter((s) => s.value < 0);
+    const totalAssets = assets.reduce((sum, s) => sum + s.value, 0);
+    const totalLiabilities = liabilities.reduce((sum, s) => sum + s.value, 0);
+    // Shares are of assets only: mixing a liability into its volatility or
+    // liquidity group would shrink that group and misstate the mix.
+    const byVolatility = groupBy(assets, (s) => s.volatType.trim().toLowerCase())
+      .sort((a, b) => {
+        const ia = VOLATILITY_ORDER.indexOf(a.name);
+        const ib = VOLATILITY_ORDER.indexOf(b.name);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      })
+      .map((g) => ({ ...g, name: sentenceCase(g.name) }));
+    const byLiquidity = groupBy(assets, (s) => (s.isLiquid ? 'Liquid' : 'Non-liquid'));
+    return { assets, liabilities, totalAssets, totalLiabilities, byVolatility, byLiquidity };
   }, [snapshots]);
 
-  if (isLoading) return <DashboardSkeleton />;
-  if (!data) return <FileUpload />;
-  if (!aggregates) {
-    // data exists but no snapshots yet — render a CTA frame instead of a
-    // blank page so the surface stays useful for users who created sources
-    // but haven't logged a measurement.
+  if (isLoading) return <PageSkeleton />;
+  if (!data) return <RouteEmpty title="Allocations" sentence="How your net worth splits across sources, and how much of it is liquid." />;
+  if (!agg) {
     return (
-      <div className="flex flex-col gap-8">
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em', margin: 0 }}>
-            Allocations
-          </h1>
-          <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
-            Add a measurement to see how your portfolio is distributed.
-          </p>
-        </div>
-        <div
-          className="q-card q-card--p-lg"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 'var(--s-3)',
-            minHeight: 260,
-            textAlign: 'center',
-          }}
-        >
-          <p style={{ margin: 0, color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)', maxWidth: 360 }}>
-            No measurements yet. Once you log a snapshot the allocation charts will fill in.
-          </p>
-          <Link
-            to="/dashboard"
-            className="q-btn q-btn--primary q-btn--md"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <Plus size={14} aria-hidden="true" />
-            Add measurement
-          </Link>
+      <div className="q-empty">
+        <h1 className="q-h1" tabIndex={-1}>Allocations</h1>
+        <p className="q-page-lede">Your allocation appears once you add an entry.</p>
+        <div className="q-empty-actions">
+          <button type="button" className="q-btn q-btn--primary q-btn--lg" onClick={openComposer}>Add entry</button>
         </div>
       </div>
     );
   }
 
-  const { latest, positiveSources, negativeSources, totalAssets, totalLiabilities, byVolatility, byLiquidity } = aggregates;
-  const netWorth = totalAssets - totalLiabilities;
-  const treemapData = positiveSources.map((s) => ({ id: s.name, name: s.name, value: Math.round(s.value) }));
-
-  // Donut shows the same data as treemap/bars (individual positive sources),
-  // grouped: anything under 1.5% rolls into "Other" so the slice count stays legible.
-  const donutData = (() => {
-    const sorted = [...positiveSources].sort((a, b) => b.value - a.value);
-    const threshold = totalAssets * 0.015;
-    const major = sorted.filter((s) => s.value >= threshold);
-    const minor = sorted.filter((s) => s.value <  threshold);
-    const out = major.map((s) => ({ name: s.name, value: s.value }));
-    if (minor.length) {
-      const otherValue = minor.reduce((sum, s) => sum + s.value, 0);
-      if (otherValue > 0) out.push({ name: `Other (${minor.length})`, value: otherValue });
-    }
-    return out;
-  })();
+  const { assets, liabilities, totalAssets, totalLiabilities, byVolatility, byLiquidity } = agg;
+  const money = (v: number) => f.money(v);
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Header */}
-      <div>
-        <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em', margin: 0 }}>
-          Allocations
-        </h1>
-        <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
-          How {fmtCompact(totalAssets, fmt)} of assets is distributed across {positiveSources.length} sources
-          {negativeSources.length > 0 && (
-            <>
-              {' '}· Liabilities of {fmtCompact(totalLiabilities, fmt)} shown separately below
-              {' '}· Net worth {fmtCompact(netWorth, fmt)}
-            </>
-          )}.
+    <div>
+      <header className="q-page-head">
+        <h1 className="q-h1" tabIndex={-1}>Allocations</h1>
+        <p className="q-page-lede">
+          <span className="num">{f.money(totalAssets)}</span>
+          {` of assets across ${assets.length} ${assets.length === 1 ? 'source' : 'sources'}.`}
         </p>
-      </div>
+      </header>
 
-      {/* Portfolio map */}
-      <div className="q-card q-card--p-lg">
-        <div className="q-section-head">
+      <section className="q-sec" aria-labelledby="map-title">
+        <div className="q-sec-head">
           <div>
-            <h2>Portfolio map</h2>
-            <div className="q-section-sub">Each rectangle is a source. Area = current value.</div>
+            <h2 className="q-h2" id="map-title">Portfolio map</h2>
+            <div className="q-sec-sub">Each source sized by its value today.</div>
           </div>
           <QTabs<View> value={view} onChange={setView} options={VIEW_OPTIONS} size="sm" ariaLabel="View mode" />
         </div>
-        {view === 'treemap' && <Treemap data={treemapData} height={260} fmt={fmt} />}
-        {view === 'bars' && (
-          <AllocationBars
-            data={positiveSources
-              .map((s) => ({ name: s.name, value: Math.round(s.value) }))
-              .sort((a, b) => b.value - a.value)}
-            fmt={fmt}
-          />
+        {view === 'treemap' ? (
+          <Treemap data={assets.map((s) => ({ id: s.name, name: s.name, value: s.value }))} height={300} fmt={money} colorOf={colorOf} />
+        ) : (
+          <AllocationBars data={assets.map((s) => ({ name: s.name, value: s.value }))} fmt={money} fmtPct={(v) => f.pct(v)} colorOf={colorOf} />
         )}
-        {view === 'donut' && (
-          <div
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: 'var(--s-6)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 'var(--s-4) 0',
-            }}
-          >
-            <Donut data={donutData} size={260} thickness={32} />
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 'var(--s-2)', minWidth: 280, maxWidth: 420, flex: '1 1 280px' }}>
-              {donutData.map((d, i) => {
-                const pct = totalAssets > 0 ? (d.value / totalAssets) * 100 : 0;
-                return (
-                  <li key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)', fontSize: 'var(--text-sm)' }}>
-                    <span
-                      aria-hidden="true"
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 2,
-                        background: `var(--series-${(i % 8) + 1})`,
-                        flexShrink: 0,
-                      }}
-                    />
-                    <span style={{ color: 'var(--fg)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {d.name}
-                    </span>
-                    <span className="num" style={{ color: 'var(--fg-muted)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}>
-                      {fmt(d.value)}
-                    </span>
-                    <span className="num" style={{ color: 'var(--fg-faint)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', width: 48, textAlign: 'right' }}>
-                      {pct.toFixed(1)}%
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
+      </section>
+
+      <div className="q-sec-pair q-sec-pair--even">
+        <section className="q-sec" aria-labelledby="vol-title">
+          <div className="q-sec-head"><h2 className="q-h2" id="vol-title">By volatility</h2></div>
+          <AllocationBars data={byVolatility} fmt={money} fmtPct={(v) => f.pct(v)} />
+        </section>
+        <section className="q-sec" aria-labelledby="liq-title">
+          <div className="q-sec-head"><h2 className="q-h2" id="liq-title">By liquidity</h2></div>
+          <AllocationBars data={byLiquidity} fmt={money} fmtPct={(v) => f.pct(v)} />
+        </section>
       </div>
 
-      {/* By volatility + By liquidity */}
-      <div className="q-grid q-grid--2">
-        <div className="q-card q-card--p-lg">
-          <h3 style={{ fontSize: 14, margin: 0, marginBottom: 12, fontWeight: 500 }}>By volatility</h3>
-          <AllocationBars data={byVolatility} fmt={fmt} />
-        </div>
-        <div className="q-card q-card--p-lg">
-          <h3 style={{ fontSize: 14, margin: 0, marginBottom: 12, fontWeight: 500 }}>By liquidity</h3>
-          <AllocationBars data={byLiquidity} fmt={fmt} />
-        </div>
-      </div>
-
-      {/* Asset table */}
-      <div className="q-card q-card--p-none" style={{ overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="q-table q-table--responsive">
-            <thead>
-              <tr>
-                <th>Asset</th>
-                <th data-col="secondary">Volatility</th>
-                <th data-col="secondary">Liquid</th>
-                <th className="num">Value</th>
-                <th className="num" data-col="secondary">% of assets</th>
+      <section className="q-sec" aria-labelledby="sources-title">
+        <div className="q-sec-head"><h2 className="q-h2" id="sources-title">By source</h2></div>
+        <table className="q-table q-table--responsive">
+          <caption className="sr-only">Assets by value, with volatility, liquidity and share of assets</caption>
+          <thead>
+            <tr>
+              <th scope="col">Source</th>
+              <th scope="col" data-col="secondary">Volatility</th>
+              <th scope="col" data-col="secondary">Liquidity</th>
+              <th scope="col" className="num">Value</th>
+              <th scope="col" className="num">Share</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assets.map((s) => (
+              <tr key={s.name}>
+                <td>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span aria-hidden="true" style={{ width: 3, height: 20, background: colorOf(s.name), flexShrink: 0 }} />
+                    <span style={{ minWidth: 0 }}>{s.name}</span>
+                  </span>
+                </td>
+                <td data-col="secondary" style={{ color: 'var(--fg-muted)' }}>{sentenceCase(s.volatType)}</td>
+                <td data-col="secondary" style={{ color: 'var(--fg-muted)' }}>{s.isLiquid ? 'Liquid' : 'Non-liquid'}</td>
+                <td className="num">{f.money(s.value)}</td>
+                <td className="num" style={{ color: 'var(--fg-muted)' }}>{f.pct((s.value / totalAssets) * 100)}</td>
               </tr>
-            </thead>
-            <tbody>
-              {positiveSources.map((s, i) => {
-                const pct = totalAssets > 0 ? (s.value / totalAssets) * 100 : 0;
-                return (
-                  <tr key={s.name + i}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ width: 4, height: 28, borderRadius: 2, background: `var(--series-${(i % 8) + 1})`, flexShrink: 0 }} />
-                        <div>
-                          <div style={{ fontWeight: 500 }}>{s.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
-                            {toTitleCase(s.volatType)} · {s.isLiquid ? 'Liquid' : 'Non-liquid'} · {pct.toFixed(1)}%
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td data-col="secondary">
-                      <span className="q-badge q-badge--neutral">{toTitleCase(s.volatType)}</span>
-                    </td>
-                    <td data-col="secondary">
-                      {s.isLiquid
-                        ? <Check     size={14} style={{ color: 'var(--positive)' }} aria-label="Liquid" />
-                        : <Snowflake size={14} style={{ color: 'var(--fg-faint)' }} aria-label="Non-liquid — frozen, slow to convert" />}
-                    </td>
-                    <td className="num" style={{ fontFamily: 'var(--font-mono)' }}>
-                      {fmtFull(s.value)}
-                    </td>
-                    <td className="num" data-col="secondary" style={{ color: 'var(--fg-muted)' }}>
-                      {pct.toFixed(1)}%
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            ))}
+          </tbody>
+        </table>
+      </section>
 
-      {/* Liabilities panel — only renders if any source is negative */}
-      {negativeSources.length > 0 && (
-        <div className="q-card q-card--p-lg">
-          <div className="q-section-head">
+      {liabilities.length > 0 && (
+        <section className="q-sec" aria-labelledby="liab-title">
+          <div className="q-sec-head">
             <div>
-              <h2>Liabilities</h2>
-              <div className="q-section-sub">
-                Sources with a negative balance — kept out of allocation percentages so the asset mix stays honest.
-              </div>
+              <h2 className="q-h2" id="liab-title">Liabilities</h2>
+              <div className="q-sec-sub">Not counted in the shares above.</div>
             </div>
           </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="q-table q-table--responsive">
-              <thead>
-                <tr>
-                  <th>Source</th>
-                  <th className="num">Owed</th>
+          <table className="q-table">
+            <thead>
+              <tr><th scope="col">Source</th><th scope="col" className="num">Owed</th></tr>
+            </thead>
+            <tbody>
+              {liabilities.map((s) => (
+                <tr key={s.name}>
+                  <td>{s.name}</td>
+                  <td className="num">{f.money(s.value)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                {negativeSources.map((s, i) => (
-                  <tr key={s.name + i}>
-                    <td>
-                      <div style={{ fontWeight: 500 }}>{s.name}</div>
-                      <div style={{ fontSize: 11, color: 'var(--fg-subtle)' }}>
-                        {toTitleCase(s.volatType)} · {s.isLiquid ? 'Liquid' : 'Non-liquid'}
-                      </div>
-                    </td>
-                    <td className="num" style={{ color: 'var(--negative)', fontFamily: 'var(--font-mono)' }}>
-                      {fmtFull(s.value)}
-                    </td>
-                  </tr>
-                ))}
-                <tr>
-                  <td style={{ fontWeight: 500 }}>Total liabilities</td>
-                  <td className="num" style={{ color: 'var(--negative)', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                    {fmtFull(-totalLiabilities)}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))}
+              <tr>
+                <td style={{ fontWeight: 500 }}>Total</td>
+                <td className="num" style={{ fontWeight: 500 }}>{f.money(totalLiabilities)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
       )}
     </div>
   );

@@ -65,7 +65,7 @@ describe('FeatureGate', () => {
   it('renders a custom fallback when one is provided', () => {
     entitlements.has = () => false;
     renderGate(
-      <FeatureGate feature="export.csv" fallback={<div data-testid="custom-fallback">nope</div>}>
+      <FeatureGate feature="export.excel" fallback={<div data-testid="custom-fallback">nope</div>}>
         <div>kept hidden</div>
       </FeatureGate>,
     );
@@ -82,5 +82,18 @@ describe('FeatureGate', () => {
     );
     expect(proGateHit).toHaveBeenCalledTimes(1);
     expect(proGateHit).toHaveBeenCalledWith({ feature: 'benchmarks' });
+  });
+});
+
+describe('FeatureGate with an explicit null fallback', () => {
+  it('renders nothing and still counts the blocked impression', () => {
+    entitlements.has = () => false;
+    const { container } = renderGate(
+      <FeatureGate feature="export.pdf" fallback={null}>
+        <div>hidden</div>
+      </FeatureGate>,
+    );
+    expect(container.textContent).toBe('');
+    expect(proGateHit).toHaveBeenCalledTimes(1);
   });
 });

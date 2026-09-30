@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 
+// Numbers written en-GB regardless of the test machine's language.
+vi.mock('@/contexts/PreferencesContext', () => ({
+  usePreferences: () => ({ numberLocale: 'en-GB' }),
+}));
+
 vi.mock('@/contexts/PortfolioContext', () => ({
   usePortfolio: vi.fn(),
 }));
@@ -12,38 +17,6 @@ vi.mock('@/contexts/CurrencyContext', () => ({
 vi.mock('@/hooks/useFxRates', () => ({
   useFxRates: () => ({ convertAt: (v: number) => v, rates: {}, isLoading: false }),
 }));
-
-vi.mock('framer-motion', async () => {
-  const React = await import('react');
-  const MOTION_PROPS = new Set([
-    'initial', 'animate', 'exit', 'transition', 'variants', 'custom',
-    'whileHover', 'whileTap', 'whileFocus', 'whileDrag', 'whileInView',
-    'layout', 'layoutId', 'layoutDependency', 'layoutScroll', 'layoutRoot',
-    'viewport', 'inherit', 'transformTemplate', 'transformValues',
-    'onAnimationStart', 'onAnimationComplete', 'onUpdate',
-    'onHoverStart', 'onHoverEnd', 'onTapStart', 'onTap', 'onTapCancel',
-    'onViewportEnter', 'onViewportLeave',
-    'onLayoutAnimationStart', 'onLayoutAnimationComplete',
-  ]);
-  const stripMotionProps = (props: Record<string, unknown>) => {
-    const out: Record<string, unknown> = {};
-    for (const k in props) if (!MOTION_PROPS.has(k)) out[k] = props[k];
-    return out;
-  };
-  const tags = ['div', 'button', 'span', 'p', 'form', 'section'];
-  const motion = Object.fromEntries(
-    tags.map(tag => [
-      tag,
-      React.forwardRef(({ children, ...props }: Record<string, unknown>, ref: unknown) =>
-        React.createElement(tag as string, { ...stripMotionProps(props), ref }, children as React.ReactNode)
-      ),
-    ])
-  );
-  return {
-    motion,
-    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  };
-});
 
 vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
@@ -101,7 +74,7 @@ describe('MeasurementHistoryModal', () => {
       <MeasurementHistoryModal open={true} onOpenChange={vi.fn()} idSource="Checking" />,
     );
 
-    expect(screen.getByText(/Measurements for Checking/)).toBeInTheDocument();
+    expect(screen.getByText(/Entries for Checking/)).toBeInTheDocument();
     const rows = screen.getAllByRole('row');
     // 1 header row + 2 data rows for Checking; Brokerage row excluded.
     expect(rows).toHaveLength(3);
@@ -120,8 +93,8 @@ describe('MeasurementHistoryModal', () => {
       <MeasurementHistoryModal open={true} onOpenChange={vi.fn()} idSource="Checking" />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Edit measurement from 15 Jan 2026/ }));
-    expect(screen.getByRole('dialog', { name: /Edit measurement/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Edit entry from 15 Jan 2026/ }));
+    expect(screen.getByRole('dialog', { name: /Edit entry/i })).toBeInTheDocument();
   });
 
   it('calls updateMeasurement with the parsed value on save', () => {
@@ -133,8 +106,8 @@ describe('MeasurementHistoryModal', () => {
       <MeasurementHistoryModal open={true} onOpenChange={vi.fn()} idSource="Checking" />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Edit measurement from 15 Jan 2026/ }));
-    const valueInput = screen.getByLabelText('Measurement value') as HTMLInputElement;
+    fireEvent.click(screen.getByRole('button', { name: /Edit entry from 15 Jan 2026/ }));
+    const valueInput = screen.getByLabelText('Entry value') as HTMLInputElement;
     fireEvent.change(valueInput, { target: { value: '1234.56' } });
     fireEvent.click(screen.getByRole('button', { name: /Save changes/ }));
 
@@ -155,11 +128,11 @@ describe('MeasurementHistoryModal', () => {
       <MeasurementHistoryModal open={true} onOpenChange={vi.fn()} idSource="Checking" />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Delete measurement from 15 Jan 2026/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Delete entry from 15 Jan 2026/ }));
     // AlertDialog renders into a portal; its title becomes accessible.
-    expect(screen.getByText(/Delete measurement from 15 Jan 2026\?/)).toBeInTheDocument();
+    expect(screen.getByText(/Delete entry from 15 Jan 2026\?/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Delete measurement$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Delete entry$/ }));
     expect(deleteMeasurement).toHaveBeenCalledTimes(1);
     const [date, idSource] = deleteMeasurement.mock.calls[0];
     expect((date as Date).getTime()).toBe(new Date('2026-01-15T00:00:00.000Z').getTime());
@@ -175,8 +148,8 @@ describe('MeasurementHistoryModal', () => {
       <MeasurementHistoryModal open={true} onOpenChange={vi.fn()} idSource="Checking" />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Delete measurement from 15 Jan 2026/ }));
-    expect(screen.getByText(/This is the only measurement for Checking/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Delete entry from 15 Jan 2026/ }));
+    expect(screen.getByText(/This is the only entry for Checking/)).toBeInTheDocument();
   });
 
   it('renders an empty-state when the source has no measurements', () => {
@@ -186,7 +159,7 @@ describe('MeasurementHistoryModal', () => {
       <MeasurementHistoryModal open={true} onOpenChange={vi.fn()} idSource="Checking" />,
     );
 
-    expect(screen.getByText(/No measurements recorded yet for this source/)).toBeInTheDocument();
+    expect(screen.getByText(/No entries for this source yet/)).toBeInTheDocument();
   });
 
   it('does not call onOpenChange(false) when Escape is pressed while the edit sub-modal is open', () => {
@@ -199,7 +172,7 @@ describe('MeasurementHistoryModal', () => {
       <MeasurementHistoryModal open={true} onOpenChange={onOpenChange} idSource="Checking" />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Edit measurement from 15 Jan 2026/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Edit entry from 15 Jan 2026/ }));
     fireEvent.keyDown(window, { key: 'Escape' });
 
     // Edit sub-modal closes (no longer in the DOM); parent stays open.

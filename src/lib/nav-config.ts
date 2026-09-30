@@ -10,12 +10,8 @@ export type NavSectionId = 'workspace' | 'plan' | 'account';
 export interface NavItem {
   to: string;
   label: string;
-  /** Optional shorter label used in the mobile tab bar (60–80px slot). */
-  mobileLabel?: string;
   /** Lucide icon component; each consumer chooses its own size. */
   Icon: LucideIcon;
-  /** Keyboard shortcut surfaced in the sidebar (single digit). */
-  shortcut?: string;
   /** Extra keywords for global search matching. */
   keywords?: string;
   /**
@@ -47,16 +43,13 @@ export const NAV_SECTIONS: NavSection[] = [
         to: '/dashboard',
         label: 'Overview',
         Icon: LayoutDashboard,
-        shortcut: '1',
         keywords: 'dashboard home kpi',
         mobilePrimary: true,
       },
       {
         to: '/allocations',
         label: 'Allocations',
-        mobileLabel: 'Alloc',
         Icon: PieChart,
-        shortcut: '2',
         keywords: 'breakdown treemap donut',
         mobilePrimary: true,
       },
@@ -64,7 +57,6 @@ export const NAV_SECTIONS: NavSection[] = [
         to: '/sources',
         label: 'Sources',
         Icon: Database,
-        shortcut: '3',
         keywords: 'accounts assets',
         mobilePrimary: true,
       },
@@ -78,7 +70,6 @@ export const NAV_SECTIONS: NavSection[] = [
         to: '/forecast',
         label: 'Forecast',
         Icon: TrendingUp,
-        shortcut: '4',
         keywords: 'projection scenario future',
         mobilePrimary: true,
       },
@@ -86,14 +77,12 @@ export const NAV_SECTIONS: NavSection[] = [
         to: '/performance',
         label: 'Performance',
         Icon: Activity,
-        shortcut: '5',
         keywords: 'benchmark inflation s&p sp500 history month looking back',
       },
       {
         to: '/goals',
         label: 'Goals',
         Icon: Target,
-        shortcut: '6',
         keywords: 'milestones targets progress',
       },
     ],
@@ -125,3 +114,11 @@ export const MOBILE_MORE_SECTIONS: NavSection[] = NAV_SECTIONS.map((s) => ({
   ...s,
   items: s.items.filter((i) => !i.mobilePrimary),
 })).filter((s) => s.items.length > 0);
+
+/** Legal pages, reachable from every in-app screen (sidebar foot, More sheet, Settings). */
+export const LEGAL_LINKS = [
+  { to: '/security', label: 'Security' },
+  { to: '/privacy', label: 'Privacy' },
+  { to: '/terms', label: 'Terms' },
+  { to: '/impressum', label: 'Impressum' },
+] as const;

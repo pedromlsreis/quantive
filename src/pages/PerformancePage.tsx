@@ -1,45 +1,32 @@
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { BenchmarkOverlay } from '@/components/performance/BenchmarkOverlay';
-import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
-import { FileUpload } from '@/components/dashboard/FileUpload';
+import { PageSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { RouteEmpty } from '@/components/dashboard/EmptyState';
 import { MonthSummaryTable } from '@/components/performance/MonthSummaryTable';
 import { DownsideStats } from '@/components/performance/DownsideStats';
 import { PdfReportButton } from '@/components/export/PdfReportButton';
 
 /**
- * Performance — looking-back view that combines benchmark comparison (Agent B)
- * and the month-by-month summary table (Agent C). Two stacked sections:
- *   1. BenchmarkOverlay — inflation / S&P 500 comparison.
- *   2. DownsideStats — drawdown, longest decline, best/worst rolling year.
- *   3. MonthSummaryTable — month-by-month history with CSV export.
- *
- * Forecast lives at /forecast and stays about the future; Performance is the
- * single place to "see how I'm doing relative to the past and the market".
+ * Looking back: net worth against inflation and the market, its downside,
+ * and the month-by-month record. Forecast stays about the future.
  */
 const PerformancePage = () => {
   const { data, isLoading } = usePortfolio();
 
-  if (isLoading) return <DashboardSkeleton />;
-  if (!data) return <FileUpload />;
+  if (isLoading) return <PageSkeleton />;
+  if (!data) return <RouteEmpty title="Performance" sentence="Monthly change, drawdowns and a comparison with EU inflation and the S&P 500. It needs two months of entries." />;
 
   return (
-    <div className="flex flex-col gap-8">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--s-3)' }}>
+    <div>
+      <header className="q-page-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--s-4)', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em', margin: 0 }}>
-            Performance
-          </h1>
-          <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
-            How your portfolio compares to inflation and the wider market, plus a month-by-month history.
-          </p>
+          <h1 className="q-h1" tabIndex={-1}>Performance</h1>
+          <p className="q-page-lede">How your net worth has moved against inflation and the market, month by month.</p>
         </div>
         <PdfReportButton />
-      </div>
-
+      </header>
       <BenchmarkOverlay />
-
       <DownsideStats />
-
       <MonthSummaryTable />
     </div>
   );

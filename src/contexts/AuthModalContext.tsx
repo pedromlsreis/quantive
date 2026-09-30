@@ -1,11 +1,15 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 import { AuthModal } from '@/components/auth/AuthModal';
 
-export type AuthMode = 'signin' | 'signup';
+export type AuthMode = 'signin' | 'signup' | 'forgot';
 
 interface AuthModalActions {
-  /** Open the auth modal. Defaults to 'signin' to match the existing convention for unspecified triggers. */
-  openAuth: (mode?: AuthMode) => void;
+  /**
+   * Open the auth modal. Defaults to 'signin' to match the existing convention
+   * for unspecified triggers; `email` pre-fills the form (the unlock dialog's
+   * reset path knows it).
+   */
+  openAuth: (mode?: AuthMode, opts?: { email?: string }) => void;
   closeAuth: () => void;
 }
 
@@ -48,9 +52,11 @@ export function useAuthModalState(): AuthModalState {
 export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
   const [mode, setMode] = useState<AuthMode>('signin');
+  const [email, setEmail] = useState<string | undefined>(undefined);
 
-  const openAuth = useCallback((nextMode: AuthMode = 'signin') => {
+  const openAuth = useCallback((nextMode: AuthMode = 'signin', opts?: { email?: string }) => {
     setMode(nextMode);
+    setEmail(opts?.email);
     setIsOpen(true);
   }, []);
 
@@ -66,7 +72,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
     <AuthModalActionsContext.Provider value={actions}>
       <AuthModalStateContext.Provider value={state}>
         {children}
-        <AuthModal open={isOpen} onClose={closeAuth} defaultMode={mode} />
+        <AuthModal open={isOpen} onClose={closeAuth} defaultMode={mode} defaultEmail={email} />
       </AuthModalStateContext.Provider>
     </AuthModalActionsContext.Provider>
   );

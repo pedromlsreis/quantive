@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, toast } from "sonner";
 
@@ -6,7 +7,9 @@ type ToasterProps = React.ComponentProps<typeof Sonner>;
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
 
-  return (
+  // Portalled to <body> so an open dialog, which makes #root inert, never
+  // silences or freezes a toast.
+  return createPortal(
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
@@ -20,7 +23,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
         },
       }}
       {...props}
-    />
+    />,
+    document.body,
   );
 };
 

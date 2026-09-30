@@ -11,7 +11,7 @@ test.describe('Pricing page', () => {
   test.beforeEach(async ({ page }) => {
     await seedClean(page);
     await page.goto('/pricing');
-    // The page wraps the hero in framer-motion; wait for the h1 instead of
+    // Wait for the h1 instead of
     // networkidle (the StickyNav re-fetches subscription on each render).
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 12_000 });
   });
@@ -55,8 +55,7 @@ test.describe('Pricing page', () => {
   });
 
   test('legal microcopy mentions §19 UStG (Kleinunternehmer)', async ({ page }) => {
-    // Both tier cards carry the VAT disclosure — there should be more than one
-    // match because both Free and Pro reproduce it.
+    // The Pro price and the "Why is no VAT charged?" answer both cite it.
     const count = await page.getByText(/§\s*19\s*UStG/i).count();
     expect(count).toBeGreaterThanOrEqual(2);
   });

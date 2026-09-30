@@ -188,7 +188,7 @@ export async function signIn(page: Page, slot: 1 | 2 = 1) {
 
   const unlock = page.getByRole('dialog', { name: /unlock your data/i });
   await unlock.waitFor({ state: 'visible', timeout: 15_000 });
-  await unlock.getByPlaceholder('Password').fill(password);
+  await unlock.getByLabel('Password', { exact: true }).fill(password);
   await unlock.getByRole('button', { name: /^unlock$/i }).click();
   await unlock.waitFor({ state: 'detached', timeout: 15_000 });
 

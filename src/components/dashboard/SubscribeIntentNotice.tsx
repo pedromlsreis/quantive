@@ -1,4 +1,4 @@
-import { Sparkles, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useAuthModalActions } from '@/contexts/AuthModalContext';
 import { analytics } from '@/lib/analytics';
 
@@ -22,7 +22,7 @@ interface Props {
  */
 export function SubscribeIntentNotice({ plan, onCancel }: Props) {
   const { openAuth } = useAuthModalActions();
-  const priceLabel = plan === 'yearly' ? '€90/year' : '€9/month';
+  const priceLabel = plan === 'yearly' ? '€90 a year' : '€9 a month';
 
   const handleSignUp = () => {
     analytics.landingCtaClicked({ cta: 'pro_signup', location: 'pricing_card' });
@@ -32,18 +32,13 @@ export function SubscribeIntentNotice({ plan, onCancel }: Props) {
   return (
     <section
       role="region"
-      aria-label="Pro subscription pending — sign up to continue"
+      aria-label="Pro subscription pending. Sign up to continue."
       className="q-insight"
       style={{ alignItems: 'center', flexWrap: 'wrap', rowGap: 'var(--s-3)' }}
     >
-      <div className="q-insight-icon" aria-hidden="true">
-        <Sparkles size={16} />
-      </div>
       <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-        <p className="q-insight-title">Continue your Pro subscription</p>
-        <p className="q-insight-body">
-          Sign up with your email to start secure checkout for Pro {priceLabel}. We'll pick up where you left off.
-        </p>
+        <p className="q-insight-title">Sign up to subscribe to Pro</p>
+        <p className="q-insight-body">{`Create your account, then checkout opens for Pro at ${priceLabel}.`}</p>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', flexShrink: 0 }}>
         <button

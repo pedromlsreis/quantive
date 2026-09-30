@@ -29,11 +29,14 @@ export type Plan = {
   entitlements: readonly Entitlement[];
 };
 
+// CSV export of every entry is free so no one is locked in: whatever
+// the plan, all of your data can leave with you. Excel, the PDF report and
+// the month-by-month table's CSV stay in Pro.
 export const FREE_PLAN: Plan = {
   id: 'free',
   name: 'Free',
   productIds: [],
-  entitlements: [],
+  entitlements: ['export.csv'],
 };
 
 export const PLANS: readonly Plan[] = [

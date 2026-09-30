@@ -24,7 +24,7 @@ test.describe('Measurement history (edit + delete)', () => {
     await firstActions.click();
     await page.getByRole('menuitem', { name: /Edit values/i }).click();
 
-    const modal = page.getByRole('dialog', { name: /Measurements for /i });
+    const modal = page.getByRole('dialog', { name: /Entries for /i });
     await expect(modal).toBeVisible({ timeout: 4000 });
     await expect(modal.getByRole('table')).toBeVisible();
   });
@@ -39,15 +39,15 @@ test.describe('Measurement history (edit + delete)', () => {
 
     await firstActions.click();
     await page.getByRole('menuitem', { name: /Edit values/i }).click();
-    const modal = page.getByRole('dialog', { name: /Measurements for /i });
+    const modal = page.getByRole('dialog', { name: /Entries for /i });
     await expect(modal).toBeVisible({ timeout: 4000 });
 
     // Click the first row's edit pencil.
-    await modal.getByRole('button', { name: /^Edit measurement from /i }).first().click();
-    const editModal = page.getByRole('dialog', { name: /Edit measurement/i });
+    await modal.getByRole('button', { name: /^Edit entry from /i }).first().click();
+    const editModal = page.getByRole('dialog', { name: /Edit entry/i });
     await expect(editModal).toBeVisible({ timeout: 4000 });
 
-    const valueInput = editModal.getByLabel('Measurement value');
+    const valueInput = editModal.getByLabel('Entry value');
     await valueInput.fill('424242');
     await editModal.getByRole('button', { name: /Save changes/i }).click();
 
@@ -61,17 +61,17 @@ test.describe('Measurement history (edit + delete)', () => {
     const firstActions = page.getByRole('button', { name: /Actions for /i }).first();
     await firstActions.click();
     await page.getByRole('menuitem', { name: /Edit values/i }).click();
-    const modal = page.getByRole('dialog', { name: /Measurements for /i });
+    const modal = page.getByRole('dialog', { name: /Entries for /i });
     await expect(modal).toBeVisible({ timeout: 4000 });
 
     const rowsBefore = await modal.getByRole('row').count();
     // Trigger delete on the first row.
-    await modal.getByRole('button', { name: /^Delete measurement from /i }).first().click();
+    await modal.getByRole('button', { name: /^Delete entry from /i }).first().click();
 
     // AlertDialog appears with a "Cancel" affordance.
     const confirm = page.getByRole('alertdialog');
     await expect(confirm).toBeVisible({ timeout: 4000 });
-    await expect(confirm.getByText(/Delete measurement from /i)).toBeVisible();
+    await expect(confirm.getByText(/Delete entry from /i)).toBeVisible();
     await confirm.getByRole('button', { name: /^Cancel$/ }).click();
 
     // Cancel keeps the row count intact.
@@ -84,15 +84,15 @@ test.describe('Measurement history (edit + delete)', () => {
     const firstActions = page.getByRole('button', { name: /Actions for /i }).first();
     await firstActions.click();
     await page.getByRole('menuitem', { name: /Edit values/i }).click();
-    const modal = page.getByRole('dialog', { name: /Measurements for /i });
+    const modal = page.getByRole('dialog', { name: /Entries for /i });
     await expect(modal).toBeVisible({ timeout: 4000 });
 
     const rowsBefore = await modal.getByRole('row').count();
-    await modal.getByRole('button', { name: /^Delete measurement from /i }).first().click();
+    await modal.getByRole('button', { name: /^Delete entry from /i }).first().click();
 
     const confirm = page.getByRole('alertdialog');
     await expect(confirm).toBeVisible({ timeout: 4000 });
-    const deleteBtn = confirm.getByRole('button', { name: /^Delete measurement$/ });
+    const deleteBtn = confirm.getByRole('button', { name: /^Delete entry$/ });
     await expect(deleteBtn).toBeEnabled();
     // `noWaitAfter`: the click triggers state updates + toast + Radix focus
     // restoration, which under heavy parallel load can be mistaken for an
@@ -110,15 +110,15 @@ test.describe('Measurement history (edit + delete)', () => {
     const firstActions = page.getByRole('button', { name: /Actions for /i }).first();
     await firstActions.click();
     await page.getByRole('menuitem', { name: /Edit values/i }).click();
-    const modal = page.getByRole('dialog', { name: /Measurements for /i });
+    const modal = page.getByRole('dialog', { name: /Entries for /i });
     await expect(modal).toBeVisible({ timeout: 4000 });
 
     const rowsBefore = await modal.getByRole('row').count();
-    await modal.getByRole('button', { name: /^Delete measurement from /i }).first().click();
+    await modal.getByRole('button', { name: /^Delete entry from /i }).first().click();
 
     const confirm = page.getByRole('alertdialog');
     await expect(confirm).toBeVisible({ timeout: 4000 });
-    await confirm.getByRole('button', { name: /^Delete measurement$/ }).click({ noWaitAfter: true });
+    await confirm.getByRole('button', { name: /^Delete entry$/ }).click({ noWaitAfter: true });
     await expect(confirm).not.toBeVisible({ timeout: 4000 });
     await expect.poll(async () => modal.getByRole('row').count()).toBe(rowsBefore - 1);
 

@@ -2,63 +2,59 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
-const { proUpgradeClicked } = vi.hoisted(() => ({ proUpgradeClicked: vi.fn() }));
+const { proUpgradeClicked, proGateHit } = vi.hoisted(() => ({ proUpgradeClicked: vi.fn(), proGateHit: vi.fn() }));
 vi.mock('@/lib/analytics', () => ({
-  analytics: { proUpgradeClicked },
+  analytics: { proUpgradeClicked, proGateHit },
 }));
 
-import { UpsellCard } from '../UpsellCard';
+import { ProGate, UpsellCard } from '../UpsellCard';
 import type { Entitlement } from '@/lib/billing/plans';
 
 beforeEach(() => {
   proUpgradeClicked.mockClear();
+  proGateHit.mockClear();
 });
 
-function renderCard(feature: Entitlement, compact = false) {
-  return render(
-    <MemoryRouter>
-      <UpsellCard feature={feature} compact={compact} />
-    </MemoryRouter>,
-  );
+function renderGate(ui: React.ReactNode) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
 
-describe('UpsellCard', () => {
+describe('ProGate', () => {
   it.each<[Entitlement, RegExp]>([
-    ['history.full',    /full history/i],
-    ['forecasting',     /forecast where/i],
-    ['export.excel',    /export to excel/i],
-    ['export.csv',      /export to csv/i],
-    ['export.pdf',      /wealth report pdf/i],
-    ['milestones',      /milestones/i],
-    ['benchmarks',      /full benchmark history/i],
+    ['history.full',    /your full history/i],
+    ['forecasting',     /scenarios and the likely range/i],
+    ['export.excel',    /excel workbook/i],
+    ['export.csv',      /csv export/i],
+    ['export.pdf',      /pdf report/i],
+    ['milestones',      /progress for your goals/i],
+    ['benchmarks',      /your full history/i],
     ['support.priority',/priority support/i],
   ])('renders the canonical copy for feature %s', (feature, titlePattern) => {
-    renderCard(feature);
+    renderGate(<UpsellCard feature={feature} />);
     expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent(titlePattern);
   });
 
-  it('links the CTA to /pricing', () => {
-    renderCard('forecasting');
+  it('states the price and links a secondary CTA to /pricing', () => {
+    const { container } = renderGate(<ProGate feature="forecasting" />);
+    expect(screen.getByText(/€9 a month or €90 a year/)).toBeInTheDocument();
     const cta = screen.getByRole('link', { name: /upgrade to pro/i });
     expect(cta.getAttribute('href')).toBe('/pricing');
+    expect(cta.className).toContain('q-btn--secondary');
+    expect(container.querySelector('svg')).toBeNull();
   });
 
-  it('fires proUpgradeClicked analytics when the CTA is clicked', () => {
-    renderCard('benchmarks');
+  it('reports one impression per mount and the click', () => {
+    renderGate(<ProGate feature="benchmarks" />);
+    expect(proGateHit).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole('link', { name: /upgrade to pro/i }));
-    expect(proUpgradeClicked).toHaveBeenCalledTimes(1);
     expect(proUpgradeClicked).toHaveBeenCalledWith({ feature: 'benchmarks' });
   });
 
-  it('applies the compact padding modifier when compact=true', () => {
-    const { container } = renderCard('export.pdf', true);
-    expect(container.querySelector('.q-card--p-md')).not.toBeNull();
-    expect(container.querySelector('.q-card--p-lg')).toBeNull();
-  });
-
-  it('applies the default large padding modifier when compact is omitted', () => {
-    const { container } = renderCard('export.pdf');
-    expect(container.querySelector('.q-card--p-lg')).not.toBeNull();
-    expect(container.querySelector('.q-card--p-md')).toBeNull();
+  it('renders the row form with overridden copy', () => {
+    const { container } = renderGate(
+      <ProGate feature="history.full" variant="row" title="14 earlier months are saved" body="Shown in Pro." />,
+    );
+    expect(container.querySelector('.q-gate--row')).not.toBeNull();
+    expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('14 earlier months are saved');
   });
 });

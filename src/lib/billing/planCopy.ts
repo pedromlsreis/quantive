@@ -12,23 +12,26 @@
 import { CURRENCY_CODES } from '@/lib/currencies';
 
 export interface PlanCopySection {
-  /** Small uppercase group label rendered above the ticked items. */
+  /** Short group heading rendered above the ticked items. */
   head: string;
   items: string[];
 }
 
 export const PRICING_HEADLINE = '€0 forever, or €90 a year';
-export const PRICING_SUB = 'The free tier is permanent, not a trial.';
+export const PRICING_SUB = 'The free plan has no time limit.';
+
+/** Short price line for in-app Pro gates. */
+export const PRO_PRICE_LINE = '€9 a month or €90 a year';
 
 export const VAT_NOTE =
   'All prices final. No VAT charged under German legislation (§ 19 UStG).';
 
 export const FREE_SECTIONS: PlanCopySection[] = [
   {
-    head: 'Everyday tracking',
+    head: 'Tracking',
     items: [
       'Net worth tracking with unlimited sources',
-      'Allocation charts (volatility & liquidity)',
+      'Allocation by volatility and liquidity',
       `Multi-currency display (${CURRENCY_CODES.length} currencies)`,
       'Spreadsheet import',
       'Manual balance entry',
@@ -36,10 +39,11 @@ export const FREE_SECTIONS: PlanCopySection[] = [
     ],
   },
   {
-    head: 'Privacy & control',
+    head: 'Privacy and control',
     items: [
       'End-to-end encrypted: only you can read your data',
       'Privacy mode to blur sensitive numbers',
+      'CSV export of all your entries, at any time',
       'Delete your account and data at any time',
     ],
   },
@@ -47,24 +51,21 @@ export const FREE_SECTIONS: PlanCopySection[] = [
 
 export const PRO_SECTIONS: PlanCopySection[] = [
   {
-    head: "Know if you're on track",
+    head: 'History and forecast',
     items: [
-      'Full historical view: every snapshot since you started, charted and tabular',
-      'Forecasting engine: CAGR projection with 95% confidence intervals',
-      'Milestone & goal tracking',
+      'Every month since your first entry, as charts and a table',
+      'Forecast 1, 3 or 5 years out, with a range from your own history',
+      'Milestones and goals',
       'Benchmark comparison (S&P 500 and inflation)',
       'Month-by-month summary table',
     ],
   },
   {
-    head: 'Get your data out',
+    head: 'Export and support',
     items: [
-      'Excel/CSV export',
-      'PDF wealth report: one-page summary for advisors or annual review',
+      'Excel workbook export',
+      'One-page PDF report for you or your adviser',
+      'Priority support (24h response)',
     ],
-  },
-  {
-    head: 'Support',
-    items: ['Priority support (24h response)'],
   },
 ];

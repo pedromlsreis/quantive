@@ -17,7 +17,7 @@ export default function DemoRedirect() {
     if (user) {
       // Logged-in users should not get the mock-data flash. Send them to
       // their own dashboard with a brief note so the click isn't silent.
-      toast.message("You're signed in — demo skipped.", {
+      toast.message("You're signed in, so the demo was skipped.", {
         description: 'Sign out to try the demo mode.',
       });
       navigate('/dashboard', { replace: true });

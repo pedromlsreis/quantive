@@ -1,231 +1,35 @@
-import { useEffect, useRef, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import {
-  Settings,
-  LogOut, Shield, MessageSquarePlus, ChevronUp, LogIn, User, KeyRound,
-} from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Settings, LogOut, Shield, MessageSquarePlus, ChevronsUpDown, KeyRound } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { AddMeasurementModal } from '@/components/dashboard/AddMeasurementModal';
-import { FeedbackButton } from '@/components/dashboard/FeedbackButton';
+import { FeedbackDialog } from '@/components/dashboard/FeedbackDialog';
 import { useAuthModalActions } from '@/contexts/AuthModalContext';
 import { analytics } from '@/lib/analytics';
 import { EmailConfirmationBanner } from '@/components/auth/EmailConfirmationBanner';
 import { Wordmark } from '@/components/layout/Brand';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import { Topbar } from '@/components/layout/Topbar';
-import { Footer } from '@/components/Footer';
-import { NAV_SECTIONS } from '@/lib/nav-config';
+import { NAV_SECTIONS, MOBILE_PRIMARY_ITEMS, LEGAL_LINKS } from '@/lib/nav-config';
+import { intentPrefetch, prefetchAppRoute } from '@/routes/appRoutes';
+import { ADD_MEASUREMENT_EVENT } from '@/lib/appEvents';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-function UserMenu({
-  displayName,
-  email,
-  initial,
-  isAdmin,
-  needsRecovery,
-  onNavigate,
-  onSignOut,
-}: {
-  displayName: string | null;
-  email: string | undefined;
-  initial: string;
-  isAdmin: boolean;
-  /** True only when keySession has loaded and confirmed no recovery code exists. Null/undefined during load → no warning. */
-  needsRecovery: boolean;
-  onNavigate: (to: string) => void;
-  onSignOut: () => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="q-side-user"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={
-          needsRecovery
-            ? `${displayName || 'You'} — account menu (recovery code not set up)`
-            : `${displayName || 'You'} — account menu`
-        }
-        style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}
-      >
-        <div className="q-avatar" style={{ position: 'relative' }}>
-          {initial}
-          {needsRecovery && (
-            <span
-              aria-hidden="true"
-              style={{
-                position: 'absolute',
-                top: -2,
-                right: -2,
-                width: 8,
-                height: 8,
-                borderRadius: '50%',
-                background: 'var(--warning)',
-                border: '2px solid var(--bg)',
-                boxSizing: 'content-box',
-              }}
-            />
-          )}
-        </div>
-        <div className="q-side-user-meta" style={{ flex: 1 }}>
-          <span className="q-side-user-name">{displayName || 'You'}</span>
-          {email && <span className="q-side-user-mail">{email}</span>}
-        </div>
-        <ChevronUp
-          size={14}
-          style={{
-            color: 'var(--fg-faint)',
-            transform: open ? 'rotate(0deg)' : 'rotate(180deg)',
-            transition: `transform var(--d-fast) var(--ease-out)`,
-            flexShrink: 0,
-          }}
-        />
-      </button>
-
-      {open && (
-        <div
-          role="menu"
-          style={{
-            position: 'absolute',
-            bottom: 'calc(100% + 6px)',
-            left: 0,
-            right: 0,
-            background: 'var(--bg-elev-1, var(--bg))',
-            border: '1px solid var(--border-raw)',
-            borderRadius: 'var(--r-3)',
-            boxShadow: 'var(--shadow-lg)',
-            padding: 4,
-            zIndex: 50,
-            animation: `q-fade-in var(--d-fast) var(--ease-out)`,
-          }}
-        >
-          {needsRecovery && (
-            <>
-              <button
-                role="menuitem"
-                onClick={() => { setOpen(false); onNavigate('/settings#recovery'); }}
-                className="q-nav-item"
-                style={{ color: 'var(--warning)' }}
-              >
-                <KeyRound size={15} />
-                <span>Set up recovery code</span>
-              </button>
-              <div style={{ height: 1, background: 'var(--border-raw)', margin: '4px 0' }} />
-            </>
-          )}
-          <button
-            role="menuitem"
-            onClick={() => { setOpen(false); onNavigate('/settings'); }}
-            className="q-nav-item"
-          >
-            <Settings size={15} />
-            <span>Settings</span>
-          </button>
-          {isAdmin && (
-            <button
-              role="menuitem"
-              onClick={() => { setOpen(false); onNavigate('/admin'); }}
-              className="q-nav-item"
-            >
-              <Shield size={15} />
-              <span>Admin</span>
-            </button>
-          )}
-          <div style={{ height: 1, background: 'var(--border-raw)', margin: '4px 0' }} />
-          <button
-            role="menuitem"
-            onClick={() => { setOpen(false); onSignOut(); }}
-            className="q-nav-item"
-            style={{ color: 'var(--negative, var(--fg-muted))' }}
-          >
-            <LogOut size={15} />
-            <span>Sign out</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SignedOutMenu({
-  onSignIn,
-  onFeedback,
-}: {
-  onSignIn: () => void;
-  onFeedback: () => void;
-}) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <button
-        type="button"
-        onClick={onFeedback}
-        className="q-nav-item"
-      >
-        <MessageSquarePlus size={15} />
-        <span>Suggest a feature</span>
-      </button>
-      <button
-        type="button"
-        onClick={onSignIn}
-        className="q-side-user"
-        style={{
-          width: '100%', border: 0, background: 'transparent',
-          textAlign: 'left', cursor: 'pointer',
-        }}
-      >
-        <div className="q-avatar" aria-hidden="true">
-          <User size={14} />
-        </div>
-        <div className="q-side-user-meta" style={{ flex: 1 }}>
-          <span className="q-side-user-name">Sign in to sync</span>
-        </div>
-        <LogIn size={14} style={{ color: 'var(--fg-faint)', flexShrink: 0 }} />
-      </button>
-    </div>
-  );
-}
-
-function Sidebar({
-  isOpen,
-  onClose,
-  onFeedback,
-  onSignIn,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onFeedback: () => void;
-  onSignIn: () => void;
-}) {
-  const { user, signOut } = useAuth();
-  const { isAdmin } = useUserRole();
-  const keySession = useKeySession();
-  const navigate = useNavigate();
-
-  // Only treat as "needs recovery" when keySession has loaded and confirmed
-  // it's missing. Null/undefined during load → no warning flicker.
-  const needsRecovery = keySession.hasRecovery === false;
-
+/** The signed-in user's display name, reset on account switch. */
+function useDisplayName(): string | null {
+  const { user } = useAuth();
   const [displayName, setDisplayName] = useState<string | null>(null);
-
   useEffect(() => {
-    // Reset before fetch so a sign-out or account-switch can't flash the
-    // previous user's name while the new fetch is in flight.
+    // Reset before fetch so an account switch can't flash the previous name.
     setDisplayName(null);
     if (!user) return;
     supabase
@@ -237,163 +41,195 @@ function Sidebar({
         if (data) setDisplayName(data.display_name);
       });
   }, [user]);
+  return displayName;
+}
 
-  const initial = (() => {
-    const source = displayName || user?.user_metadata?.full_name || user?.email || 'Q';
-    return source.trim().charAt(0).toUpperCase() || 'Q';
-  })();
+function UserMenu({ onFeedback }: { onFeedback: () => void }) {
+  const { user, signOut } = useAuth();
+  const { isAdmin } = useUserRole();
+  const keySession = useKeySession();
+  const navigate = useNavigate();
+  const displayName = useDisplayName();
 
-  const handleSignOut = () => {
-    signOut();
-  };
+  // Only warn once the key session has confirmed there is no recovery code;
+  // null while loading, so the dot never flickers.
+  const needsRecovery = keySession.hasRecovery === false;
+  const source = displayName || user?.user_metadata?.full_name || user?.email || 'Q';
+  const initial = source.trim().charAt(0).toUpperCase() || 'Q';
 
   return (
-    <>
-      <div
-        className={`q-sidebar-overlay${isOpen ? ' is-open' : ''}`}
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <aside className={`q-sidebar${isOpen ? ' is-open' : ''}`}>
-        {/* Brand */}
-        <div className="q-side-brand">
-          <button
-            onClick={() => navigate('/')}
-            style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
-            aria-label="Quantive home"
-          >
-            <Wordmark size={22} />
-          </button>
-        </div>
-
-        {/* Primary nav */}
-        <nav className="q-nav" aria-label="Main navigation">
-          {NAV_SECTIONS.map((section, sectionIdx) => (
-            <div key={section.id}>
-              {sectionIdx > 0 && <div style={{ height: 8 }} />}
-              <div className="q-nav-section-title">{section.title}</div>
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) => `q-nav-item${isActive ? ' is-active' : ''}`}
-                  onClick={onClose}
-                >
-                  <item.Icon size={15} />
-                  <span>{item.label}</span>
-                  {item.shortcut && (
-                    <span className="q-nav-shortcut" aria-hidden="true">{item.shortcut}</span>
-                  )}
-                </NavLink>
-              ))}
-            </div>
-          ))}
-        </nav>
-
-        {/* Footer */}
-        <div className="q-side-foot">
-          {user ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <button
-                type="button"
-                onClick={() => { onClose(); onFeedback(); }}
-                className="q-nav-item"
-              >
-                <MessageSquarePlus size={15} />
-                <span>Suggest a feature</span>
-              </button>
-              <UserMenu
-                displayName={displayName}
-                email={user.email}
-                initial={initial}
-                isAdmin={isAdmin}
-                needsRecovery={needsRecovery}
-                onNavigate={(to) => { onClose(); navigate(to); }}
-                onSignOut={handleSignOut}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="q-side-user"
+          aria-label={needsRecovery ? 'Account menu, recovery code not saved' : 'Account menu'}
+          style={{ width: '100%', border: 0, background: 'transparent', textAlign: 'left' }}
+        >
+          <span className="q-avatar" style={{ position: 'relative' }} aria-hidden="true">
+            {initial}
+            {needsRecovery && (
+              <span
+                style={{
+                  position: 'absolute', top: -2, right: -2, width: 8, height: 8,
+                  borderRadius: '50%', background: 'var(--warning)',
+                  border: '2px solid var(--bg)', boxSizing: 'content-box',
+                }}
               />
-            </div>
-          ) : (
-            <SignedOutMenu
-              onSignIn={onSignIn}
-              onFeedback={() => { onClose(); onFeedback(); }}
-            />
-          )}
-        </div>
-      </aside>
-    </>
+            )}
+          </span>
+          <span className="q-side-user-meta" style={{ flex: 1 }}>
+            <span className="q-side-user-name">{displayName || 'Your account'}</span>
+            {user?.email && <span className="q-side-user-mail">{user.email}</span>}
+          </span>
+          <ChevronsUpDown size={14} strokeWidth={1.75} aria-hidden="true" style={{ color: 'var(--fg-subtle)', flexShrink: 0 }} />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" className="w-[208px]">
+        {needsRecovery && (
+          <>
+            <DropdownMenuItem onSelect={() => navigate('/settings#recovery')} className="gap-2 min-h-9">
+              <KeyRound size={15} strokeWidth={1.75} aria-hidden="true" />
+              Save your recovery code
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuItem onSelect={() => navigate('/settings')} className="gap-2 min-h-9">
+          <Settings size={15} strokeWidth={1.75} aria-hidden="true" />
+          Settings
+        </DropdownMenuItem>
+        {isAdmin && (
+          <DropdownMenuItem onSelect={() => navigate('/admin')} className="gap-2 min-h-9">
+            <Shield size={15} strokeWidth={1.75} aria-hidden="true" />
+            Admin
+          </DropdownMenuItem>
+        )}
+        <DropdownMenuItem onSelect={onFeedback} className="gap-2 min-h-9">
+          <MessageSquarePlus size={15} strokeWidth={1.75} aria-hidden="true" />
+          Send feedback
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => signOut()} className="gap-2 min-h-9">
+          <LogOut size={15} strokeWidth={1.75} aria-hidden="true" />
+          Sign out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
-export function AppShell({ children, pathname }: { children: React.ReactNode; pathname: string }) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+function Sidebar({ onFeedback }: { onFeedback: () => void }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  return (
+    <aside className="q-sidebar">
+      <div className="q-side-brand">
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          style={{ background: 'none', border: 0, padding: 0, cursor: 'pointer' }}
+          aria-label="Quantive home"
+        >
+          <Wordmark size={22} />
+        </button>
+      </div>
+
+      <nav className="q-nav" aria-label="Main navigation">
+        {NAV_SECTIONS.map((section, sectionIdx) => (
+          <div key={section.id} style={{ marginTop: sectionIdx > 0 ? 16 : 0 }}>
+            {section.items.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => `q-nav-item${isActive ? ' is-active' : ''}`}
+                {...intentPrefetch(item.to)}
+              >
+                <item.Icon size={16} strokeWidth={1.75} aria-hidden="true" />
+                <span>{item.label}</span>
+              </NavLink>
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      <div className="q-side-foot">
+        {user ? (
+          <UserMenu onFeedback={onFeedback} />
+        ) : (
+          <>
+            <button type="button" onClick={onFeedback} className="q-nav-item">
+              <MessageSquarePlus size={16} strokeWidth={1.75} aria-hidden="true" />
+              <span>Send feedback</span>
+            </button>
+          </>
+        )}
+        {/* Legal pages stay one click away for guests, who can't open Settings. */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', padding: '4px 12px 0' }}>
+          {LEGAL_LINKS.map((l) => (
+            <Link key={l.to} to={l.to} style={{ fontSize: 12, lineHeight: '20px', color: 'var(--fg-subtle)', textDecoration: 'none' }}>
+              {l.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
   const [addOpen, setAddOpen] = useState(false);
-  const [feedbackTrigger, setFeedbackTrigger] = useState(0);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const { openAuth } = useAuthModalActions();
 
-  // Wrap auth opens so every in-app sign-in / sign-up entry is captured. This
-  // is the demo→signup bridge: a guest exploring the dashboard who opens
-  // sign-up is the intent signal `demo_loaded` alone can't reach.
+  // Every in-app sign-in / sign-up entry is captured: a guest exploring the
+  // demo who opens sign-up is the intent signal `demo_loaded` alone can't reach.
   const openAuthTracked = (mode: 'signin' | 'signup') => {
     analytics.appAuthOpened({ mode });
     openAuth(mode);
   };
 
-  // Let descendants (e.g. the dashboard onboarding checklist) open the
-  // Add-measurement modal without threading a callback through the tree.
+  // Lets descendants (empty states, the dashboard's monthly prompt) open the
+  // composer without threading a callback through the tree.
   useEffect(() => {
     const open = () => setAddOpen(true);
-    window.addEventListener('quantive:add-measurement', open);
-    return () => window.removeEventListener('quantive:add-measurement', open);
+    window.addEventListener(ADD_MEASUREMENT_EVENT, open);
+    return () => window.removeEventListener(ADD_MEASUREMENT_EVENT, open);
   }, []);
+
+  // Once the first page has rendered, fetch the tab-bar pages in idle time so
+  // the common hops never wait on a chunk.
+  useEffect(() => {
+    const warm = () => MOBILE_PRIMARY_ITEMS.forEach((i) => prefetchAppRoute(i.to));
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    if (w.requestIdleCallback) w.requestIdleCallback(warm);
+    else window.setTimeout(warm, 1500);
+  }, []);
+
+  const openFeedback = () => setFeedbackOpen(true);
 
   return (
     <div className="q-app">
       <a href="#main-content" className="skip-link">Skip to main content</a>
-      <Sidebar
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onFeedback={() => setFeedbackTrigger(n => n + 1)}
-        onSignIn={() => { setSidebarOpen(false); openAuthTracked('signin'); }}
-      />
+      <Sidebar onFeedback={openFeedback} />
 
       <div className="q-main">
         <EmailConfirmationBanner />
         <Topbar
-          pathname={pathname}
-          onMenuClick={() => setSidebarOpen(true)}
           onAdd={() => setAddOpen(true)}
           onSignIn={() => openAuthTracked('signin')}
           onSignUp={() => openAuthTracked('signup')}
-          onFeedback={() => setFeedbackTrigger(n => n + 1)}
+          onFeedback={openFeedback}
         />
-        <main id="main-content" className="q-content q-screen">
+        <main id="main-content" className="q-content">
           {children}
         </main>
-        <Footer />
-        <MobileTabBar />
+        <MobileTabBar onFeedback={openFeedback} />
       </div>
 
       <AddMeasurementModal open={addOpen} onOpenChange={setAddOpen} />
-      <FeedbackLauncher trigger={feedbackTrigger} />
-    </div>
-  );
-}
-
-/**
- * Renders the FeedbackButton off-screen and opens its modal whenever the
- * `trigger` value changes. This lets the sidebar user menu reuse the existing
- * FeedbackButton modal without duplicating its logic.
- */
-function FeedbackLauncher({ trigger }: { trigger: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (trigger === 0) return;
-    const btn = ref.current?.querySelector('button');
-    btn?.click();
-  }, [trigger]);
-  return (
-    <div ref={ref} style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} aria-hidden="true">
-      <FeedbackButton />
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </div>
   );
 }

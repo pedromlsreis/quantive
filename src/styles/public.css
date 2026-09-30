@@ -1,0 +1,277 @@
+/* ─────────────────────────────────────────────────────────────────
+   Public pages system (landing, pricing, security, legal, 404).
+   Imported only from public-page modules so it stays out of the main
+   bundle. Classes are `pub-` prefixed; landing sections keep `lp-`.
+
+   Rules this file encodes:
+   - One grid: every public surface aligns to --pub-max / --pub-pad.
+   - Emerald has three jobs only: the primary action, measured data
+     (history lines, the double rule under a real total), and inline
+     links in prose. Never eyebrows, headline words, ticks or icons.
+   - No glows, no glass, no scale-on-hover.
+   - Motion only under [data-motion='on'], which the page sets after
+     mount when the visitor allows motion; the resting state is always
+     the final state (prerender, no-JS and reduced motion see it).
+   ─────────────────────────────────────────────────────────────────*/
+
+.pub-root {
+  --pub-max: 1280px;
+  --pub-pad: clamp(20px, 4vw, 40px);
+  --pub-gutter: 40px;
+
+  /* Deeper than the data emerald so a white label clears AA (4.74:1). */
+  --action-fill: oklch(52% 0.15 165);
+  --action-fill-hover: oklch(48% 0.15 165);
+  --action-fg: oklch(98% 0.005 90);
+
+  --t-cover: clamp(2.75rem, 1.2rem + 5.4vw, 6rem);
+  --t-display: clamp(2.25rem, 1rem + 3.6vw, 4.25rem);
+  --t-h2: clamp(1.875rem, 1.1rem + 2.1vw, 2.75rem);
+  --t-h3: 1.375rem;
+  --t-lede: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  --t-fig: clamp(2rem, 1.3rem + 2.3vw, 3rem);
+
+  --sp-major: clamp(96px, 10vw, 152px);
+  --sp-minor: clamp(64px, 7vw, 104px);
+
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+}
+
+.pub-wrap {
+  width: 100%;
+  max-width: calc(var(--pub-max) + 2 * var(--pub-pad));
+  margin-inline: auto;
+  padding-inline: var(--pub-pad);
+}
+
+/* ─── Type ─────────────────────────────────────────────────── */
+.pub-cover,
+.pub-display,
+.pub-h2,
+.pub-h3 {
+  font-family: var(--font-serif);
+  font-optical-sizing: auto;
+  color: var(--fg);
+  text-wrap: balance;
+}
+.pub-cover {
+  font-size: var(--t-cover); font-weight: 380;
+  line-height: 0.98; letter-spacing: -0.014em;
+}
+.pub-display {
+  font-size: var(--t-display); font-weight: 400;
+  line-height: 1.02; letter-spacing: -0.012em;
+}
+.pub-h2 {
+  font-size: var(--t-h2); font-weight: 400;
+  line-height: 1.08; letter-spacing: -0.012em;
+}
+.pub-h3 {
+  font-size: var(--t-h3); font-weight: 500;
+  line-height: 1.2; letter-spacing: -0.008em;
+}
+.pub-lede {
+  font-size: var(--t-lede); line-height: 1.55;
+  color: var(--fg-muted); text-wrap: pretty;
+}
+.pub-body { color: var(--fg-muted); text-wrap: pretty; }
+.pub-kicker {
+  font-family: var(--font-mono); font-size: 13px; line-height: 1.4;
+  color: var(--fg-muted);
+}
+/* Data labels only (table heads, captions), never section eyebrows. */
+.pub-label {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--fg-subtle);
+}
+.pub-fig {
+  font-family: var(--font-mono); font-weight: 500;
+  font-size: var(--t-fig); line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums slashed-zero;
+  color: var(--fg);
+}
+.pub-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.pub-fine { font-size: 13px; line-height: 1.55; color: var(--fg-subtle); }
+
+.pub-link {
+  color: var(--accent-raw);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: oklch(58% 0.13 165 / 0.45);
+  transition: text-decoration-color var(--d-fast) var(--ease-out);
+}
+.pub-link:hover { text-decoration-color: currentColor; }
+
+/* ─── Rules ────────────────────────────────────────────────── */
+.pub-rule { height: 1px; background: var(--border-raw); border: 0; }
+/* The accounting double rule: only under a final total or an amount due. */
+.pub-double-rule {
+  height: 4px;
+  border-top: 1px solid var(--accent-raw);
+  border-bottom: 1px solid var(--accent-raw);
+}
+
+/* ─── Buttons ──────────────────────────────────────────────── */
+.pub-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 11px 22px;
+  border-radius: var(--r-3);
+  font-family: var(--font-body); font-size: 15px; font-weight: 600; line-height: 1.2;
+  white-space: nowrap; cursor: pointer;
+  border: 1px solid transparent;
+  transition: background-color var(--d-fast) var(--ease-out),
+              border-color var(--d-fast) var(--ease-out),
+              color var(--d-fast) var(--ease-out);
+}
+.pub-btn:active { transform: translateY(1px); }
+.pub-btn--primary { background: var(--action-fill); color: var(--action-fg); }
+.pub-btn--primary:hover { background: var(--action-fill-hover); }
+.pub-btn--secondary {
+  background: transparent; color: var(--fg);
+  border-color: var(--border-strong-raw);
+}
+.pub-btn--secondary:hover { background: var(--surface); border-color: var(--fg-faint); }
+.pub-btn--sm { min-height: 36px; padding: 7px 14px; font-size: 14px; }
+.pub-btn[disabled],
+.pub-btn[aria-disabled='true'] { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.pub-root :focus-visible {
+  outline: 2px solid var(--accent-raw);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* ─── Nav ──────────────────────────────────────────────────── */
+.pub-nav-sentinel { position: absolute; top: 0; left: 0; width: 1px; height: 24px; pointer-events: none; }
+.pub-nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 50;
+  background: var(--bg);
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--d-fast) var(--ease-out);
+}
+.pub-nav.is-scrolled { border-bottom-color: var(--border-soft-raw); }
+.pub-nav-row { height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.pub-nav-links { display: flex; align-items: center; gap: 28px; }
+.pub-nav-link {
+  position: relative;
+  font-size: 14px; color: var(--fg-muted);
+  background: none; border: 0; padding: 6px 0; cursor: pointer;
+  transition: color var(--d-fast) var(--ease-out);
+}
+.pub-nav-link:hover,
+.pub-nav-link[aria-current='page'] { color: var(--fg); }
+.pub-nav-link[aria-current='page']::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0;
+  height: 1px; background: var(--fg);
+}
+.pub-nav-mobile { display: none; align-items: center; gap: 4px; }
+.pub-nav-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 44px; min-height: 44px; padding: 0 10px;
+  background: none; border: 0; border-radius: var(--r-2);
+  color: var(--fg); font-size: 14px; font-weight: 500; cursor: pointer;
+}
+.pub-nav-icon-btn:hover { background: var(--surface); }
+.pub-nav-menu { border-bottom: 1px solid var(--border-soft-raw); background: var(--bg); }
+.pub-nav-menu-list { display: flex; flex-direction: column; padding: 8px 0 16px; }
+.pub-nav-menu-item {
+  display: flex; align-items: center; min-height: 48px;
+  font-size: 15px; color: var(--fg-muted); text-align: left;
+  background: none; border: 0; border-bottom: 1px solid var(--border-soft-raw);
+  cursor: pointer;
+}
+.pub-nav-menu-item:hover { color: var(--fg); }
+.pub-nav-menu .pub-btn { margin-top: 16px; }
+@media (max-width: 860px) {
+  .pub-nav-links { display: none; }
+  .pub-nav-mobile { display: flex; }
+}
+
+/* Offsets page content below the fixed 64px nav. */
+.pub-main { padding-top: 64px; flex: 1 0 auto; }
+
+/* ─── Footer colophon ──────────────────────────────────────── */
+.pub-footer {
+  border-top: 1px solid var(--border-soft-raw);
+  padding-top: 64px; padding-bottom: 32px;
+  color: var(--fg-muted); font-size: 14px;
+}
+.pub-footer-grid {
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--pub-gutter); row-gap: 40px;
+}
+.pub-footer-brand { grid-column: 1 / span 4; }
+.pub-footer-brand p { margin-top: 16px; max-width: 30ch; color: var(--fg-subtle); }
+.pub-footer-cols {
+  grid-column: 6 / -1;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px;
+}
+.pub-footer-col ul { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; }
+.pub-footer-col a { color: var(--fg-muted); transition: color var(--d-fast) var(--ease-out); }
+.pub-footer-col a:hover { color: var(--fg); }
+.pub-footer-base {
+  margin-top: 56px; padding-top: 20px;
+  border-top: 1px solid var(--border-soft-raw);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px;
+  font-size: 13px; color: var(--fg-subtle);
+}
+@media (max-width: 860px) {
+  .pub-footer-grid { grid-template-columns: minmax(0, 1fr); }
+  .pub-footer-brand, .pub-footer-cols { grid-column: 1 / -1; }
+}
+@media (max-width: 520px) {
+  .pub-footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* ─── Contents rail (security, legal) ──────────────────────── */
+.pub-doc {
+  display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 9fr);
+  column-gap: var(--pub-gutter);
+}
+.pub-doc-toc { position: sticky; top: 96px; align-self: start; }
+.pub-doc-toc ol { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 2px; }
+.pub-doc-toc a {
+  display: block; padding: 6px 0 6px 12px;
+  border-left: 1px solid var(--border-soft-raw);
+  font-size: 13px; line-height: 1.4; color: var(--fg-subtle);
+  transition: color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out);
+}
+.pub-doc-toc a:hover { color: var(--fg); }
+.pub-doc-toc a[aria-current='true'] { color: var(--fg); border-left-color: var(--fg); }
+.pub-doc-body { min-width: 0; max-width: 68ch; }
+@media (max-width: 1023px) {
+  .pub-doc { grid-template-columns: minmax(0, 1fr); }
+  .pub-doc-toc { display: none; }
+}
+
+/* ─── Figure roll: only changed characters move ────────────── */
+.pub-roll { display: inline; white-space: pre; }
+.pub-roll-ch { display: inline-block; }
+/* Input that interrupts a sequence shows its end state without a roll. */
+[data-motion='on'] [data-settled] .pub-roll-ch.is-new { animation: none; }
+[data-motion='on'] .pub-roll-ch.is-new {
+  animation: pub-roll-in var(--roll-ms, 240ms) var(--ease-out) both;
+  animation-delay: var(--roll-delay, 0ms);
+}
+@keyframes pub-roll-in {
+  from { transform: translateY(0.42em); opacity: 0.25; }
+  to { transform: none; opacity: 1; }
+}
+
+@media print {
+  .pub-nav, .pub-footer, .pub-doc-toc, .pub-print-hide { display: none !important; }
+  .pub-root { background: #fff; color: #000; }
+  .pub-main { padding-top: 0; }
+  .pub-doc { grid-template-columns: 1fr; }
+  .pub-doc-body { max-width: none; color: #000; }
+}
+@media (min-width: 861px) {
+  .pub-nav-menu { display: none; }
+}

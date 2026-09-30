@@ -5,7 +5,7 @@ import { seedClean } from './helpers/seedClean';
 //   - Section anchors (#features, #pricing, #faq, #how)
 //   - StickyNav scroll-to-section behaviour
 //   - FAQ accordion (aria-expanded + region visibility)
-//   - Footer CTA "Try demo first" routes to /demo
+//   - Closing CTA "Try the demo" routes to /demo
 //   - "Get started free" routes to /dashboard
 
 test.describe('Landing page sections and anchors', () => {
@@ -44,8 +44,9 @@ test.describe('Landing page sections and anchors', () => {
     await expect(firstFaqBtn).toHaveAttribute('aria-expanded', 'false', { timeout: 4000 });
   });
 
-  test('"Try demo first" footer CTA loads the demo and lands on the dashboard', async ({ page }) => {
-    const demoCta = page.getByRole('link', { name: /try demo first/i });
+  test('"Try the demo" closing CTA loads the demo and lands on the dashboard', async ({ page }) => {
+    // The hero carries a link with the same label, so scope to the closing section.
+    const demoCta = page.locator('section[aria-labelledby="lp-close-h2"]').getByRole('link', { name: /try the demo/i });
     await demoCta.scrollIntoViewIfNeeded();
     await demoCta.click();
     // DemoRedirect replaces /demo with /dashboard before paint, so wait for

@@ -13,51 +13,26 @@ vi.mock('@/contexts/CurrencyContext', () => ({
   useCurrency: vi.fn(),
 }));
 
+// Numbers written en-GB regardless of the test machine's language.
+vi.mock('@/contexts/PreferencesContext', () => ({
+  usePreferences: () => ({ numberLocale: 'en-GB' }),
+}));
+
 vi.mock('@/hooks/useFxRates', () => ({
   useFxRates: vi.fn(),
 }));
 
 vi.mock('react-router-dom', () => ({
   useNavigate: () => vi.fn(),
+  useLocation: () => ({ pathname: '/dashboard' }),
 }));
-
-vi.mock('framer-motion', async () => {
-  const React = await import('react');
-  const MOTION_PROPS = new Set([
-    'initial', 'animate', 'exit', 'transition', 'variants', 'custom',
-    'whileHover', 'whileTap', 'whileFocus', 'whileDrag', 'whileInView',
-    'layout', 'layoutId', 'layoutDependency', 'layoutScroll', 'layoutRoot',
-    'viewport', 'inherit', 'transformTemplate', 'transformValues',
-    'onAnimationStart', 'onAnimationComplete', 'onUpdate',
-    'onHoverStart', 'onHoverEnd', 'onTapStart', 'onTap', 'onTapCancel',
-    'onViewportEnter', 'onViewportLeave',
-    'onLayoutAnimationStart', 'onLayoutAnimationComplete',
-  ]);
-  const stripMotionProps = (props: Record<string, unknown>) => {
-    const out: Record<string, unknown> = {};
-    for (const k in props) if (!MOTION_PROPS.has(k)) out[k] = props[k];
-    return out;
-  };
-  const tags = ['div', 'button', 'span', 'p'];
-  const motion = Object.fromEntries(
-    tags.map(tag => [
-      tag,
-      React.forwardRef(({ children, ...props }: Record<string, unknown>, ref: unknown) =>
-        React.createElement(tag as string, { ...stripMotionProps(props), ref }, children as React.ReactNode)
-      ),
-    ])
-  );
-  return {
-    motion,
-    AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  };
-});
 
 import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
 import { AddMeasurementModal } from '../AddMeasurementModal';
+import { SNAPSHOT_SAVED_EVENT } from '@/lib/appEvents';
 
 // Pull from the canonical module so new currencies don't quietly skip coverage.
 import { CURRENCIES, CURRENCY_CODES, type CurrencyCode } from '@/lib/currencies';
@@ -142,23 +117,29 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
+/** Opens the new-source form unless it is already open (it is, with no sources to carry). */
+function openNewSourceForm() {
+  const trigger = screen.queryByRole('button', { name: /add a new source/i });
+  if (trigger) fireEvent.click(trigger);
+}
+
 describe('AddMeasurementModal — chrome', () => {
   it('renders the modal title when open', () => {
     setup();
-    expect(screen.getByText('Add measurement')).toBeInTheDocument();
+    expect(screen.getByText('Add entry')).toBeInTheDocument();
   });
 
   it('does not render when closed', () => {
     setup(false);
-    expect(screen.queryByText('Add measurement')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add entry')).not.toBeInTheDocument();
   });
 
-  it('shows "First snapshot" subtitle when there are no prior snapshots', () => {
+  it('says it is the first entry when there are no prior snapshots', () => {
     setup(true);
-    expect(screen.getByText(/First snapshot/i)).toBeInTheDocument();
+    expect(screen.getByText(/Your first entry/i)).toBeInTheDocument();
   });
 
-  it('shows months tracked and last-snapshot age when snapshots exist', () => {
+  it('states the last entry and its age instead of a streak', () => {
     const today = new Date();
     const twoDaysAgo = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 2);
     setup(true, {
@@ -167,13 +148,13 @@ describe('AddMeasurementModal — chrome', () => {
         { date: twoDaysAgo, total: 5000, sources: [] },
       ],
     });
-    expect(screen.getByText(/Tracked/i)).toBeInTheDocument();
-    expect(screen.getByText(/2 months/i)).toBeInTheDocument();
-    expect(screen.getByText(/2d ago/i)).toBeInTheDocument();
+    expect(screen.getByText(/Last entry \d{1,2} \w{3} \d{4}, 2 days ago\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Tracked/i)).not.toBeInTheDocument();
   });
 
   it('calls onOpenChange(false) when Cancel is clicked', () => {
-    const { onOpenChange } = setup();
+    // A seeded portfolio: with none, the new-source form (and its own Cancel) is open.
+    const { onOpenChange } = setup(true, singleSourceSeed());
     fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
@@ -188,19 +169,19 @@ describe('AddMeasurementModal — chrome', () => {
 describe('AddMeasurementModal — Save gating', () => {
   it('Save is disabled on a first-run portfolio with no sources to carry forward', () => {
     setup(true, emptySeed());
-    expect(screen.getByRole('button', { name: /save measurement/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /save entry/i })).toBeDisabled();
   });
 
   it('Save is enabled on open when an existing source is pre-filled', () => {
     // Carry-forward seeds the row with its last value, so the user can confirm
     // a no-change month with a single click.
     setup(true, singleSourceSeed());
-    expect(screen.getByRole('button', { name: /save measurement/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /save entry/i })).toBeEnabled();
   });
 
   it('empty-state summary shows the prompt on a first-run portfolio', () => {
     setup(true, emptySeed());
-    expect(screen.getByText(/Enter at least one value to preview the impact/i)).toBeInTheDocument();
+    expect(screen.getByText(/Enter a value to see the new total/i)).toBeInTheDocument();
   });
 });
 
@@ -223,23 +204,22 @@ describe('AddMeasurementModal — existing sources', () => {
   it('calls addMeasurement with the entered values and selected currency', async () => {
     const { addMeasurement, onOpenChange } = setup(true, singleSourceSeed('Santander Savings'));
     fireEvent.change(screen.getByLabelText(/Value for Santander Savings/i), { target: { value: '6000' } });
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledOnce();
       expect(addMeasurement).toHaveBeenCalledWith([
         expect.objectContaining({ name: 'Santander Savings', value: 6000, currency: 'EUR' }),
       ]);
     });
-    // Save reveals the success panel — close happens after its auto-dismiss timer (not awaited here).
-    expect(screen.getByText(/Snapshot saved/i)).toBeInTheDocument();
-    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+    // No success panel: the dialog closes and the overview shows the new total.
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it('changing per-row currency persists through save', async () => {
     const { addMeasurement } = setup(true, singleSourceSeed('US Broker', 'USD'));
     fireEvent.change(screen.getByLabelText(/Value for US Broker/i), { target: { value: '12000' } });
     fireEvent.change(screen.getByLabelText(/Currency for US Broker/i), { target: { value: 'GBP' } });
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledWith([
         expect.objectContaining({ name: 'US Broker', value: 12000, currency: 'GBP' }),
@@ -261,7 +241,7 @@ describe('AddMeasurementModal — number parsing', () => {
   it('accepts comma-decimal (e.g. "1,5" → 1.5)', async () => {
     const { addMeasurement } = setup(true, singleSourceSeed('Crypto'));
     fireEvent.change(screen.getByLabelText(/Value for Crypto/i), { target: { value: '1,5' } });
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledWith([
         expect.objectContaining({ value: 1.5 }),
@@ -272,7 +252,7 @@ describe('AddMeasurementModal — number parsing', () => {
   it('accepts space-thousands + comma-decimal (e.g. "1 234,00" → 1234)', async () => {
     const { addMeasurement } = setup(true, singleSourceSeed('Santander'));
     fireEvent.change(screen.getByLabelText(/Value for Santander/i), { target: { value: '1 234,00' } });
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledWith([
         expect.objectContaining({ name: 'Santander', value: 1234 }),
@@ -280,48 +260,57 @@ describe('AddMeasurementModal — number parsing', () => {
     });
   });
 
-  it('treats a non-numeric value as "not entered" — save stays disabled', () => {
-    setup(true, singleSourceSeed());
+  it('treats a non-numeric value as "not entered" and says so on save', () => {
+    const { addMeasurement } = setup(true, singleSourceSeed());
     fireEvent.change(screen.getByLabelText(/Value for Santander Savings/i), { target: { value: 'abc' } });
-    expect(screen.getByRole('button', { name: /save measurement/i })).toBeDisabled();
+    // Save stays reachable while rows exist; the error is inline instead.
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/Enter a value for at least one source/);
+    expect(addMeasurement).not.toHaveBeenCalled();
   });
 });
 
 describe('AddMeasurementModal — Add a new source flow', () => {
   it('clicking the row reveals the inline form', () => {
     setup(true, singleSourceSeed());
-    expect(screen.queryByPlaceholderText(/Bank of America/i)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
-    expect(screen.getByPlaceholderText(/Bank of America/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+    openNewSourceForm();
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+  });
+
+  it('opens the form straight away when there is nothing to carry forward', () => {
+    setup(true, emptySeed());
+    expect(screen.getByLabelText('Name')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add a new source/i })).not.toBeInTheDocument();
   });
 
   it('"Add source" stays disabled until name is at least 2 characters', () => {
     setup(true, singleSourceSeed());
-    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
+    openNewSourceForm();
     const addBtn = screen.getByRole('button', { name: /^add source$/i });
     expect(addBtn).toBeDisabled();
-    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'A' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'A' } });
     expect(addBtn).toBeDisabled();
-    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'Ally' } });
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ally' } });
     expect(addBtn).toBeEnabled();
   });
 
-  it('adding a source creates a NEW-tagged row and primes the initial value', async () => {
+  it('adding a source creates a New-tagged row and primes the initial value', async () => {
     const { addMeasurement } = setup(true, singleSourceSeed());
-    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'Revolut Pot' } });
+    openNewSourceForm();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Revolut Pot' } });
     // The initial-value field has placeholder "0"; pick it from inside the form by closest input
     const valueInput = screen.getByPlaceholderText('0') as HTMLInputElement;
     fireEvent.change(valueInput, { target: { value: '750' } });
     fireEvent.click(screen.getByRole('button', { name: /^add source$/i }));
 
-    // Form closes; new row appears with NEW badge
-    expect(screen.queryByPlaceholderText(/Bank of America/i)).not.toBeInTheDocument();
+    // Form closes; the new row carries a "New" tag
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(screen.getByText('Revolut Pot')).toBeInTheDocument();
-    expect(screen.getByText('NEW')).toBeInTheDocument();
+    expect(screen.getByText('New')).toBeInTheDocument();
 
     // Initial value primed → save sends through the new source
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledWith(expect.arrayContaining([
         expect.objectContaining({ name: 'Revolut Pot', value: 750, currency: 'EUR' }),
@@ -331,14 +320,14 @@ describe('AddMeasurementModal — Add a new source flow', () => {
 
   it('new source can pick a non-default currency from the inline form', async () => {
     const { addMeasurement } = setup(true, singleSourceSeed());
-    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'Chase Checking' } });
+    openNewSourceForm();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Chase Checking' } });
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '3000' } });
     // The form's currency select is the only one in the inline form
     const formCcySelect = screen.getByLabelText(/^Currency$/i) as HTMLSelectElement;
     fireEvent.change(formCcySelect, { target: { value: 'USD' } });
     fireEvent.click(screen.getByRole('button', { name: /^add source$/i }));
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledWith(expect.arrayContaining([
         expect.objectContaining({ name: 'Chase Checking', value: 3000, currency: 'USD' }),
@@ -347,11 +336,34 @@ describe('AddMeasurementModal — Add a new source flow', () => {
   });
 });
 
+describe('AddMeasurementModal — Save with the new-source form open', () => {
+  it('saves a filled form without pressing "Add source"', async () => {
+    const { addMeasurement } = setup(true, emptySeed());
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Cash ISA' } });
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '2500' } });
+    const save = screen.getByRole('button', { name: /save entry/i });
+    expect(save).toBeEnabled();
+    fireEvent.click(save);
+    await waitFor(() => {
+      expect(addMeasurement).toHaveBeenCalledWith([expect.objectContaining({ name: 'Cash ISA', value: 2500 })]);
+    });
+  });
+
+  it('refuses a half-filled form instead of dropping it', () => {
+    const { addMeasurement } = setup(true, singleSourceSeed());
+    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Revolut' } });
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Finish or cancel the new source first.');
+    expect(addMeasurement).not.toHaveBeenCalled();
+  });
+});
+
 describe('AddMeasurementModal — backfill', () => {
   it('default snapshot date is today and addMeasurement is called without a date override', async () => {
     const { addMeasurement } = setup(true, singleSourceSeed());
     fireEvent.change(screen.getByLabelText(/Value for Santander Savings/i), { target: { value: '6000' } });
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledOnce();
       const [, opts] = addMeasurement.mock.calls[0];
@@ -359,14 +371,15 @@ describe('AddMeasurementModal — backfill', () => {
     });
   });
 
-  it('changing the date adds the Backfill chip and passes a date opt to addMeasurement', async () => {
+  it('changing the date tags it as a past date and passes a date opt to addMeasurement', async () => {
     const { addMeasurement } = setup(true, singleSourceSeed());
     const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
     expect(dateInput).toBeTruthy();
     fireEvent.change(dateInput, { target: { value: '2024-06-15' } });
-    expect(screen.getByLabelText(/Backfill/i)).toBeInTheDocument();
+    expect(screen.getByText('Past date')).toBeInTheDocument();
+    expect(screen.getByText('Net worth on 15 Jun 2024')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/Value for Santander Savings/i), { target: { value: '5500' } });
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     await waitFor(() => {
       const [, opts] = addMeasurement.mock.calls[0];
       expect(opts).toEqual({ date: new Date(2024, 5, 15) });
@@ -387,23 +400,73 @@ describe('AddMeasurementModal — keyboard shortcut', () => {
   });
 });
 
-describe('AddMeasurementModal — save success panel', () => {
-  it('replaces the body with the success panel after save', async () => {
-    setup(true, singleSourceSeed('Savings'));
-    fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '5500' } });
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
-    await waitFor(() => {
-      expect(screen.getByText(/Snapshot saved/i)).toBeInTheDocument();
-    });
-  });
-
-  it('Done button on success panel dismisses immediately', async () => {
+describe('AddMeasurementModal — after saving', () => {
+  it('closes and tells the overview a new latest entry exists', async () => {
+    const heard = vi.fn();
+    window.addEventListener(SNAPSHOT_SAVED_EVENT, heard);
     const { onOpenChange } = setup(true, singleSourceSeed('Savings'));
     fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '5500' } });
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
-    const doneBtn = await screen.findByRole('button', { name: /^done$/i });
-    fireEvent.click(doneBtn);
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(heard).toHaveBeenCalledOnce();
+    window.removeEventListener(SNAPSHOT_SAVED_EVENT, heard);
+  });
+
+  it('does not signal the overview for an entry older than the latest', () => {
+    const heard = vi.fn();
+    window.addEventListener(SNAPSHOT_SAVED_EVENT, heard);
+    setup(true, singleSourceSeed('Savings'));
+    fireEvent.change(document.querySelector('input[type="date"]') as HTMLInputElement, { target: { value: '2023-06-15' } });
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
+    expect(heard).not.toHaveBeenCalled();
+    window.removeEventListener(SNAPSHOT_SAVED_EVENT, heard);
+  });
+});
+
+describe('AddMeasurementModal — dismissing', () => {
+  it('asks before discarding a signed-in user\'s changes', () => {
+    const { onOpenChange } = setup(true, { ...singleSourceSeed('Savings'), authed: true });
+    fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '5500' } });
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    expect(onOpenChange).not.toHaveBeenCalled();
+    expect(screen.getByText('Discard 1 change?')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /keep editing/i }));
+    expect(screen.queryByText('Discard 1 change?')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^discard$/i }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('closes a guest composer straight away: the draft is kept', () => {
+    const { onOpenChange } = setup(true, singleSourceSeed('Savings'));
+    fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '5500' } });
+    fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe('AddMeasurementModal — keyboard entry', () => {
+  it('Enter moves to the next value, and saves from the last one', () => {
+    const { addMeasurement } = setup(true, {
+      data: {
+        facts: [
+          { date: new Date(2024, 0, 1), idSource: 'Alpha', sourceVl: 2000, currency: 'EUR' },
+          { date: new Date(2024, 0, 1), idSource: 'Beta', sourceVl: 1000, currency: 'EUR' },
+        ],
+        refSources: [
+          { idSource: 'Alpha', volatType: 'stable', transferableInDays: true },
+          { idSource: 'Beta', volatType: 'stable', transferableInDays: true },
+        ],
+      },
+      allSnapshots: [{ date: new Date(2024, 0, 1), total: 3000, sources: [] }],
+      lastCurrencyBySource: new Map([['Alpha', 'EUR'], ['Beta', 'EUR']]),
+    });
+    const alpha = screen.getByLabelText(/Value for Alpha/i);
+    fireEvent.keyDown(alpha, { key: 'Enter' });
+    expect(document.activeElement).toBe(screen.getByLabelText(/Value for Beta/i));
+    expect(addMeasurement).not.toHaveBeenCalled();
+    fireEvent.keyDown(screen.getByLabelText(/Value for Beta/i), { key: 'Enter' });
+    expect(addMeasurement).toHaveBeenCalledOnce();
   });
 });
 
@@ -463,8 +526,8 @@ describe('AddMeasurementModal — empty delta', () => {
   });
 
   it('row delta column shows the is-empty class once a carried value is cleared', () => {
-    const { container } = setup(true, singleSourceSeed('Savings'));
-    const delta = container.querySelector('.q-src-row-delta');
+    setup(true, singleSourceSeed('Savings'));
+    const delta = document.querySelector('.q-src-row-delta');
     // Carry-forward seeds the row with its last value, so the cell starts
     // filled (delta 0%). Clearing it returns the cell to the placeholder.
     fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '' } });
@@ -473,6 +536,12 @@ describe('AddMeasurementModal — empty delta', () => {
 
     fireEvent.change(screen.getByLabelText(/Value for Savings/i), { target: { value: '5500' } });
     expect(delta?.classList.contains('is-empty')).toBe(false);
+    expect(delta).toHaveTextContent('+€500');
+  });
+
+  it('a carried row shows no change figure until it is edited', () => {
+    setup(true, singleSourceSeed('Savings'));
+    expect(document.querySelector('.q-src-row-delta')).toHaveTextContent('');
   });
 });
 
@@ -501,19 +570,17 @@ describe('AddMeasurementModal — paused sources', () => {
   });
 
   it('source count reflects only active (non-paused) sources', () => {
-    const { container } = setup(true, multiSeed());
-    // With carry-forward the header reads "<changed> changed · <unchanged>
-    // unchanged". The one active source is carried (unchanged) on open and the
-    // paused source is excluded entirely, so: 0 changed · 1 unchanged.
-    const count = container.querySelector('.q-source-list-count');
-    expect(count).toHaveTextContent('0 changed · 1 unchanged');
+    setup(true, multiSeed());
+    // The one active source is carried (unchanged) on open and the paused
+    // source is excluded entirely.
+    expect(screen.getByTestId('composer-count')).toHaveTextContent('0 changed, 1 unchanged');
   });
 });
 
 describe('AddMeasurementModal — category dropdown', () => {
   it('the new-source form shows a Category select seeded with the canonical categories', () => {
     setup(true, singleSourceSeed());
-    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
+    openNewSourceForm();
     const select = screen.getByLabelText(/Source category/i) as HTMLSelectElement;
     const values = Array.from(select.options).map(o => o.value);
     expect(values).toEqual(expect.arrayContaining([
@@ -525,12 +592,12 @@ describe('AddMeasurementModal — category dropdown', () => {
 
   it('selected category flows through to addMeasurement on save', async () => {
     const { addMeasurement } = setup(true, singleSourceSeed());
-    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'Bitcoin' } });
+    openNewSourceForm();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Bitcoin' } });
     fireEvent.change(screen.getByLabelText(/Source category/i), { target: { value: 'Crypto' } });
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '500' } });
     fireEvent.click(screen.getByRole('button', { name: /^add source$/i }));
-    fireEvent.click(screen.getByRole('button', { name: /save measurement/i }));
+    fireEvent.click(screen.getByRole('button', { name: /save entry/i }));
     await waitFor(() => {
       expect(addMeasurement).toHaveBeenCalledWith(expect.arrayContaining([
         expect.objectContaining({ name: 'Bitcoin', category: 'Crypto' }),
@@ -553,8 +620,8 @@ describe('AddMeasurementModal — unique source name', () => {
 
   it('blocks creating a new source whose name matches an existing one (case-insensitive)', () => {
     setup(true, seedWithName('Santander Savings'));
-    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'SANTANDER savings' } });
+    openNewSourceForm();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'SANTANDER savings' } });
     expect(screen.getByRole('button', { name: /^add source$/i })).toBeDisabled();
     expect(screen.getByRole('alert')).toHaveTextContent(/already exists/i);
   });
@@ -569,15 +636,15 @@ describe('AddMeasurementModal — unique source name', () => {
       allSnapshots: [{ date: new Date(2024, 0, 1), total: 100, sources: [] }],
       lastCurrencyBySource: new Map([['Old Pot', 'EUR']]),
     });
-    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'old pot' } });
+    openNewSourceForm();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'old pot' } });
     expect(screen.getByRole('button', { name: /^add source$/i })).toBeDisabled();
   });
 
   it('allows a name that differs from every existing source', () => {
     setup(true, seedWithName('Santander Savings'));
-    fireEvent.click(screen.getByRole('button', { name: /add a new source/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Bank of America/i), { target: { value: 'Revolut' } });
+    openNewSourceForm();
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Revolut' } });
     expect(screen.getByRole('button', { name: /^add source$/i })).toBeEnabled();
   });
 });

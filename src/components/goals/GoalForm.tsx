@@ -1,12 +1,12 @@
-﻿import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { Goal } from '@/lib/types';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useModalLayer } from '@/hooks/useModalLayer';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { CURRENCIES, CURRENCY_CODES } from '@/lib/currencies';
 import { parseLocalizedNumber } from '@/lib/utils';
-import { modalOverlay, modalContent } from '@/lib/motion';
 
 interface GoalFormProps {
   open: boolean;
@@ -49,7 +49,9 @@ function tomorrowIso(): string {
 
 export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
   const { currency: displayCurrency } = useCurrency();
-  const trapRef = useFocusTrap<HTMLDivElement>(open);
+  const trapRef = useFocusTrap<HTMLDivElement>(open, {
+    initialFocus: () => document.getElementById('goal-name'),
+  });
 
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -73,23 +75,11 @@ export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
     setError(null);
   }, [open, goal, displayCurrency.code]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  useModalLayer(open, onClose);
 
-  // Soft close on backdrop: only when the user hasn't typed anything yet,
-  // mirroring AuthModal's guard. Stops a stray edge-click from discarding
-  // a half-written goal. The × button and Esc remain the always-on closes.
-  // Note: deliberately no `if (!open) return null` early-return — that
-  // short-circuits AnimatePresence before it can play the exit animation.
-  // The `{open && ...}` inside AnimatePresence is what handles visibility.
-  const hasUserInput =
-    name.trim().length > 0 || amount.trim().length > 0;
+  // A stray backdrop click must not discard a half-written goal; the close
+  // button and Escape always close.
+  const hasUserInput = name.trim().length > 0 || amount.trim().length > 0;
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return;
     if (hasUserInput) return;
@@ -100,150 +90,111 @@ export function GoalForm({ open, goal, onClose, onSubmit }: GoalFormProps) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('Give your goal a short name so you can recognise it later.');
+      setError('Give the goal a short name so you can recognise it later.');
       return;
     }
     const parsed = parseLocalizedNumber(amount);
     if (typeof parsed === 'string' || !Number.isFinite(parsed) || parsed <= 0) {
-      setError('Enter a positive target amount.');
+      setError('Enter a target amount above zero.');
       return;
     }
     if (!targetDate || targetDate <= todayIso()) {
-      setError('Pick a target date in the future.');
+      setError('Pick a target date after today.');
       return;
     }
     onSubmit({ name: trimmed, targetAmount: parsed, targetCurrency: currency, targetDate });
   };
 
-  return (
-    <AnimatePresence>
-      {open && (
-        <motion.div
-          variants={modalOverlay}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          className="q-modal-backdrop"
-          onClick={handleBackdropClick}
-          role="presentation"
-        >
-          <motion.div
-            ref={trapRef}
-            variants={modalContent}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="q-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="goal-form-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="q-modal-head">
-              <div>
-                <div id="goal-form-title" className="q-modal-title">
-                  {goal ? 'Edit goal' : 'Add a goal'}
-                </div>
-                <div className="q-modal-sub">
-                  Set a net worth milestone and we'll show you how close you are.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close"
-                className="q-icon-btn"
-                style={{ background: 'transparent', border: 0, padding: 4, cursor: 'pointer' }}
-              >
-                <X size={16} />
-              </button>
+  if (!open) return null;
+
+  return createPortal(
+    <div className="q-modal-backdrop q-modal-backdrop--top" onClick={handleBackdropClick}>
+      <div
+        ref={trapRef}
+        className="q-modal"
+        style={{ maxWidth: 480 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="goal-form-title"
+        aria-describedby="goal-form-sub"
+      >
+        <div className="q-modal-head">
+          <div>
+            <h2 id="goal-form-title" className="q-modal-title">{goal ? 'Edit goal' : 'Add a goal'}</h2>
+            <p id="goal-form-sub" className="q-modal-sub">
+              Name an amount and a date. Progress is measured against your latest net worth.
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close" className="q-icon-btn">
+            <X size={16} strokeWidth={1.75} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+            <div className="q-field">
+              <label className="q-field-label" htmlFor="goal-name">Goal name</label>
+              <span className="q-input">
+                <input
+                  id="goal-name"
+                  type="text"
+                  placeholder="e.g. House deposit"
+                  value={name}
+                  onChange={(e) => { setName(e.target.value); setError(null); }}
+                  maxLength={120}
+                />
+              </span>
             </div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>Name</span>
-                  <div className="q-input">
-                    <input
-                      type="text"
-                      placeholder="e.g. Reach €100k by 2027"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      autoFocus
-                      aria-label="Goal name"
-                      maxLength={120}
-                    />
-                  </div>
-                </label>
-
-                <div style={{ display: 'flex', gap: 'var(--s-3)', alignItems: 'flex-end' }}>
-                  <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>Target amount</span>
-                    <div className="q-input">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="100000"
-                        value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
-                        aria-label="Target amount"
-                      />
-                    </div>
-                  </label>
-                  <label style={{ flex: '0 0 140px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>Currency</span>
-                    <div className="q-input">
-                      <select
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-                        aria-label="Target currency"
-                      >
-                        {CURRENCY_CODES.map((code) => (
-                          <option key={code} value={code}>
-                            {CURRENCIES[code].symbol} · {code}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </label>
-                </div>
-
-                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>Target date</span>
-                  <div className="q-input">
-                    <input
-                      type="date"
-                      value={targetDate}
-                      min={tomorrowIso()}
-                      onChange={(e) => setTargetDate(e.target.value)}
-                      aria-label="Target date"
-                    />
-                  </div>
-                </label>
-
-                {error && (
-                  <div role="alert" style={{ fontSize: 'var(--text-xs)', color: 'var(--negative)' }}>
-                    {error}
-                  </div>
-                )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 140px', gap: 'var(--s-3)' }}>
+              <div className="q-field">
+                <label className="q-field-label" htmlFor="goal-amount">Target amount</label>
+                <span className="q-input">
+                  <input
+                    id="goal-amount"
+                    type="text"
+                    inputMode="decimal"
+                    value={amount}
+                    onChange={(e) => { setAmount(e.target.value); setError(null); }}
+                    style={{ fontFamily: 'var(--font-mono)' }}
+                  />
+                </span>
               </div>
-
-              <div className="q-modal-foot q-modal-foot--split">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="q-btn q-btn--ghost q-btn--md"
-                >
-                  Cancel
-                </button>
-                <button type="submit" className="q-btn q-btn--primary q-btn--md">
-                  {goal ? 'Save changes' : 'Add goal'}
-                </button>
+              <div className="q-field">
+                <label className="q-field-label" htmlFor="goal-currency">Currency</label>
+                <span className="q-input">
+                  <select id="goal-currency" value={currency} onChange={(e) => setCurrency(e.target.value as CurrencyCode)}>
+                    {CURRENCY_CODES.map((code) => (
+                      <option key={code} value={code}>{`${CURRENCIES[code].symbol} ${code}`}</option>
+                    ))}
+                  </select>
+                </span>
               </div>
-            </form>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+            </div>
+
+            <div className="q-field">
+              <label className="q-field-label" htmlFor="goal-date">Target date</label>
+              <span className="q-input">
+                <input
+                  id="goal-date"
+                  type="date"
+                  value={targetDate}
+                  min={tomorrowIso()}
+                  onChange={(e) => { setTargetDate(e.target.value); setError(null); }}
+                />
+              </span>
+            </div>
+
+            {error && <p className="q-field-error" role="alert" style={{ margin: 0 }}>{error}</p>}
+          </div>
+
+          <div className="q-modal-foot q-modal-foot--split">
+            <button type="button" onClick={onClose} className="q-btn q-btn--ghost q-btn--md">Cancel</button>
+            <button type="submit" className="q-btn q-btn--primary q-btn--md">{goal ? 'Save changes' : 'Add goal'}</button>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body,
   );
 }

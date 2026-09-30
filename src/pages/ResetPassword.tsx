@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { AlertTriangle, KeyRound } from 'lucide-react';
+import { useAuthModalActions } from '@/contexts/AuthModalContext';
+import { Wordmark } from '@/components/layout/Brand';
+import { Notice } from '@/components/ui/Notice';
 import { supabase } from '@/integrations/supabase/client';
 import { supabaseKeyStore } from '@/lib/keySession';
 import { isValidRecoveryCode } from '@/lib/crypto';
@@ -23,16 +25,19 @@ type LinkState = 'checking' | 'invalid' | 'verifying' | 'ready';
 type EncMode = 'unknown' | 'no-encryption' | 'with-recovery' | 'encrypted-no-recovery';
 
 function submitButtonLabel(submitting: boolean, linkState: LinkState): string {
-  if (submitting) return 'Updating…';
-  if (linkState !== 'ready') return 'Verifying link…';
-  return 'Update password';
+  if (submitting) return 'Saving…';
+  if (linkState !== 'ready') return 'Checking the link…';
+  return 'Save new password';
 }
 
 const ResetPassword = () => {
   const { updatePassword } = useAuth();
   const { recoverWithCode } = useKeySession();
   const navigate = useNavigate();
+  const { openAuth } = useAuthModalActions();
   const [password, setPassword] = useState('');
+  // Inline beside the fields, not a toast, so the reason stays readable.
+  const [formError, setFormError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState('');
   const [recoveryCode, setRecoveryCode] = useState('');
   const [acceptDataLoss, setAcceptDataLoss] = useState(false);
@@ -102,22 +107,23 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     if (password !== confirm) {
-      toast.error('Passwords do not match.');
+      setFormError("The two passwords don't match.");
       return;
     }
     if (passwordTooShort(password)) {
-      toast.error(PASSWORD_LENGTH_HINT);
+      setFormError(PASSWORD_LENGTH_HINT);
       return;
     }
 
     if (encMode === 'with-recovery') {
       if (!isValidRecoveryCode(recoveryCode)) {
-        toast.error('Recovery code is invalid (failed BIP-39 checksum).');
+        setFormError("That recovery code isn't valid. Check the 24 words and their order.");
         return;
       }
     } else if (encMode === 'encrypted-no-recovery' && !acceptDataLoss) {
-      toast.error('You must acknowledge the data-loss warning before continuing.');
+      setFormError('Tick the box to confirm your saved entries will be lost.');
       return;
     }
 
@@ -125,7 +131,7 @@ const ResetPassword = () => {
     // could be revoked between enable and click — re-check before mutating.
     const { data: { session } } = await supabase.auth.getSession();
     if (!session || !userId) {
-      toast.error('Reset session not ready. Please reopen the email link.');
+      setFormError('This page lost the reset session. Open the link from the email again.');
       return;
     }
 
@@ -133,7 +139,7 @@ const ResetPassword = () => {
     try {
       const { error } = await updatePassword(password);
       if (error) {
-        toast.error(mapAuthError(error));
+        setFormError(mapAuthError(error));
         return;
       }
 
@@ -149,15 +155,15 @@ const ResetPassword = () => {
           // session remains valid but the wrap is still under the OLD
           // password. They'll be stuck on next sign-in unless they
           // re-enter the recovery code.
-          toast.error(
-            'Password updated, but the recovery code did not unlock your data. Try again on next sign-in.',
+          setFormError(
+            "Password changed, but the recovery code didn't unlock your data. Enter it again at your next sign-in.",
           );
           return;
         }
         analytics.recoveryUsed();
-        toast.success('Password reset and data unlocked.');
+        toast.success('Password changed. Your data is unlocked.');
       } else {
-        toast.success('Password updated successfully!');
+        toast.success('Password changed');
       }
       navigate('/');
     } finally {
@@ -165,158 +171,137 @@ const ResetPassword = () => {
     }
   };
 
-  if (linkState === 'checking') {
-    return (
-      <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 'var(--s-8)' }}>
-        <div
-          style={{
-            width: 32, height: 32, borderRadius: '50%',
-            border: '4px solid var(--accent-raw)',
-            borderTopColor: 'transparent',
-            animation: 'spin 1s linear infinite',
-          }}
-        />
-      </div>
-    );
-  }
-
-  const heroIcon = (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      width: 48, height: 48, borderRadius: 'var(--r-3)',
-      background: 'var(--accent-faint-raw)',
-      marginBottom: 'var(--s-4)',
-    }}>
-      <KeyRound className="h-6 w-6 text-primary" />
+  const frame = (children: React.ReactNode) => (
+    <div className="q-auth-page">
+      <header className="q-auth-page-head">
+        <Link to="/" aria-label="Quantive home" style={{ display: 'inline-flex' }}><Wordmark size={22} /></Link>
+      </header>
+      <main className="q-auth-page-main">
+        <div className="q-auth-page-col">{children}</div>
+      </main>
     </div>
   );
 
+  if (linkState === 'checking') {
+    return frame(<p className="q-page-lede" role="status">Checking your reset link…</p>);
+  }
+
   if (linkState === 'invalid') {
-    return (
-      <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 'var(--s-8)' }}>
-        <div className="q-card q-card--p-lg" style={{ width: '100%', maxWidth: 384, textAlign: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'center' }}>{heroIcon}</div>
-          <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--fg)', marginBottom: 'var(--s-2)' }}>
-            Invalid or expired reset link
-          </h1>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)', marginBottom: 'var(--s-5)' }}>
-            This link is invalid or has expired. Reset links are single-use and time-limited. Please request a new one.
-          </p>
-          <button
-            onClick={() => navigate('/')}
-            className="q-btn q-btn--primary q-btn--md"
-          >
-            Back to home
+    return frame(
+      <>
+        <h1 className="q-h1">{"This reset link doesn't work"}</h1>
+        <p className="q-page-lede">Reset links work once and expire. Request a new one.</p>
+        <div className="q-auth-page-actions">
+          <button type="button" onClick={() => openAuth('forgot')} className="q-btn q-btn--primary q-btn--lg">
+            Request a new link
           </button>
+          <Link to="/" className="q-btn q-btn--ghost q-btn--lg">Back to home</Link>
         </div>
-      </div>
+      </>,
     );
   }
 
-  return (
-    <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: 'var(--s-8)' }}>
-      <div className="q-card q-card--p-lg" style={{ width: '100%', maxWidth: 448 }}>
-        {heroIcon}
-        <h1 style={{ fontSize: 'var(--text-lg)', fontWeight: 700, color: 'var(--fg)', marginBottom: 4 }}>
-          Set new password
-        </h1>
-        <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)', marginBottom: 'var(--s-5)' }}>
-          {encMode === 'with-recovery'
-            ? 'Enter your new password and your 24-word recovery code below.'
-            : 'Enter your new password below.'}
-        </p>
+  return frame(
+    <>
+      <h1 className="q-h1">Choose a new password</h1>
+      <p className="q-page-lede">
+        {encMode === 'with-recovery'
+          ? 'Enter a new password and your 24-word recovery code. The code opens your data under the new password.'
+          : 'Enter a new password.'}
+      </p>
 
-        {encMode === 'encrypted-no-recovery' && (
-          <div style={{
-            borderRadius: 'var(--r-2)',
-            border: '1px solid color-mix(in oklch, var(--negative) 40%, transparent)',
-            background: 'color-mix(in oklch, var(--negative) 10%, transparent)',
-            padding: 'var(--s-3)',
-            fontSize: 'var(--text-xs)',
-            color: 'var(--negative)',
-            marginBottom: 'var(--s-4)',
-          }}>
-            <p style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)', fontWeight: 500, margin: 0, marginBottom: 6 }}>
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-              Your encrypted data cannot be recovered.
-            </p>
-            <p style={{ lineHeight: 1.5, margin: 0 }}>
-              You didn't set up a recovery code. Resetting your password will
-              leave your saved portfolio permanently inaccessible. The
-              account will keep working — but past data will be lost.
-            </p>
-          </div>
-        )}
+      {encMode === 'encrypted-no-recovery' && (
+        <Notice variant="negative" role="note" style={{ marginTop: 'var(--s-5)' }}>
+          <span>
+            {"You didn't save a recovery code, so a new password can't decrypt your saved data. Your account keeps working and starts empty."}
+          </span>
+        </Notice>
+      )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-          <label className="q-input">
+      <form onSubmit={handleSubmit} className="q-auth-page-form">
+        <div className="q-field">
+          <label className="q-field-label" htmlFor="reset-password">New password</label>
+          <span className="q-input">
             <input
+              id="reset-password"
               type="password"
               autoComplete="new-password"
-              placeholder="New password"
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); setFormError(null); }}
               required
               minLength={PASSWORD_MIN_LENGTH}
+              aria-describedby="reset-password-help"
             />
-          </label>
-          <label className="q-input">
+          </span>
+          <span className="q-field-help" id="reset-password-help">{PASSWORD_LENGTH_HINT}</span>
+        </div>
+        <div className="q-field">
+          <label className="q-field-label" htmlFor="reset-confirm">Confirm new password</label>
+          <span className="q-input">
             <input
+              id="reset-confirm"
               type="password"
               autoComplete="new-password"
-              placeholder="Confirm password"
               value={confirm}
-              onChange={e => setConfirm(e.target.value)}
+              onChange={(e) => { setConfirm(e.target.value); setFormError(null); }}
               required
               minLength={PASSWORD_MIN_LENGTH}
             />
-          </label>
+          </span>
+        </div>
 
-          {encMode === 'with-recovery' && (
-            <label className="q-input q-input--textarea">
+        {encMode === 'with-recovery' && (
+          <div className="q-field">
+            <label className="q-field-label" htmlFor="reset-recovery">Recovery code</label>
+            <span className="q-input q-input--textarea">
               <textarea
-                placeholder="Your 24-word recovery code"
+                id="reset-recovery"
                 value={recoveryCode}
-                onChange={e => setRecoveryCode(e.target.value)}
+                onChange={(e) => { setRecoveryCode(e.target.value); setFormError(null); }}
                 rows={3}
-                style={{ resize: 'none', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)' }}
+                style={{ resize: 'none', fontFamily: 'var(--font-mono)', fontSize: 14 }}
                 autoComplete="off"
                 autoCapitalize="off"
                 autoCorrect="off"
                 spellCheck={false}
                 required
               />
-            </label>
-          )}
+            </span>
+            <span className="q-field-help">24 words, separated by spaces, in order.</span>
+          </div>
+        )}
 
-          {encMode === 'encrypted-no-recovery' && (
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)', cursor: 'pointer', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-              <input
-                type="checkbox"
-                checked={acceptDataLoss}
-                onChange={e => setAcceptDataLoss(e.target.checked)}
-                style={{ marginTop: 2 }}
-              />
-              I understand my encrypted portfolio data will be permanently lost.
-            </label>
-          )}
+        {encMode === 'encrypted-no-recovery' && (
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)', cursor: 'pointer', fontSize: 14, lineHeight: '20px', color: 'var(--fg-muted)' }}>
+            <input
+              type="checkbox"
+              checked={acceptDataLoss}
+              onChange={(e) => { setAcceptDataLoss(e.target.checked); setFormError(null); }}
+              style={{ marginTop: 3 }}
+            />
+            I understand my saved entries will be lost.
+          </label>
+        )}
 
-          <button
-            type="submit"
-            disabled={
-              submitting ||
-              linkState !== 'ready' ||
-              encMode === 'unknown' ||
-              (encMode === 'encrypted-no-recovery' && !acceptDataLoss)
-            }
-            className="q-btn q-btn--primary q-btn--md"
-            style={{ width: '100%' }}
-          >
-            {submitButtonLabel(submitting, linkState)}
-          </button>
-        </form>
-      </div>
-    </div>
+        {formError && (
+          <Notice variant="negative" role="alert"><span>{formError}</span></Notice>
+        )}
+
+        <button
+          type="submit"
+          disabled={
+            submitting ||
+            linkState !== 'ready' ||
+            encMode === 'unknown' ||
+            (encMode === 'encrypted-no-recovery' && !acceptDataLoss)
+          }
+          className="q-btn q-btn--primary q-btn--lg"
+          style={{ width: '100%' }}
+        >
+          {submitButtonLabel(submitting, linkState)}
+        </button>
+      </form>
+    </>,
   );
 };
 

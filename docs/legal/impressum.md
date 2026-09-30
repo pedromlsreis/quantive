@@ -1,6 +1,6 @@
 # Impressum
 
-_Last updated: May 22, 2026_
+_Last updated: 22 May 2026_
 
 ## Quantive
 

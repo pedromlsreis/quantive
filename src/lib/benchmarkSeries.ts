@@ -106,13 +106,16 @@ export function lastDate(series: BenchmarkSeries): string | null {
 export type StaleThresholdDays = {
   /** Daily series threshold — anything > this many days behind is stale. Default 3. */
   daily: number;
-  /** Monthly series threshold — anything > this many days behind is stale. Default 45. */
+  /** Monthly series threshold — anything > this many days behind is stale. Default 80. */
   monthly: number;
 };
 
+// A monthly index is dated the first of its month and published around the
+// middle of the next, so on an ordinary day the latest point is up to ~79
+// days old (the August HICP, dated 1 Aug, is current until mid-October).
 export const DEFAULT_STALE_THRESHOLDS: StaleThresholdDays = {
   daily: 3,
-  monthly: 45,
+  monthly: 80,
 };
 
 /**

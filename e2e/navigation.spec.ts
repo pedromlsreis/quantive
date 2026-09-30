@@ -37,15 +37,13 @@ test.describe('In-app sidebar navigation', () => {
     });
   }
 
-  test('topbar breadcrumb reflects the active page', async ({ page }) => {
-    // Overview to start (loadDemo lands on /dashboard).
-    await expect(page.getByText(/Personal/i).first()).toBeVisible({ timeout: 8000 });
-    await expect(page.getByText(/Overview/i).first()).toBeVisible();
-
-    // Move to Allocations and the trailing crumb should swap.
+  test('the page heading names the active page', async ({ page }) => {
+    // loadDemo lands on /dashboard; there is no breadcrumb, the H1 says where you are.
+    await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible({ timeout: 8000 });
     await page.getByRole('link', { name: /^Allocations$/ }).first().click();
     await page.waitForURL('**/allocations');
-    await expect(page.getByText(/Allocations/i).first()).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('heading', { level: 1, name: 'Allocations' })).toBeVisible({ timeout: 8000 });
+    await expect(page.getByRole('link', { name: /^Allocations$/ }).first()).toHaveAttribute('aria-current', 'page');
   });
 
   test('quantive home logo on the topbar returns to the landing page', async ({ page }) => {

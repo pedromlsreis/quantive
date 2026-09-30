@@ -4,7 +4,7 @@ The net worth spreadsheet you've outgrown. If you track your wealth in a spreads
 
 **Live:** https://usequantive.app · **Try the demo without signing up:** https://usequantive.app/demo
 
-![Quantive dashboard: KPI cards and the net worth over time chart](public/images/dashboard.jpg)
+![Quantive dashboard: the net worth figure with its 12-month change, and the net worth over time chart](public/images/dashboard.jpg)
 
 ---
 
@@ -48,20 +48,21 @@ The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no sid
 - Full allocation charts by volatility class and liquidity
 - Multi-currency display in 14 currencies (EUR, USD, GBP, NOK, SEK, DKK, CHF, CAD, AUD, JPY, PLN, BRL, INR, ZAR). Historical snapshots are valued at the exchange rate of their original date, not today's
 - Spreadsheet import and manual balance entry
-- Drawdown and downside stats: maximum drawdown with recovery time, longest decline, best and worst rolling year
+- Highs and lows: maximum drawdown with recovery time, longest decline, best and worst 12 months
 - Optional email reminders to update your balances on a schedule you set
 - Cloud sync with end-to-end encryption
+- CSV export of all your entries, at any time
 - Rolling 12-month history view
 - Demo mode: the full dashboard without signing up
 
 **Pro (€9/month or €90/year, ~€7.50/mo)**
 - Full historical view: every snapshot since you started, charted and as a table
-- Net worth projection with a 95% confidence cone. Pick a conservative, base, or optimistic annual rate (5% / 7.2% / 10%); the band is fitted to your own historical variance. The PDF report's forecast instead uses your trailing 3-year CAGR.
+- Forecast 1, 3 or 5 years out, at your own pace so far or at a fixed 5%, 7.2% or 10% a year, with a range from your own history. The PDF report's forecast instead uses your trailing 3-year CAGR.
 - Milestone and goal tracking: targets with progress and ETA
 - Benchmark comparison: your net worth against inflation (Eurostat HICP) and the S&P 500 (FRED), with MSCI World coming soon
 - Month-by-month summary table
-- Excel and CSV export: your full data, any time
-- PDF wealth report: a one-page summary for an adviser or an annual review
+- Excel export: your full data as a workbook
+- PDF report: a one-page summary for an adviser or an annual review
 - Priority support (24h response)
 
 ---
@@ -74,7 +75,7 @@ The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no sid
 | Routing / state | React Router 6, TanStack Query 5 |
 | UI | Tailwind CSS 3 + shadcn/ui + Radix UI |
 | Charts | Recharts 2 |
-| Animation | Framer Motion 12 |
+| Animation | CSS transitions, off under reduced motion |
 | Crypto | libsodium-wrappers-sumo (XChaCha20-Poly1305, Argon2id) |
 | Backend | Supabase (Postgres + Auth + Edge Functions on Deno) |
 | Payments | Stripe |

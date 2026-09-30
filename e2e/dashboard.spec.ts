@@ -6,14 +6,15 @@ test.describe('Dashboard', () => {
     await loadDemo(page);
   });
 
-  test('renders all four KPI cards', async ({ page }) => {
-    const kpiLabels = ['Net Worth', 'Liquid Assets', 'Sources', 'Forecast'];
-    for (const label of kpiLabels) {
-      await expect(page.getByText(label).first()).toBeVisible({ timeout: 6000 });
+  test('renders the net worth figure and its ledger', async ({ page }) => {
+    const hero = page.locator('[id="performance"]');
+    await expect(hero.getByText('Net worth', { exact: true })).toBeVisible({ timeout: 6000 });
+    for (const label of ['12-month change', 'Liquid', 'In 5 years at your pace']) {
+      await expect(hero.getByText(label, { exact: true })).toBeVisible();
     }
   });
 
-  test('KPI cards display numeric values', async ({ page }) => {
+  test('net worth figures display numeric values', async ({ page }) => {
     // Values like "€123,456" or "42%" should be present
     const netWorthValue = page.locator('[id="performance"]').getByText(/[€$£₪]\s*[\d,]+|[\d,]+\s*[€$£₪]/).first();
     await expect(netWorthValue).toBeVisible({ timeout: 6000 });
@@ -27,23 +28,10 @@ test.describe('Dashboard', () => {
     await expect(chart).toBeVisible({ timeout: 6000 });
   });
 
-  test('section collapse/expand works', async ({ page }) => {
-    // Find the Performance section header button
-    const collapseBtn = page.locator('button[aria-controls="performance-content"]');
-    if (await collapseBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-      // Collapse
-      await collapseBtn.click();
-      await expect(collapseBtn).toHaveAttribute('aria-expanded', 'false');
-      // Re-expand
-      await collapseBtn.click();
-      await expect(collapseBtn).toHaveAttribute('aria-expanded', 'true');
-    }
-  });
-
   test('topbar primary action is visible and enabled', async ({ page }) => {
     // In demo mode the topbar primary CTA is "Sign up to track yours" (q-topbar-add);
-    // outside demo it's "Add measurement". Match either.
-    const addBtn = page.getByRole('button', { name: /add measurement|sign up to track/i }).first();
+    // outside demo it's "Add entry". Match either.
+    const addBtn = page.getByRole('button', { name: /add entry|sign up to track/i }).first();
     await expect(addBtn).toBeVisible({ timeout: 6000 });
     await expect(addBtn).toBeEnabled();
   });

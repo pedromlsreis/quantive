@@ -4,40 +4,49 @@
  *
  * Captures the password and calls keySession.unlock(). On success, the
  * provider transitions to 'unlocked-encrypted' and this modal dismounts.
+ * It cannot be dismissed: the data behind it stays encrypted until unlock
+ * or sign-out.
  */
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation } from 'react-router-dom';
-import { Lock, LogOut } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
+import { useAuthModalActions } from '@/contexts/AuthModalContext';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useModalLayer } from '@/hooks/useModalLayer';
 import { Notice } from '@/components/ui/Notice';
 import { analytics } from '@/lib/analytics';
 import { isProtectedPath } from './protectedPaths';
 
+const EMPTY_PASSWORD = 'Enter your password to unlock.';
+
 export function RequireUnlock() {
   const { user, signOut } = useAuth();
   const keySession = useKeySession();
+  const { openAuth } = useAuthModalActions();
   const location = useLocation();
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const trapRef = useFocusTrap<HTMLDivElement>(true);
-  // Inline error instead of a toast: the toast auto-dismisses at the exact
-  // moment the user is trying to read it (same defect AuthModal fixed by
-  // bumping toast duration). An inline region inside the focused dialog
-  // stays visible, is screen-reader-announced via Notice's aria-live, and
-  // sits next to the input the user is about to retry.
+  // Inline, beside the input being retried, and announced as an alert.
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Only show when the user is authed and we don't have a DK loaded.
-  if (!user || keySession.status !== 'locked') return null;
-  if (!isProtectedPath(location.pathname)) return null;
+  const visible = !!user && keySession.status === 'locked' && isProtectedPath(location.pathname);
+  useModalLayer(visible);
+  const trapRef = useFocusTrap<HTMLDivElement>(visible, {
+    initialFocus: () => document.getElementById('unlock-password'),
+  });
+
+  if (!visible || !user) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!password.trim()) return;
+    // The button stays enabled so an empty submit says why instead of doing nothing.
+    if (!password.trim()) {
+      setErrorMessage(EMPTY_PASSWORD);
+      return;
+    }
     setSubmitting(true);
     setErrorMessage(null);
     try {
@@ -45,11 +54,10 @@ export function RequireUnlock() {
       if (error) analytics.unlockFailed();
       else analytics.unlockSucceeded();
       if (error) {
-        // The unlock boundary intentionally does not distinguish wrong
-        // password from network failure (see KeySessionContext.unlock). The
-        // message has to cover both; "try again" handles the transient case,
-        // and the recovery link handles the genuinely-forgotten case.
-        setErrorMessage("That password didn't work. Try again, or use your recovery code if you've forgotten it.");
+        // unlock() does not tell a wrong password from a network failure, so
+        // the message covers both: retry for the transient case, reset for
+        // the forgotten one.
+        setErrorMessage("That password didn't work. Try again, or reset it with your recovery code.");
         return;
       }
       setPassword('');
@@ -64,84 +72,72 @@ export function RequireUnlock() {
     setErrorMessage(null);
   };
 
+  // A reset link needs a signed-out session and Turnstile, neither of which
+  // this dialog has, so sign out first and open the reset form with the email.
+  const handleReset = async () => {
+    const email = user.email ?? undefined;
+    await handleSignOut();
+    openAuth('forgot', { email });
+  };
+
   return createPortal(
-    <div
-      className="q-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="require-unlock-title"
-      style={{ zIndex: 60 }}
-    >
-      <div ref={trapRef} className="q-modal" style={{ maxWidth: 384 }}>
-        <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 48, height: 48, borderRadius: 'var(--r-3)',
-            background: 'var(--accent-faint-raw)', flexShrink: 0,
-          }}>
-            <Lock className="h-6 w-6 text-primary" />
-          </div>
-
+    <div className="q-modal-backdrop q-modal-backdrop--top" style={{ zIndex: 'var(--z-lock)' }}>
+      <div
+        ref={trapRef}
+        className="q-modal"
+        style={{ maxWidth: 400 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="require-unlock-title"
+        aria-describedby="require-unlock-sub"
+      >
+        <div className="q-modal-head">
           <div>
-            <div className="q-modal-title" id="require-unlock-title">Unlock your data</div>
-            <div className="q-modal-sub" style={{ marginTop: 4 }}>
-              Your portfolio is end-to-end encrypted. Enter your password to decrypt it on this device.
-            </div>
+            <h2 className="q-modal-title" id="require-unlock-title">Unlock your data</h2>
+            <p className="q-modal-sub" id="require-unlock-sub">
+              Your entries are encrypted. Enter your password to decrypt them on this device.
+            </p>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-            <label className="q-input">
-              <input
-                type="password"
-                autoComplete="current-password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  // Clear stale error the moment the user edits — keeps the
-                  // message tied to the attempt that produced it.
-                  if (errorMessage) setErrorMessage(null);
-                }}
-                required
-                autoFocus
-                aria-invalid={errorMessage ? true : undefined}
-                aria-describedby={errorMessage ? 'require-unlock-error' : undefined}
-              />
-            </label>
+        <div className="q-modal-body">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+            <div className="q-field">
+              <label className="q-field-label" htmlFor="unlock-password">Password</label>
+              <span className="q-input">
+                <input
+                  id="unlock-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    // The message belongs to the attempt that produced it.
+                    if (errorMessage) setErrorMessage(null);
+                  }}
+                  aria-invalid={errorMessage ? true : undefined}
+                  aria-describedby={errorMessage ? 'require-unlock-error' : undefined}
+                />
+              </span>
+            </div>
 
             {errorMessage && (
-              <Notice
-                variant="negative"
-                role="alert"
-                style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--s-1)' }}
-              >
+              <Notice variant="negative" role="alert" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--s-2)' }}>
                 <p id="require-unlock-error" style={{ margin: 0 }}>{errorMessage}</p>
-                <p style={{ margin: 0, fontSize: 'var(--text-xs)', opacity: 0.85 }}>
-                  Forgotten your password?{' '}
-                  <Link to="/reset-password" style={{ textDecoration: 'underline' }}>
-                    Reset with your recovery code
-                  </Link>
-                  .
-                </p>
+                {errorMessage !== EMPTY_PASSWORD && (
+                  <button type="button" onClick={handleReset} className="q-link-btn" style={{ alignSelf: 'flex-start' }}>
+                    Sign out and reset password
+                  </button>
+                )}
               </Notice>
             )}
 
-            <button
-              type="submit"
-              disabled={submitting || !password.trim()}
-              className="q-btn q-btn--primary q-btn--md"
-              style={{ width: '100%', opacity: submitting || !password.trim() ? 0.5 : 1 }}
-            >
+            <button type="submit" disabled={submitting} className="q-btn q-btn--primary q-btn--lg" style={{ width: '100%' }}>
               {submitting ? 'Unlocking…' : 'Unlock'}
             </button>
           </form>
 
-          <button
-            onClick={handleSignOut}
-            className="q-btn q-btn--ghost q-btn--sm"
-            style={{ width: '100%', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}
-          >
-            <LogOut className="h-3.5 w-3.5" />
+          <button type="button" onClick={handleSignOut} className="q-btn q-btn--ghost q-btn--lg" style={{ width: '100%', marginTop: 'var(--s-2)' }}>
             Sign out instead
           </button>
         </div>

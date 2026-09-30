@@ -32,11 +32,10 @@ function baseInput(overrides: Partial<ReportInput> = {}): ReportInput {
 }
 
 /**
- * Extract a stable structural fingerprint from the report's React element
- * tree — section titles, headline text, source names, presence/absence of the
- * forecast block. We intentionally do NOT snapshot the raw PNG data URL (the
- * plan says "structural — no raster images in the snapshot") nor the bag of
- * @react-pdf style numerics; both are renderer concerns.
+ * A stable structural fingerprint of the report's React element tree, read
+ * from its named parts (displayName): section titles, the headline figure,
+ * source rows, the forecast section and the trajectory image. Raster data and
+ * @react-pdf style numbers are renderer concerns and stay out of it.
  */
 function describeReportTree(el: ReactElement): {
   sectionTitles: string[];
@@ -48,7 +47,6 @@ function describeReportTree(el: ReactElement): {
   const sectionTitles: string[] = [];
   const sourceNames: string[] = [];
   let headlineText = '';
-  let hasForecastSection = false;
   let hasTrajectoryImage = false;
 
   const walk = (node: unknown): void => {
@@ -59,52 +57,43 @@ function describeReportTree(el: ReactElement): {
       return;
     }
     if (typeof node === 'object' && 'props' in node) {
-      const obj = node as {
-        type?: unknown;
-        props?: { children?: unknown; style?: unknown; src?: unknown };
-      };
+      const obj = node as { type?: { displayName?: string }; props?: Record<string, unknown> };
       const props = obj.props ?? {};
-      const styleStr = props.style ? JSON.stringify(props.style) : '';
-
-      // Headline value
-      if (styleStr.includes('"fontSize":24')) {
-        if (typeof props.children === 'string') headlineText = props.children;
-      }
-      // Section titles
-      if (styleStr.includes('"textTransform":"uppercase"')) {
-        if (typeof props.children === 'string') {
-          sectionTitles.push(props.children);
-          if (props.children === 'Forecast') hasForecastSection = true;
-        }
-      }
-      // Trajectory image — @react-pdf Image carries `src`.
+      const role = obj.type?.displayName;
+      if (role === 'PdfSection' && typeof props.title === 'string') sectionTitles.push(props.title);
+      if (role === 'PdfSectionTitle' && typeof props.children === 'string') sectionTitles.push(props.children);
+      if (role === 'PdfFigure' && typeof props.children === 'string') headlineText = props.children;
+      if (role === 'PdfSourceRow' && typeof props.name === 'string') sourceNames.push(props.name);
+      // Trajectory image: @react-pdf Image carries `src`.
       if (props.src) hasTrajectoryImage = true;
-      // Source rows: any child of a row with width:90 is the value cell; the
-      // first <Text> in a sourceRow with flex:1 is the name.
-      if (styleStr.includes('"flex":1') && typeof props.children === 'string') {
-        // Filter out the spacer flex:1 we use elsewhere by requiring a string body.
-        if (props.children.length > 0 && props.children.length < 100) {
-          sourceNames.push(props.children);
-        }
-      }
       walk(props.children);
     }
   };
   walk(el);
-  return { sectionTitles, headlineText, sourceNames, hasForecastSection, hasTrajectoryImage };
+  return {
+    sectionTitles,
+    headlineText,
+    sourceNames,
+    hasForecastSection: sectionTitles.includes('In 3 years at your recent pace'),
+    hasTrajectoryImage,
+  };
 }
 
 describe('buildWealthReport — document tree', () => {
-  it('renders the canonical seven sections (without forecast when <24mo history)', () => {
+  it('renders the chart, sources and allocation sections, without a forecast under 24 months', () => {
     const tree = buildWealthReport(baseInput());
     const desc = describeReportTree(tree);
     expect(desc.sectionTitles).toEqual([
-      'Net worth at period end',
+      'Net worth over the period',
+      'Largest sources',
       'Allocation',
-      'Trajectory',
-      'Top sources',
     ]);
     expect(desc.hasForecastSection).toBe(false);
+  });
+
+  it('leads with the period-end total in the shared money format', () => {
+    const desc = describeReportTree(buildWealthReport(baseInput()));
+    expect(desc.headlineText).toBe('€12,000');
   });
 
   it('renders the conditional forecast section when ≥24 months of history exist', () => {
@@ -119,7 +108,7 @@ describe('buildWealthReport — document tree', () => {
     );
     const desc = describeReportTree(tree);
     expect(desc.hasForecastSection).toBe(true);
-    expect(desc.sectionTitles).toContain('Forecast');
+    expect(desc.sectionTitles).toContain('In 3 years at your recent pace');
   });
 
   it('lists the supplied top sources in order', () => {

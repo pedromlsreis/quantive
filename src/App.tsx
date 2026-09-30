@@ -1,9 +1,8 @@
-import { lazy, Suspense, useEffect } from "react";
-import { Toaster } from "@/components/ui/toaster";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, useNavigationType } from "react-router-dom";
 import { analytics } from "@/lib/analytics";
 import { ErrorBoundary, RouteScopedErrorBoundary } from "@/components/ErrorBoundary";
 import { ConsentBanner } from "@/components/ConsentBanner";
@@ -20,23 +19,31 @@ import { RecoveryOfferModal } from "@/components/auth/RecoveryOfferModal";
 import { QueryCacheGuard } from "@/components/auth/QueryCacheGuard";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
+import { useMotionAllowed } from "@/hooks/useMotionAllowed";
+// The six prerendered public pages are preloadable (see main.tsx); every
+// other route below stays on plain lazy().
+import {
+  Impressum,
+  LandingPage,
+  PricingPage,
+  PrivacyPolicy,
+  SecurityPage,
+  TermsOfService,
+} from "@/routes/publicRoutes";
 
-const LandingPage = lazy(() => import("./pages/LandingPage"));
-const Index = lazy(() => import("./pages/Index"));
-const PricingPage = lazy(() => import("./pages/PricingPage"));
+import {
+  AllocationsPage,
+  ForecastPage,
+  GoalsPage,
+  Index,
+  PerformancePage,
+  SettingsPage,
+  SourcesPage,
+} from "@/routes/appRoutes";
+
 const DemoRedirect = lazy(() => import("./pages/DemoRedirect"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
-const TermsOfService = lazy(() => import("./pages/TermsOfService"));
-const SecurityPage = lazy(() => import("./pages/SecurityPage"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const ForecastPage = lazy(() => import("./pages/ForecastPage"));
-const PerformancePage = lazy(() => import("./pages/PerformancePage"));
-const GoalsPage = lazy(() => import("./pages/GoalsPage"));
-const AllocationsPage = lazy(() => import("./pages/AllocationsPage"));
-const SourcesPage = lazy(() => import("./pages/SourcesPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
-const Impressum = lazy(() => import("./pages/Impressum"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -49,11 +56,16 @@ function PageViewTracker() {
   return null;
 }
 
+// Only fragment ids count as anchors. Auth callbacks put tokens in the hash
+// (`#access_token=…&type=recovery`); those must not suppress the scroll reset.
+function anchorIdFrom(hash: string): string | null {
+  return /^#[A-Za-z][\w-]*$/.test(hash) ? hash.slice(1) : null;
+}
+
 // Reset scroll to the top on route change. The router preserves the window
 // scroll position across client-side navigation, so without this a user who
-// scrolls down one page lands mid-way down the next. Keyed on pathname only,
-// so the landing page's in-page hash anchors (#features, #pricing) are left
-// alone — those change the hash, not the pathname.
+// scrolls down one page lands mid-way down the next. URLs with an anchor
+// (`/#features`) are left to ScrollToHash.
 //
 // This deliberately also scrolls to top on back/forward (POP), forgoing
 // native scroll restoration. That's fine here: every in-app route is a
@@ -62,18 +74,79 @@ function PageViewTracker() {
 // reset on useNavigationType() === 'PUSH' rather than reaching for a full
 // createBrowserRouter + <ScrollRestoration> refactor.
 function ScrollToTop() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   useEffect(() => {
+    if (anchorIdFrom(hash)) return;
     window.scrollTo(0, 0);
-  }, [pathname]);
+  }, [pathname, hash]);
   return null;
 }
 
-const LoadingSpinner = () => (
-  <div className="flex flex-1 items-center justify-center bg-background">
-    <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-  </div>
-);
+// BrowserRouter does not scroll to `#id` targets, so `/#faq` links from other
+// pages would land at the top. The target may not exist yet (lazy page behind
+// Suspense), so poll once per frame for up to 2 s. Arriving from another page
+// jumps; a same-page anchor glides unless reduced motion is on. The offset
+// under the fixed nav comes from `scroll-padding-top` in index.css.
+function ScrollToHash() {
+  const { pathname, hash, key } = useLocation();
+  const navigationType = useNavigationType();
+  const lastPathname = useRef<string | null>(null);
+
+  useEffect(() => {
+    const samePage = lastPathname.current === pathname;
+    lastPathname.current = pathname;
+    const id = anchorIdFrom(hash);
+    if (!id) return;
+
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const behavior: ScrollBehavior = samePage && navigationType !== "POP" && !reduced ? "smooth" : "auto";
+    const deadline = performance.now() + 2000;
+    let frame = 0;
+    const scrollWhenPresent = () => {
+      const target = document.getElementById(id);
+      if (target) {
+        target.scrollIntoView({ behavior, block: "start" });
+      } else if (performance.now() < deadline) {
+        frame = requestAnimationFrame(scrollWhenPresent);
+      }
+    };
+    scrollWhenPresent();
+    return () => cancelAnimationFrame(frame);
+  }, [pathname, hash, key, navigationType]);
+  return null;
+}
+
+// Chunk loads under 300ms show nothing; longer ones get a hairline at the top
+// of the viewport instead of a spinner over an empty page.
+function RouteFallback() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setVisible(true), 300);
+    return () => window.clearTimeout(t);
+  }, []);
+  // Absent from the accessibility tree until it is shown, so a fast load announces nothing.
+  if (!visible) return null;
+  return (
+    <div
+      className="q-route-progress is-visible"
+      style={{ position: "fixed", top: 0, bottom: "auto", zIndex: "var(--z-toast)" }}
+      role="progressbar"
+      aria-label="Loading"
+    />
+  );
+}
+
+// Authored motion in index.css runs only under html[data-app-motion='on'].
+// Portalled overlays sit outside the shell, hence the root element.
+function MotionFlag() {
+  const allowed = useMotionAllowed();
+  useEffect(() => {
+    const root = document.documentElement;
+    if (allowed) root.dataset.appMotion = "on";
+    else delete root.dataset.appMotion;
+  }, [allowed]);
+  return null;
+}
 
 // Routes that render the in-app shell (sidebar + topbar). All of these
 // currently render encrypted user data, so they also need to appear in
@@ -119,8 +192,8 @@ function AppRoutes() {
 
   if (useShell) {
     return (
-      <AppShell pathname={location.pathname}>
-        <Suspense fallback={<LoadingSpinner />}>{routes}</Suspense>
+      <AppShell>
+        <Suspense fallback={<RouteFallback />}>{routes}</Suspense>
       </AppShell>
     );
   }
@@ -128,7 +201,7 @@ function AppRoutes() {
   return (
     <div className="flex min-h-screen flex-col">
       <EmailConfirmationBanner />
-      <Suspense fallback={<LoadingSpinner />}>{routes}</Suspense>
+      <Suspense fallback={<RouteFallback />}>{routes}</Suspense>
     </div>
   );
 }
@@ -136,7 +209,7 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
+      <MotionFlag />
       <Sonner />
       <ErrorBoundary>
         <AuthProvider>
@@ -148,10 +221,12 @@ const App = () => (
                 <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                   <PageViewTracker />
                   <ScrollToTop />
-                  <RequireUnlock />
+                  <ScrollToHash />
                   <IdleAutoLock />
                   <RecoveryOfferModal />
                   <AuthModalProvider>
+                    {/* Inside the provider: its reset path signs out and opens the auth modal in forgot mode. */}
+                    <RequireUnlock />
                     {/* Route-scoped boundary: a page-level crash resets when
                         the user navigates away, instead of poisoning the
                         whole shell. The outer ErrorBoundary still catches

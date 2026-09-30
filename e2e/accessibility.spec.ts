@@ -17,13 +17,16 @@ test.describe('Accessibility', () => {
 
   test('interactive elements are keyboard-focusable', async ({ page }) => {
     await page.goto('/');
+    // main.tsx loads the page chunk before the first render, so wait for the
+    // page rather than tabbing into an empty root.
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 12_000 });
     await page.keyboard.press('Tab');
     const focusedTag = await page.evaluate(() => document.activeElement?.tagName.toLowerCase());
     // First focusable element receives focus
     expect(['a', 'button', 'input', 'select', 'textarea', 'div']).toContain(focusedTag);
   });
 
-  test('dashboard KPI cards are keyboard accessible', async ({ page }) => {
+  test('dashboard is keyboard accessible', async ({ page }) => {
     await loadDemo(page);
 
     // Tab through the page and verify focus moves

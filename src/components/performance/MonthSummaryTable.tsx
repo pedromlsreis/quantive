@@ -2,67 +2,53 @@ import { useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
+import { useFormat } from '@/hooks/useFormat';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { UpsellCard } from '@/components/billing/UpsellCard';
+import { ProGate } from '@/components/billing/UpsellCard';
 import { analytics } from '@/lib/analytics';
+import { monthYear } from '@/lib/formatters';
 import {
   applyFreeTierMask,
   buildMonthlyCsv,
   computeMonthlyRows,
-  type MonthlyRow,
 } from '@/lib/monthlyAggregate';
 
-function formatPct(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return '—';
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(1)}%`;
+const INITIAL_ROWS = 12;
+
+/** "2026-09-30" → a local Date (ISO strings parse as UTC midnight otherwise). */
+function isoToDate(iso: string): Date {
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
-function signColor(value: number | null): string | undefined {
-  if (value === null || !Number.isFinite(value) || value === 0) return undefined;
-  return value > 0 ? 'var(--positive, #16a34a)' : 'var(--negative, #dc2626)';
-}
-
-function maskedCell({ redacted, children }: { redacted: boolean; children: React.ReactNode }) {
-  if (!redacted) return <>{children}</>;
-  return (
-    <>
-      <span style={{ filter: 'blur(6px)', color: 'var(--fg-faint)' }} aria-hidden="true">••••</span>
-      <span className="sr-only">redacted — upgrade to Pro to view</span>
-    </>
-  );
-}
-
+/**
+ * Month-end net worth with the change on the month and over 12 months. Shows
+ * the latest year and grows in place; no inner scroll. On the free plan the
+ * older months collapse into one row, followed by the page's one Pro gate.
+ */
 export function MonthSummaryTable() {
   const { allSnapshots } = usePortfolio();
-  const { fmt, fmtFull } = useCurrencyFormatter();
+  const f = useFormat();
   const { has } = useEntitlements();
-
   const hasFullHistory = has('history.full');
+  const [showAll, setShowAll] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
-  const masked = useMemo(() => {
-    const rows = computeMonthlyRows(allSnapshots);
-    if (hasFullHistory) {
-      return rows.map((r) => ({ ...r, redacted: false }));
-    }
-    return applyFreeTierMask(rows);
+  const rows = useMemo(() => {
+    const monthly = computeMonthlyRows(allSnapshots);
+    return hasFullHistory ? monthly.map((r) => ({ ...r, redacted: false })) : applyFreeTierMask(monthly);
   }, [allSnapshots, hasFullHistory]);
 
-  // Newest-first.
-  const sorted = useMemo(() => [...masked].reverse(), [masked]);
-
-  const [exporting, setExporting] = useState(false);
+  // Newest first.
+  const sorted = useMemo(() => [...rows].reverse(), [rows]);
+  const visible = sorted.filter((r) => !r.redacted);
+  const redacted = sorted.filter((r) => r.redacted);
 
   if (sorted.length === 0) {
     return (
-      <section className="q-card q-card--p-lg">
-        <div className="q-section-head">
-          <h2>Month-by-month history</h2>
-        </div>
-        <p style={{ color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)' }}>
-          No snapshots yet — once you've recorded values for two months, this table fills in automatically.
-        </p>
+      <section className="q-sec" aria-labelledby="months-title">
+        <div className="q-sec-head"><h2 className="q-h2" id="months-title">Month-by-month history</h2></div>
+        <p className="q-body">{"Once you've recorded values for two months, this table fills in."}</p>
       </section>
     );
   }
@@ -74,133 +60,96 @@ export function MonthSummaryTable() {
       const blob = new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      const stamp = new Date().toISOString().slice(0, 10);
       a.href = url;
-      a.download = `monthly_summary_${stamp}.csv`;
+      a.download = `monthly_summary_${new Date().toISOString().slice(0, 10)}.csv`;
       a.click();
       URL.revokeObjectURL(url);
-      analytics.momTableExported({
-        rows: sorted.length,
-        freeRedacted: sorted.filter((r) => r.redacted).length,
-      });
+      analytics.momTableExported({ rows: sorted.length, freeRedacted: redacted.length });
     } catch (err) {
       console.error('[MonthSummaryTable] CSV export failed', err);
-      toast.error('Could not download the CSV. Please try again.');
+      toast.error("Couldn't download the CSV. Try again.");
     } finally {
       setExporting(false);
     }
   };
 
-  const numeric: React.CSSProperties = {
-    fontVariantNumeric: 'tabular-nums',
-    fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)',
-    textAlign: 'right',
-    whiteSpace: 'nowrap',
-  };
+  const shown = showAll ? visible : visible.slice(0, INITIAL_ROWS);
+
+  const change = (abs: number | null, pctValue: number | null) =>
+    abs === null ? (
+      <span style={{ color: 'var(--fg-faint)' }}>—</span>
+    ) : (
+      <>
+        {f.money(abs, { signed: true })}
+        {pctValue !== null && <span className="q-table-pct">{f.pct(pctValue, { signed: true })}</span>}
+      </>
+    );
 
   return (
-    <section className="q-card q-card--p-lg">
-      <div className="q-section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--s-3)' }}>
+    <section className="q-sec" aria-labelledby="months-title">
+      <div className="q-sec-head">
         <div>
-          <h2 style={{ margin: 0 }}>Month-by-month history</h2>
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', margin: '4px 0 0' }}>
-            Last snapshot on or before each month's last day. Deltas compare to the previous month-end.
-          </p>
+          <h2 className="q-h2" id="months-title">Month-by-month history</h2>
+          <div className="q-sec-sub">{"Each month's last entry, compared with the month before and the same month a year earlier."}</div>
         </div>
         <button
           type="button"
           onClick={handleCsv}
           disabled={exporting}
           className="q-btn q-btn--secondary q-btn--sm"
-          aria-label="Download as CSV"
+          aria-label="Download CSV"
         >
-          <Download className="h-3.5 w-3.5" />
+          <Download size={14} strokeWidth={1.75} aria-hidden="true" />
           {exporting ? 'Preparing…' : 'Download CSV'}
         </button>
       </div>
 
-      <div
-        role="region"
-        tabIndex={0}
-        aria-label={`Month-by-month history, ${sorted.length} ${sorted.length === 1 ? 'row' : 'rows'}, scrollable`}
-        style={{
-          overflow: 'auto',
-          maxHeight: 'min(60vh, 460px)',
-          border: '1px solid var(--border-raw)',
-          borderRadius: 'var(--radius-md, 8px)',
-        }}
-      >
-        <table className="q-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
-          <caption className="sr-only">Net worth and month-over-month deltas, newest first.</caption>
-          <thead
-            style={{
-              position: 'sticky',
-              top: 0,
-              background: 'var(--surface, var(--bg, #fff))',
-              boxShadow: 'inset 0 -1px 0 var(--border-raw)',
-              zIndex: 1,
-            }}
-          >
-            <tr style={{ textAlign: 'left' }}>
-              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)' }}>Month-end</th>
-              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Net worth</th>
-              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Δ month</th>
-              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Δ year</th>
-              <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Annualised</th>
+      <table className="q-table q-table--responsive">
+        <caption className="sr-only">Net worth at each month end, newest first</caption>
+        <thead>
+          <tr>
+            <th scope="col">Month-end</th>
+            <th scope="col" className="num">Net worth</th>
+            <th scope="col" className="num">Month</th>
+            <th scope="col" className="num" data-col="secondary">12 months</th>
+            <th scope="col" className="num" data-col="secondary">Annualised</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((row) => (
+            <tr key={row.monthEnd}>
+              <td><time dateTime={row.monthEnd.slice(0, 10)}>{monthYear(isoToDate(row.monthEnd))}</time></td>
+              <td className="num">{f.money(row.netWorth)}</td>
+              <td className={`num q-tone-${row.deltaMonthAbs === null ? 'zero' : f.tone(row.deltaMonthAbs)}`}>
+                {change(row.deltaMonthAbs, row.deltaMonthPct)}
+              </td>
+              <td className={`num q-tone-${row.deltaYearAbs === null ? 'zero' : f.tone(row.deltaYearAbs)}`} data-col="secondary">
+                {change(row.deltaYearAbs, row.deltaYearPct)}
+              </td>
+              <td className="num" data-col="secondary" style={{ color: 'var(--fg-muted)' }}>
+                {row.annualisedPct === null ? '—' : f.pct(row.annualisedPct, { signed: true })}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {sorted.map((row) => {
-              const redacted = row.redacted;
-              return (
-                <tr
-                  key={row.monthEnd}
-                  data-redacted={redacted ? 'true' : undefined}
-                  style={{
-                    borderBottom: '1px solid var(--border-raw)',
-                    background: redacted ? 'var(--surface-soft)' : undefined,
-                    opacity: redacted ? 0.85 : 1,
-                  }}
-                >
-                  <td style={{ padding: '6px 10px', color: 'var(--fg)' }}>{row.monthEnd}</td>
-                  <td className="num" style={{ ...numeric, padding: '6px 10px' }}>
-                    {maskedCell({ redacted, children: fmtFull(row.netWorth) })}
-                  </td>
-                  <td className="num" style={{ ...numeric, padding: '6px 10px', color: signColor(row.deltaMonthAbs) }}>
-                    {maskedCell({
-                      redacted,
-                      children: row.deltaMonthAbs === null ? '—' : (
-                        <>
-                          {row.deltaMonthAbs > 0 ? '+' : ''}{fmt(row.deltaMonthAbs)} ({formatPct(row.deltaMonthPct)})
-                        </>
-                      ),
-                    })}
-                  </td>
-                  <td className="num" style={{ ...numeric, padding: '6px 10px', color: signColor(row.deltaYearAbs) }}>
-                    {maskedCell({
-                      redacted,
-                      children: row.deltaYearAbs === null ? '—' : (
-                        <>
-                          {row.deltaYearAbs > 0 ? '+' : ''}{fmt(row.deltaYearAbs)} ({formatPct(row.deltaYearPct)})
-                        </>
-                      ),
-                    })}
-                  </td>
-                  <td className="num" style={{ ...numeric, padding: '6px 10px', color: signColor(row.annualisedPct) }}>
-                    {maskedCell({ redacted, children: formatPct(row.annualisedPct) })}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+          ))}
+          {redacted.length > 0 && (showAll || visible.length <= INITIAL_ROWS) && (
+            <tr data-redacted="true">
+              <td colSpan={5} style={{ color: 'var(--fg-subtle)' }}>
+                {`${redacted.length} earlier ${redacted.length === 1 ? 'month' : 'months'} (${monthYear(isoToDate(redacted[redacted.length - 1].monthEnd))} to ${monthYear(isoToDate(redacted[0].monthEnd))}) ${redacted.length === 1 ? 'is' : 'are'} in Pro`}
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
 
-      {!hasFullHistory && sorted.some((r) => r.redacted) && (
-        <div style={{ marginTop: 'var(--s-4)' }}>
-          <UpsellCard feature="history.full" compact />
+      {visible.length > INITIAL_ROWS && (
+        <div className="q-row-foot">
+          <button type="button" className="q-link-btn" style={{ fontSize: 13 }} onClick={() => setShowAll((v) => !v)} aria-expanded={showAll}>
+            {showAll ? 'Show the latest 12 months' : `Show all ${visible.length} months`}
+          </button>
         </div>
       )}
+
+      {!hasFullHistory && redacted.length > 0 && <ProGate feature="benchmarks" variant="row" />}
     </section>
   );
 }

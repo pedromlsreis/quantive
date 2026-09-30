@@ -63,12 +63,16 @@ describe('Sparkline', () => {
     expect(cy).toBeCloseTo(pts[pts.length - 1][1], 1);
   });
 
-  it('paints with the positive color by default and switches to negative when prop is false', () => {
-    const positive = render(<Sparkline values={[1, 2, 3]} />);
-    expect(positive.container.querySelector('path')!.getAttribute('stroke')).toMatch(/positive/);
+  it('draws a neutral line and carries the direction on the end dot only', () => {
+    const up = render(<Sparkline values={[1, 2, 3]} tone="pos" />);
+    expect(up.container.querySelector('path')!.getAttribute('stroke')).toMatch(/fg-subtle/);
+    expect(up.container.querySelector('circle')!.getAttribute('fill')).toMatch(/positive/);
 
-    const negative = render(<Sparkline values={[3, 2, 1]} positive={false} />);
-    expect(negative.container.querySelector('path')!.getAttribute('stroke')).toMatch(/negative/);
+    const down = render(<Sparkline values={[3, 2, 1]} tone="neg" />);
+    expect(down.container.querySelector('circle')!.getAttribute('fill')).toMatch(/negative/);
+
+    const flat = render(<Sparkline values={[3, 3, 3]} />);
+    expect(flat.container.querySelector('circle')!.getAttribute('fill')).toMatch(/fg-subtle/);
   });
 
   it('handles a constant series (max === min) without dividing by zero', () => {
@@ -82,11 +86,15 @@ describe('Sparkline', () => {
     }
   });
 
-  it('handles a single-point series gracefully', () => {
-    const { container } = render(<Sparkline values={[100]} width={50} height={10} />);
-    const path = container.querySelector('path')!.getAttribute('d')!;
-    expect(path).toMatch(/^M /);
-    // No L commands when only one point.
-    expect((path.match(/\bL\b/g) ?? []).length).toBe(0);
+  it('renders nothing when fewer than two periods have a value', () => {
+    // One point has no shape; the row's change text carries the information.
+    expect(render(<Sparkline values={[100]} />).container.firstChild).toBeNull();
+    expect(render(<Sparkline values={[null, 100, null]} />).container.firstChild).toBeNull();
+  });
+
+  it('breaks the line where a period is missing', () => {
+    const { container } = render(<Sparkline values={[1, 2, null, 4, 5]} />);
+    const d = container.querySelector('path')!.getAttribute('d')!;
+    expect((d.match(/M /g) ?? []).length).toBe(2);
   });
 });

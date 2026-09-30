@@ -1,20 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Users,
-  Database as DatabaseIcon,
-  CreditCard,
-  MessageSquare,
-  Shield,
-  ShieldOff,
-  RefreshCw,
-  Search,
-  Trash2,
-  KeyRound,
-  Coins,
-  Bell,
-} from 'lucide-react';
+import { Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useFormat } from '@/hooks/useFormat';
+import { formatDate, money } from '@/lib/formatters';
+import { sentenceCase } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
@@ -95,32 +85,25 @@ const PRO_STATUSES = new Set(['active', 'trialing', 'past_due']);
 const isProUser = (u: AdminUser) =>
   u.subscriptionStatus != null && PRO_STATUSES.has(u.subscriptionStatus);
 
-const fmtDate = (iso: string | null) => {
-  if (!iso) return '—';
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
-};
+const fmtDate = (iso: string | null) => (iso ? formatDate(new Date(iso)) : '—');
 
+// Minute precision matters here (last sync, report age), unlike ago()'s days.
 const fmtRelative = (iso: string | null) => {
   if (!iso) return '—';
-  const ms = Date.now() - new Date(iso).getTime();
-  if (ms < 0) return 'just now';
-  const min = Math.floor(ms / 60_000);
+  const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
   if (min < 1) return 'just now';
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return `${min} min ago`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}h ago`;
+  if (hr < 24) return `${hr} ${hr === 1 ? 'hour' : 'hours'} ago`;
   const d = Math.floor(hr / 24);
-  return `${d}d ago`;
+  return `${d} ${d === 1 ? 'day' : 'days'} ago`;
 };
 
 export default function AdminPage() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
+  const f = useFormat();
 
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -151,7 +134,7 @@ export default function AdminPage() {
       if (error) throw error;
       setStats(data as AdminStats);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load stats.');
+      toast.error(e instanceof Error ? e.message : "Couldn't load the stats. Try again.");
     } finally {
       setStatsLoading(false);
     }
@@ -169,7 +152,7 @@ export default function AdminPage() {
       if (error) throw error;
       setUsers((data as { users: AdminUser[] }).users);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to load users.');
+      toast.error(e instanceof Error ? e.message : "Couldn't load users. Try again.");
     } finally {
       setUsersLoading(false);
     }
@@ -191,12 +174,12 @@ export default function AdminPage() {
       if (error) throw error;
       const payload = data as { ok?: boolean; error?: string };
       if (payload?.error) throw new Error(payload.error);
-      toast.success(`Deleted ${target.email ?? target.id}.`);
+      toast.success(`${target.email ?? target.id} deleted`);
       setPendingDelete(null);
       await loadUsers(search);
       await loadStats();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Failed to delete user.');
+      toast.error(e instanceof Error ? e.message : "Couldn't delete the user. Try again.");
     } finally {
       setDeleting(false);
     }
@@ -216,354 +199,247 @@ export default function AdminPage() {
       if (error) throw error;
       const payload = data as { ok?: boolean; error?: string };
       if (payload?.error) throw new Error(payload.error);
-      toast.success(`${action === 'grant' ? 'Granted' : 'Revoked'} ${role}.`);
+      toast.success(`${sentenceCase(role)} ${action === 'grant' ? 'granted' : 'revoked'}`);
       await loadUsers(search);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : `Failed to ${action} role.`);
+      toast.error(e instanceof Error ? e.message : `Couldn't ${action} the role. Try again.`);
     } finally {
       setMutating(null);
     }
   };
 
   if (authLoading || roleLoading || !isAdmin) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <p className="q-page-lede" role="status">Checking access…</p>;
   }
 
+  const eur = (v: number) => money(v, { currency: 'EUR', locale: f.ctx.locale });
+
   return (
-    <div className="mx-auto w-full max-w-5xl">
-      <div className="mb-8 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground">Admin</h1>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {stats ? `Generated ${fmtRelative(stats.generatedAt)}` : 'Aggregate stats and user management.'}
-            </p>
-          </div>
-          <button
-            onClick={() => {
-              loadStats();
-              loadUsers(search);
-            }}
-            disabled={statsLoading}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${statsLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+    <div>
+      <header className="q-page-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--s-4)', flexWrap: 'wrap' }}>
+        <div>
+          <h1 className="q-h1" tabIndex={-1}>Admin</h1>
+          <p className="q-page-meta">
+            {stats ? `Generated ${fmtRelative(stats.generatedAt)}. Counts only: entries stay encrypted and are never shown here.` : 'Counts and user management.'}
+          </p>
         </div>
+        <button
+          type="button"
+          onClick={() => { loadStats(); loadUsers(search); }}
+          disabled={statsLoading}
+          className="q-btn q-btn--secondary q-btn--md"
+        >
+          {statsLoading ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </header>
 
-        {/* Stats + adoption render as one cohesive block: a skeleton while the
-            admin-stats call is in flight, then everything at once. Avoids the
-            old "empty cards fill in piecemeal" effect. */}
-        {!stats ? (
-          <StatsSkeleton />
-        ) : (
+      {/* Stats and adoption appear together once admin-stats answers, never piecemeal. */}
+      {!stats ? (
+        <StatsSkeleton />
+      ) : (
         <>
-        {/* Stats grid */}
-        <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            icon={<Users className="h-4 w-4 text-primary" />}
-            title="Users"
-            primary={stats?.users.total ?? '—'}
-            details={
-              stats
-                ? [
-                    `${stats.users.confirmed} confirmed (${pct(stats.users.confirmed, stats.users.total)})`,
-                    `+${stats.users.newThisWeek} this week`,
-                    `+${stats.users.newThisMonth} this month`,
-                    `${stats.users.activeThisWeek} active (7d)`,
-                    `${stats.users.activeThisMonth} active (30d)`,
-                  ]
-                : []
-            }
-          />
-          <StatCard
-            icon={<CreditCard className="h-4 w-4 text-primary" />}
-            title="Subscriptions"
-            primary={
-              stats?.subscriptions.enabled
-                ? stats.subscriptions.activeSubs ?? '—'
-                : 'Disabled'
-            }
-            details={
-              stats?.subscriptions.enabled
-                ? [
-                    stats.subscriptions.mrrEur !== null
-                      ? `~€${stats.subscriptions.mrrEur.toFixed(2)} MRR`
-                      : 'MRR unavailable',
-                    stats.subscriptions.arrEur !== null
-                      ? `~€${stats.subscriptions.arrEur.toFixed(2)} ARR`
-                      : 'ARR unavailable',
-                    stats.subscriptions.annualSubs !== null &&
-                    stats.subscriptions.monthlySubs !== null
-                      ? `${stats.subscriptions.annualSubs} annual · ${stats.subscriptions.monthlySubs} monthly`
-                      : 'Plan split unavailable',
-                    stats.subscriptions.activeSubs !== null
-                      ? `${pct(stats.subscriptions.activeSubs, stats.users.total)} of users · ${pct(stats.subscriptions.activeSubs, stats.snapshots.total)} of activated`
-                      : '',
-                    stats.subscriptions.error ? `Stripe error — check secret key` : '',
-                  ].filter(Boolean)
-                : ['STRIPE_SECRET_KEY not set']
-            }
-          />
-          <StatCard
-            icon={<DatabaseIcon className="h-4 w-4 text-primary" />}
-            title="Users with data"
-            primary={stats?.snapshots.total ?? '—'}
-            details={
-              stats
-                ? [
-                    // portfolio_snapshots holds one upserted row per user; the
-                    // per-date snapshot count lives inside the ciphertext, so the
-                    // server can only count users, not snapshots.
-                    `${pct(stats.snapshots.total, stats.users.total)} of users activated`,
-                    `${stats.snapshots.encrypted} encrypted (v1)`,
-                    `${stats.snapshots.updatedThisWeek} updated this week`,
-                    `Last sync ${fmtRelative(stats.snapshots.lastSyncAt)}`,
-                  ]
-                : []
-            }
-          />
-          <StatCard
-            icon={<MessageSquare className="h-4 w-4 text-primary" />}
-            title="Feedback"
-            primary={stats?.feedback.total ?? '—'}
-            details={
-              stats
-                ? Object.entries(stats.feedback.byType).map(
-                    ([k, v]) => `${v} ${k}`,
-                  )
-                : []
-            }
-          />
-        </section>
+          <section className="q-sec" aria-labelledby="admin-overview-title" style={{ marginTop: 0 }}>
+            <div className="q-sec-head"><h2 className="q-h2" id="admin-overview-title">Overview</h2></div>
+            <dl className="q-stats">
+              <Stat
+                label="Users"
+                value={stats.users.total}
+                detail={`${stats.users.confirmed} confirmed (${pct(stats.users.confirmed, stats.users.total)}). +${stats.users.newThisWeek} this week, +${stats.users.newThisMonth} this month. ${stats.users.activeThisWeek} active in 7 days, ${stats.users.activeThisMonth} in 30.`}
+              />
+              <Stat
+                label="Subscriptions"
+                value={stats.subscriptions.enabled ? stats.subscriptions.activeSubs ?? '—' : 'Off'}
+                detail={
+                  !stats.subscriptions.enabled
+                    ? 'STRIPE_SECRET_KEY is not set.'
+                    : stats.subscriptions.error
+                      ? 'Stripe returned an error: check the secret key.'
+                      : [
+                          stats.subscriptions.mrrEur !== null ? `${eur(stats.subscriptions.mrrEur)} MRR, ${eur(stats.subscriptions.arrEur ?? 0)} ARR.` : 'Revenue unavailable.',
+                          stats.subscriptions.annualSubs !== null && stats.subscriptions.monthlySubs !== null
+                            ? `${stats.subscriptions.annualSubs} annual, ${stats.subscriptions.monthlySubs} monthly.`
+                            : '',
+                          stats.subscriptions.activeSubs !== null
+                            ? `${pct(stats.subscriptions.activeSubs, stats.users.total)} of users, ${pct(stats.subscriptions.activeSubs, stats.snapshots.total)} of those with data.`
+                            : '',
+                        ].filter(Boolean).join(' ')
+                }
+              />
+              <Stat
+                label="Users with data"
+                value={stats.snapshots.total}
+                // One upserted row per user: the per-date entries live inside
+                // the ciphertext, so the server can count users, not entries.
+                detail={`${pct(stats.snapshots.total, stats.users.total)} of users. ${stats.snapshots.encrypted} encrypted, ${stats.snapshots.updatedThisWeek} updated this week. Last sync ${fmtRelative(stats.snapshots.lastSyncAt)}.`}
+              />
+              <Stat
+                label="Feedback"
+                value={stats.feedback.total}
+                detail={Object.entries(stats.feedback.byType).map(([k, v]) => `${v} ${k}`).join(', ') || 'None yet.'}
+              />
+            </dl>
+          </section>
 
-        {/* Adoption & preferences. Plaintext metadata only — portfolio values
-            stay encrypted and are deliberately not surfaced here. */}
-        <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <StatCard
-            icon={<KeyRound className="h-4 w-4 text-primary" />}
-            title="Recovery phrase"
-            primary={pct(stats.keys.withRecovery, stats.keys.total)}
-            details={[
-              `${stats.keys.withRecovery} of ${stats.keys.total} keyed users`,
-              `${stats.keys.total - stats.keys.withRecovery} at risk on lost password`,
-            ]}
-          />
-          <DistributionCard
-            icon={<Coins className="h-4 w-4 text-primary" />}
-            title="Display currency"
-            dist={stats.currencies}
-            total={stats.users.total}
-          />
-          <DistributionCard
-            icon={<Bell className="h-4 w-4 text-primary" />}
-            title="Reminder cadence"
-            dist={stats.reminders}
-            total={stats.users.total}
-          />
-        </section>
-        </>
-        )}
-
-        {/* Recent feedback */}
-        {stats && stats.feedback.recent.length > 0 && (
-          <section className="mb-10 rounded-xl border border-border bg-card/50 p-6">
-            <h2 className="mb-4 text-base font-semibold text-foreground">
-              Recent feedback
-            </h2>
-            <div className="space-y-3">
-              {stats.feedback.recent.map((f) => (
-                <div
-                  key={f.id}
-                  className="rounded-lg border border-border/50 bg-background/40 p-3"
-                >
-                  <div className="mb-1 flex items-center justify-between text-xs">
-                    <span style={{
-                      borderRadius: 'var(--r-1)',
-                      background: 'var(--accent-faint-raw)',
-                      padding: '2px 6px',
-                      fontWeight: 500,
-                      color: 'var(--accent-raw)',
-                    }}>
-                      {f.type}
-                    </span>
-                    <span className="text-muted-foreground">{fmtDate(f.created_at)}</span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm text-foreground">{f.message}</p>
-                </div>
-              ))}
+          <section className="q-sec" aria-labelledby="admin-adoption-title">
+            <div className="q-sec-head">
+              <div>
+                <h2 className="q-h2" id="admin-adoption-title">Adoption</h2>
+                <div className="q-sec-sub">Plaintext settings only.</div>
+              </div>
+            </div>
+            <div className="q-admin-cols">
+              <div>
+                <h3 className="q-admin-h3">Recovery code</h3>
+                <p className="q-admin-big num">{pct(stats.keys.withRecovery, stats.keys.total)}</p>
+                <p className="q-admin-note">
+                  {`${stats.keys.withRecovery} of ${stats.keys.total} users with keys. ${stats.keys.total - stats.keys.withRecovery} would lose their data with a forgotten password.`}
+                </p>
+              </div>
+              <Distribution title="Display currency" dist={stats.currencies} total={stats.users.total} />
+              <Distribution title="Reminder cadence" dist={stats.reminders} total={stats.users.total} format={sentenceCase} />
             </div>
           </section>
-        )}
+        </>
+      )}
 
-        {/* User management */}
-        <section className="rounded-xl border border-border bg-card/50 p-6">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Users & roles</h2>
-              <p className="text-xs text-muted-foreground">
-                Grant or revoke admin access. The last admin cannot be removed.
-              </p>
-            </div>
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                loadUsers(search);
-              }}
-            >
-              <label className="q-input" style={{ width: 224 }}>
-                <Search className="q-input-icon h-3.5 w-3.5" />
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by email…"
-                />
-              </label>
-              <button
-                type="submit"
-                disabled={usersLoading}
-                className="q-btn q-btn--secondary q-btn--sm"
-                style={{ opacity: usersLoading ? 0.5 : 1 }}
-              >
-                Search
-              </button>
-            </form>
+      {stats && stats.feedback.recent.length > 0 && (
+        <section className="q-sec" aria-labelledby="admin-feedback-title">
+          <div className="q-sec-head"><h2 className="q-h2" id="admin-feedback-title">Recent feedback</h2></div>
+          <ul className="q-admin-feedback">
+            {stats.feedback.recent.map((fb) => (
+              <li key={fb.id}>
+                <div className="q-admin-feedback-head">
+                  <span className="q-tag">{sentenceCase(fb.type)}</span>
+                  <time dateTime={fb.created_at}>{fmtDate(fb.created_at)}</time>
+                </div>
+                <p>{fb.message}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section className="q-sec" aria-labelledby="admin-users-title">
+        <div className="q-sec-head">
+          <div>
+            <h2 className="q-h2" id="admin-users-title">Users and roles</h2>
+            <div className="q-sec-sub">Grant or revoke admin access. The last admin can't be removed.</div>
           </div>
+        </div>
+        <form
+          className="q-toolbar"
+          onSubmit={(e) => {
+            e.preventDefault();
+            loadUsers(search);
+          }}
+        >
+          <label className="q-input q-toolbar-search">
+            <span className="q-input-icon"><Search size={14} strokeWidth={1.75} aria-hidden="true" /></span>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by email"
+              aria-label="Search users by email"
+            />
+          </label>
+          <button type="submit" disabled={usersLoading} className="q-btn q-btn--secondary q-btn--md">
+            {usersLoading ? 'Searching…' : 'Search'}
+          </button>
+        </form>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
+        <div className="q-table-scroll">
+          <table className="q-table q-table--responsive">
+            <caption className="sr-only">Users with their plan, last sync, recovery code and roles</caption>
+            <thead>
+              <tr>
+                <th scope="col">User</th>
+                <th scope="col">Plan</th>
+                <th scope="col" data-col="secondary">Last sync</th>
+                <th scope="col" data-col="secondary">Recovery</th>
+                <th scope="col" data-col="secondary">Joined</th>
+                <th scope="col" data-col="secondary">Last seen</th>
+                <th scope="col" data-col="secondary">Roles</th>
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {usersLoading && users.length === 0 && <UserRowsSkeleton rows={6} />}
+              {!usersLoading && users.length === 0 && (
                 <tr>
-                  <th className="py-2 pr-4 font-medium">Email</th>
-                  <th className="py-2 pr-4 font-medium">Plan</th>
-                  <th className="py-2 pr-4 font-medium">Last snapshot</th>
-                  <th className="py-2 pr-4 font-medium">Recovery</th>
-                  <th className="py-2 pr-4 font-medium">Joined</th>
-                  <th className="py-2 pr-4 font-medium">Last seen</th>
-                  <th className="py-2 pr-4 font-medium">Roles</th>
-                  <th className="py-2 pr-4 font-medium text-right">Actions</th>
+                  <td colSpan={8} style={{ padding: 'var(--s-8) 0', color: 'var(--fg-subtle)' }}>
+                    {search ? `No users match "${search}"` : 'No users yet'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-border/50">
-                {usersLoading && users.length === 0 && <UserRowsSkeleton rows={6} />}
-                {!usersLoading && users.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="py-6 text-center text-muted-foreground">
-                      No users found.
+              )}
+              {users.map((u) => {
+                const userIsAdmin = u.roles.some((r) => r.role === 'admin');
+                const isSelf = u.id === user?.id;
+                return (
+                  <tr key={u.id}>
+                    <td>
+                      <span style={{ color: 'var(--fg)', overflowWrap: 'anywhere' }}>{u.email ?? '—'}</span>
+                      {(!u.confirmed || u.preferredCurrency) && (
+                        <span className="q-table-sub">
+                          {[!u.confirmed && 'Unconfirmed', u.preferredCurrency].filter(Boolean).join(', ')}
+                        </span>
+                      )}
+                    </td>
+                    <td><PlanCell user={u} /></td>
+                    <td data-col="secondary" style={{ color: 'var(--fg-muted)' }}>
+                      {u.lastSnapshotAt
+                        ? <time dateTime={u.lastSnapshotAt} title={fmtDate(u.lastSnapshotAt)}>{fmtRelative(u.lastSnapshotAt)}</time>
+                        : <span style={{ color: 'var(--fg-subtle)' }}>No data</span>}
+                    </td>
+                    <td data-col="secondary"><RecoveryCell user={u} /></td>
+                    <td data-col="secondary" style={{ color: 'var(--fg-muted)' }}>{fmtDate(u.created_at)}</td>
+                    <td data-col="secondary" style={{ color: 'var(--fg-muted)' }}>{fmtRelative(u.last_sign_in_at)}</td>
+                    <td data-col="secondary">
+                      {u.roles.length === 0
+                        ? <span style={{ color: 'var(--fg-subtle)' }}>User</span>
+                        : <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4 }}>{u.roles.map((r) => <span key={r.role} className="q-tag">{sentenceCase(r.role)}</span>)}</span>}
+                    </td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--s-2)' }}>
+                        {userIsAdmin ? (
+                          <button
+                            type="button"
+                            disabled={isSelf || mutating === `${u.id}:admin:revoke`}
+                            onClick={() => mutateRole(u.id, 'admin', 'revoke')}
+                            title={isSelf ? "You can't revoke your own admin role." : undefined}
+                            className="q-btn q-btn--ghost q-btn--sm"
+                          >
+                            Revoke admin
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={mutating === `${u.id}:admin:grant`}
+                            onClick={() => mutateRole(u.id, 'admin', 'grant')}
+                            className="q-btn q-btn--secondary q-btn--sm"
+                          >
+                            Make admin
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={isSelf}
+                          onClick={() => setPendingDelete(u)}
+                          title={isSelf ? "You can't delete your own account from here." : undefined}
+                          aria-label={`Delete ${u.email ?? u.id}`}
+                          className="q-icon-btn q-icon-btn--danger"
+                        >
+                          <Trash2 size={16} strokeWidth={1.75} />
+                        </button>
+                      </span>
                     </td>
                   </tr>
-                )}
-                {users.map((u) => {
-                  const userIsAdmin = u.roles.some((r) => r.role === 'admin');
-                  const isSelf = u.id === user?.id;
-                  return (
-                    <tr key={u.id}>
-                      <td className="py-3 pr-4">
-                        <div className="text-foreground">{u.email ?? '—'}</div>
-                        <div className="flex gap-2 text-xs text-muted-foreground">
-                          {!u.confirmed && <span>unconfirmed</span>}
-                          {u.preferredCurrency && <span>{u.preferredCurrency}</span>}
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <PlanCell user={u} />
-                      </td>
-                      <td className="py-3 pr-4 text-xs text-muted-foreground">
-                        {u.lastSnapshotAt ? (
-                          <span title={fmtDate(u.lastSnapshotAt)}>
-                            {fmtRelative(u.lastSnapshotAt)}
-                          </span>
-                        ) : (
-                          <span style={{ color: 'var(--negative)' }}>no data</span>
-                        )}
-                      </td>
-                      <td className="py-3 pr-4">
-                        <RecoveryCell user={u} />
-                      </td>
-                      <td className="py-3 pr-4 text-xs text-muted-foreground">
-                        {fmtDate(u.created_at)}
-                      </td>
-                      <td className="py-3 pr-4 text-xs text-muted-foreground">
-                        {fmtRelative(u.last_sign_in_at)}
-                      </td>
-                      <td className="py-3 pr-4">
-                        {u.roles.length === 0 ? (
-                          <span className="text-xs text-muted-foreground">user</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {u.roles.map((r) => (
-                              <span
-                                key={r.role}
-                                style={{
-                                  borderRadius: 'var(--r-1)',
-                                  background: 'var(--accent-faint-raw)',
-                                  padding: '2px 6px',
-                                  fontSize: 'var(--text-xs)',
-                                  fontWeight: 500,
-                                  color: 'var(--accent-raw)',
-                                }}
-                              >
-                                {r.role}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 pr-0 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {userIsAdmin ? (
-                            <button
-                              disabled={isSelf || mutating === `${u.id}:admin:revoke`}
-                              onClick={() => mutateRole(u.id, 'admin', 'revoke')}
-                              title={isSelf ? 'You cannot revoke your own admin role.' : 'Revoke admin'}
-                              className="q-btn q-btn--secondary q-btn--sm"
-                            >
-                              <ShieldOff className="h-3.5 w-3.5" />
-                              Revoke admin
-                            </button>
-                          ) : (
-                            <button
-                              disabled={mutating === `${u.id}:admin:grant`}
-                              onClick={() => mutateRole(u.id, 'admin', 'grant')}
-                              className="q-btn q-btn--primary q-btn--sm"
-                            >
-                              <Shield className="h-3.5 w-3.5" />
-                              Make admin
-                            </button>
-                          )}
-                          <button
-                            disabled={isSelf}
-                            onClick={() => setPendingDelete(u)}
-                            title={isSelf ? 'You cannot delete your own account from here.' : 'Delete user'}
-                            aria-label={`Delete ${u.email ?? u.id}`}
-                            className="q-icon-btn"
-                            style={{
-                              border: '1px solid color-mix(in oklch, var(--negative) 30%, transparent)',
-                              background: 'color-mix(in oklch, var(--negative) 5%, transparent)',
-                              color: 'var(--negative)',
-                              opacity: isSelf ? 0.3 : 1,
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       <AlertDialog
         open={!!pendingDelete}
@@ -575,12 +451,7 @@ export default function AdminPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this user?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes{' '}
-              <span className="font-medium text-foreground">
-                {pendingDelete?.email ?? pendingDelete?.id}
-              </span>{' '}
-              along with their portfolio snapshots, encryption keys, profile, roles,
-              and feedback rows. This cannot be undone.
+              {`Deletes ${pendingDelete?.email ?? pendingDelete?.id ?? ''} with their encrypted entries, keys, profile, roles and feedback. This can't be undone.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -591,9 +462,9 @@ export default function AdminPage() {
                 if (pendingDelete) deleteUser(pendingDelete);
               }}
               disabled={deleting}
-              className="bg-destructive text-white hover:bg-destructive/90"
+              className="q-btn--destructive"
             >
-              {deleting ? 'Deleting…' : 'Yes, delete this user'}
+              {deleting ? 'Deleting…' : 'Delete user'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -602,60 +473,29 @@ export default function AdminPage() {
   );
 }
 
-interface StatCardProps {
-  icon: React.ReactNode;
-  title: string;
-  primary: string | number;
-  details: string[];
-}
-
-function StatCard({ icon, title, primary, details }: StatCardProps) {
+function Stat({ label, value, detail }: { label: string; value: React.ReactNode; detail: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-card/50 p-5">
-      <div className="mb-2 flex items-center gap-2">
-        {icon}
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {title}
-        </span>
-      </div>
-      <div className="mb-2 text-2xl font-bold text-foreground">{primary}</div>
-      <ul className="space-y-0.5 text-xs text-muted-foreground">
-        {details.map((d, i) => (
-          <li key={i} className="break-all">{d}</li>
-        ))}
-      </ul>
+    <div className="q-stat">
+      <dt className="q-stat-label">{label}</dt>
+      <dd className="q-stat-value">{value}</dd>
+      <dd className="q-stat-detail">{detail}</dd>
     </div>
   );
 }
 
-interface DistributionCardProps {
-  icon: React.ReactNode;
-  title: string;
-  dist: Record<string, number>;
-  /** Denominator for the share column (typically total users). */
-  total: number;
-}
-
-function DistributionCard({ icon, title, dist, total }: DistributionCardProps) {
+function Distribution({ title, dist, total, format = (k: string) => k }: { title: string; dist: Record<string, number>; total: number; format?: (key: string) => string }) {
   const rows = Object.entries(dist).sort((a, b) => b[1] - a[1]);
   return (
-    <div className="rounded-xl border border-border bg-card/50 p-5">
-      <div className="mb-3 flex items-center gap-2">
-        {icon}
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-          {title}
-        </span>
-      </div>
+    <div>
+      <h3 className="q-admin-h3">{title}</h3>
       {rows.length === 0 ? (
-        <p className="text-xs text-muted-foreground">No data.</p>
+        <p className="q-admin-note">No data yet.</p>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="q-admin-list">
           {rows.map(([label, count]) => (
-            <li key={label} className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-foreground">{label}</span>
-              <span className="tabular-nums text-muted-foreground">
-                {count} · {pct(count, total)}
-              </span>
+            <li key={label}>
+              <span>{format(label)}</span>
+              <span className="num">{`${count}, ${pct(count, total)}`}</span>
             </li>
           ))}
         </ul>
@@ -664,109 +504,43 @@ function DistributionCard({ icon, title, dist, total }: DistributionCardProps) {
   );
 }
 
-const badgeBase: React.CSSProperties = {
-  borderRadius: 'var(--r-1)',
-  padding: '2px 6px',
-  fontSize: 'var(--text-xs)',
-  fontWeight: 500,
-  whiteSpace: 'nowrap',
-};
-
 // Plan status from the cached subscription columns on profiles. Pro entitlement
 // mirrors the server gate; past_due and pending-cancel are surfaced because
 // they're the states a paying user is most likely to email about.
 function PlanCell({ user }: { user: AdminUser }) {
-  if (!isProUser(user)) {
-    return <span className="text-xs text-muted-foreground">Free</span>;
-  }
-  const pastDue = user.subscriptionStatus === 'past_due';
+  if (!isProUser(user)) return <span style={{ color: 'var(--fg-subtle)' }}>Free</span>;
   return (
-    <div className="flex flex-col gap-0.5">
-      <span
-        style={{
-          ...badgeBase,
-          background: 'var(--accent-faint-raw)',
-          color: 'var(--accent-raw)',
-        }}
-      >
-        Pro
-      </span>
-      {pastDue && (
-        <span className="text-xs" style={{ color: 'var(--negative)' }}>
-          past due
-        </span>
-      )}
-      {user.cancelAtPeriodEnd && user.subscriptionEnd && (
-        <span className="text-xs text-muted-foreground">
-          ends {fmtDate(user.subscriptionEnd)}
-        </span>
-      )}
-    </div>
-  );
-}
-
-// Recovery phrase presence. The "at risk" state (encrypted, no recovery) is the
-// one support needs to spot fast: a forgotten password there is unrecoverable.
-function RecoveryCell({ user }: { user: AdminUser }) {
-  if (!user.isEncrypted) {
-    return (
-      <span className="text-xs text-muted-foreground" title="No encryption keys yet">
-        —
-      </span>
-    );
-  }
-  if (user.hasRecovery) {
-    return (
-      <span
-        className="inline-flex items-center gap-1 text-xs"
-        style={{ color: 'var(--accent-raw)' }}
-        title="Recovery phrase set up"
-      >
-        <KeyRound className="h-3.5 w-3.5" />
-        set
-      </span>
-    );
-  }
-  return (
-    <span
-      className="inline-flex items-center gap-1 text-xs"
-      style={{ color: 'var(--negative)' }}
-      title="No recovery phrase — a forgotten password means permanent data loss"
-    >
-      <ShieldOff className="h-3.5 w-3.5" />
-      at risk
+    <span>
+      <span className="q-tag">Pro</span>
+      {user.subscriptionStatus === 'past_due' && <span className="q-table-sub" style={{ color: 'var(--negative)' }}>Past due</span>}
+      {user.cancelAtPeriodEnd && user.subscriptionEnd && <span className="q-table-sub">{`Ends ${fmtDate(user.subscriptionEnd)}`}</span>}
     </span>
   );
 }
 
-// Shimmer placeholders so the stats region appears as one structured block
-// while admin-stats is in flight, instead of empty cards filling in piecemeal.
+// The "at risk" state (encrypted, no recovery code) is the one support needs to
+// spot fast: a forgotten password there loses the data for good.
+function RecoveryCell({ user }: { user: AdminUser }) {
+  if (!user.isEncrypted) return <span style={{ color: 'var(--fg-subtle)' }} title="No encryption keys yet">—</span>;
+  if (user.hasRecovery) return <span style={{ color: 'var(--fg-muted)' }}>Saved</span>;
+  return <span style={{ color: 'var(--negative)' }} title="No recovery code: a forgotten password loses the data">At risk</span>;
+}
+
+// Static blocks in the final shapes while admin-stats is in flight.
 function StatsSkeleton() {
-  const bar = (w: string) => (
-    <span className="q-skeleton" style={{ height: 12, width: w, borderRadius: 'var(--r-1)' }} />
-  );
-  const card = (key: number, lines: number) => (
-    <div key={key} className="rounded-xl border border-border bg-card/50 p-5">
-      <div className="mb-3">{bar('40%')}</div>
-      <div className="mb-3">
-        <span className="q-skeleton" style={{ height: 24, width: '50%', borderRadius: 'var(--r-1)' }} />
-      </div>
-      <div className="space-y-1.5">
-        {Array.from({ length: lines }).map((_, i) => (
-          <div key={i}>{bar(`${70 - i * 10}%`)}</div>
+  return (
+    <section className="q-sec" aria-hidden="true" style={{ marginTop: 0 }}>
+      <span className="q-skeleton" style={{ display: 'block', width: 120, height: 17 }} />
+      <div className="q-stats" style={{ marginTop: 'var(--s-4)' }}>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="q-stat">
+            <span className="q-skeleton" style={{ display: 'block', width: '50%', height: 13 }} />
+            <span className="q-skeleton" style={{ display: 'block', width: '40%', height: 28, marginTop: 8 }} />
+            <span className="q-skeleton" style={{ display: 'block', width: '80%', height: 12, marginTop: 8 }} />
+          </div>
         ))}
       </div>
-    </div>
-  );
-  return (
-    <>
-      <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => card(i, 4))}
-      </section>
-      <section className="mb-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {[0, 1, 2].map((i) => card(i, 3))}
-      </section>
-    </>
+    </section>
   );
 }
 
@@ -774,13 +548,10 @@ function UserRowsSkeleton({ rows }: { rows: number }) {
   return (
     <>
       {Array.from({ length: rows }).map((_, i) => (
-        <tr key={i}>
+        <tr key={i} aria-hidden="true">
           {Array.from({ length: 8 }).map((_, c) => (
-            <td key={c} className="py-3 pr-4">
-              <span
-                className="q-skeleton"
-                style={{ height: 12, width: c === 0 ? '80%' : '50%', borderRadius: 'var(--r-1)' }}
-              />
+            <td key={c} data-col={c >= 2 && c <= 6 ? 'secondary' : undefined}>
+              <span className="q-skeleton" style={{ display: 'block', height: 12, width: c === 0 ? '80%' : '50%' }} />
             </td>
           ))}
         </tr>

@@ -1,17 +1,14 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { AlertTriangle } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useBenchmarks } from '@/hooks/useBenchmarks';
 import { QTabs } from '@/components/ui/q-tabs';
-import { FeatureGate } from '@/components/billing/FeatureGate';
-import { UpsellCard } from '@/components/billing/UpsellCard';
 import { useEntitlements } from '@/hooks/useEntitlements';
-import { fadeIn } from '@/lib/motion';
 import { analytics } from '@/lib/analytics';
-import { GRID_COLOR, AXIS_COLOR, TOOLTIP_BG, TOOLTIP_BORDER } from '@/lib/chartColors';
+import { openComposer } from '@/lib/appEvents';
+import { axisMonth, formatDate } from '@/lib/formatters';
+import { niceTicks } from '@/lib/dashboardData';
 import {
   type BenchmarkPeriod,
   type SeriesId,
@@ -26,7 +23,7 @@ import {
 
 const SERIES_OPTIONS: { value: SeriesId; label: string }[] = [
   { value: 'sp500',        label: 'S&P 500' },
-  { value: 'inflation_eu', label: 'Inflation EU' },
+  { value: 'inflation_eu', label: 'EU inflation' },
 ];
 
 const PERIOD_OPTIONS: { value: BenchmarkPeriod; label: string }[] = [
@@ -35,31 +32,33 @@ const PERIOD_OPTIONS: { value: BenchmarkPeriod; label: string }[] = [
   { value: '3y',  label: '3y' },
 ];
 
-const SERIES_LABEL: Record<SeriesId, string> = {
-  inflation_eu: 'Inflation EU (HICP)',
-  sp500:        'S&P 500',
+const SERIES_SHORT: Record<SeriesId, string> = {
+  inflation_eu: 'EU inflation',
+  sp500: 'S&P 500',
 };
 
-const SERIES_COLOR: Record<SeriesId, string> = {
-  sp500:        'var(--series-5, hsl(50 70% 60%))',
-  inflation_eu: 'var(--series-4, hsl(280 60% 65%))',
-};
-
-// Distinct dash patterns so the two reference lines stay distinguishable
-// without relying on colour alone (WCAG: don't convey info by colour only).
-const SERIES_DASH: Record<SeriesId, string> = {
-  sp500:        '6 4',
-  inflation_eu: '2 4',
-};
-
-function formatDateLong(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+/** An index value (100 = the start of the range) to one decimal, or a dash when a series has no point that month. */
+function indexText(v: unknown): string {
+  return typeof v === 'number' && Number.isFinite(v) ? v.toFixed(1) : '—';
 }
 
-function formatDateShort(iso: string): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  return d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+// Full names where there is room: legend, tooltip, notes.
+const SERIES_LABEL: Record<SeriesId, string> = {
+  inflation_eu: 'EU inflation (HICP)',
+  sp500:        'S&P 500 (price, USD)',
+};
+
+// Solid lines; your line is the emerald one and the heaviest.
+const SERIES_COLOR: Record<SeriesId, string> = {
+  sp500:        'var(--series-2)',
+  inflation_eu: 'var(--fg-muted)',
+};
+
+const AXIS_TICK = { fill: 'var(--fg-subtle)', fontSize: 11 };
+
+function isoToDate(iso: string): Date {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 /**
@@ -80,14 +79,24 @@ function serialiseActive(active: ReadonlySet<SeriesId>): string {
   return [...active].sort().join('+');
 }
 
-function BenchmarkOverlayInner() {
+/**
+ * Your net worth against EU inflation and the S&P 500, each indexed to 100 at
+ * the start of the range. Free plans compare the last 12 months; the page's
+ * one Pro gate sits under the month table.
+ */
+export function BenchmarkOverlay() {
   const { allSnapshots } = usePortfolio();
   const { series, ready, error } = useBenchmarks();
   const { has } = useEntitlements();
   const isPro = has('benchmarks');
 
-  const [active, setActive] = useState<Set<SeriesId>>(() => new Set<SeriesId>(['sp500']));
-  const [period, setPeriod] = useState<BenchmarkPeriod>('3y');
+  const [active, setActive] = useState<Set<SeriesId>>(() => new Set<SeriesId>(['inflation_eu']));
+  // Free draws 12 months, so it starts on 1y and never offers 3y. Derived,
+  // because entitlements can resolve after the first render.
+  const [periodChoice, setPeriod] = useState<BenchmarkPeriod | null>(null);
+  const period: BenchmarkPeriod = !isPro && periodChoice === '3y' ? '1y' : periodChoice ?? (isPro ? '3y' : '1y');
+  const periodOptions = isPro ? PERIOD_OPTIONS : PERIOD_OPTIONS.filter((o) => o.value !== '3y');
+  const [showTable, setShowTable] = useState(false);
 
   const activeList = useMemo(() => [...active] as SeriesId[], [active]);
 
@@ -186,6 +195,20 @@ function BenchmarkOverlayInner() {
 
   const periodStartDate = chartData[0]?.date as string | undefined;
 
+  // At most six month ticks; the index scale gets round 1/2/5 steps like
+  // every other chart.
+  const xTicks = useMemo(() => {
+    const dates = chartData.map((d) => String(d.date));
+    const step = Math.max(1, Math.ceil(dates.length / 6));
+    return dates.filter((_, i) => i % step === 0);
+  }, [chartData]);
+  const yScale = useMemo(() => {
+    // Only the plotted, rebased series: rows also carry raw values for the tooltip.
+    const keys = ['portfolio', ...activeList.map((s) => `benchmark_${s}`)];
+    const vals = chartData.flatMap((d) => keys.map((k) => d[k]).filter((v): v is number => typeof v === 'number'));
+    return vals.length ? niceTicks(Math.min(...vals), Math.max(...vals), 5) : null;
+  }, [chartData, activeList]);
+
   const staleSeries = useMemo(
     () => activeList.filter((s) => isStale(series[s], now, DEFAULT_STALE_THRESHOLDS)),
     [activeList, series, now],
@@ -213,284 +236,177 @@ function BenchmarkOverlayInner() {
 
   if (!ready) {
     return (
-      <div className="q-card q-card--p-lg">
-        <div className="q-section-head"><h2>Benchmark comparison</h2></div>
-        <div style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg-subtle)', fontSize: 13 }}>
-          Loading benchmark data…
-        </div>
-      </div>
+      <section className="q-sec" aria-labelledby="bench-title">
+        <div className="q-sec-head"><h2 className="q-h2" id="bench-title">Benchmark comparison</h2></div>
+        <p className="q-body" role="status">Loading benchmark data…</p>
+      </section>
     );
   }
 
-  type TooltipPayload = { value: number; dataKey: string; color: string; payload: Record<string, number | string> };
-  const CustomTooltip = ({ active: tooltipActive, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
+  type TooltipPayload = { value: number; dataKey: string; payload: Record<string, number | string> };
+  const ChartTooltip = ({ active: tooltipActive, payload, label }: { active?: boolean; payload?: TooltipPayload[]; label?: string }) => {
     if (!tooltipActive || !payload || payload.length === 0) return null;
-    const portfolio = payload.find((p) => p.dataKey === 'portfolio')?.value;
-
-    return (
-      <div style={{ backgroundColor: TOOLTIP_BG, border: `1px solid ${TOOLTIP_BORDER}`, borderRadius: 8, padding: '10px 14px', boxShadow: '0 8px 32px rgba(0,0,0,0.4)', maxWidth: 280 }}>
-        <p style={{ color: AXIS_COLOR, fontSize: 11, margin: '0 0 6px' }}>{label ? formatDateLong(String(label)) : ''}</p>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12, color: '#e8ecf0' }}>
-          <span>Your portfolio</span>
-          <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{typeof portfolio === 'number' ? portfolio.toFixed(1) : '—'}</span>
+    const row = (name: string, key: string, color: string) => {
+      const v = payload.find((p) => p.dataKey === key)?.value;
+      return (
+        <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <span aria-hidden="true" style={{ width: 10, height: 2, background: color }} />
+          <span className="num" style={{ fontFamily: 'var(--font-mono)', color: 'var(--fg)', minWidth: '5ch' }}>
+            {typeof v === 'number' ? v.toFixed(1) : '—'}
+          </span>
+          <span style={{ color: 'var(--fg-muted)' }}>{name}</span>
         </div>
-        {activeList.map((s) => {
-          const v = payload.find((p) => p.dataKey === `benchmark_${s}`)?.value;
-          return (
-            <div key={s} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12, color: '#e8ecf0', marginTop: 2 }}>
-              <span>{SERIES_LABEL[s]}</span>
-              <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{typeof v === 'number' ? v.toFixed(1) : '—'}</span>
-            </div>
-          );
-        })}
-        {periodStartDate && (
-          <p style={{ fontSize: 10, color: AXIS_COLOR, margin: '8px 0 0', lineHeight: 1.4 }}>
-            All lines start at 100 on {formatDateLong(periodStartDate)}. A reading of 108 vs 112 means the other line returned 4 percentage points more over this period (12% vs 8%).
-          </p>
-        )}
-        {active.has('sp500') && (
-          <p style={{ fontSize: 10, color: AXIS_COLOR, margin: '6px 0 0', lineHeight: 1.4 }}>
-            S&amp;P 500 is USD-denominated; its gap reflects currency drift if your base is not USD.
-          </p>
-        )}
+      );
+    };
+    return (
+      <div style={{ background: 'var(--tooltip-bg)', border: '1px solid var(--tooltip-border)', borderRadius: 'var(--r-mark)', padding: '8px 12px', fontSize: 12, boxShadow: 'var(--shadow-md)' }}>
+        <div style={{ color: 'var(--fg-subtle)' }}>{label ? formatDate(isoToDate(String(label))) : ''}</div>
+        {hasUserData && row('Your net worth', 'portfolio', 'var(--accent-raw)')}
+        {activeList.map((s) => row(SERIES_LABEL[s], `benchmark_${s}`, SERIES_COLOR[s]))}
       </div>
     );
   };
 
+  const summary = (() => {
+    const parts = ['Your net worth indexed to 100'];
+    if (activeList.length > 0) parts.push(`compared with ${activeList.map((s) => SERIES_LABEL[s]).join(' and ')}`);
+    if (periodStartDate) parts.push(`from ${formatDate(isoToDate(periodStartDate))}`);
+    return `${parts.join(', ')}.`;
+  })();
+
   return (
-    <motion.div
-      variants={fadeIn}
-      initial="hidden"
-      animate="visible"
-      className="q-card q-card--p-lg"
-    >
-      <div className="q-section-head">
+    <section className="q-sec" aria-labelledby="bench-title">
+      <div className="q-chart-head">
         <div>
-          <h2>Benchmark comparison</h2>
-          <div className="q-section-sub">All lines start at 100 at the period start — read the gap in percentage points.</div>
+          <h2 className="q-h2" id="bench-title">Benchmark comparison</h2>
+          <div className="q-sec-sub">
+            {periodStartDate
+              ? `All lines start at 100 on ${formatDate(isoToDate(periodStartDate))}. Your line also moves with money you added or withdrew.`
+              : 'All lines start at 100 at the start of the range. Your line also moves with money you added or withdrew.'}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
-          <div
-            className="q-tabs q-tabs--sm q-tabs--multi"
-            role="group"
-            aria-label="Benchmark overlay"
-          >
+        <div className="q-tab-groups">
+          <div className="q-tabs q-tabs--sm" role="group" aria-label="Benchmark overlay">
             {SERIES_OPTIONS.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                aria-pressed={active.has(o.value)}
-                data-tab={o.value}
-                className="q-tab"
-                onClick={() => toggleSeries(o.value)}
-              >
+              <button key={o.value} type="button" aria-pressed={active.has(o.value)} className="q-tab" onClick={() => toggleSeries(o.value)}>
                 {o.label}
               </button>
             ))}
-            <button
-              type="button"
-              aria-pressed={active.size === 0}
-              data-tab="off"
-              className="q-tab"
-              onClick={clearActive}
-            >
-              Off
-            </button>
+            <button type="button" aria-pressed={active.size === 0} className="q-tab" onClick={clearActive}>Off</button>
           </div>
-          <QTabs<BenchmarkPeriod>
-            value={period}
-            onChange={onPeriodChange}
-            options={PERIOD_OPTIONS}
-            size="sm"
-            ariaLabel="Period"
-          />
+          <QTabs<BenchmarkPeriod> value={period} onChange={onPeriodChange} options={periodOptions} size="sm" ariaLabel="Period" />
         </div>
       </div>
 
       {staleSeries.length > 0 && (
-        <div
-          role="status"
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 8,
-            padding: '10px 12px',
-            background: 'color-mix(in srgb, var(--warning) 12%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--warning) 40%, transparent)',
-            borderRadius: 'var(--r-2)',
-            color: 'var(--fg)',
-            fontSize: 12,
-            marginBottom: 'var(--s-4)',
-          }}
-        >
-          <AlertTriangle size={14} style={{ color: 'var(--warning)', flexShrink: 0, marginTop: 2 }} />
-          <span>
-            {staleSeries.length === 1
-              ? <>{SERIES_LABEL[staleSeries[0]]} hasn&rsquo;t refreshed since {formatDateLong(lastDate(series[staleSeries[0]]) ?? '')} — values may be slightly behind.</>
-              : <>Some benchmark series haven&rsquo;t refreshed recently — values may be slightly behind.</>}
-          </span>
-        </div>
+        <p role="status" className="q-meta" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 var(--s-3)' }}>
+          <AlertTriangle size={14} strokeWidth={1.75} aria-hidden="true" style={{ color: 'var(--warning)', flexShrink: 0 }} />
+          {staleSeries.length === 1
+            ? `${SERIES_LABEL[staleSeries[0]]} hasn't refreshed since ${formatDate(isoToDate(lastDate(series[staleSeries[0]]) ?? ''))}. Values may be slightly behind.`
+            : "Some benchmark series haven't refreshed recently. Values may be slightly behind."}
+        </p>
       )}
 
-      <div
-        style={{ width: '100%', height: 340, position: 'relative' }}
-        role="img"
-        aria-label={(() => {
-          const parts = ['Line chart, your portfolio rebased to 100'];
-          if (activeList.length > 0) {
-            parts.push(`compared against ${activeList.map((s) => SERIES_LABEL[s]).join(' and ')}`);
-          }
-          parts.push(`over the last ${period}`);
-          if (periodStartDate) parts.push(`starting ${formatDateLong(periodStartDate)}`);
-          return `${parts.join(', ')}.`;
-        })()}
-      >
+      <ul className="q-legend" aria-hidden="true">
+        {hasUserData && <li><span className="q-legend-key" style={{ background: 'var(--accent-raw)' }} />Your net worth</li>}
+        {activeList.map((s) => (
+          <li key={s}><span className="q-legend-key" style={{ background: SERIES_COLOR[s] }} />{SERIES_LABEL[s]}</li>
+        ))}
+      </ul>
+
+      {showTable ? (
+        <div className="q-table-scroll" style={{ maxHeight: 360, overflowY: 'auto' }}>
+          <table className="q-table">
+            <caption className="sr-only">{summary}</caption>
+            <thead>
+              <tr>
+                <th scope="col">Month</th>
+                {hasUserData && <th scope="col" className="num">Your net worth</th>}
+                {activeList.map((sid) => <th key={sid} scope="col" className="num">{SERIES_SHORT[sid]}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {[...chartData].reverse().map((d) => (
+                <tr key={String(d.date)}>
+                  <td><time dateTime={String(d.date)}>{formatDate(isoToDate(String(d.date)))}</time></td>
+                  {hasUserData && <td className="num">{indexText(d.portfolio)}</td>}
+                  {activeList.map((sid) => <td key={sid} className="num">{indexText(d[`benchmark_${sid}`])}</td>)}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+      <div style={{ width: '100%', height: 300, position: 'relative' }} role="img" aria-label={summary}>
         <ResponsiveContainer>
-          <LineChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-            <CartesianGrid stroke={GRID_COLOR} strokeDasharray="2 4" />
+          <LineChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <CartesianGrid stroke="var(--border-soft-raw)" vertical={false} />
             <XAxis
               dataKey="date"
-              tickFormatter={(v) => formatDateShort(String(v))}
-              tick={{ fill: AXIS_COLOR, fontSize: 11 }}
-              stroke={AXIS_COLOR}
-              minTickGap={32}
+              ticks={xTicks}
+              interval={0}
+              tickFormatter={(v, i) => {
+                // The year appears on the first tick and wherever it changes.
+                const d = isoToDate(String(v));
+                const prev = i > 0 ? isoToDate(xTicks[i - 1]) : null;
+                return axisMonth(d, !prev || prev.getFullYear() !== d.getFullYear());
+              }}
+              tick={AXIS_TICK}
+              axisLine={false}
+              tickLine={false}
             />
             <YAxis
-              tick={{ fill: AXIS_COLOR, fontSize: 11 }}
-              stroke={AXIS_COLOR}
-              domain={['auto', 'auto']}
+              tick={{ ...AXIS_TICK, fontFamily: 'var(--font-mono)' }}
+              axisLine={false}
+              tickLine={false}
+              domain={yScale ? [yScale.lo, yScale.hi] : ['auto', 'auto']}
+              ticks={yScale?.ticks}
               tickFormatter={(v) => String(Math.round(Number(v)))}
-              width={42}
+              width={36}
             />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend
-              verticalAlign="top"
-              align="right"
-              iconType="plainline"
-              wrapperStyle={{ fontSize: 12, color: AXIS_COLOR }}
-              formatter={(value: string) => {
-                if (value === 'portfolio') return 'Your portfolio';
-                if (value.startsWith('benchmark_')) {
-                  const id = value.slice('benchmark_'.length) as SeriesId;
-                  return SERIES_LABEL[id] ?? value;
-                }
-                return value;
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="portfolio"
-              stroke="var(--accent-raw, hsl(220 90% 60%))"
-              strokeWidth={1.75}
-              dot={false}
-              isAnimationActive={false}
-            />
+            <Tooltip content={<ChartTooltip />} cursor={{ stroke: 'var(--border-strong-raw)', strokeWidth: 1 }} />
+            <Line type="linear" dataKey="portfolio" stroke="var(--accent-raw)" strokeWidth={2} dot={false} isAnimationActive={false} />
             {activeList.map((s) => (
-              <Line
-                key={s}
-                type="monotone"
-                dataKey={`benchmark_${s}`}
-                stroke={SERIES_COLOR[s]}
-                strokeWidth={1.5}
-                strokeDasharray={SERIES_DASH[s]}
-                dot={false}
-                isAnimationActive={false}
-              />
+              <Line key={s} type="linear" dataKey={`benchmark_${s}`} stroke={SERIES_COLOR[s]} strokeWidth={1.5} dot={false} isAnimationActive={false} />
             ))}
           </LineChart>
         </ResponsiveContainer>
 
         {!hasUserData && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-            }}
-            aria-live="polite"
-          >
-            <div
-              style={{
-                pointerEvents: 'auto',
-                background: 'color-mix(in srgb, var(--surface) 92%, transparent)',
-                border: '1px solid var(--border-raw)',
-                borderRadius: 'var(--r-3)',
-                padding: 'var(--s-4) var(--s-5)',
-                maxWidth: 360,
-                textAlign: 'center',
-                boxShadow: 'var(--shadow-md)',
-              }}
-            >
-              <p style={{ margin: 0, fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
-                Your portfolio line isn&rsquo;t showing yet — add a few measurements to compare against the reference series.
-              </p>
-              <Link
-                to="/dashboard"
-                className="q-btn q-btn--primary q-btn--md"
-                style={{ marginTop: 'var(--s-3)', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-              >
-                <Plus size={14} aria-hidden="true" />
-                Add measurement
-              </Link>
+          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
+            <div style={{ background: 'var(--bg-elev-1)', border: '1px solid var(--border-raw)', borderRadius: 'var(--r-panel)', padding: 'var(--s-4) var(--s-5)', maxWidth: 360 }}>
+              <p className="q-body" style={{ margin: 0 }}>Your line appears once you have entries in this range.</p>
+              <button type="button" className="q-btn q-btn--secondary q-btn--md" style={{ marginTop: 'var(--s-3)' }} onClick={openComposer}>
+                Add entry
+              </button>
             </div>
           </div>
         )}
       </div>
+      )}
 
-      <div style={{ marginTop: 'var(--s-3)', fontSize: 11, color: 'var(--fg-faint)', display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+      <div className="q-chart-foot">
         <span>
           {activeList.length === 0
-            ? 'Toggle Inflation EU or S&P 500 above to overlay a reference series.'
+            ? 'Turn on EU inflation or the S&P 500 above to compare.'
             : (() => {
                 const parts = activeList
                   .map((s) => {
                     const d = lastDate(series[s]);
-                    return d ? `${SERIES_LABEL[s]} ${formatDateLong(d)}` : null;
+                    return d ? `${SERIES_LABEL[s]} ${formatDate(isoToDate(d))}` : null;
                   })
                   .filter((x): x is string => x !== null);
-                return parts.length > 0 ? <>Last updated · {parts.join(' · ')}</> : 'Awaiting first ingest';
+                return parts.length > 0 ? `Last updated: ${parts.join(', ')}.` : 'Waiting for the first benchmark update.';
               })()}
         </span>
-        {!isPro && (
-          <span>Showing the last 12 months. Upgrade to Pro for the full horizon.</span>
+        {chartData.length > 0 && (
+          <button type="button" className="q-link-btn" aria-pressed={showTable} onClick={() => setShowTable((v) => !v)} style={{ fontSize: 12, marginLeft: 'auto' }}>
+            {showTable ? 'Show chart' : 'Show table'}
+          </button>
         )}
       </div>
 
-      {!isPro && (
-        <div style={{ marginTop: 'var(--s-4)' }}>
-          <UpsellCard feature="benchmarks" compact />
-        </div>
-      )}
-
-      {error && (
-        <p style={{ marginTop: 'var(--s-3)', fontSize: 11, color: 'var(--fg-faint)' }}>
-          Couldn&rsquo;t reach the benchmark feed — please try again later.
-        </p>
-      )}
-    </motion.div>
+      {error && <p className="q-sec-foot">{"Couldn't reach the benchmark feed. Try again later."}</p>}
+    </section>
   );
-}
-
-/**
- * BenchmarkOverlay — public entry. Free users see a 12-month preview with an
- * inline UpsellCard; Pro users get the full horizon. We do NOT wrap the whole
- * component in `<FeatureGate feature="benchmarks">` because the plan calls for
- * a visible 12-month preview rather than a hidden gate.
- *
- * The `FeatureGate` is still imported above so that callers can opt-in to a
- * stricter "no preview" mode by passing `strictGate`. Left unused in v1 but
- * keeps the contract explicit if Agent C / D need it.
- */
-export function BenchmarkOverlay({ strictGate = false }: { strictGate?: boolean } = {}) {
-  if (strictGate) {
-    return (
-      <FeatureGate feature="benchmarks">
-        <BenchmarkOverlayInner />
-      </FeatureGate>
-    );
-  }
-  return <BenchmarkOverlayInner />;
 }

@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { Children, isValidElement, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-import { StickyNav } from '@/components/landing/StickyNav';
-import { Footer } from '@/components/Footer';
+import { PublicPage } from '@/components/landing/PublicPage';
 import { usePageMeta } from '@/hooks/usePageMeta';
+import '@/styles/doc.css';
 
 interface MarkdownLegalProps {
   /** Raw markdown source. Pass via `import doc from '@/.../foo.md?raw'`. */
@@ -19,61 +20,155 @@ interface MarkdownLegalProps {
 
 // One shared wrapper for all markdown-backed legal pages: privacy, terms,
 // Impressum. Renders the markdown source verbatim so the file under
-// docs/legal/ is the single source of truth — no JSX drift possible.
+// docs/legal/ is the single source of truth. Presentation (contents rail,
+// hanging section numbers, the "Last updated" meta line) is layered on
+// without editing the text.
 export function MarkdownLegal({ source, pageTitle, pageDescription, path }: MarkdownLegalProps) {
   usePageMeta({ title: pageTitle, description: pageDescription, path });
 
-  // Strip a leading HTML comment line if present (e.g. "Keep in sync" hints
-  // we no longer need now that markdown is canonical). Then drop the level-1
-  // heading from the body — we render it as a styled <h1> in the chrome.
-  const { title, body } = useMemo(() => splitTitle(stripLeadingComment(source)), [source]);
+  const { title, updated, body } = useMemo(() => splitDoc(stripLeadingComment(source)), [source]);
+  const toc = useMemo(() => headingsOf(body), [body]);
+  // Short documents (the Impressum) read better without a contents rail.
+  const showToc = toc.length >= 5;
+  const active = useActiveHeading(showToc ? toc.map((h) => h.id) : []);
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <StickyNav />
+    <PublicPage>
+      <div className="pub-wrap doc">
+        <header className="doc-head">
+          <h1 className="pub-display">{title}</h1>
+          {updated && <p className="pub-kicker doc-updated">{updated}</p>}
+          {path === '/privacy' && (
+            <p className="doc-aside">
+              How your portfolio is encrypted is documented on the{' '}
+              <Link to="/security" className="pub-link">security page</Link>.
+            </p>
+          )}
+        </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-20">
-        <h1 className="mb-6 font-serif text-4xl font-normal tracking-[-0.01em] text-foreground">{title}</h1>
+        <div className={showToc ? 'pub-doc' : undefined}>
+          {showToc && (
+            <nav className="pub-doc-toc" aria-label="On this page">
+              <p className="pub-label">On this page</p>
+              <ol>
+                {toc.map((h) => (
+                  <li key={h.id}>
+                    <a href={`#${h.id}`} aria-current={active === h.id ? 'true' : undefined}>
+                      {h.text}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          )}
 
-        <div className="prose prose-invert prose-sm max-w-none space-y-6 text-muted-foreground [&_h2]:text-foreground [&_h2]:text-xl [&_h2]:font-serif [&_h2]:font-normal [&_h2]:tracking-[-0.01em] [&_h2]:mt-8 [&_h2]:mb-3 [&_h3]:text-foreground [&_h3]:text-base [&_h3]:font-serif [&_h3]:font-normal [&_h3]:mt-6 [&_h3]:mb-2 [&_strong]:text-foreground [&_table]:w-full [&_table]:text-xs [&_th]:text-left [&_th]:text-foreground [&_th]:font-semibold [&_th]:p-2 [&_th]:border-b [&_th]:border-border [&_td]:p-2 [&_td]:border-b [&_td]:border-border/50 [&_td]:align-top [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-1 [&_code]:text-xs [&_code]:bg-muted/30 [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
-            components={{
-              a: ({ href, children, ...props }) => {
-                const isExternal = href?.startsWith('http');
-                return (
-                  <a
-                    href={href}
-                    className="text-primary hover:underline"
-                    {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                    {...props}
-                  >
-                    {children}
-                  </a>
-                );
-              },
-            }}
-          >
-            {body}
-          </ReactMarkdown>
+          <div className="pub-doc-body doc-body">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              rehypePlugins={[rehypeRaw]}
+              components={{
+                h2: ({ children }) => {
+                  const text = textOf(children);
+                  const numbered = text.match(/^(\d+)\.\s+(.*)$/);
+                  return (
+                    <h2 id={slug(text)} className="doc-h2">
+                      {numbered ? (
+                        <>
+                          <span className="doc-num">{numbered[1]}.</span> {numbered[2]}
+                        </>
+                      ) : (
+                        children
+                      )}
+                    </h2>
+                  );
+                },
+                a: ({ href, children, ...props }) => {
+                  const isExternal = href?.startsWith('http');
+                  return (
+                    <a
+                      href={href}
+                      className="pub-link"
+                      {...(isExternal ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                      {...props}
+                    >
+                      {children}
+                    </a>
+                  );
+                },
+              }}
+            >
+              {body}
+            </ReactMarkdown>
+          </div>
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </PublicPage>
   );
+}
+
+/** Marks the heading nearest the top of the viewport as the current section. */
+function useActiveHeading(ids: string[]) {
+  const [active, setActive] = useState<string | null>(null);
+  const key = ids.join('|');
+  useEffect(() => {
+    if (!key || typeof IntersectionObserver === 'undefined') return;
+    const els = key.split('|').map((id) => document.getElementById(id)).filter((el): el is HTMLElement => !!el);
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActive(visible[0].target.id);
+      },
+      { rootMargin: '-80px 0px -65% 0px' },
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [key]);
+  return active;
 }
 
 function stripLeadingComment(md: string): string {
   return md.replace(/^<!--[\s\S]*?-->\s*/m, '');
 }
 
-function splitTitle(md: string): { title: string; body: string } {
+function splitDoc(md: string): { title: string; updated: string | null; body: string } {
   const match = md.match(/^#\s+(.+)\s*\n/);
-  if (!match) return { title: 'Legal', body: md };
-  return {
-    title: match[1].trim(),
-    body: md.slice(match[0].length).trimStart(),
-  };
+  const title = match ? match[1].trim() : 'Legal';
+  let body = match ? md.slice(match[0].length).trimStart() : md;
+  // A leading "_Last updated: …_" line becomes the page's meta line.
+  const updated = body.match(/^[_*](Last updated:[^_*\n]+)[_*]\s*\n/);
+  if (updated) body = body.slice(updated[0].length).trimStart();
+  return { title, updated: updated ? updated[1].trim() : null, body };
+}
+
+function slug(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/^\d+\.\s+/, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function headingsOf(body: string): { id: string; text: string }[] {
+  const seen = new Set<string>();
+  const out: { id: string; text: string }[] = [];
+  for (const line of body.split('\n')) {
+    const m = line.match(/^##\s+(.+?)\s*$/);
+    if (!m) continue;
+    const text = m[1].replace(/[*_`]/g, '');
+    const id = slug(text);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, text: text.replace(/^\d+\.\s+/, '') });
+  }
+  return out;
+}
+
+function textOf(node: ReactNode): string {
+  return Children.toArray(node)
+    .map((child) => {
+      if (typeof child === 'string' || typeof child === 'number') return String(child);
+      if (isValidElement<{ children?: ReactNode }>(child)) return textOf(child.props.children);
+      return '';
+    })
+    .join('');
 }

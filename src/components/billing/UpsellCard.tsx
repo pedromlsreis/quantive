@@ -1,90 +1,89 @@
-﻿import { Link } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
+import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { analytics } from '@/lib/analytics';
+import { PRO_PRICE_LINE } from '@/lib/billing/planCopy';
 import type { Entitlement } from '@/lib/billing/plans';
 
 const COPY: Record<Entitlement, { title: string; body: string }> = {
   'history.full': {
-    title: 'Unlock your full history',
-    body: 'The free plan shows the rolling last 12 months. Upgrade to see every snapshot since you started — charted and tabular.',
+    title: 'Your full history',
+    body: 'The free plan shows your last 12 months. Pro shows your earlier entries too. Your CSV export includes all entries on both plans.',
   },
   'forecasting': {
-    title: 'Forecast where you\'re headed',
-    body: 'Project your net worth forward with CAGR scenarios and a 95% confidence cone.',
+    title: 'Scenarios and the likely range',
+    body: 'Pro projects your net worth 1, 3 or 5 years out from your own growth rate, with slower and faster scenarios and a range around each.',
   },
   'export.excel': {
-    title: 'Export to Excel',
-    body: 'Download your full portfolio as an .xlsx lossless workbook, ready for spreadsheets.',
+    title: 'Excel workbook',
+    body: 'Your sources and entries in one .xlsx file.',
   },
   'export.csv': {
-    title: 'Export to CSV',
-    body: 'Download your facts as a .csv file, ready for scripts, notebooks, or any spreadsheet.',
+    title: 'CSV export',
+    body: 'All your entries, on both plans.',
   },
   'export.pdf': {
-    title: 'Wealth report PDF',
-    body: 'One-page summary report for advisors or your annual review.',
+    title: 'PDF report',
+    body: 'A one-page summary for your records or an adviser.',
   },
   'milestones': {
-    title: 'Track milestones & goals',
-    body: 'Set net worth targets and see how close you are.',
+    title: 'Progress for your goals',
+    body: 'Pro shows how far along each goal is and the month your current pace reaches it.',
   },
   'benchmarks': {
-    title: 'See your full benchmark history',
-    body: 'The free plan only charts the last 12 months. Upgrade to compare every snapshot you\'ve recorded against the S&P 500 and EU inflation.',
+    title: 'Your full history',
+    body: 'Pro adds your earlier months to this table, the drawdown figures and the benchmark chart. Your CSV export includes all entries on both plans.',
   },
   'support.priority': {
     title: 'Priority support',
-    body: 'Email us and hear back within 24h.',
+    body: 'Email us and hear back within a working day.',
   },
 };
 
-export function UpsellCard({
+/**
+ * The one Pro prompt a page may carry. A quiet block where a whole feature
+ * would be (`block`), or a ruled row that extends a visible feature (`row`).
+ * No icon, tint or accent border, and the action is secondary: green in the
+ * app means recording data.
+ */
+export function ProGate({
   feature,
-  compact = false,
+  variant = 'block',
+  title,
+  body,
 }: {
   feature: Entitlement;
-  compact?: boolean;
+  variant?: 'block' | 'row';
+  title?: string;
+  body?: string;
 }) {
-  const { title, body } = COPY[feature];
+  const copy = COPY[feature];
+
+  useEffect(() => {
+    analytics.proGateHit({ feature });
+  }, [feature]);
 
   return (
-    <div
-      className={`q-card ${compact ? 'q-card--p-md' : 'q-card--p-lg'}`}
-      style={{
-        borderColor: 'var(--accent)',
-        background: 'var(--accent-bg, var(--surface-soft))',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-3)' }}>
-        <div
-          style={{
-            flex: '0 0 auto',
-            width: 36,
-            height: 36,
-            borderRadius: 'var(--r-3)',
-            background: 'var(--accent)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--accent-foreground, white)',
-          }}
-        >
-          <Sparkles className="h-4 w-4" />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 600, margin: 0 }}>{title}</h3>
-          <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-subtle)', margin: '4px 0 var(--s-3)' }}>
-            {body}
-          </p>
-          <Link
-            to="/pricing"
-            className="q-btn q-btn--primary q-btn--sm"
-            onClick={() => analytics.proUpgradeClicked({ feature })}
-          >
-            Upgrade to Pro
-          </Link>
-        </div>
+    <div className={variant === 'row' ? 'q-gate q-gate--row' : 'q-gate'}>
+      <div className="q-gate-text">
+        <h3 className="q-gate-title">{title ?? copy.title}</h3>
+        <p className="q-gate-body">{body ?? copy.body}</p>
+        <p className="q-gate-price">
+          <span className="q-tag">Pro</span>
+          {PRO_PRICE_LINE}
+        </p>
       </div>
+      <Link
+        to="/pricing"
+        className="q-btn q-btn--secondary q-btn--md"
+        onClick={() => analytics.proUpgradeClicked({ feature })}
+      >
+        Upgrade to Pro
+      </Link>
     </div>
   );
+}
+
+/** Default FeatureGate fallback: the block form of the gate. */
+export function UpsellCard({ feature }: { feature: Entitlement }) {
+  return <ProGate feature={feature} />;
 }

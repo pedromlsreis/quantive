@@ -59,7 +59,7 @@ export async function buildTemplateWorkbook(): Promise<ArrayBuffer> {
   readme.addRow(['', '• Don\'t rename the column headers — Quantive looks for them by exact name.']);
   readme.addRow(['', '• Each row in facts is one snapshot. Add a new set of rows each month.']);
   readme.addRow(['', '• You can delete this "Read me" tab once you know the format — facts and ref are what gets parsed.']);
-  readme.addRow(['', '• Stuck? Open the Add measurement modal in Quantive and copy what you see there.']);
+  readme.addRow(['', '• Stuck? Open Add entry in Quantive and copy what you see there.']);
 
   // ---------------------------------------------------------------------------
   // facts sheet

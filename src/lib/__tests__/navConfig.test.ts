@@ -4,6 +4,7 @@ import {
   ALL_NAV_ITEMS,
   MOBILE_PRIMARY_ITEMS,
   MOBILE_MORE_SECTIONS,
+  LEGAL_LINKS,
 } from '../nav-config';
 
 // Single source of truth for sidebar / mobile-tabbar / global-search.
@@ -35,11 +36,8 @@ describe('nav-config — top-level shape', () => {
     expect(new Set(all).size).toBe(all.length);
   });
 
-  it('keyboard shortcuts are unique among items that declare one', () => {
-    const shortcuts = NAV_SECTIONS.flatMap((s) => s.items)
-      .map((i) => i.shortcut)
-      .filter((s): s is string => Boolean(s));
-    expect(new Set(shortcuts).size).toBe(shortcuts.length);
+  it('links every legal page the in-app shell must keep reachable', () => {
+    expect(LEGAL_LINKS.map((l) => l.to)).toEqual(['/security', '/privacy', '/terms', '/impressum']);
   });
 });
 
