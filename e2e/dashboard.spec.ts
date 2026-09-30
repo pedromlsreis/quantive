@@ -14,7 +14,7 @@ test.describe('Dashboard', () => {
     }
   });
 
-  test('KPI cards display numeric values', async ({ page }) => {
+  test('net worth figures display numeric values', async ({ page }) => {
     // Values like "€123,456" or "42%" should be present
     const netWorthValue = page.locator('[id="performance"]').getByText(/[€$£₪]\s*[\d,]+|[\d,]+\s*[€$£₪]/).first();
     await expect(netWorthValue).toBeVisible({ timeout: 6000 });

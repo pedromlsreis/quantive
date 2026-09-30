@@ -15,7 +15,7 @@ export const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Is Quantive free to use?",
-    a: "Yes. Core features, including CSV export of all your data, are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF wealth report, and Excel export.",
+    a: "Yes. Core features, including CSV export of all your data, are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF report, and Excel export.",
   },
   {
     q: "How is Quantive different from a budgeting app?",

@@ -26,7 +26,7 @@ test.describe('Accessibility', () => {
     expect(['a', 'button', 'input', 'select', 'textarea', 'div']).toContain(focusedTag);
   });
 
-  test('dashboard KPI cards are keyboard accessible', async ({ page }) => {
+  test('dashboard is keyboard accessible', async ({ page }) => {
     await loadDemo(page);
 
     // Tab through the page and verify focus moves
