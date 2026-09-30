@@ -50,6 +50,7 @@ Portfolio data is encrypted in the browser before it ever reaches the server. Th
 - **`src/lib/crypto/`** is pure: no I/O, no network, no React, no Supabase. It is MIT-licensed for independent audit (the rest of the repo is PolyForm Noncommercial). Keep it side-effect-free; all persistence happens in higher layers. Public surface is [src/lib/crypto/index.ts](src/lib/crypto/index.ts).
 - Key model: a random 256-bit **data key (DK)** encrypts snapshots; a **KEK** derived from the password via Argon2id wraps the DK. The KEK is never stored — re-derived each login. A 24-word BIP-39 mnemonic wraps a second copy of the DK for recovery. Changing a password re-wraps the DK; it does not re-encrypt history.
 - Every ciphertext carries **AAD** bound to user ID + schema version, so ciphertext can't be transplanted between rows.
+- **Extra portfolios (Family plan)**: the personal portfolio stays in `portfolio_snapshots` under the DK. Each extra portfolio has its own portfolio key (PK), wrapped under each member's DK, and its blob's AAD binds the portfolio id rather than a user (encryption.md §15.1). Writes go only through the `create_portfolio` / `save_portfolio` SQL functions (compare-and-swap on `revision`); [src/lib/portfolios.ts](src/lib/portfolios.ts) does the I/O, PortfolioContext routes saves by the active portfolio. Hidden unless the plan grants `portfolios.multiple` (today only the service-role `family_beta` table, via check-subscription). Sharing between users is designed, not built.
 
 ### Context provider chain (the spine)
 

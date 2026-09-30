@@ -76,6 +76,13 @@ interface KeySessionContextType {
     userId: string,
     newPassword: string,
   ) => Promise<{ error: string | null }>;
+  /**
+   * Portfolio keys for extra portfolios (encryption.md §15.1). Held in
+   * memory only, and zeroed together with the DK on lock or user change.
+   */
+  getPortfolioKey: (portfolioId: string) => Uint8Array | null;
+  setPortfolioKey: (portfolioId: string, key: Uint8Array) => void;
+  forgetPortfolioKey: (portfolioId: string) => void;
 }
 
 const KeySessionContext = createContext<KeySessionContextType | null>(null);
@@ -93,6 +100,7 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
 
   const kekRef = useRef<Uint8Array | null>(null);
   const dkRef = useRef<Uint8Array | null>(null);
+  const portfolioKeysRef = useRef(new Map<string, Uint8Array>());
   const [status, setStatus] = useState<KeySessionStatus>('locked');
   const [hasRecovery, setHasRecovery] = useState<boolean | null>(null);
 
@@ -103,6 +111,8 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
     if (dkRef.current) getSodium().memzero(dkRef.current);
     kekRef.current = null;
     dkRef.current = null;
+    portfolioKeysRef.current.forEach((key) => getSodium().memzero(key));
+    portfolioKeysRef.current.clear();
     setStatus('locked');
     setHasRecovery(null);
   }, []);
@@ -176,6 +186,21 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
   }, [lock]);
 
   const getDataKey = useCallback(() => dkRef.current, []);
+
+  const getPortfolioKey = useCallback(
+    (portfolioId: string) => portfolioKeysRef.current.get(portfolioId) ?? null,
+    [],
+  );
+  const setPortfolioKey = useCallback((portfolioId: string, key: Uint8Array) => {
+    const previous = portfolioKeysRef.current.get(portfolioId);
+    if (previous && previous !== key) getSodium().memzero(previous);
+    portfolioKeysRef.current.set(portfolioId, key);
+  }, []);
+  const forgetPortfolioKey = useCallback((portfolioId: string) => {
+    const key = portfolioKeysRef.current.get(portfolioId);
+    if (key) getSodium().memzero(key);
+    portfolioKeysRef.current.delete(portfolioId);
+  }, []);
 
   const setupRecovery = useCallback(async (userId: string) => {
     await ready();
@@ -264,6 +289,9 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
         unlock,
         lock,
         getDataKey,
+        getPortfolioKey,
+        setPortfolioKey,
+        forgetPortfolioKey,
         setupRecovery,
         recoverWithCode,
         rewrapForNewPassword,

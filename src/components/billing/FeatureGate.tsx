@@ -2,22 +2,19 @@ import { useEffect, type ReactNode } from 'react';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { analytics } from '@/lib/analytics';
 import type { Entitlement } from '@/lib/billing/plans';
-import { UpsellCard } from './UpsellCard';
+import { UpsellCard, type ProFeature } from './UpsellCard';
 
 /**
  * Renders `children` when the plan includes `feature`; otherwise the
  * fallback. Omitting `fallback` shows the standard Pro gate; passing `null`
  * hides the feature without a prompt (one gate per page).
  */
-export function FeatureGate({
-  feature,
-  children,
-  fallback,
-}: {
-  feature: Entitlement;
-  children: ReactNode;
-  fallback?: ReactNode;
-}) {
+type FeatureGateProps =
+  | { feature: ProFeature; children: ReactNode; fallback?: ReactNode }
+  // The standard gate sells Pro, so Family-only features must pass a fallback.
+  | { feature: Entitlement; children: ReactNode; fallback: ReactNode };
+
+export function FeatureGate({ feature, children, fallback }: FeatureGateProps) {
   const { has } = useEntitlements();
   const allowed = has(feature);
   const customFallback = fallback !== undefined;
@@ -28,5 +25,5 @@ export function FeatureGate({
   }, [allowed, customFallback, feature]);
 
   if (allowed) return <>{children}</>;
-  return <>{customFallback ? fallback : <UpsellCard feature={feature} />}</>;
+  return <>{customFallback ? fallback : <UpsellCard feature={feature as ProFeature} />}</>;
 }

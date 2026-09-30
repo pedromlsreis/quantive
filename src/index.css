@@ -488,6 +488,22 @@
   font-size: 12px; font-weight: 600;
   flex-shrink: 0;
 }
+/* Portfolio switcher (Family): in the sidebar, or in the topbar on phones. */
+.q-portfolio-switch {
+  display: flex; align-items: center; gap: var(--s-2);
+  min-height: 36px; min-width: 0;
+  padding: 6px var(--s-3); border-radius: var(--r-2);
+  border: 1px solid var(--border-soft-raw); background: transparent;
+  color: var(--fg); font: inherit; font-size: var(--text-sm); text-align: left;
+  cursor: pointer;
+  transition: background-color var(--d-fast) var(--ease-soft);
+}
+.q-portfolio-switch-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-portfolio-switch--sidebar { width: 100%; }
+.q-portfolio-switch--topbar { display: none; max-width: 40vw; }
+@media (hover: hover) { .q-portfolio-switch:hover { background: var(--surface-soft); } }
+@media (pointer: coarse) { .q-portfolio-switch { min-height: 44px; } }
+
 .q-side-user-meta { display: flex; flex-direction: column; min-width: 0; }
 .q-side-user-name { font-size: var(--text-sm); color: var(--fg); }
 .q-side-user-mail {
@@ -1178,6 +1194,7 @@ html[data-app-motion='on'] .q-mobile-more-sheet { animation: q-sheet-in var(--d-
 
   .q-topbar { padding: 6px var(--s-4); gap: var(--s-2); }
   .q-topbar-brand { display: inline-flex; }
+  .q-portfolio-switch--topbar { display: flex; }
   .q-topbar-search { display: none; }
   .q-topbar-add { width: 44px; min-height: 44px; padding: 0; }
   .q-topbar-add .q-topbar-add-label { display: none; }

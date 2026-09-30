@@ -13,6 +13,7 @@ import { EmailConfirmationBanner } from '@/components/auth/EmailConfirmationBann
 import { Wordmark } from '@/components/layout/Brand';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import { Topbar } from '@/components/layout/Topbar';
+import { PortfolioSwitcher } from '@/components/layout/PortfolioSwitcher';
 import { NAV_SECTIONS, MOBILE_PRIMARY_ITEMS, LEGAL_LINKS } from '@/lib/nav-config';
 import { intentPrefetch, prefetchAppRoute } from '@/routes/appRoutes';
 import { ADD_MEASUREMENT_EVENT } from '@/lib/appEvents';
@@ -135,6 +136,8 @@ function Sidebar({ onFeedback }: { onFeedback: () => void }) {
           <Wordmark size={22} />
         </button>
       </div>
+
+      <PortfolioSwitcher placement="sidebar" />
 
       <nav className="q-nav" aria-label="Main navigation">
         {NAV_SECTIONS.map((section, sectionIdx) => (

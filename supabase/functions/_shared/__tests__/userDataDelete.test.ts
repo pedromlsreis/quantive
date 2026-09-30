@@ -34,6 +34,9 @@ describe('USER_DATA_TABLES', () => {
     // test fail and remembers to wire it into the deletion path. Consumed
     // by both self-delete (delete-account) and admin-delete (admin-users).
     expect([...USER_DATA_TABLES]).toEqual([
+      { table: 'portfolios', column: 'owner_id' },
+      'portfolio_members',
+      'family_beta',
       'portfolio_snapshots',
       'feedback',
       'user_keys',
@@ -44,10 +47,15 @@ describe('USER_DATA_TABLES', () => {
 });
 
 describe('ENCRYPTED_DATA_TABLES', () => {
-  it('lists the snapshot before the key row, and nothing else', () => {
+  it('lists the encrypted data before the key row, and nothing else', () => {
     // reset-encrypted-data deletes in this order and stops at the first
-    // failure, so a snapshot is never left behind without its key row.
-    expect([...ENCRYPTED_DATA_TABLES]).toEqual(['portfolio_snapshots', 'user_keys']);
+    // failure, so data is never left behind without its key row.
+    expect([...ENCRYPTED_DATA_TABLES]).toEqual([
+      { table: 'portfolios', column: 'owner_id' },
+      'portfolio_members',
+      'portfolio_snapshots',
+      'user_keys',
+    ]);
   });
 });
 
@@ -57,6 +65,9 @@ describe('deleteUserData', () => {
     const result = await deleteUserData(client, 'user-123');
 
     expect(calls).toEqual([
+      { table: 'portfolios', column: 'owner_id', value: 'user-123' },
+      { table: 'portfolio_members', column: 'user_id', value: 'user-123' },
+      { table: 'family_beta', column: 'user_id', value: 'user-123' },
       { table: 'portfolio_snapshots', column: 'user_id', value: 'user-123' },
       { table: 'feedback', column: 'user_id', value: 'user-123' },
       { table: 'user_keys', column: 'user_id', value: 'user-123' },
@@ -64,6 +75,9 @@ describe('deleteUserData', () => {
       { table: 'profiles', column: 'user_id', value: 'user-123' },
     ]);
     expect(result.deletedTables).toEqual([
+      'portfolios',
+      'portfolio_members',
+      'family_beta',
       'portfolio_snapshots',
       'feedback',
       'user_keys',
@@ -81,6 +95,9 @@ describe('deleteUserData', () => {
     const result = await deleteUserData(client, 'user-123');
 
     expect(calls.map((c) => c.table)).toEqual([
+      'portfolios',
+      'portfolio_members',
+      'family_beta',
       'portfolio_snapshots',
       'feedback',
       'user_keys',
@@ -88,6 +105,9 @@ describe('deleteUserData', () => {
       'profiles',
     ]);
     expect(result.deletedTables).toEqual([
+      'portfolios',
+      'portfolio_members',
+      'family_beta',
       'portfolio_snapshots',
       'user_keys',
       'user_roles',
@@ -105,7 +125,7 @@ describe('deleteUserData', () => {
     });
     const result = await deleteUserData(client, 'user-xyz');
 
-    expect(result.deletedTables).toEqual(['feedback', 'user_keys', 'user_roles']);
+    expect(result.deletedTables).toEqual(['portfolios', 'portfolio_members', 'family_beta', 'feedback', 'user_keys', 'user_roles']);
     expect(result.errors).toEqual([
       { table: 'portfolio_snapshots', message: 'connection refused' },
       { table: 'profiles', message: 'permission denied' },

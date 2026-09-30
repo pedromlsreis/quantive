@@ -1,6 +1,8 @@
 // Source of truth for billing plans and what each one unlocks.
-// Adding a new plan (e.g. Family): append to PLANS with its Stripe product IDs
-// and the entitlements it grants. Call sites read entitlements, not plan names.
+// Adding a new plan: append to PLANS with its Stripe product IDs and the
+// entitlements it grants, and add its prices to
+// supabase/functions/_shared/billingPlans.ts. Call sites read entitlements,
+// not plan names.
 
 export type Entitlement =
   | 'history.full'
@@ -10,7 +12,10 @@ export type Entitlement =
   | 'export.pdf'
   | 'milestones'
   | 'benchmarks'
-  | 'support.priority';
+  | 'support.priority'
+  // Family: extra portfolios next to the personal one, and sharing them.
+  | 'portfolios.multiple'
+  | 'portfolios.share';
 
 export type PriceRef = {
   priceId: string;
@@ -39,6 +44,27 @@ export const FREE_PLAN: Plan = {
   entitlements: ['export.csv'],
 };
 
+const PRO_ENTITLEMENTS: readonly Entitlement[] = [
+  'history.full',
+  'forecasting',
+  'export.excel',
+  'export.csv',
+  'export.pdf',
+  'milestones',
+  'benchmarks',
+  'support.priority',
+];
+
+// Pro plus extra portfolios and sharing. There is no Stripe product yet, so
+// resolvePlan never returns it: until there is, it is granted only through
+// the family_beta table (SubscriptionStatus.familyBeta).
+export const FAMILY_PLAN: Plan = {
+  id: 'family',
+  name: 'Family',
+  productIds: [],
+  entitlements: [...PRO_ENTITLEMENTS, 'portfolios.multiple', 'portfolios.share'],
+};
+
 export const PLANS: readonly Plan[] = [
   FREE_PLAN,
   {
@@ -49,17 +75,9 @@ export const PLANS: readonly Plan[] = [
       monthly: { priceId: 'price_1TXnys6exGYK5NsswevJDTQk', amount: 9, currency: 'EUR' },
       yearly: { priceId: 'price_1TXnys6exGYK5NssXTjUgqGW', amount: 90, currency: 'EUR' },
     },
-    entitlements: [
-      'history.full',
-      'forecasting',
-      'export.excel',
-      'export.csv',
-      'export.pdf',
-      'milestones',
-      'benchmarks',
-      'support.priority',
-    ],
+    entitlements: PRO_ENTITLEMENTS,
   },
+  FAMILY_PLAN,
 ] as const;
 
 export function resolvePlan(productId: string | null | undefined): Plan {
@@ -69,6 +87,12 @@ export function resolvePlan(productId: string | null | undefined): Plan {
 
 export function planHas(plan: Plan, entitlement: Entitlement): boolean {
   return plan.entitlements.includes(entitlement);
+}
+
+/** The plan a subscription status grants. The Family beta outranks a paid Pro plan. */
+export function resolvePlanForStatus(status: Pick<SubscriptionStatus, 'subscribed' | 'productId' | 'familyBeta'>): Plan {
+  if (status.familyBeta) return FAMILY_PLAN;
+  return resolvePlan(status.subscribed ? status.productId : null);
 }
 
 export type SubscriptionStatus = {
@@ -84,4 +108,6 @@ export type SubscriptionStatus = {
   // page uses this to keep the "Manage billing" button visible for cancelled
   // users so they can reach the portal for invoices or to reactivate.
   hasStripeHistory: boolean;
+  // Granted Family through the family_beta table rather than Stripe.
+  familyBeta: boolean;
 };

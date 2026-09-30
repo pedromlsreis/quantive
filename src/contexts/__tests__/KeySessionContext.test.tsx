@@ -141,6 +141,33 @@ describe('KeySessionProvider — unlock', () => {
   });
 });
 
+describe('KeySessionProvider — portfolio keys', () => {
+  it('holds portfolio keys and zeroes them on lock()', async () => {
+    const { result } = await renderUnlocked();
+    const pk = new Uint8Array([7, 7, 7]);
+    act(() => result.current.setPortfolioKey('p1', pk));
+    expect(result.current.getPortfolioKey('p1')).toBe(pk);
+
+    act(() => result.current.lock());
+
+    expect(sodium.memzero).toHaveBeenCalledWith(pk);
+    expect(result.current.getPortfolioKey('p1')).toBeNull();
+  });
+
+  it('zeroes a key when it is forgotten or replaced', async () => {
+    const { result } = await renderUnlocked();
+    const first = new Uint8Array([1]);
+    const second = new Uint8Array([2]);
+    act(() => result.current.setPortfolioKey('p1', first));
+    act(() => result.current.setPortfolioKey('p1', second));
+    expect(sodium.memzero).toHaveBeenCalledWith(first);
+
+    act(() => result.current.forgetPortfolioKey('p1'));
+    expect(sodium.memzero).toHaveBeenCalledWith(second);
+    expect(result.current.getPortfolioKey('p1')).toBeNull();
+  });
+});
+
 describe('KeySessionProvider — lock', () => {
   it('zeroes keys and resets state on lock()', async () => {
     const { result } = await renderUnlocked();

@@ -13,6 +13,10 @@ export interface UserDataTablesClient {
   };
 }
 
+// A table whose rows are keyed by user_id, or a table plus the column that
+// holds the user's id (portfolios are keyed by owner_id).
+export type UserDataTable = string | { table: string; column: string };
+
 export interface DeleteUserDataResult {
   deletedTables: string[];
   errors: Array<{ table: string; message: string }>;
@@ -31,33 +35,42 @@ export interface DeleteUserDataResult {
 //   2. `feedback` is ON DELETE SET NULL by schema (we keep the content
 //      for product insight), but a user-requested deletion must remove
 //      the message itself for GDPR — the explicit delete enforces that.
-export const USER_DATA_TABLES = [
+//
+// `portfolios` is ON DELETE RESTRICT on owner_id, so it must go first or the
+// final auth.admin.deleteUser fails. Its member rows cascade with it.
+export const USER_DATA_TABLES: readonly UserDataTable[] = [
+  { table: "portfolios", column: "owner_id" },
+  "portfolio_members",
+  "family_beta",
   "portfolio_snapshots",
   "feedback",
   "user_keys",
   "user_roles",
   "profiles",
-] as const;
+];
 
-// A user's encrypted portfolio and the key rows that open it. Cleared on
+// A user's encrypted portfolios and the key rows that open them. Cleared on
 // their own by reset-encrypted-data when a password reset without a
-// recovery code leaves the data undecryptable (encryption.md §8.5). The
-// snapshot goes first so a failure part-way never leaves a snapshot without
-// its key row.
-export const ENCRYPTED_DATA_TABLES = [
+// recovery code leaves the data undecryptable (encryption.md §8.5): the
+// portfolio keys are wrapped under the lost DK too. The key row goes last
+// so a failure part-way never leaves data behind without its key row.
+export const ENCRYPTED_DATA_TABLES: readonly UserDataTable[] = [
+  { table: "portfolios", column: "owner_id" },
+  "portfolio_members",
   "portfolio_snapshots",
   "user_keys",
-] as const;
+];
 
 export async function deleteUserData(
   client: UserDataTablesClient,
   userId: string,
-  tables: readonly string[] = USER_DATA_TABLES,
+  tables: readonly UserDataTable[] = USER_DATA_TABLES,
 ): Promise<DeleteUserDataResult> {
   const deletedTables: string[] = [];
   const errors: Array<{ table: string; message: string }> = [];
-  for (const table of tables) {
-    const { error } = await client.from(table).delete().eq("user_id", userId);
+  for (const entry of tables) {
+    const { table, column } = typeof entry === "string" ? { table: entry, column: "user_id" } : entry;
+    const { error } = await client.from(table).delete().eq(column, userId);
     if (error) {
       errors.push({ table, message: error.message });
       continue;

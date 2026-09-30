@@ -384,6 +384,10 @@ export const analytics = {
   goalCreated(): void {
     capture('goal_created');
   },
+  /** Fired when a Family user creates an extra portfolio. No name attached. */
+  portfolioCreated(): void {
+    capture('portfolio_created');
+  },
   /** Fired when current net worth crosses a goal's target. No amounts attached. */
   goalCompleted(): void {
     capture('goal_completed');

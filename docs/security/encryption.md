@@ -22,6 +22,9 @@
 | Recovery flow round-trip + **byte-identical DK invariant** | [keySession/recovery.test.ts](../../src/lib/keySession/__tests__/recovery.test.ts) |
 | Change-password rotates wrap; recovery wrap untouched | [keySession/recovery.test.ts](../../src/lib/keySession/__tests__/recovery.test.ts) |
 | Encrypted-snapshot upsert + decode round-trip | [cloudSync.encrypted.test.ts](../../src/lib/__tests__/cloudSync.encrypted.test.ts) |
+| AAD framing for portfolio-key, portfolio-blob and invite wraps (§15.1.3) | [aad.test.ts](../../src/lib/crypto/__tests__/aad.test.ts) |
+| **Portfolio isolation**: a PK wrap or blob fails under another user, portfolio, epoch or key | [portfolioKey.test.ts](../../src/lib/crypto/__tests__/portfolioKey.test.ts) |
+| Portfolio create / list / compare-and-swap save; a swapped blob is skipped, not shown | [portfolios.test.ts](../../src/lib/__tests__/portfolios.test.ts) |
 
 ---
 
@@ -404,6 +407,7 @@ Action:
       portfolio-custom-milestones
       recovery-offered:<previousUserId>
       onboarding-dismissed:<previousUserId>
+      active-portfolio:<previousUserId>       // last-open extra portfolio (§15.1)
   - sessionStorage.removeItem:
       welcome-invoked:<previousUserId>
   - clearAttribution()                       // UTM key from analytics
@@ -574,7 +578,7 @@ Out of scope for v1, tracked separately:
 
 ### 15.1 Portfolio keys and sharing (Family plan)
 
-**Status: designed, not implemented.** Nothing in this section exists in the code or the schema yet. It is published before the build so the design can be reviewed first. When it ships, this section moves into §3 and §5–§9, and this status line goes.
+**Status: partly implemented.** Extra portfolios for a single user are built: the portfolio key, its wrap under the DK, the portfolio blob, `portfolios` and `portfolio_members`, and `create_portfolio` / `save_portfolio` ([migration](../../supabase/migrations/20260930120000_portfolios.sql), [`portfolioKey.ts`](../../src/lib/crypto/portfolioKey.ts), [`portfolios.ts`](../../src/lib/portfolios.ts)). They are available only to accounts in the Family beta. Sharing (invites, `family_partners`, key rotation, `portfolio_revisions`) is designed and not built; the invite-wrap AAD and functions exist in the crypto module but nothing calls them yet. When sharing ships, this section moves into §3 and §5–§9, and this status line goes.
 
 #### 15.1.1 Goals
 

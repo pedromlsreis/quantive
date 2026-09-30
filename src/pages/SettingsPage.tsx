@@ -6,6 +6,9 @@ import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
+import { portfolioFileSuffix } from '@/lib/portfolios';
+import { SettingsRow as Row, SettingsSection as Section } from '@/components/settings/SettingsRows';
+import { PortfolioSettings } from '@/components/settings/PortfolioSettings';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, AUTO_LOCK_MINUTES_OPTIONS, type NumberFormat } from '@/contexts/PreferencesContext';
 import { useEntitlements } from '@/hooks/useEntitlements';
@@ -26,7 +29,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { extractCheckoutErrorCode, messageForPortalError } from '@/lib/billing/checkoutError';
-import { resolvePlan } from '@/lib/billing/plans';
+import { resolvePlanForStatus } from '@/lib/billing/plans';
 import { PRO_PRICE_LINE } from '@/lib/billing/planCopy';
 import { analytics } from '@/lib/analytics';
 import { REMINDER_OPTIONS, normaliseReminderFrequency, type ReminderFrequency } from '@/lib/reminders';
@@ -48,11 +51,11 @@ export default function SettingsPage() {
     checkSubscription();
   }, [checkSubscription]);
   const keySession = useKeySession();
-  const { data } = usePortfolio();
+  const { data, activePortfolioId, activePortfolioName } = usePortfolio();
   const { has } = useEntitlements();
   const canExportExcel = has('export.excel');
   const canExportCsv = has('export.csv');
-  const currentPlan = resolvePlan(subscription.subscribed ? subscription.productId : null);
+  const currentPlan = resolvePlanForStatus(subscription);
   const [managingBilling, setManagingBilling] = useState(false);
 
   const handleManageBilling = async () => {
@@ -260,11 +263,12 @@ export default function SettingsPage() {
     setExporting(fmt);
     try {
       const timestamp = format(new Date(), 'yyyy-MM-dd');
+      const suffix = portfolioFileSuffix(activePortfolioId, activePortfolioName);
       const exporter = await import('@/lib/exporter');
       if (fmt === 'xlsx') {
-        await exporter.exportPortfolioExcel(data, `portfolio_${timestamp}.xlsx`);
+        await exporter.exportPortfolioExcel(data, `portfolio${suffix}_${timestamp}.xlsx`);
       } else {
-        exporter.exportPortfolioCsv(data, `portfolio_${timestamp}.csv`);
+        exporter.exportPortfolioCsv(data, `portfolio${suffix}_${timestamp}.csv`);
       }
     } catch {
       toast.error("Couldn't export. Try again.");
@@ -386,6 +390,8 @@ export default function SettingsPage() {
           </Row>
         </Section>
       )}
+
+      <PortfolioSettings />
 
       <Section id="preferences" title="Preferences">
         <Row
@@ -649,40 +655,6 @@ const NUMBER_FORMAT_ORDER: NumberFormat[] = ['auto', 'us', 'eu', 'space', 'in'];
 
 function sampleNumber(locale: string): string {
   return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(1234567.89);
-}
-
-/** A ruled settings section: title on the left, rows on the right. */
-function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
-  return (
-    <section id={id} className="q-set-sec" aria-labelledby={`${id}-title`}>
-      <h2 className="q-h2" id={`${id}-title`}>{title}</h2>
-      <div className="q-set-rows">{children}</div>
-    </section>
-  );
-}
-
-function Row({ id, label, htmlFor, tag, description, children }: {
-  id?: string;
-  label?: string;
-  htmlFor?: string;
-  tag?: string;
-  description?: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div id={id} className="q-set-row">
-      <div style={{ minWidth: 0 }}>
-        {label && (
-          <div className="q-set-label">
-            {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : label}
-            {tag && <span className="q-tag">{tag}</span>}
-          </div>
-        )}
-        {description && <p className="q-set-desc">{description}</p>}
-      </div>
-      {children && <div className="q-set-control">{children}</div>}
-    </div>
-  );
 }
 
 function Switch({ on, label, onChange }: { on: boolean; label: string; onChange: () => void }) {

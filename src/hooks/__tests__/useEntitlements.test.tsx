@@ -11,6 +11,7 @@ const authState: { user: { id: string } | null; subscription: SubscriptionStatus
     cancelAtPeriodEnd: false,
     paymentPastDue: false,
     hasStripeHistory: false,
+    familyBeta: false,
   },
 };
 
@@ -34,6 +35,7 @@ const FREE_SUB: SubscriptionStatus = {
   cancelAtPeriodEnd: false,
   paymentPastDue: false,
   hasStripeHistory: false,
+  familyBeta: false,
 };
 
 const PRO_SUB: SubscriptionStatus = {
@@ -43,6 +45,7 @@ const PRO_SUB: SubscriptionStatus = {
   cancelAtPeriodEnd: false,
   paymentPastDue: false,
   hasStripeHistory: true,
+  familyBeta: false,
 };
 
 beforeEach(() => {
@@ -64,13 +67,13 @@ describe('useEntitlements', () => {
   });
 
   it('unknown productId falls back to free plan', () => {
-    authState.subscription = { subscribed: true, productId: 'prod_UNKNOWN', subscriptionEnd: null, cancelAtPeriodEnd: false, paymentPastDue: false, hasStripeHistory: true };
+    authState.subscription = { subscribed: true, productId: 'prod_UNKNOWN', subscriptionEnd: null, cancelAtPeriodEnd: false, paymentPastDue: false, hasStripeHistory: true, familyBeta: false };
     const { result } = renderHook(() => useEntitlements());
     expect(result.current.plan.id).toBe('free');
   });
 
   it('uses free plan when subscribed=false even if productId is non-null (stale state guard)', () => {
-    authState.subscription = { subscribed: false, productId: PRO_PRODUCT_ID, subscriptionEnd: null, cancelAtPeriodEnd: false, paymentPastDue: false, hasStripeHistory: false };
+    authState.subscription = { subscribed: false, productId: PRO_PRODUCT_ID, subscriptionEnd: null, cancelAtPeriodEnd: false, paymentPastDue: false, hasStripeHistory: false, familyBeta: false };
     const { result } = renderHook(() => useEntitlements());
     expect(result.current.plan.id).toBe('free');
     expect(result.current.has('history.full')).toBe(false);
@@ -133,6 +136,32 @@ describe('useEntitlements', () => {
     expect(result.current.has('export.pdf')).toBe(true);
   });
 
+  it('the Family beta grants the Family plan, including over a paid Pro plan', () => {
+    authState.user = { id: 'auth-uid-3' };
+    authState.subscription = { ...PRO_SUB, familyBeta: true };
+    const { result } = renderHook(() => useEntitlements());
+    expect(result.current.plan.id).toBe('family');
+    expect(result.current.has('portfolios.multiple')).toBe(true);
+    expect(result.current.has('portfolios.share')).toBe(true);
+    expect(result.current.has('history.full')).toBe(true);
+  });
+
+  it('Pro does not grant portfolio entitlements', () => {
+    authState.subscription = { ...PRO_SUB };
+    const { result } = renderHook(() => useEntitlements());
+    expect(result.current.has('portfolios.multiple')).toBe(false);
+    expect(result.current.has('portfolios.share')).toBe(false);
+  });
+
+  it('demo unlock leaves portfolio entitlements off: they need an account', () => {
+    portfolioState.isMockData = true;
+    authState.user = null;
+    const { result } = renderHook(() => useEntitlements());
+    expect(result.current.has('history.full')).toBe(true);
+    expect(result.current.has('portfolios.multiple')).toBe(false);
+    expect(result.current.has('portfolios.share')).toBe(false);
+  });
+
   describe('dev plan override (quantive-test-plan)', () => {
     afterEach(() => {
       try { window.localStorage.removeItem('quantive-test-plan'); } catch { /* noop */ }
@@ -172,6 +201,13 @@ describe('useEntitlements', () => {
       expect(result.current.plan.id).toBe('pro');
       expect(result.current.has('history.full')).toBe(true);
       expect(result.current.has('milestones')).toBe(true);
+    });
+
+    it('"family" override resolves to the Family plan', () => {
+      window.localStorage.setItem('quantive-test-plan', 'family');
+      const { result } = renderHook(() => useEntitlements());
+      expect(result.current.plan.id).toBe('family');
+      expect(result.current.has('portfolios.multiple')).toBe(true);
     });
 
     it('unknown override id falls back to real plan resolution', () => {

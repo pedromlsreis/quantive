@@ -58,6 +58,8 @@ export type ReportPeriod = 'this_year' | 'last_year' | 'all_time' | 'custom';
 export interface ReportInput {
   /** User's display name from profile, or null to leave the line out. */
   userName: string | null;
+  /** An extra portfolio's name, shown after the title. Absent for the personal portfolio. */
+  portfolioName?: string | null;
   /** Date the report was generated. */
   generatedAt: Date;
   /** Period label rendered in the header (e.g. "1 Jan 2026 to 19 May 2026"). */
@@ -247,6 +249,7 @@ export function buildWealthReport(input: ReportInput): React.ReactElement {
     userName,
     generatedAt,
     periodLabel,
+    portfolioName,
     baseCurrency,
     snapshotsInPeriod,
     allSnapshots,
@@ -283,7 +286,7 @@ export function buildWealthReport(input: ReportInput): React.ReactElement {
             <Text style={styles.brand}>quantive</Text>
           </View>
           <View style={styles.headRight}>
-            <Text style={styles.docTitle}>Net worth report</Text>
+            <Text style={styles.docTitle}>{portfolioName ? `Net worth report · ${portfolioName}` : 'Net worth report'}</Text>
             <Text style={styles.meta}>{periodLabel}</Text>
             {userName && <Text style={styles.meta}>{`Prepared for ${userName}`}</Text>}
           </View>

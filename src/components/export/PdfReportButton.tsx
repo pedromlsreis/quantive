@@ -27,6 +27,7 @@ import { axisMoney, formatDate, type FmtCtx } from '@/lib/formatters';
 import type { CurrencyCode } from '@/lib/currencies';
 import { niceTicks } from '@/lib/dashboardData';
 import { buildSourceColors, printColor, sourceColor } from '@/lib/sourceColors';
+import { PERSONAL_PORTFOLIO_ID, portfolioFileSuffix } from '@/lib/portfolios';
 
 interface PeriodChoice {
   id: ReportPeriod;
@@ -180,7 +181,7 @@ async function rasteriseTrajectory(
 }
 
 function PdfReportButtonInner() {
-  const { allSnapshots } = usePortfolio();
+  const { allSnapshots, activePortfolioId, activePortfolioName } = usePortfolio();
   const { currency } = useCurrency();
   const [open, setOpen] = useState(false);
   const [period, setPeriod] = useState<ReportPeriod>('this_year');
@@ -223,6 +224,7 @@ function PdfReportButtonInner() {
 
       const input: ReportInput = {
         userName: null,
+        portfolioName: activePortfolioId === PERSONAL_PORTFOLIO_ID ? null : activePortfolioName,
         generatedAt: new Date(),
         periodLabel: label,
         period,
@@ -245,7 +247,8 @@ function PdfReportButtonInner() {
           : 0;
 
       const stamp = new Date().toISOString().slice(0, 10);
-      await mod.exportWealthReport(input, `quantive_net_worth_report_${stamp}.pdf`);
+      const suffix = portfolioFileSuffix(activePortfolioId, activePortfolioName);
+      await mod.exportWealthReport(input, `quantive_net_worth_report${suffix}_${stamp}.pdf`);
 
       analytics.pdfReportGenerated({
         period,
@@ -261,7 +264,7 @@ function PdfReportButtonInner() {
     } finally {
       setGenerating(false);
     }
-  }, [allSnapshots, currency, period, customStart, customEnd, noData]);
+  }, [allSnapshots, currency, period, customStart, customEnd, noData, activePortfolioId, activePortfolioName]);
 
   return (
     <>
