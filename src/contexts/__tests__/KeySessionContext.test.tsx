@@ -16,6 +16,7 @@ vi.mock('@/lib/crypto/sodium', () => ({
 // The pure crypto ops are tested in keySession/__tests__; here we mock them to
 // drive the provider's state machine in isolation.
 vi.mock('@/lib/keySession', () => ({
+  MissingKeysError: class MissingKeysError extends Error {},
   detectAndUnlock: vi.fn(),
   recoverAndRewrap: vi.fn(),
   rewrapDataKey: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock('@/lib/keySession', () => ({
 }));
 
 import {
+  MissingKeysError,
   detectAndUnlock,
   recoverAndRewrap,
   rewrapDataKey,
@@ -113,12 +115,24 @@ describe('KeySessionProvider — unlock', () => {
     vi.mocked(detectAndUnlock).mockRejectedValue(new Error('wrong password'));
     const { result } = renderHook(() => useKeySession(), { wrapper });
 
-    let res: { error: string | null } | undefined;
+    let res: { error: string | null; missingKeys?: boolean } | undefined;
     await act(async () => { res = await result.current.unlock('u1', 'nope'); });
 
     expect(res?.error).toBeTruthy();
+    expect(res?.missingKeys).toBe(false);
     expect(result.current.status).toBe('locked');
     expect(result.current.getDataKey()).toBeNull();
+  });
+
+  it('flags missingKeys when saved data has no key row', async () => {
+    vi.mocked(detectAndUnlock).mockRejectedValue(new MissingKeysError());
+    const { result } = renderHook(() => useKeySession(), { wrapper });
+
+    let res: { error: string | null; missingKeys?: boolean } | undefined;
+    await act(async () => { res = await result.current.unlock('u1', 'password'); });
+
+    expect(res?.missingKeys).toBe(true);
+    expect(result.current.status).toBe('locked');
   });
 
   it('zeroes the password bytes after unlocking', async () => {

@@ -21,6 +21,7 @@ import React, {
 } from 'react';
 import { ready, getSodium } from '@/lib/crypto/sodium';
 import {
+  MissingKeysError,
   detectAndUnlock,
   recoverAndRewrap,
   rewrapDataKey,
@@ -41,8 +42,12 @@ interface KeySessionContextType {
    * don't yet know.
    */
   hasRecovery: boolean | null;
-  /** Derive KEK and unwrap DK (or set up keys for a new user). */
-  unlock: (userId: string, password: string) => Promise<{ error: string | null }>;
+  /**
+   * Derive KEK and unwrap DK (or set up keys for a new user). `missingKeys`
+   * is set when saved data exists but its key row is gone, which a password
+   * reset resolves; every other failure reads as a wrong password.
+   */
+  unlock: (userId: string, password: string) => Promise<{ error: string | null; missingKeys?: boolean }>;
   /** Zero KEK + DK and reset status to 'locked'. */
   lock: () => void;
   /** DK while unlocked-encrypted, null otherwise. */
@@ -141,7 +146,7 @@ export function KeySessionProvider({ children }: { children: React.ReactNode }) 
         const msg = e instanceof Error ? e.message : 'unlock failed';
         // Don't leak which case failed (wrong password vs network) at the
         // boundary; callers map this to a generic "incorrect password" toast.
-        return { error: msg };
+        return { error: msg, missingKeys: e instanceof MissingKeysError };
       }
     },
     [],

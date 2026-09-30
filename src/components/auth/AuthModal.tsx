@@ -10,7 +10,7 @@ import { useKeySession } from '@/contexts/KeySessionContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Notice } from '@/components/ui/Notice';
-import { mapAuthError } from '@/lib/authError';
+import { MISSING_KEYS_MESSAGE, mapAuthError } from '@/lib/authError';
 import { analytics } from '@/lib/analytics';
 import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
 import { Turnstile } from './Turnstile';
@@ -159,7 +159,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup', defaultEmail 
 
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
-      const { error: unlockErr } = await keySession.unlock(session.user.id, password);
+      const { error: unlockErr, missingKeys } = await keySession.unlock(session.user.id, password);
       // Only returning users count as unlock attempts: a sign-up provisions
       // keys and never "fails to unlock", which would inflate the metric.
       if (mode === 'signin') {
@@ -168,7 +168,7 @@ export function AuthModal({ open, onClose, defaultMode = 'signup', defaultEmail 
       }
       if (unlockErr) {
         setSubmitting(false);
-        setError("Signed in, but your data couldn't be decrypted. Try again, or reset your password.");
+        setError(missingKeys ? MISSING_KEYS_MESSAGE : "Signed in, but your data couldn't be decrypted. Try again, or reset your password.");
         return;
       }
     }

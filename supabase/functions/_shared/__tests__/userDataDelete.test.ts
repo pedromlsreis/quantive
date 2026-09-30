@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deleteUserData, USER_DATA_TABLES } from '../userDataDelete';
+import { deleteUserData, ENCRYPTED_DATA_TABLES, USER_DATA_TABLES } from '../userDataDelete';
 
 interface Call {
   table: string;
@@ -40,6 +40,14 @@ describe('USER_DATA_TABLES', () => {
       'user_roles',
       'profiles',
     ]);
+  });
+});
+
+describe('ENCRYPTED_DATA_TABLES', () => {
+  it('lists the snapshot before the key row, and nothing else', () => {
+    // reset-encrypted-data deletes in this order and stops at the first
+    // failure, so a snapshot is never left behind without its key row.
+    expect([...ENCRYPTED_DATA_TABLES]).toEqual(['portfolio_snapshots', 'user_keys']);
   });
 });
 

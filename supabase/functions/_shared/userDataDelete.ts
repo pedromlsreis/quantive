@@ -39,6 +39,16 @@ export const USER_DATA_TABLES = [
   "profiles",
 ] as const;
 
+// A user's encrypted portfolio and the key rows that open it. Cleared on
+// their own by reset-encrypted-data when a password reset without a
+// recovery code leaves the data undecryptable (encryption.md §8.5). The
+// snapshot goes first so a failure part-way never leaves a snapshot without
+// its key row.
+export const ENCRYPTED_DATA_TABLES = [
+  "portfolio_snapshots",
+  "user_keys",
+] as const;
+
 export async function deleteUserData(
   client: UserDataTablesClient,
   userId: string,

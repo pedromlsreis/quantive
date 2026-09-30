@@ -18,9 +18,11 @@ type LinkState = 'checking' | 'invalid' | 'verifying' | 'ready';
 
 /**
  * What the user_keys row looks like for this user. Drives which form we show.
- *   - 'no-encryption'         : no user_keys row -> standard password reset.
+ *   - 'no-encryption'         : no user_keys row and no snapshot -> standard password reset.
  *   - 'with-recovery'         : has user_keys + wrapped_dk_recovery -> full recovery flow.
- *   - 'encrypted-no-recovery' : has user_keys but no recovery wrap -> data will orphan.
+ *   - 'encrypted-no-recovery' : has user_keys but no recovery wrap, or a snapshot whose
+ *                               user_keys row is missing -> the old data is cleared
+ *                               (reset-encrypted-data) and the account starts empty.
  */
 type EncMode = 'unknown' | 'no-encryption' | 'with-recovery' | 'encrypted-no-recovery';
 
@@ -90,9 +92,14 @@ const ResetPassword = () => {
       try {
         const row = await supabaseKeyStore.getUserKeys(user.id);
         if (cancelled) return;
-        if (!row) setEncMode('no-encryption');
-        else if (row.wrapped_dk_recovery) setEncMode('with-recovery');
-        else setEncMode('encrypted-no-recovery');
+        if (row?.wrapped_dk_recovery) setEncMode('with-recovery');
+        else if (row) setEncMode('encrypted-no-recovery');
+        else {
+          // A snapshot without its key row can't be opened either (MissingKeysError).
+          const orphaned = await supabaseKeyStore.hasPortfolioSnapshot(user.id);
+          if (cancelled) return;
+          setEncMode(orphaned ? 'encrypted-no-recovery' : 'no-encryption');
+        }
       } catch {
         // If we can't read user_keys, default to the safest path: assume
         // encryption is set up and require a recovery code. False positives
@@ -137,6 +144,18 @@ const ResetPassword = () => {
 
     setSubmitting(true);
     try {
+      // Clear the undecryptable data first. Left in place, the old key row
+      // stays wrapped under the old password and every later unlock fails.
+      // Doing it before the password change means a failure changes nothing.
+      if (encMode === 'encrypted-no-recovery') {
+        const { error: wipeErr } = await supabase.functions.invoke('reset-encrypted-data');
+        if (wipeErr) {
+          setFormError("We couldn't clear your old saved entries, so your password wasn't changed. Try again.");
+          return;
+        }
+        setEncMode('no-encryption');
+      }
+
       const { error } = await updatePassword(password);
       if (error) {
         setFormError(mapAuthError(error));
@@ -162,6 +181,8 @@ const ResetPassword = () => {
         }
         analytics.recoveryUsed();
         toast.success('Password changed. Your data is unlocked.');
+      } else if (encMode === 'encrypted-no-recovery') {
+        toast.success("Password changed. You're starting with an empty portfolio.");
       } else {
         toast.success('Password changed');
       }
