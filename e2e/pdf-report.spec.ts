@@ -3,7 +3,7 @@ import { loadDemo } from './helpers/loadDemo';
 import { seedClean } from './helpers/seedClean';
 
 /**
- * Feature 4 — PDF wealth report.
+ * Feature 4 — PDF report.
  *
  * We drive the entitlement via the dev-only `quantive-test-plan` override.
  * Pro path: trigger present → modal opens → Generate triggers a PDF download.
@@ -28,7 +28,7 @@ async function gotoPerformanceAs(page: Page, plan: 'pro' | 'free') {
   await page.waitForSelector('h1', { timeout: 10_000 });
 }
 
-test.describe('PDF wealth report', () => {
+test.describe('PDF report', () => {
   test.afterEach(async ({ page }) => {
     await page.evaluate(() => {
       try {
@@ -51,7 +51,7 @@ test.describe('PDF wealth report', () => {
     await trigger.click();
 
     // Modal opens.
-    const modal = page.getByRole('dialog', { name: /pdf wealth report/i });
+    const modal = page.getByRole('dialog', { name: /^pdf report$/i });
     await expect(modal).toBeVisible({ timeout: 5_000 });
 
     // Default selection is "This year".
@@ -66,7 +66,7 @@ test.describe('PDF wealth report', () => {
     await generate.click();
     const download = await downloadPromise;
 
-    expect(download.suggestedFilename()).toMatch(/^quantive_wealth_report_\d{4}-\d{2}-\d{2}\.pdf$/);
+    expect(download.suggestedFilename()).toMatch(/^quantive_net_worth_report_\d{4}-\d{2}-\d{2}\.pdf$/);
   });
 
   test('Free user does not see the PDF report trigger', async ({ page }) => {

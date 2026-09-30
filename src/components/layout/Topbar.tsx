@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Plus, Menu, LogIn, UserPlus, Eye, EyeOff } from 'lucide-react';
+import { Plus, LogIn, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { usePreferences } from '@/contexts/PreferencesContext';
@@ -8,27 +8,12 @@ import { Monogram } from '@/components/layout/Brand';
 import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { analytics } from '@/lib/analytics';
 
-const PAGE_TITLES: Record<string, string> = {
-  '/dashboard':    'Overview',
-  '/allocations':  'Allocations',
-  '/forecast':     'Forecast',
-  '/performance':  'Performance',
-  '/goals':        'Goals',
-  '/sources':      'Sources',
-  '/settings':     'Settings',
-  '/security':     'Security',
-};
-
 export function Topbar({
-  pathname,
-  onMenuClick,
   onAdd,
   onSignIn,
   onSignUp,
   onFeedback,
 }: {
-  pathname: string;
-  onMenuClick: () => void;
   onAdd: () => void;
   onSignIn: () => void;
   onSignUp: () => void;
@@ -36,46 +21,40 @@ export function Topbar({
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isMockData } = usePortfolio();
+  const { data, isMockData, clearData } = usePortfolio();
   const { privacyMode, setPrivacyMode } = usePreferences();
-  const title = PAGE_TITLES[pathname] ?? 'Overview';
+
+  // One primary action per state. Guests on the demo keep the sign-up path;
+  // a signed-in user who opened the demo swaps it for their own numbers.
+  const primary = isMockData
+    ? user
+      ? {
+          label: 'Use my own numbers',
+          Icon: Plus,
+          onClick: () => {
+            clearData();
+            navigate('/dashboard');
+            onAdd();
+          },
+        }
+      : { label: 'Sign up to track yours', Icon: UserPlus, onClick: onSignUp }
+    : { label: 'Add entry', Icon: Plus, onClick: onAdd };
 
   return (
-    <div className="q-topbar">
-      {/* Mobile hamburger — hidden on desktop via CSS */}
+    <header className="q-topbar">
+      {/* Mobile only: the sidebar carries the wordmark on wider screens. */}
       <button
         type="button"
-        className="q-topbar-menu-btn"
-        onClick={onMenuClick}
-        aria-label="Open navigation"
-      >
-        <Menu size={16} />
-      </button>
-
-      {/* Quantive monogram */}
-      <button
         onClick={() => navigate('/')}
         className="q-topbar-brand"
         aria-label="Quantive home"
-        style={{
-          background: 'none', border: 0, padding: 0, cursor: 'pointer',
-          color: 'var(--fg-faint)',
-        }}
+        style={{ background: 'none', border: 0, padding: 0, minHeight: 44, cursor: 'pointer', color: 'var(--fg-subtle)' }}
       >
-        <Monogram size={20} />
+        <Monogram size={22} />
       </button>
 
-      {/* Breadcrumb — fixed width so the search bar doesn't shift between pages */}
-      <div className="q-topbar-crumbs" style={{ width: 180, flexShrink: 0 }}>
-        <span>Personal</span>
-        <span className="q-topbar-crumb-sep">›</span>
-        <span className="q-topbar-crumb-active">{title}</span>
-      </div>
-
-      {/* Search — fills remaining space so actions land flush-right */}
       <GlobalSearch onAdd={onAdd} onSignUp={onSignUp} onFeedback={onFeedback} />
 
-      {/* Right-aligned actions */}
       <div className="q-topbar-actions">
         <SyncIndicator />
 
@@ -85,39 +64,37 @@ export function Topbar({
             setPrivacyMode(!privacyMode);
             analytics.privacyModeToggled({ enabled: !privacyMode });
           }}
-          className="q-icon-btn q-topbar-privacy"
+          className="q-icon-btn"
           aria-label={privacyMode ? 'Show monetary values' : 'Hide monetary values'}
           aria-pressed={privacyMode}
           title={privacyMode ? 'Show values' : 'Hide values'}
         >
-          {privacyMode ? <Eye size={16} /> : <EyeOff size={16} />}
+          {privacyMode ? <Eye size={16} strokeWidth={1.75} /> : <EyeOff size={16} strokeWidth={1.75} />}
         </button>
 
-        {/* Mobile-only sign-in button — shown only when signed out */}
         {!user && (
           <button
             type="button"
-            className="q-btn q-btn--secondary q-btn--sm q-topbar-signin"
+            className="q-btn q-btn--secondary q-btn--md q-topbar-signin"
             onClick={onSignIn}
             aria-label="Sign in"
           >
-            <LogIn size={14} />
-            <span className="q-topbar-signin-label">Sign in</span>
+            <LogIn size={14} strokeWidth={1.75} aria-hidden="true" />
+            Sign in
           </button>
         )}
 
-        <button
-          className="q-btn q-btn--primary q-btn--sm q-topbar-add"
-          onClick={isMockData ? onSignUp : onAdd}
-          aria-label={isMockData ? 'Sign up to track your own portfolio' : 'Add measurement'}
-          title={isMockData ? 'Sign up to track your own portfolio' : undefined}
+        {/* Empty states carry their own first-entry action; one primary per screen. */}
+        {(data || isMockData) && <button
+          type="button"
+          className="q-btn q-btn--primary q-btn--md q-topbar-add"
+          onClick={primary.onClick}
+          aria-label={primary.label}
         >
-          {isMockData ? <UserPlus size={14} /> : <Plus size={14} />}
-          <span className="q-topbar-add-label">
-            {isMockData ? 'Sign up to track yours' : 'Add measurement'}
-          </span>
-        </button>
+          <primary.Icon size={16} strokeWidth={2} aria-hidden="true" />
+          <span className="q-topbar-add-label">{primary.label}</span>
+        </button>}
       </div>
-    </div>
+    </header>
   );
 }

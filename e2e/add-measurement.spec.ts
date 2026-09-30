@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { seedClean } from './helpers/seedClean';
+import { openNewSourceForm } from './helpers/composer';
 
 // Open the Add measurement modal via the empty-state CTA.
 // We avoid demo mode here because in demo the topbar primary CTA navigates to
@@ -9,39 +10,38 @@ async function openModalFromEmptyState(page: Page) {
   // backdrop can intercept the CTA click on first render.
   await seedClean(page);
   await page.goto('/dashboard');
-  const cta = page.getByRole('button', { name: /add your first measurement/i });
+  const cta = page.getByRole('button', { name: /add your first entry/i });
   await expect(cta).toBeVisible({ timeout: 6000 });
   await cta.click();
-  await expect(page.getByRole('dialog', { name: /add measurement/i })).toBeVisible({ timeout: 4000 });
+  await expect(page.getByRole('dialog', { name: /add entry/i })).toBeVisible({ timeout: 4000 });
 }
 
 test.describe('Add Measurement Modal', () => {
   test('opens modal when empty-state CTA is clicked', async ({ page }) => {
     await openModalFromEmptyState(page);
-    await expect(page.getByRole('dialog', { name: /add measurement/i })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: /add entry/i })).toBeVisible();
   });
 
   test('modal exposes the source composer name and value inputs', async ({ page }) => {
     await openModalFromEmptyState(page);
-    const dialog = page.getByRole('dialog', { name: /add measurement/i });
-    // For a first-time user, the composer is opened from the "Add a new
-    // source" prompt — there are no pre-existing rows.
-    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    const dialog = page.getByRole('dialog', { name: /add entry/i });
+    // A first entry has nothing to carry forward, so the form opens by itself.
+    await openNewSourceForm(dialog);
     const composer = dialog.locator('.q-new-src-form');
     await expect(composer).toBeVisible({ timeout: 4000 });
-    await expect(composer.getByPlaceholder(/bank of america/i)).toBeVisible();
+    await expect(composer.getByLabel('Name', { exact: true })).toBeVisible();
     await expect(composer.locator('input[inputmode="decimal"]')).toBeVisible();
   });
 
   test('committing a source via the composer adds it to the source list', async ({ page }) => {
     await openModalFromEmptyState(page);
-    const dialog = page.getByRole('dialog', { name: /add measurement/i });
+    const dialog = page.getByRole('dialog', { name: /add entry/i });
     const rows = dialog.locator('.q-src-row');
     await expect(rows).toHaveCount(0);
 
-    await dialog.getByRole('button', { name: /add a new source/i }).click();
+    await openNewSourceForm(dialog);
     const composer = dialog.locator('.q-new-src-form');
-    await composer.getByPlaceholder(/bank of america/i).fill('Cash ISA');
+    await composer.getByLabel('Name', { exact: true }).fill('Cash ISA');
     await composer.locator('input[inputmode="decimal"]').fill('2500');
     await composer.getByRole('button', { name: /^add source$/i }).click();
 
@@ -51,21 +51,22 @@ test.describe('Add Measurement Modal', () => {
 
   test('closes modal on Cancel', async ({ page }) => {
     await openModalFromEmptyState(page);
-    const cancelBtn = page.getByRole('button', { name: /cancel/i });
+    // The dialog's own Cancel; the open new-source form has one too.
+    const cancelBtn = page.locator('.q-modal-foot').getByRole('button', { name: /^cancel$/i });
     await cancelBtn.click();
-    await expect(page.getByRole('dialog', { name: /add measurement/i })).not.toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('dialog', { name: /add entry/i })).not.toBeVisible({ timeout: 3000 });
   });
 
   test('closes modal on backdrop click', async ({ page }) => {
     await openModalFromEmptyState(page);
     // Click backdrop (outside modal)
     await page.mouse.click(10, 10);
-    await expect(page.getByRole('dialog', { name: /add measurement/i })).not.toBeVisible({ timeout: 3000 });
+    await expect(page.getByRole('dialog', { name: /add entry/i })).not.toBeVisible({ timeout: 3000 });
   });
 
   test('save button is disabled with no data', async ({ page }) => {
     await openModalFromEmptyState(page);
-    const saveBtn = page.getByRole('button', { name: /save measurement/i });
+    const saveBtn = page.getByRole('button', { name: /save entry/i });
     await expect(saveBtn).toBeDisabled();
   });
 });

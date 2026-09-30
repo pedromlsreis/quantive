@@ -25,17 +25,17 @@ beforeEach(() => {
 describe('SubscribeIntentNotice — copy and pricing', () => {
   it('renders the yearly plan price in the body copy', () => {
     render(<SubscribeIntentNotice plan="yearly" onCancel={vi.fn()} />);
-    expect(screen.getByText(/€90\/year/)).toBeInTheDocument();
+    expect(screen.getByText(/€90 a year/)).toBeInTheDocument();
   });
 
   it('renders the monthly plan price in the body copy', () => {
     render(<SubscribeIntentNotice plan="monthly" onCancel={vi.fn()} />);
-    expect(screen.getByText(/€9\/month/)).toBeInTheDocument();
+    expect(screen.getByText(/€9 a month/)).toBeInTheDocument();
   });
 
   it('renders the section heading explaining the pending state', () => {
     render(<SubscribeIntentNotice plan="yearly" onCancel={vi.fn()} />);
-    expect(screen.getByText(/continue your pro subscription/i)).toBeInTheDocument();
+    expect(screen.getByText(/sign up to subscribe to pro/i)).toBeInTheDocument();
   });
 });
 

@@ -1,252 +1,108 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
-import { format } from 'date-fns';
-import { Info } from 'lucide-react';
-import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
-import { generateScenarioForecast } from '@/lib/scenarioForecast';
-import { HelpHint } from '@/components/ui/help-hint';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { QTabs } from '@/components/ui/q-tabs';
+import { useEffect, useRef, useState } from 'react';
+import { useFormat } from '@/hooks/useFormat';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { axisMonth, formatDate, roundSig3 } from '@/lib/formatters';
+import { niceTicks } from '@/lib/dashboardData';
+import type { ForecastPoint } from '@/lib/forecast';
+import type { Snapshot } from '@/lib/types';
 
-const HEIGHT = 360;
-// Tokens (px values from index.css): s-4=16, s-8=32. Left gutter is sized
-// for compact-formatted EUR figures (e.g. "€1.2M") + tick padding.
-const MARGIN = { top: 32, right: 16, bottom: 32, left: 64 };
+// Left: y ticks. Right: direct labels at the end of the range.
+const MARGIN = { top: 12, right: 112, bottom: 24, left: 56 };
 
-export type ForecastScenario = 'conservative' | 'base' | 'optimistic';
-export type ForecastHorizon = '1' | '3' | '5';
-
-const SCENARIO_OPTIONS: { value: ForecastScenario; label: string }[] = [
-  { value: 'conservative', label: '5%'   },
-  { value: 'base',         label: '7.2%' },
-  { value: 'optimistic',   label: '10%'  },
-];
-
-const HORIZON_OPTIONS: { value: ForecastHorizon; label: string }[] = [
-  { value: '1', label: '1y' },
-  { value: '3', label: '3y' },
-  { value: '5', label: '5y' },
-];
-
-const SCENARIO_CAGR: Record<ForecastScenario, number> = {
-  conservative: 0.05,
-  base:         0.072,
-  optimistic:   0.10,
-};
-
-const FORECAST_MODEL_DESCRIPTION =
-  'Projects net worth at a chosen annualised CAGR (5% / 7.2% / 10%) starting from the latest ' +
-  'snapshot. The confidence cone widens with √t based on historical residual variance — ' +
-  'longer horizons are inherently less certain.';
-
-interface ForecastChartProps {
-  scenario?: ForecastScenario;
-  horizon?: ForecastHorizon;
-  onScenarioChange?: (s: ForecastScenario) => void;
-  onHorizonChange?: (h: ForecastHorizon) => void;
-}
-
-function fmtCompact(v: number, fmt: (n: number) => string): string {
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000) return fmt(Math.round(v / 100_000) * 100_000);
-  if (abs >= 1_000)     return fmt(Math.round(v / 1_000) * 1_000);
-  return fmt(v);
-}
-
-export function ForecastChart({
-  scenario: scenarioProp,
-  horizon: horizonProp,
-  onScenarioChange,
-  onHorizonChange,
-}: ForecastChartProps = {}) {
-  const { snapshots } = usePortfolio();
-  const { fmt } = useCurrencyFormatter();
+/**
+ * History as a solid line, the projection as a dashed one, and a shaded range
+ * that widens with time. The range's end is labelled directly instead of
+ * through a legend; "Today" is a plain rule.
+ */
+export function ForecastChart({ history, points }: { history: Snapshot[]; points: ForecastPoint[] }) {
+  const f = useFormat();
+  const isMobile = useIsMobile();
   const wrapRef = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(700);
-
-  // Allow controlled OR uncontrolled use.
-  const [scenarioState, setScenarioState] = useState<ForecastScenario>('base');
-  const [horizonState, setHorizonState] = useState<ForecastHorizon>('3');
-  const scenario = scenarioProp ?? scenarioState;
-  const horizon = horizonProp ?? horizonState;
-  const setScenario = (s: ForecastScenario) =>
-    onScenarioChange ? onScenarioChange(s) : setScenarioState(s);
-  const setHorizon = (h: ForecastHorizon) =>
-    onHorizonChange ? onHorizonChange(h) : setHorizonState(h);
+  const [w, setW] = useState(760);
 
   useEffect(() => {
     const el = wrapRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setW(el.offsetWidth));
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
     ro.observe(el);
-    setW(el.offsetWidth);
+    setW(el.clientWidth);
     return () => ro.disconnect();
   }, []);
 
-  const months = Number(horizon) * 12;
-  const forecastPoints = useMemo(
-    () => generateScenarioForecast(snapshots, months, SCENARIO_CAGR[scenario]),
-    [snapshots, months, scenario],
-  );
+  const height = isMobile ? 240 : 320;
+  const margin = isMobile ? { ...MARGIN, right: 96, left: 48 } : MARGIN;
+  const innerW = Math.max(120, w - margin.left - margin.right);
+  const innerH = height - margin.top - margin.bottom;
+  const t0 = history[0].date.getTime();
+  const t1 = points[points.length - 1].date.getTime();
+  const x = (d: Date) => margin.left + ((d.getTime() - t0) / Math.max(1, t1 - t0)) * innerW;
+  const all = [...history.map((s) => s.total), ...points.map((p) => p.upper), ...points.map((p) => p.lower)];
+  const { ticks, lo, hi } = niceTicks(Math.min(...all), Math.max(...all), isMobile ? 4 : 5);
+  const y = (v: number) => margin.top + innerH - ((v - lo) / Math.max(1, hi - lo)) * innerH;
 
-  if (!snapshots.length) {
-    return (
-      <div className="q-card q-card--p-lg">
-        <div className="q-section-head"><h2>Trajectory</h2></div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, border: '1px dashed var(--border-raw)', borderRadius: 'var(--r-3)' }}>
-          <p style={{ color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)' }}>No data yet, upload your portfolio to see forecasts.</p>
-        </div>
-      </div>
-    );
+  const lastHist = history[history.length - 1];
+  const todayX = x(lastHist.date);
+  const line = (pts: [number, number][]) => pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)} ${py.toFixed(1)}`).join('');
+  const histPath = line(history.map((s) => [x(s.date), y(s.total)]));
+  const projPath = line([[todayX, y(lastHist.total)], ...points.map((p) => [x(p.date), y(p.forecast)] as [number, number])]);
+  const band =
+    line([[todayX, y(lastHist.total)], ...points.map((p) => [x(p.date), y(p.upper)] as [number, number])]) +
+    points.slice().reverse().map((p) => `L${x(p.date).toFixed(1)} ${y(p.lower).toFixed(1)}`).join('') +
+    'Z';
+
+  const end = points[points.length - 1];
+  const endX = x(end.date);
+  // Direct labels, pushed at least 16px apart; a short leader joins each to its line.
+  const labels = [
+    { key: 'Upper', v: end.upper },
+    { key: 'Central', v: end.forecast },
+    { key: 'Lower', v: end.lower },
+  ].map((l) => ({ ...l, y: y(l.v), ly: y(l.v) }));
+  for (let i = 1; i < labels.length; i++) {
+    if (labels[i].ly - labels[i - 1].ly < 16) labels[i].ly = labels[i - 1].ly + 16;
   }
 
-  if (snapshots.length < 3) {
-    return (
-      <div className="q-card q-card--p-lg">
-        <div className="q-section-head">
-          <div>
-            <h2>Trajectory</h2>
-            <div className="q-section-sub">History (solid) and projection (dashed) with confidence bands</div>
-          </div>
-        </div>
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            Forecast requires at least 3 monthly snapshots. You currently have <strong>{snapshots.length}</strong>.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
+  const months = (end.date.getFullYear() - history[0].date.getFullYear()) * 12 + end.date.getMonth() - history[0].date.getMonth();
+  const step = [3, 6, 12, 24].find((s) => months / s <= (isMobile ? 3 : 6)) ?? 24;
+  const xTicks: Date[] = [];
+  for (let d = new Date(history[0].date.getFullYear(), history[0].date.getMonth() + 1, 1); d <= end.date; d.setMonth(d.getMonth() + 1)) {
+    const onStep = step <= 12 ? d.getMonth() % step === 0 : d.getMonth() === 0 && d.getFullYear() % 2 === 0;
+    if (onStep) xTicks.push(new Date(d));
   }
 
-  const history = snapshots;
-  const allDates = [...history.map(s => s.date.getTime()), ...forecastPoints.map(f => f.date.getTime())];
-  const minDate = Math.min(...allDates);
-  const maxDate = Math.max(...allDates);
-  const innerW = Math.max(100, w - MARGIN.left - MARGIN.right);
-  const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
-  const dateScale = (d: Date) => MARGIN.left + ((d.getTime() - minDate) / (maxDate - minDate)) * innerW;
-
-  const allValues = [
-    ...history.map(s => s.total),
-    ...forecastPoints.map(f => f.upper),
-    ...forecastPoints.map(f => f.lower),
-  ];
-  const minV = Math.min(...allValues) * 0.95;
-  const maxV = Math.max(...allValues) * 1.05;
-  const yScale = (v: number) => MARGIN.top + innerH - ((v - minV) / (maxV - minV)) * innerH;
-
-  const histPath = history.map((s, i) =>
-    `${i === 0 ? 'M' : 'L'} ${dateScale(s.date).toFixed(1)} ${yScale(s.total).toFixed(1)}`,
-  ).join(' ');
-
-  const joinX = dateScale(history[history.length - 1].date);
-  const joinY = yScale(history[history.length - 1].total);
-
-  const medianPath = forecastPoints.length
-    ? `M ${joinX.toFixed(1)} ${joinY.toFixed(1)} ` +
-      forecastPoints.map(f => `L ${dateScale(f.date).toFixed(1)} ${yScale(f.forecast).toFixed(1)}`).join(' ')
-    : '';
-
-  const coneOuterPath = forecastPoints.length
-    ? `M ${joinX.toFixed(1)} ${joinY.toFixed(1)} ` +
-      forecastPoints.map(f => `L ${dateScale(f.date).toFixed(1)} ${yScale(f.upper).toFixed(1)}`).join(' ') +
-      ` L ${dateScale(forecastPoints[forecastPoints.length - 1].date)} ${yScale(forecastPoints[forecastPoints.length - 1].lower)}` +
-      forecastPoints.slice().reverse().map(f => ` L ${dateScale(f.date).toFixed(1)} ${yScale(f.lower).toFixed(1)}`).join('') +
-      ' Z'
-    : '';
-
-  const yTicks = Array.from({ length: 5 }, (_, i) => {
-    const v = minV + (maxV - minV) * (i / 4);
-    return { v, y: yScale(v) };
-  });
-
-  const allPoints = [...history, ...forecastPoints.map(f => ({ date: f.date, total: f.forecast }))];
-  const xStep = Math.max(1, Math.floor(allPoints.length / 6));
-  const xTicks = allPoints.filter((_, i) => i % xStep === 0 || i === allPoints.length - 1);
+  const summary = `Net worth from ${formatDate(history[0].date)} with a projection to ${formatDate(end.date)}: central ${f.money(roundSig3(end.forecast))}, range ${f.money(roundSig3(end.lower))} to ${f.money(roundSig3(end.upper))}.`;
 
   return (
-    <div className="q-card q-card--p-lg">
-      <div className="q-section-head">
-        <div>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-            Trajectory
-            <HelpHint side="right" maxWidthClass="max-w-[300px]" content={FORECAST_MODEL_DESCRIPTION}>
-              <button type="button" aria-label="About this forecast model" className="q-icon-btn" style={{ width: 20, height: 20 }}>
-                <Info size={12} />
-              </button>
-            </HelpHint>
-          </h2>
-          <div className="q-section-sub">History (solid) and projection (dashed) with confidence bands</div>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
-          <QTabs<ForecastScenario>
-            value={scenario}
-            onChange={setScenario}
-            options={SCENARIO_OPTIONS}
-            size="sm"
-            ariaLabel="Scenario CAGR"
-          />
-          <QTabs<ForecastHorizon>
-            value={horizon}
-            onChange={setHorizon}
-            options={HORIZON_OPTIONS}
-            size="sm"
-            ariaLabel="Forecast horizon"
-          />
-        </div>
-      </div>
-
-      <div ref={wrapRef} className="q-chart-wrap" role="img" aria-label="Net worth forecast chart showing projected trajectory with confidence bands">
-        <svg width={w} height={HEIGHT} style={{ display: 'block', overflow: 'visible' }}>
-          <defs>
-            <linearGradient id="fc-hist-area" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%"   stopColor="var(--accent-raw)" stopOpacity="0.18" />
-              <stop offset="100%" stopColor="var(--accent-raw)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-
-          {yTicks.map((t, i) => (
-            <g key={i}>
-              <line x1={MARGIN.left} x2={MARGIN.left + innerW} y1={t.y} y2={t.y}
-                stroke="var(--border-soft-raw)" strokeDasharray="2 4" strokeWidth="1" />
-              <text className="num" x={MARGIN.left - 10} y={t.y + 3} textAnchor="end" fill="var(--fg-subtle)" fontSize="10"
-                style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono)' }}>
-                {fmtCompact(t.v, fmt)}
-              </text>
-            </g>
-          ))}
-
-          {xTicks.map((pt, i) => (
-            <text key={i} x={dateScale(pt.date)} y={HEIGHT - 8}
-              textAnchor="middle" fill="var(--fg-subtle)" fontSize="10">
-              {format(pt.date, 'MMM yy')}
+    <div ref={wrapRef} className="q-chart-plot">
+      <svg width={w} height={height} role="img" aria-label={summary}>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={margin.left} x2={margin.left + innerW} y1={y(t)} y2={y(t)} stroke="var(--border-soft-raw)" strokeWidth={1} />
+            <text className="num" x={margin.left - 8} y={y(t) + 4} textAnchor="end" fill="var(--fg-subtle)" fontSize={11} style={{ fontFamily: 'var(--font-mono)' }}>
+              {f.money(t, { compact: true })}
             </text>
-          ))}
-
-          {/* Today divider */}
-          <line x1={joinX} x2={joinX} y1={MARGIN.top} y2={MARGIN.top + innerH}
-            stroke="var(--border-strong-raw)" strokeDasharray="3 3" strokeWidth="1" />
-          <rect x={joinX - 26} y={MARGIN.top - 18} width={52} height={16} rx={3}
-            fill="var(--surface)" stroke="var(--border-raw)" />
-          <text x={joinX} y={MARGIN.top - 7} textAnchor="middle"
-            fill="var(--fg-subtle)" fontSize="10" letterSpacing="0.04em">TODAY</text>
-
-          {coneOuterPath && <path d={coneOuterPath} fill="var(--accent-soft-raw)" opacity="0.5" />}
-
-          <path
-            d={`${histPath} L ${joinX} ${MARGIN.top + innerH} L ${MARGIN.left} ${MARGIN.top + innerH} Z`}
-            fill="url(#fc-hist-area)"
-          />
-          <path d={histPath} fill="none" stroke="var(--accent-raw)"
-            strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-
-          {medianPath && (
-            <path d={medianPath} fill="none" stroke="var(--accent-raw)"
-              strokeWidth="1.5" strokeDasharray="3 3" strokeLinecap="round" />
-          )}
-        </svg>
-      </div>
+          </g>
+        ))}
+        {xTicks.map((d, i) => (
+          <text key={d.getTime()} x={x(d)} y={height - 6} textAnchor="middle" fill="var(--fg-subtle)" fontSize={11}>
+            {axisMonth(d, d.getMonth() === 0 || i === 0)}
+          </text>
+        ))}
+        <path d={band} fill="var(--accent-raw)" fillOpacity={0.1} />
+        <line x1={todayX} x2={todayX} y1={margin.top} y2={margin.top + innerH} stroke="var(--border-strong-raw)" strokeWidth={1} />
+        <text x={todayX + 6} y={margin.top + 10} fill="var(--fg-subtle)" fontSize={11}>Today</text>
+        <path d={histPath} fill="none" stroke="var(--accent-raw)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <path d={projPath} fill="none" stroke="var(--accent-raw)" strokeWidth={1.5} strokeDasharray="4 4" strokeLinecap="round" />
+        <circle cx={todayX} cy={y(lastHist.total)} r={4.5} fill="var(--accent-raw)" stroke="var(--bg)" strokeWidth={3} />
+        {labels.map((l) => (
+          <g key={l.key}>
+            <line x1={endX + 2} x2={endX + 10} y1={l.y} y2={l.ly} stroke="var(--border-strong-raw)" strokeWidth={1} />
+            <text x={endX + 14} y={l.ly + 4} fontSize={11} fill="var(--fg-muted)">
+              {l.key} <tspan className="num" fill="var(--fg)" style={{ fontFamily: 'var(--font-mono)' }}>{f.money(l.v, { compact: true })}</tspan>
+            </text>
+          </g>
+        ))}
+      </svg>
     </div>
   );
 }

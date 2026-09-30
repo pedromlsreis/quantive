@@ -42,8 +42,11 @@
   },
   "size-limit": [
     {
-      "name": "Main bundle (brotli)",
-      "path": "dist/assets/index-*.js",
+      "name": "Eager JS: main bundle + vendor chunk (brotli, loaded on every route)",
+      "path": [
+        "dist/assets/index-*.js",
+        "dist/assets/vendor-*.js"
+      ],
       "limit": "265 KB"
     },
     {
@@ -70,6 +73,16 @@
       "name": "Legal markdown chunk (brotli, lazy-loaded)",
       "path": "dist/assets/MarkdownLegal-*.js",
       "limit": "90 KB"
+    },
+    {
+      "name": "Main CSS (brotli)",
+      "path": "dist/assets/index-*.css",
+      "limit": "62 KB"
+    },
+    {
+      "name": "Recharts chunk (brotli, lazy-loaded by Performance)",
+      "path": "dist/assets/recharts-*.js",
+      "limit": "92 KB"
     },
     {
       "name": "Lazy CSS chunks, i.e. public pages (brotli)",
@@ -122,7 +135,6 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
     "exceljs": "^4.4.0",
-    "framer-motion": "^12.38.0",
     "input-otp": "^1.4.2",
     "libsodium-wrappers-sumo": "^0.8.4",
     "lucide-react": "^0.462.0",

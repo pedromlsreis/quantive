@@ -41,7 +41,7 @@ const SPREADSHEET_ROWS: Array<{ habit: string; answer: string; pro?: boolean }> 
   },
   {
     habit: 'One tab per year, held together by formulas.',
-    answer: 'Your measurements on one timeline, with the change month by month.',
+    answer: 'Your entries on one timeline, with the change month by month.',
   },
   {
     habit: 'A pie chart you rebuild every quarter.',
@@ -49,7 +49,7 @@ const SPREADSHEET_ROWS: Array<{ habit: string; answer: string; pro?: boolean }> 
   },
   {
     habit: 'A growth rate you guessed once.',
-    answer: 'A projection with a confidence band fitted to your own history.',
+    answer: 'A projection with a range drawn from your own history.',
     pro: true,
   },
   {
@@ -69,7 +69,7 @@ const STEPS = [
     desc: 'Import your spreadsheet or type balances in. Your history comes with it, and the dashboard needs no configuring.',
   },
   {
-    title: 'Add a measurement each month',
+    title: 'Add an entry each month',
     desc: 'Type in your latest balances. Net worth, allocation and the forecast update when you save.',
   },
 ];
@@ -139,7 +139,7 @@ export default function LandingPage() {
           <h2 className="pub-h2" id="lp-feat-h2">The spreadsheet jobs Quantive takes over</h2>
           <p className="pub-lede">
             Record each account, asset and liability once. Quantive rolls them into one net worth across sources and
-            currencies, and the charts update as you add measurements.
+            currencies, and the charts update as you add entries.
           </p>
         </div>
 
@@ -342,7 +342,7 @@ export default function LandingPage() {
       {/* ───── CLOSING CTA ───── */}
       <section className="lp-close pub-wrap" aria-labelledby="lp-close-h2">
         <div className="lp-close-main">
-          <h2 className="pub-cover lp-close-h2" id="lp-close-h2">Start with one measurement</h2>
+          <h2 className="pub-cover lp-close-h2" id="lp-close-h2">Start with one entry</h2>
           <div className="lp-actions">
             <Link
               to="/dashboard"

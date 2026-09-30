@@ -3,7 +3,8 @@ import { loadDemo } from './helpers/loadDemo';
 import { seedClean } from './helpers/seedClean';
 
 // /forecast is gated behind the `forecasting` entitlement. Pro users see the
-// scenario/horizon controls and three stat cards; Free users see the upsell.
+// growth-rate/horizon controls, the chart and its central/range summary; Free
+// users see the Pro gate.
 //
 // The test plan override (`quantive-test-plan`) is read on first render by
 // useEntitlements — it MUST land via addInitScript before navigation. seedClean
@@ -35,12 +36,13 @@ test.describe('Forecast page — Pro', () => {
     await expect(page.locator('svg').first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test('renders three forecast stat cards (median, 90th, 10th)', async ({ page }) => {
-    // Eyebrow text identifies each card; the cards only appear when there's
-    // enough data — demo seeds plenty, but allow generous timeout.
-    await expect(page.getByText(/Median in/i)).toBeVisible({ timeout: 12_000 });
-    await expect(page.getByText(/90th percentile/i)).toBeVisible();
-    await expect(page.getByText(/10th percentile/i)).toBeVisible();
+  test('summarises the projection as a central value and a range', async ({ page }) => {
+    // The band is ±1.96σ of past deviation, not percentiles: the page names
+    // it central / range. Demo seeds enough history for "Your pace".
+    await expect(page.getByText(/central/i).first()).toBeVisible({ timeout: 12_000 });
+    await expect(page.getByText(/range/i).first()).toBeVisible();
+    await expect(page.getByRole('tablist', { name: /growth rate/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /your pace/i })).toHaveAttribute('aria-selected', 'true');
   });
 
   test('does not show the upsell card', async ({ page }) => {
@@ -58,9 +60,8 @@ test.describe('Forecast page — Free', () => {
     await expect(page.getByRole('link', { name: /upgrade to pro/i }).first()).toBeVisible({ timeout: 10_000 });
   });
 
-  test('does NOT render the forecast stat cards', async ({ page }) => {
-    // The gate replaces the whole ForecastContent with an UpsellCard.
-    await expect(page.getByText(/Median in/i)).toHaveCount(0);
-    await expect(page.getByText(/90th percentile/i)).toHaveCount(0);
+  test('does NOT render the projection controls', async ({ page }) => {
+    // The gate replaces the chart and its controls.
+    await expect(page.getByRole('tablist', { name: /growth rate/i })).toHaveCount(0);
   });
 });

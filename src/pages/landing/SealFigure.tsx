@@ -134,7 +134,7 @@ export function SealFigure({ currency, month, motion }: { currency: DisplayCurre
           <RollingFigure value={money(total, currency)} className="pub-fig" group={currency} />
         </p>
         <div className="pub-double-rule" aria-hidden="true" />
-        <p className="lp-seal-note">One of the measurements behind that number, as the app stores it:</p>
+        <p className="lp-seal-note">One of the entries behind that number, as the app stores it:</p>
         <Payload />
       </div>
 

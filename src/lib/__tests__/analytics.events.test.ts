@@ -121,14 +121,11 @@ describe('analytics event capture', () => {
     expect(Object.keys(call?.[1] ?? {})).toEqual(['count']);
   });
 
-  it('captures onboarding checklist funnel events with anonymous payloads', async () => {
+  it('captures the onboarding follow-up click with only the step', async () => {
     const analytics = await loadAnalytics();
-    analytics.onboardingChecklistShown({ completed: 1 });
     analytics.onboardingCtaClicked({ step: 'recovery' });
-    analytics.onboardingChecklistDismissed({ completed: 2 });
-    const byName = new Map(captureSpy.mock.calls.map((c) => [c[0], c[1]]));
-    expect(byName.get('onboarding_checklist_shown')).toMatchObject({ completed: 1 });
-    expect(byName.get('onboarding_cta_clicked')).toMatchObject({ step: 'recovery' });
-    expect(byName.get('onboarding_checklist_dismissed')).toMatchObject({ completed: 2 });
+    const call = captureSpy.mock.calls.find((c) => c[0] === 'onboarding_cta_clicked');
+    expect(call?.[1]).toMatchObject({ step: 'recovery' });
+    expect(Object.keys(call?.[1] ?? {})).toEqual(['step']);
   });
 });

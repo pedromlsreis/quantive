@@ -121,14 +121,14 @@ describe('isStale', () => {
     expect(isStale(sp500Stale, NOW)).toBe(true);
   });
 
-  it('flags inflation_eu stale at > 45 days behind', () => {
+  it('flags inflation_eu stale only past its normal publication lag (> 80 days)', () => {
     const hicpFresh: BenchmarkSeries = {
       id: 'inflation_eu',
-      points: [{ date: '2025-04-15', value: 120 }],  // ~34 days old
+      points: [{ date: '2025-03-15', value: 120 }],  // ~65 days old: still current
     };
     const hicpStale: BenchmarkSeries = {
       id: 'inflation_eu',
-      points: [{ date: '2025-03-15', value: 120 }],  // ~65 days old
+      points: [{ date: '2025-02-15', value: 120 }],  // ~93 days old
     };
     expect(isStale(hicpFresh, NOW)).toBe(false);
     expect(isStale(hicpStale, NOW)).toBe(true);

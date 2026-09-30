@@ -165,7 +165,7 @@ export type RecoverySetupSource = 'offer_modal' | 'settings';
 export type AuthOpenMode = 'signin' | 'signup';
 export type WebVitalName = 'LCP' | 'INP' | 'CLS' | 'FCP' | 'TTFB';
 export type WebVitalRating = 'good' | 'needs-improvement' | 'poor';
-export type OnboardingStep = 'accounts' | 'recovery' | 'goal';
+export type OnboardingStep = 'accounts' | 'recovery';
 
 export const analytics = {
   pageViewed(path: string): void {
@@ -185,20 +185,11 @@ export const analytics = {
     capture('onboarding_empty_state_viewed');
   },
   /**
-   * Fired once per session when the dashboard getting-started checklist first
-   * shows. `completed` is how many steps are already done at that point — the
-   * funnel's entry state. No portfolio data.
+   * Fired from the overview's follow-up lines for a new account: "Add your
+   * other accounts" (`accounts`) and "Save your recovery code" (`recovery`).
    */
-  onboardingChecklistShown(props: { completed: number }): void {
-    capture('onboarding_checklist_shown', { completed: props.completed });
-  },
-  /** Fired when a user clicks a checklist step's action button. */
   onboardingCtaClicked(props: { step: OnboardingStep }): void {
     capture('onboarding_cta_clicked', { step: props.step });
-  },
-  /** Fired when a user dismisses the checklist; `completed` is how far they got. */
-  onboardingChecklistDismissed(props: { completed: number }): void {
-    capture('onboarding_checklist_dismissed', { completed: props.completed });
   },
   signedIn(): void {
     capture('signed_in');

@@ -13,7 +13,7 @@ export const SEAL_NONCE_HEX = 'fda4b8b72870e21c1ebae4a0f26354ff45fd846168a2caa1'
 export const SEAL_USER_ID = '0d3e0d3e-0000-4000-8000-000000000001';
 
 /**
- * One measurement, serialised the way cloudSync serialises portfolio facts.
+ * One entry, serialised the way cloudSync serialises portfolio facts.
  * The hero shows the pension as held in GBP, so it is stored in GBP: facts
  * keep their native currency and are converted only for display.
  */

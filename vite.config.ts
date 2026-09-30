@@ -46,12 +46,16 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         output: {
-          manualChunks: {
-            // Heavy deps split into their own chunks so they cache independently
-            // from app code (a normal app-only update doesn't invalidate them)
-            // and so the main bundle stays small.
-            libsodium: ["libsodium-wrappers-sumo"],
-            recharts: ["recharts"],
+          // Heavy deps get their own chunks so they cache independently from
+          // app code and stay out of the main bundle. A manual chunk also
+          // absorbs every dependency no other chunk claims: left alone, React,
+          // clsx and the Babel helpers landed in the recharts chunk and made
+          // every route preload it. They share one small vendor chunk instead.
+          manualChunks(id) {
+            if (id.includes("/node_modules/libsodium")) return "libsodium";
+            if (/\/node_modules\/(react|react-dom|scheduler|react-is|use-sync-external-store|clsx|@babel\/runtime)\//.test(id)) return "vendor";
+            if (id.includes("/node_modules/recharts/")) return "recharts";
+            return undefined;
           },
         },
       },

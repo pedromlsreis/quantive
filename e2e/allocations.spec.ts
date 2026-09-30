@@ -19,7 +19,8 @@ test.describe('Allocations page', () => {
     await expect(tabs).toBeVisible({ timeout: 8000 });
     await expect(tabs.getByRole('tab', { name: /treemap/i })).toBeVisible();
     await expect(tabs.getByRole('tab', { name: /bars/i })).toBeVisible();
-    await expect(tabs.getByRole('tab', { name: /donut/i })).toBeVisible();
+    // Donut was cut: a third view of the same data, poor for close values.
+    await expect(tabs.getByRole('tab', { name: /donut/i })).toHaveCount(0);
   });
 
   test('switching view mode swaps the rendered chart container', async ({ page }) => {
@@ -28,13 +29,11 @@ test.describe('Allocations page', () => {
     const initiallySelected = tabs.getByRole('tab', { selected: true });
     await expect(initiallySelected).toBeVisible({ timeout: 8000 });
 
-    // Click Donut and expect the donut tab to become selected.
-    await tabs.getByRole('tab', { name: /donut/i }).click();
-    await expect(tabs.getByRole('tab', { name: /donut/i })).toHaveAttribute('aria-selected', 'true', { timeout: 4000 });
-
-    // Click Bars and confirm.
+    // Click Bars, then back to Treemap, and confirm each selection.
     await tabs.getByRole('tab', { name: /bars/i }).click();
     await expect(tabs.getByRole('tab', { name: /bars/i })).toHaveAttribute('aria-selected', 'true', { timeout: 4000 });
+    await tabs.getByRole('tab', { name: /treemap/i }).click();
+    await expect(tabs.getByRole('tab', { name: /treemap/i })).toHaveAttribute('aria-selected', 'true', { timeout: 4000 });
   });
 
   test('renders the "By volatility" and "By liquidity" cards', async ({ page }) => {

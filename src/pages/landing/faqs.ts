@@ -15,7 +15,7 @@ export const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Is Quantive free to use?",
-    a: "Yes. Core features, including CSV export of all your data, are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF wealth report, and Excel export.",
+    a: "Yes. Core features, including CSV export of all your data, are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF report, and Excel export.",
   },
   {
     q: "How is Quantive different from a budgeting app?",
@@ -47,7 +47,7 @@ export const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "What's included in Quantive Pro?",
-    a: "Pro adds full history across all snapshots, CAGR forecasting with 95% confidence bands, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation; MSCI World is on the roadmap), a month-by-month summary table, a PDF wealth report, and Excel export. Priority support is included.",
+    a: "Pro adds your full history, forecasts at your own growth rate with a range drawn from how your history has varied, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation; MSCI World is on the roadmap), a month-by-month summary table, a PDF report, and Excel export. Priority support is included.",
   },
   {
     q: "What if I lose access to my account?",

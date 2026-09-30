@@ -114,7 +114,8 @@ test.describe('Goals — staged free-tier gate', () => {
     // Live progress bar present.
     await expect(page.getByRole('progressbar', { name: /First milestone/i })).toBeVisible();
     // Free-trial badge present.
-    await expect(page.getByText(/Free preview · \d+ days? left/i)).toBeVisible();
+    // The trial is stated as an end date, not a countdown badge.
+    await expect(page.getByText(/your first goal shows progress until \d{1,2} \w{3} \d{4}/i)).toBeVisible();
   });
 
   test('Free user with a second goal sees the upsell on it', async ({ page }) => {

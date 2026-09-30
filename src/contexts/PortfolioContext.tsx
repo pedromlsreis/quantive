@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useMemo, useCallback, useEf
 import { PortfolioData, EnrichedFact, FilterState, Snapshot, KPIData, FactRow, RefSource, Goal } from '@/lib/types';
 import { generateMockData } from '@/lib/mockData';
 import { toast } from 'sonner';
+import { formatDate } from '@/lib/formatters';
 import { analytics } from '@/lib/analytics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -219,6 +220,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [isCloudLoading, setIsCloudLoading] = useState<boolean>(() => !!user || authLoading);
   const [isMockData, setIsMockData] = useState(false);
 
+  // The retired milestones panel stored user-set thresholds in plaintext for
+  // signed-in users and nothing wiped them on tab close. Drop any leftover.
+  useEffect(() => {
+    try { localStorage.removeItem(CUSTOM_MILESTONES_KEY); } catch { /* storage unavailable */ }
+  }, []);
+
   // Render-time identity guard. The useEffect-based watcher below cleans up
   // localStorage + analytics on sign-out / account-switch, but effects run
   // *after* the render commits — leaving a one-frame window where consumers
@@ -402,7 +409,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     // not in memory) cannot save remotely until they re-unlock; the global
     // RequireUnlock modal prompts them.
     if (keySession.status === 'locked') {
-      toast.info('Unlock your encrypted data to enable cloud sync.', {
+      toast.info('Unlock your data to sync this change.', {
         id: 'sync-locked',
       });
       return;
@@ -412,7 +419,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (!dk) {
       // Defensive: status said unlocked-encrypted but DK is gone. Surface
       // and bail — the user will be re-prompted on next save attempt.
-      toast.error('Encrypted session is missing its data key. Please re-unlock.');
+      toast.error("Couldn't sync this change. Unlock your data again to retry.");
       return;
     }
 
@@ -431,7 +438,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev));
       }, 2000);
     } else if (outcome === 'error') {
-      toast.error('Cloud sync failed. Your data is saved locally — click Retry in the header.', {
+      toast.error("Couldn't sync. Your changes stay in this tab; use Retry at the top of the page.", {
         id: 'cloud-sync-error',
       });
     }
@@ -448,7 +455,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (user?.email_confirmed_at && pendingCloudSaveRef.current) {
       saveToCloud(pendingCloudSaveRef.current);
       pendingCloudSaveRef.current = null;
-      toast.success('Email confirmed — data synced to cloud!', { id: 'email-synced' });
+      toast.success('Email confirmed. Your data is synced.', { id: 'email-synced' });
     }
   }, [user?.email_confirmed_at, saveToCloud]);
 
@@ -487,7 +494,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             cloudData = decoded.data as RawCloudPortfolio;
           } catch (e) {
             console.error('[cloud-load] failed to decode snapshot:', e);
-            toast.error('Could not decrypt your saved data. Try signing out and back in.');
+            toast.error("Couldn't decrypt your saved data. Sign out and back in to retry.");
             return;
           }
 
@@ -508,7 +515,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           const skipped = cloudData.facts.length - parsedFacts.length;
           if (skipped > 0) {
             console.debug(`[cloud-load] Skipped ${skipped}/${cloudData.facts.length} facts with invalid dates`);
-            toast.warning(`${skipped} record${skipped > 1 ? 's' : ''} had invalid dates and were skipped.`, {
+            toast.warning(`${skipped} ${skipped > 1 ? 'rows' : 'row'} had an invalid date and ${skipped > 1 ? 'were' : 'was'} skipped.`, {
               id: 'cloud-date-warning',
             });
           }
@@ -625,7 +632,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       setDefaultDateRange(parsed);
       saveToCloud(parsed);
       analytics.fileUploaded({ rowCount: parsed.facts.length, sourceCount: parsed.refSources.length });
-      toast.success(`Loaded ${parsed.facts.length} records from ${file.name}`);
+      toast.success(`Imported ${parsed.facts.length} values from ${file.name}`);
     } catch (e: unknown) {
       console.error('Failed to parse file:', e);
       const msg = e instanceof Error ? e.message : 'Failed to parse spreadsheet. Check the format and try again.';
@@ -719,7 +726,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         }
         setDefaultDateRange(newData);
         saveToCloud(newData);
-        toast.success(`Added measurement with ${entries.length} source${entries.length > 1 ? 's' : ''}`);
         return newData;
       }
 
@@ -748,7 +754,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         setDefaultDateRange(newData);
         saveToCloud(newData);
         setIsMockData(false); // Clear the mock flag
-        toast.success(`Added first real measurement — replaced demo data`);
         return newData;
       }
 
@@ -790,7 +795,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
         setDefaultDateRange(updatedData);
         saveToCloud(updatedData);
-        toast.success(`Updated measurement for ${format(now, 'dd MMM yyyy')}`);
         return updatedData;
       }
 
@@ -826,7 +830,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
       setDefaultDateRange(updatedData);
       saveToCloud(updatedData);
-      toast.success(`Added measurement with ${entries.length} source${entries.length > 1 ? 's' : ''}`);
       return updatedData;
     });
     analytics.measurementAdded({ count: entries.length });
@@ -883,7 +886,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         return id !== oldTrimmed && id.toLowerCase() === next.toLowerCase();
       });
       if (conflict) {
-        toast.error(`A source named “${next}” already exists`);
+        toast.error(`A source called "${next}" already exists. Pick another name.`);
         return prev;
       }
       let touched = false;
@@ -994,7 +997,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         setDefaultDateRange(updated);
         saveToCloud(updated);
         analytics.measurementDeleted();
-        toast.success(`Deleted measurement from ${format(date, 'dd MMM yyyy')}`, {
+        toast.success(`Entry from ${formatDate(date)} deleted`, {
           action: { label: 'Undo', onClick: () => restoreFacts(removed) },
           duration: 6000,
         });

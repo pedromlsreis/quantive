@@ -12,7 +12,6 @@
  */
 
 import { useState } from 'react';
-import { Copy, Download } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -26,24 +25,25 @@ interface Props {
 export function RecoveryCodeDisplay({ code, onConfirmed, onSkipConfirm }: Props) {
   const [confirmInput, setConfirmInput] = useState('');
   const [confirmIndex] = useState(() => Math.floor(Math.random() * 24));
+  const [mismatch, setMismatch] = useState(false);
+  const words = code.split(' ');
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(code);
-      toast.success('Recovery code copied to clipboard.');
+      toast.success('Recovery code copied');
     } catch {
-      toast.error('Could not access clipboard. Please write the words down.');
+      toast.error("Couldn't copy. Write the words down instead.");
     }
   };
 
   const handleDownload = () => {
     const blob = new Blob(
       [
-        'Quantive - recovery code\n',
-        '------------------------------------\n\n',
+        'Quantive recovery code\n\n',
         code + '\n\n',
-        'Treat this like a password. Anyone with this code can unlock your encrypted data.\n',
-        'Store it offline (printed or in a password manager). We CANNOT recover it for you.\n',
+        'Treat this like a password: anyone with these words can decrypt your data.\n',
+        "Keep it offline or in a password manager. We can't recover it for you.\n",
       ],
       { type: 'text/plain' },
     );
@@ -55,107 +55,66 @@ export function RecoveryCodeDisplay({ code, onConfirmed, onSkipConfirm }: Props)
     URL.revokeObjectURL(url);
   };
 
-  const handleConfirm = () => {
-    const expected = code.split(' ')[confirmIndex];
-    if (confirmInput.trim().toLowerCase() !== expected) {
-      toast.error(`That's not word #${confirmIndex + 1}. Check your saved copy.`);
+  const handleConfirm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (confirmInput.trim().toLowerCase() !== words[confirmIndex]) {
+      setMismatch(true);
       return;
     }
-    toast.success('Recovery code saved. Keep it somewhere safe.');
+    toast.success('Recovery code confirmed');
     onConfirmed();
   };
 
   return (
-    <>
-      <div
-        className="grid grid-cols-3 sm:grid-cols-4"
-        style={{
-          gap: 'var(--s-2)',
-          borderRadius: 'var(--r-2)',
-          border: '1px solid var(--border-raw)',
-          background: 'color-mix(in oklch, var(--fg) 5%, transparent)',
-          padding: 'var(--s-3)',
-          marginBottom: 'var(--s-3)',
-        }}
-      >
-        {code.split(' ').map((word, i) => (
-          <div
-            key={i}
-            style={{
-              display: 'flex', alignItems: 'baseline', gap: 6,
-              borderRadius: 'var(--r-1)',
-              background: 'var(--surface)',
-              padding: '4px 8px',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 'var(--text-xs)',
-              color: 'var(--fg)',
-            }}
-          >
-            <span style={{ color: 'var(--fg-faint)' }}>{i + 1}</span>
-            <span>{word}</span>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+      <ol className="q-recovery-words">
+        {words.map((word, i) => (
+          <li key={i}><span aria-hidden="true">{i + 1}</span>{word}</li>
         ))}
-      </div>
+      </ol>
 
-      <div style={{ display: 'flex', gap: 'var(--s-2)', marginBottom: 'var(--s-5)' }}>
-        <button
-          onClick={handleCopy}
-          className="q-btn q-btn--secondary q-btn--sm"
-          style={{ flex: 1 }}
-        >
-          <Copy className="h-3.5 w-3.5" />
+      <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
+        <button type="button" onClick={handleCopy} className="q-btn q-btn--secondary q-btn--md" style={{ flex: 1 }}>
           Copy
         </button>
-        <button
-          onClick={handleDownload}
-          className="q-btn q-btn--secondary q-btn--sm"
-          style={{ flex: 1 }}
-        >
-          <Download className="h-3.5 w-3.5" />
+        <button type="button" onClick={handleDownload} className="q-btn q-btn--secondary q-btn--md" style={{ flex: 1 }}>
           Download .txt
         </button>
       </div>
 
-      <div style={{ marginBottom: 'var(--s-3)' }}>
-        <label
-          htmlFor="recovery-confirm-word"
-          style={{ display: 'block', fontSize: 'var(--text-xs)', fontWeight: 500, color: 'var(--fg)', marginBottom: 6 }}
-        >
-          Confirm: type word #{confirmIndex + 1}
-        </label>
-        <label className="q-input">
-          <input
-            id="recovery-confirm-word"
-            type="text"
-            value={confirmInput}
-            onChange={(e) => setConfirmInput(e.target.value)}
-            placeholder={`word ${confirmIndex + 1}`}
-            style={{ fontFamily: 'var(--font-mono)' }}
-            autoComplete="off"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-          />
-        </label>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
-        <button
-          onClick={handleConfirm}
-          disabled={!confirmInput.trim()}
-          className="q-btn q-btn--primary q-btn--md"
-          style={{ width: '100%', opacity: !confirmInput.trim() ? 0.5 : 1 }}
-        >
+      <form onSubmit={handleConfirm} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+        <div className="q-field">
+          <label className="q-field-label" htmlFor="recovery-confirm-word">
+            To check you have them, type word {confirmIndex + 1}
+          </label>
+          <span className="q-input">
+            <input
+              id="recovery-confirm-word"
+              type="text"
+              value={confirmInput}
+              onChange={(e) => { setConfirmInput(e.target.value); setMismatch(false); }}
+              style={{ fontFamily: 'var(--font-mono)' }}
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              aria-invalid={mismatch || undefined}
+              aria-describedby={mismatch ? 'recovery-confirm-error' : undefined}
+            />
+          </span>
+          {mismatch && (
+            <span className="q-field-error" id="recovery-confirm-error" role="alert">
+              {`That isn't word ${confirmIndex + 1}. Check your copy.`}
+            </span>
+          )}
+        </div>
+        <button type="submit" disabled={!confirmInput.trim()} className="q-btn q-btn--primary q-btn--lg" style={{ width: '100%' }}>
           Confirm
         </button>
-        <button
-          onClick={onSkipConfirm}
-          className="q-btn q-btn--ghost q-btn--sm"
-          style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}
-        >
-          I'll save it later, close anyway
+        <button type="button" onClick={onSkipConfirm} className="q-btn q-btn--ghost q-btn--lg" style={{ width: '100%' }}>
+          Close without checking
         </button>
-      </div>
-    </>
+      </form>
+    </div>
   );
 }

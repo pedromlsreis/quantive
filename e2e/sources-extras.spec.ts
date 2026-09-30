@@ -64,8 +64,9 @@ test.describe('Sources page — search, edit, liquidity', () => {
     const input = page.getByRole('textbox', { name: new RegExp(`Volatility for ${sourceName}`, 'i') });
     await expect(input).toBeVisible({ timeout: 4000 });
     await input.fill('Volatile');
-    // Commit by blur (per onBlur handler in SourcesPage).
-    await page.locator('body').click();
+    // Commit by blur. Click the heading: the viewport centre (a bare body
+    // click) can land on the cell being edited.
+    await page.getByRole('heading', { level: 1, name: 'Sources' }).click();
 
     // After commit the badge reflects the new volatility.
     const row = page.locator('tr').filter({ hasText: sourceName }).first();
@@ -83,7 +84,7 @@ test.describe('Sources page — search, edit, liquidity', () => {
     const sourceName = actionsLabel.replace(/^Actions for /i, '').trim();
 
     await firstActions.click();
-    await page.getByRole('menuitem', { name: /stop measurements/i }).click();
+    await page.getByRole('menuitem', { name: /stop tracking/i }).click();
 
     // Now the toggle appears, on by default, and the row is hidden from the table.
     await expect(toggle).toBeVisible({ timeout: 4000 });

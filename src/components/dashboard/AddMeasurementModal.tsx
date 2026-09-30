@@ -1,21 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
+import { useLocation } from 'react-router-dom';
+import { format } from 'date-fns';
+import { toast } from 'sonner';
+import { X, Plus, ChevronDown, Info } from 'lucide-react';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useModalLayer } from '@/hooks/useModalLayer';
+import { useFormat } from '@/hooks/useFormat';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
-import { X, Plus, ChevronDown, RefreshCw, AlertCircle } from 'lucide-react';
-import { format } from 'date-fns';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { Notice } from '@/components/ui/Notice';
 import { HelpHint } from '@/components/ui/help-hint';
+import { Delta } from '@/components/dashboard/Delta';
 import { sanitizeSourceName, parseLocalizedNumber, toEditable } from '@/lib/utils';
 import { analytics } from '@/lib/analytics';
-import { formatCurrency, formatFullCurrency } from '@/lib/formatters';
-import { CURRENCIES } from '@/lib/currencies';
+import { ago, formatDate, formatDateShort, money, pct, type FmtCtx } from '@/lib/formatters';
+import { CURRENCIES, type CurrencyConfig } from '@/lib/currencies';
 import { SOURCE_CATEGORIES } from '@/lib/categories';
-import { modalOverlay, modalContent } from '@/lib/motion';
+import { SNAPSHOT_SAVED_EVENT } from '@/lib/appEvents';
 import type { FactRow } from '@/lib/types';
 
 interface NewSource {
@@ -37,15 +42,23 @@ interface ExistingSourceMeta {
   history: number[];
 }
 
-interface SavedRecap {
-  date: Date;
-  backfill: boolean;
-  count: number;
-  delta: number;
-  deltaPct: number;
-  total: number;
-  newStreak: number;
+type Row =
+  | { kind: 'existing'; meta: ExistingSourceMeta }
+  | { kind: 'new'; source: NewSource };
+
+/** The new-source form's fields, held here so Save can include or refuse them. */
+interface SourceDraft {
+  name: string;
+  volatType: string;
+  category: string;
+  value: string;
+  ccy: CurrencyCode;
+  isLiquid: boolean;
 }
+
+const emptyDraft = (ccy: CurrencyCode): SourceDraft => ({
+  name: '', volatType: 'Non-volatile', category: SOURCE_CATEGORIES[0], value: '', ccy, isLiquid: true,
+});
 
 const STORAGE_KEY_ENTRIES = 'add-measurement-draft';
 
@@ -69,23 +82,28 @@ function saveDraft(d: PersistedDraft) {
   try { localStorage.setItem(STORAGE_KEY_ENTRIES, JSON.stringify(d)); } catch { /* private mode */ }
 }
 
-function fmtMoney(value: number, code: CurrencyCode, locale: string, compact: boolean): string {
-  if (!Number.isFinite(value)) return '—';
-  if (compact) return formatCurrency(value, CURRENCIES[code].symbol);
-  return formatFullCurrency(value, code, locale);
+function parseEntry(val: string | undefined): number | null {
+  // Blank is "not entered", never 0: parseLocalizedNumber('') returns 0.
+  if (!val || val.trim() === '') return null;
+  const parsed = parseLocalizedNumber(val);
+  return typeof parsed === 'number' ? parsed : null;
 }
+
+const coarsePointer = () => typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
 export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { user } = useAuth();
   const { data, addMeasurement, allSnapshots, lastCurrencyBySource } = usePortfolio();
-  // Drafts are plaintext (source names + in-progress values), so we only
-  // persist them for guests, who already use localStorage as their offline
-  // cache. Authed users go cloud-only; their drafts live in component state
-  // for the session and are lost on reload. Acceptable trade — see
-  // encryption.md §8.3 ("nothing user-tied is plaintext on disk").
+  // Drafts are plaintext (source names + in-progress values), so only guests,
+  // who already keep their data in localStorage, get one. Signed-in drafts
+  // live in component state (encryption.md §8.3).
   const persistDraft = !user;
   const { currency: displayCurrency, allCurrencies } = useCurrency();
   const { convertAt } = useFxRates();
+  const f = useFormat();
+  const { pathname } = useLocation();
+  const locale = f.ctx.locale;
 
   const todayIso = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   const today = useMemo(() => {
@@ -95,21 +113,24 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
 
   const [date, setDate] = useState<string>(todayIso);
   const [entries, setEntries] = useState<Record<string, string>>({});
-  // Last value per existing source (native currency) captured when the modal
-  // opens, so carry-forward rows can be classified as untouched vs edited.
+  // Last value per existing source (native currency) captured on open, so
+  // carried rows can be told apart from edited ones.
   const [baseline, setBaseline] = useState<Record<string, number>>({});
   const [ccyOverrides, setCcyOverrides] = useState<Record<string, CurrencyCode>>({});
   const [newSources, setNewSources] = useState<NewSource[]>([]);
-  const [addingNew, setAddingNew] = useState(false);
-  const [focusedId, setFocusedId] = useState<string | null>(null);
-  const [saved, setSaved] = useState<SavedRecap | null>(null);
+  const [addingNew, setAddingNewState] = useState(false);
+  const [draft, setDraft] = useState<SourceDraft>(() => emptyDraft(displayCurrency.code));
+  const setAddingNew = useCallback((open: boolean) => {
+    if (open) setDraft(emptyDraft(displayCurrency.code));
+    setAddingNewState(open);
+  }, [displayCurrency.code]);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [saving, setSaving] = useState(false);
-  const trapRef = useFocusTrap<HTMLDivElement>(open);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
-  // Paused sources are excluded from the modal: by definition their last
-  // measurement is held forever, so the user should not be entering new
-  // values for them. They still count toward net worth via existing facts.
+  // Paused sources are excluded from the rows: their last value is held.
   const pausedSourceIds = useMemo(() => {
     const s = new Set<string>();
     for (const rs of data?.refSources ?? []) {
@@ -118,12 +139,11 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     return s;
   }, [data]);
 
-  // Case-insensitive index of *every* existing source name (paused too),
-  // used to block duplicate-name attempts in NewSourceForm.
+  // Every existing name (paused too), to block duplicates in NewSourceForm.
   const existingNamesLower = useMemo(() => {
     const s = new Set<string>();
     for (const rs of data?.refSources ?? []) s.add(rs.idSource.trim().toLowerCase());
-    for (const f of data?.facts ?? []) s.add(f.idSource.trim().toLowerCase());
+    for (const fact of data?.facts ?? []) s.add(fact.idSource.trim().toLowerCase());
     return s;
   }, [data]);
 
@@ -138,17 +158,16 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       if (rs.category) categoryMap.set(rs.idSource.trim(), rs.category);
     }
     const byId = new Map<string, FactRow[]>();
-    for (const f of data.facts) {
-      const key = f.idSource.trim();
+    for (const fact of data.facts) {
+      const key = fact.idSource.trim();
       if (pausedSourceIds.has(key)) continue;
       const arr = byId.get(key);
-      if (arr) arr.push(f); else byId.set(key, [f]);
+      if (arr) arr.push(fact); else byId.set(key, [fact]);
     }
     const result: ExistingSourceMeta[] = [];
     for (const [id, rows] of byId.entries()) {
       const sorted = [...rows].sort((a, b) => a.date.getTime() - b.date.getTime());
       const latest = sorted[sorted.length - 1];
-      const history = sorted.slice(-12).map(r => r.sourceVl);
       result.push({
         idSource: id,
         lastValue: latest.sourceVl,
@@ -156,77 +175,57 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
         volatType: volatMap.get(id) ?? '',
         category: categoryMap.get(id) ?? '',
         isLiquid: liquidMap.get(id) ?? false,
-        history,
+        history: sorted.slice(-12).map((r) => r.sourceVl),
       });
     }
     return result.sort((a, b) => b.lastValue - a.lastValue);
   }, [data, pausedSourceIds]);
 
-  // Paused sources are hidden from the editable list, but because each snapshot
-  // is a full restatement (no carry-forward in PortfolioContext), omitting them
-  // would silently drop their balance from the new snapshot's net worth. We
-  // restate them invisibly at their last recorded value on save.
+  // Each snapshot is a full restatement, so paused sources are restated
+  // invisibly at their last value on save; omitting them would drop their
+  // balance from net worth.
   const pausedRestatement = useMemo(() => {
     if (!data) return [] as { name: string; value: number; currency: CurrencyCode; isLiquid: boolean; volatType: string; category?: string }[];
     const latestBySource = new Map<string, FactRow>();
-    for (const f of data.facts) {
-      const key = f.idSource.trim();
+    for (const fact of data.facts) {
+      const key = fact.idSource.trim();
       if (!pausedSourceIds.has(key)) continue;
       const prev = latestBySource.get(key);
-      if (!prev || f.date.getTime() > prev.date.getTime()) latestBySource.set(key, f);
+      if (!prev || fact.date.getTime() > prev.date.getTime()) latestBySource.set(key, fact);
     }
-    const metaById = new Map((data.refSources ?? []).map(rs => [rs.idSource.trim(), rs]));
-    const out: { name: string; value: number; currency: CurrencyCode; isLiquid: boolean; volatType: string; category?: string }[] = [];
-    for (const [id, fact] of latestBySource.entries()) {
+    const metaById = new Map((data.refSources ?? []).map((rs) => [rs.idSource.trim(), rs]));
+    return [...latestBySource.entries()].map(([id, fact]) => {
       const meta = metaById.get(id);
-      out.push({
+      return {
         name: id,
         value: fact.sourceVl,
         currency: fact.currency,
         isLiquid: meta?.transferableInDays ?? false,
         volatType: meta?.volatType ?? '',
         category: meta?.category || undefined,
-      });
-    }
-    return out;
+      };
+    });
   }, [data, pausedSourceIds]);
 
-  type Row =
-    | { kind: 'existing'; meta: ExistingSourceMeta }
-    | { kind: 'new'; source: NewSource };
+  const allRows: Row[] = useMemo(() => [
+    ...existingSources.map((meta): Row => ({ kind: 'existing', meta })),
+    ...newSources.map((source): Row => ({ kind: 'new', source })),
+  ], [existingSources, newSources]);
 
-  const allRows: Row[] = useMemo(() => {
-    const existing: Row[] = existingSources.map(meta => ({ kind: 'existing', meta }));
-    const adding: Row[] = newSources.map(source => ({ kind: 'new', source }));
-    return [...existing, ...adding];
-  }, [existingSources, newSources]);
-
-  const buildInitial = useCallback(() => {
-    // Authed users never persisted a draft; skip the read so a stale draft
-    // left behind by a previous guest session doesn't replay into the
-    // post-signup modal.
-    if (!persistDraft) return {} as PersistedDraft;
-    return loadDraft();
-  }, [persistDraft]);
-
-  // Initialise to false (not `open`) so a modal that mounts already-open still
-  // runs the open effect once — carry-forward prefill must land on first paint,
-  // not only on a later closed→open toggle.
+  // Initialised to false so a modal that mounts already open still seeds.
   const prevOpenRef = useRef(false);
   useEffect(() => {
     if (open && !prevOpenRef.current) {
-      const d = buildInitial();
-      // Carry-forward: pre-seed each existing source with its last value so a
-      // monthly update becomes "confirm what didn't move, edit what did".
-      // Snapshots are full restatements (PortfolioContext has no carry-forward
-      // at the data layer), so every source must be present on save — seeding
-      // them here is both the friction win and a guard against accidentally
-      // dropping a source from the snapshot. A restored guest draft wins over
-      // the carried default so an in-progress edit isn't clobbered.
+      // Signed-in users never persist a draft; skipping the read stops a
+      // guest-era draft replaying after sign-up.
+      const d = persistDraft ? loadDraft() : {};
+      // Carry-forward: each existing source starts at its last value, so a
+      // monthly update is "change what moved". A restored guest draft wins.
       const carried: Record<string, string> = {};
       const base: Record<string, number> = {};
       for (const s of existingSources) {
-        carried[s.idSource] = toEditable(s.lastValue, CURRENCIES[s.lastCurrency].locale);
+        // Written in the user's number locale, whatever the source's currency.
+        carried[s.idSource] = toEditable(s.lastValue, locale);
         base[s.idSource] = s.lastValue;
       }
       setDate(d.date && d.date <= todayIso ? d.date : todayIso);
@@ -234,75 +233,45 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
       setBaseline(base);
       setCcyOverrides(d.ccyOverrides ?? {});
       setNewSources(d.newSources ?? []);
-      setAddingNew(false);
-      setFocusedId(null);
-      setSaved(null);
+      // Nothing to carry: the first thing to do is name a source.
+      setAddingNew(existingSources.length === 0 && (d.newSources ?? []).length === 0);
       setValidationError(null);
+      setConfirmDiscard(false);
     }
     prevOpenRef.current = open;
-  }, [open, buildInitial, todayIso, existingSources]);
+  }, [open, persistDraft, todayIso, existingSources, locale, setAddingNew]);
 
   useEffect(() => {
-    if (!open) return;
-    if (!persistDraft) return;
+    if (!open || !persistDraft) return;
     saveDraft({ date, entries, ccyOverrides, newSources });
   }, [open, persistDraft, date, entries, ccyOverrides, newSources]);
 
-  const isToday = date === todayIso;
-  const isBackfill = !isToday;
+  const isBackfill = date !== todayIso;
   const measurementDate = useMemo(() => {
     const [y, m, d] = date.split('-').map(Number);
     return new Date(y, m - 1, d);
   }, [date]);
-  const fmtFull = (d: Date) => d.toLocaleDateString(displayCurrency.locale, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  const fmtShort = (d: Date) => d.toLocaleDateString(displayCurrency.locale, { month: 'short', day: 'numeric' });
 
-  const parseEntry = (val: string | undefined): number | null => {
-    if (!val || val.trim() === '') return null;
-    const parsed = parseLocalizedNumber(val);
-    return typeof parsed === 'number' ? parsed : null;
-  };
-
-  const rowKey = useCallback(
-    (r: Row) => (r.kind === 'existing' ? r.meta.idSource : r.source.id),
-    [],
-  );
+  const rowKey = useCallback((r: Row) => (r.kind === 'existing' ? r.meta.idSource : r.source.id), []);
   const rowSourceCcy = useCallback(
-    (r: Row): CurrencyCode =>
-      r.kind === 'existing' ? r.meta.lastCurrency : r.source.defaultCurrency,
+    (r: Row): CurrencyCode => (r.kind === 'existing' ? r.meta.lastCurrency : r.source.defaultCurrency),
     [],
   );
   const ccyFor = useCallback(
-    (r: Row): CurrencyCode => {
-      const key = rowKey(r);
-      return (
-        ccyOverrides[key] ??
-        (r.kind === 'existing' ? lastCurrencyBySource.get(r.meta.idSource) ?? r.meta.lastCurrency : r.source.defaultCurrency)
-      );
-    },
+    (r: Row): CurrencyCode =>
+      ccyOverrides[rowKey(r)] ??
+      (r.kind === 'existing' ? lastCurrencyBySource.get(r.meta.idSource) ?? r.meta.lastCurrency : r.source.defaultCurrency),
     [ccyOverrides, lastCurrencyBySource, rowKey],
   );
-  const setCcyForRow = (r: Row, code: CurrencyCode) => {
-    setCcyOverrides(prev => ({ ...prev, [rowKey(r)]: code }));
-  };
-  const entryValueFor = (r: Row) => entries[rowKey(r)] ?? '';
 
-  const totalCount = allRows.length;
-  const filledIds = useMemo(() => {
-    const ids: string[] = [];
-    for (const r of allRows) {
-      if (parseEntry(entries[rowKey(r)]) !== null) ids.push(rowKey(r));
-    }
-    return ids;
-  }, [allRows, entries, rowKey]);
-  const filledCount = filledIds.length;
+  const filledCount = useMemo(
+    () => allRows.filter((r) => parseEntry(entries[rowKey(r)]) !== null).length,
+    [allRows, entries, rowKey],
+  );
 
-  // Carry-forward classification. A row counts as "changed" when the user
-  // moved its value off the carried baseline, switched its currency, cleared
-  // it, or it's a brand-new source. Carried-but-untouched rows still save
-  // (full restatement) — they just don't count toward the "what moved this
-  // month" signal. Whole thing is keyed off the baseline captured on open.
-  const hasCarryForward = useMemo(() => Object.keys(baseline).length > 0, [baseline]);
+  // A row has changed when its value left the carried baseline, its currency
+  // switched, it was cleared, or it is new. Carried rows still save.
+  const hasCarryForward = Object.keys(baseline).length > 0;
   const changedKeys = useMemo(() => {
     const s = new Set<string>();
     for (const r of allRows) {
@@ -316,19 +285,17 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
     return s;
   }, [allRows, entries, ccyOverrides, baseline, rowKey]);
   const changedCount = changedKeys.size;
-  const carriedCount = Math.max(0, filledCount - changedCount);
+  const unchangedCount = Math.max(0, filledCount - changedCount);
 
-  // FX-aware total delta projected into the user's display currency.
-  // Per-row: typed-in-typedCcy → typed-in-source-native → delta-in-source-native → delta-in-display.
+  // Each row's change, typed currency → source currency → display currency.
   const totalDelta = useMemo(() => {
     let acc = 0;
     for (const r of allRows) {
       const v = parseEntry(entries[rowKey(r)]);
       if (v == null) continue;
-      const typedCcy = ccyFor(r);
       const sourceCcy = rowSourceCcy(r);
       const last = r.kind === 'existing' ? r.meta.lastValue : 0;
-      const typedInNative = convertAt(v, typedCcy, sourceCcy, today);
+      const typedInNative = convertAt(v, ccyFor(r), sourceCcy, today);
       const deltaInNative = (Number.isFinite(typedInNative) ? typedInNative : 0) - last;
       const deltaInDisplay = convertAt(deltaInNative, sourceCcy, displayCurrency.code, today);
       acc += Number.isFinite(deltaInDisplay) ? deltaInDisplay : 0;
@@ -337,481 +304,429 @@ export function AddMeasurementModal({ open, onOpenChange }: { open: boolean; onO
   }, [allRows, entries, ccyFor, rowKey, rowSourceCcy, convertAt, today, displayCurrency.code]);
 
   const latestSnapshot = allSnapshots.length > 0 ? allSnapshots[allSnapshots.length - 1] : null;
-  const netWorth = latestSnapshot?.total ?? 0;
-  const projectedTotal = netWorth + totalDelta;
-  const totalPct = netWorth !== 0 ? totalDelta / netWorth : 0;
+  const projectedTotal = (latestSnapshot?.total ?? 0) + totalDelta;
 
-  const streak = allSnapshots.length;
-  const daysSinceLast = latestSnapshot
-    ? Math.max(0, Math.floor((today.getTime() - latestSnapshot.date.getTime()) / 86_400_000))
-    : null;
+  const pendingNamesLower = useMemo(() => new Set(newSources.map((src) => src.name.trim().toLowerCase())), [newSources]);
+  const draftNameLower = draft.name.trim().toLowerCase();
+  const draftNameTaken = draftNameLower.length > 0 && (existingNamesLower.has(draftNameLower) || pendingNamesLower.has(draftNameLower));
+  const draftCanAdd = draft.name.trim().length > 1 && !draftNameTaken;
+  // A form the user has started counts as pending work for Save.
+  const draftStarted = addingNew && (draft.name.trim() !== '' || draft.value.trim() !== '');
+
+  const requestClose = useCallback(() => {
+    // A second dismiss while the prompt shows means "keep editing".
+    if (confirmDiscard) { setConfirmDiscard(false); return; }
+    // Signed-in drafts are not kept, so closing with edits asks first.
+    if (user && changedCount > 0) { setConfirmDiscard(true); return; }
+    onOpenChange(false);
+  }, [user, changedCount, confirmDiscard, onOpenChange]);
+
+  // The prompt replaces the button that asked for it, so focus moves with it.
+  const keepEditingRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (confirmDiscard) keepEditingRef.current?.focus(); }, [confirmDiscard]);
+
+  useModalLayer(open, requestClose);
+  // Annotated: initialFocus reads trapRef, which would otherwise make its type circular.
+  const trapRef: React.RefObject<HTMLDivElement> = useFocusTrap<HTMLDivElement>(open, {
+    initialFocus: () => {
+      const root = trapRef.current;
+      const nameField = root?.querySelector<HTMLInputElement>('.q-new-src-form input');
+      if (nameField) return nameField;
+      // On touch, focusing an input would open the keyboard over the list.
+      if (coarsePointer()) return titleRef.current;
+      const first = root?.querySelector<HTMLInputElement>('.q-src-row input[inputmode="decimal"]');
+      first?.select();
+      return first;
+    },
+  });
 
   function setEntryFor(r: Row, val: string) {
-    setEntries(prev => {
+    setEntries((prev) => {
       const next = { ...prev };
       const k = rowKey(r);
-      if (val === '' || val == null) delete next[k];
+      if (val === '') delete next[k];
       else next[k] = val;
       return next;
     });
     setValidationError(null);
+    setConfirmDiscard(false);
   }
 
   function removeNewSource(id: string) {
-    setNewSources(prev => prev.filter(s => s.id !== id));
-    setEntries(prev => {
+    const drop = <T,>(prev: Record<string, T>) => {
       if (!(id in prev)) return prev;
       const next = { ...prev };
       delete next[id];
       return next;
-    });
-    setCcyOverrides(prev => {
-      if (!(id in prev)) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-    setFocusedId(curr => (curr === id ? null : curr));
+    };
+    setNewSources((prev) => prev.filter((s) => s.id !== id));
+    setEntries(drop);
+    setCcyOverrides(drop);
     setValidationError(null);
   }
 
-  function addCustomSource(spec: { name: string; volatType: string; category: string; initialCcy: CurrencyCode; initialValue: string; isLiquid: boolean }) {
-    const id = 'new:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    const src: NewSource = {
-      id,
-      name: spec.name.trim(),
-      volatType: spec.volatType.trim(),
-      category: spec.category.trim(),
-      isLiquid: spec.isLiquid,
-      defaultCurrency: spec.initialCcy,
+  function sourceFromDraft(): NewSource {
+    return {
+      id: 'new:' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: draft.name.trim(),
+      volatType: draft.volatType.trim(),
+      category: draft.category.trim(),
+      isLiquid: draft.isLiquid,
+      defaultCurrency: draft.ccy,
     };
-    setNewSources(prev => [...prev, src]);
-    setCcyOverrides(prev => ({ ...prev, [id]: spec.initialCcy }));
-    if (spec.initialValue.trim()) {
-      setEntries(prev => ({ ...prev, [id]: spec.initialValue.trim() }));
-    }
-    setAddingNew(false);
-    setFocusedId(id);
   }
 
-  async function handleSave() {
-    if (filledCount === 0 || saving) return;
+  function addCustomSource() {
+    if (!draftCanAdd) return;
+    const src = sourceFromDraft();
+    setNewSources((prev) => [...prev, src]);
+    setCcyOverrides((prev) => ({ ...prev, [src.id]: draft.ccy }));
+    if (draft.value.trim()) setEntries((prev) => ({ ...prev, [src.id]: draft.value.trim() }));
+    setAddingNew(false);
+  }
+
+  function fail(message: string) {
+    setValidationError(message);
+    setSaving(false);
+    requestAnimationFrame(() => errorRef.current?.focus());
+  }
+
+  function handleSave() {
+    if (saving || (allRows.length === 0 && !draftStarted)) return;
+    // A started new-source form is either finished and saved with the rest,
+    // or refused: saving without it would silently drop what was typed.
+    let rows = allRows;
+    let values = entries;
+    let draftDisplay = 0;
+    if (draftStarted) {
+      const draftValue = parseEntry(draft.value);
+      if (!draftCanAdd || draftValue == null) {
+        fail('Finish or cancel the new source first.');
+        return;
+      }
+      const src = sourceFromDraft();
+      rows = [...allRows, { kind: 'new', source: src }];
+      values = { ...entries, [src.id]: draft.value.trim() };
+      const converted = convertAt(draftValue, draft.ccy, displayCurrency.code, today);
+      draftDisplay = Number.isFinite(converted) ? converted : 0;
+    }
+    if (!rows.some((r) => parseEntry(values[rowKey(r)]) != null)) {
+      fail('Enter a value for at least one source.');
+      return;
+    }
     setSaving(true);
     setValidationError(null);
-    try {
-      type Entry = { name: string; value: number; currency: CurrencyCode; isLiquid: boolean; volatType: string; category?: string };
-      const payload: Entry[] = [];
-      const seen = new Set<string>();
-      let firstDuplicate: string | null = null;
-      let newSourceCount = 0;
+    type Entry = { name: string; value: number; currency: CurrencyCode; isLiquid: boolean; volatType: string; category?: string };
+    const payload: Entry[] = [];
+    const seen = new Set<string>();
+    let newSourceCount = 0;
 
-      for (const r of allRows) {
-        const raw = entries[rowKey(r)];
-        const num = parseEntry(raw);
-        if (num == null) continue;
-        if (r.kind === 'new') newSourceCount++;
-        const name = r.kind === 'existing' ? r.meta.idSource : r.source.name;
-        const { value: cleanName, error: nameErr } = sanitizeSourceName(name);
-        if (nameErr) {
-          setValidationError(`"${name}": ${nameErr}`);
-          setSaving(false);
-          return;
-        }
-        if (seen.has(cleanName)) {
-          if (!firstDuplicate) firstDuplicate = cleanName;
-        }
-        seen.add(cleanName);
-        payload.push({
-          name: cleanName,
-          value: num,
-          currency: ccyFor(r),
-          isLiquid: r.kind === 'existing' ? r.meta.isLiquid : r.source.isLiquid,
-          volatType: r.kind === 'existing' ? r.meta.volatType : r.source.volatType,
-          category: r.kind === 'existing' ? (r.meta.category || undefined) : (r.source.category || undefined),
-        });
-      }
-
-      if (firstDuplicate) {
-        setValidationError(`"${firstDuplicate}" appears more than once. Keep only one row per source.`);
-        setSaving(false);
-        return;
-      }
-
-      // Keep paused sources in the snapshot at their held value (see
-      // pausedRestatement) so a save doesn't drop them from net worth.
-      for (const p of pausedRestatement) {
-        const { value: cleanName } = sanitizeSourceName(p.name);
-        if (!cleanName || seen.has(cleanName)) continue;
-        seen.add(cleanName);
-        payload.push({ ...p, name: cleanName });
-      }
-
-      if (payload.length === 0) {
-        setSaving(false);
-        return;
-      }
-
-      if (isToday) {
-        addMeasurement(payload);
-      } else {
-        addMeasurement(payload, { date: measurementDate });
-      }
-
-      if (newSourceCount > 0) analytics.sourceCreated({ count: newSourceCount });
-
-      setSaved({
-        date: measurementDate,
-        backfill: isBackfill,
-        count: payload.length,
-        delta: totalDelta,
-        deltaPct: totalPct,
-        total: projectedTotal,
-        newStreak: streak + (isToday ? 1 : 0),
+    for (const r of rows) {
+      const num = parseEntry(values[rowKey(r)]);
+      if (num == null) continue;
+      if (r.kind === 'new') newSourceCount++;
+      const name = r.kind === 'existing' ? r.meta.idSource : r.source.name;
+      const { value: cleanName, error: nameErr } = sanitizeSourceName(name);
+      if (nameErr) return fail(`"${name}": ${nameErr}`);
+      if (seen.has(cleanName)) return fail(`"${cleanName}" appears more than once. Keep one row per source.`);
+      seen.add(cleanName);
+      payload.push({
+        name: cleanName,
+        value: num,
+        currency: ccyFor(r),
+        isLiquid: r.kind === 'existing' ? r.meta.isLiquid : r.source.isLiquid,
+        volatType: r.kind === 'existing' ? r.meta.volatType : r.source.volatType,
+        category: r.kind === 'existing' ? (r.meta.category || undefined) : (r.source.category || undefined),
       });
-      localStorage.removeItem(STORAGE_KEY_ENTRIES);
-    } finally {
-      setSaving(false);
     }
+
+    for (const p of pausedRestatement) {
+      const { value: cleanName } = sanitizeSourceName(p.name);
+      if (!cleanName || seen.has(cleanName)) continue;
+      seen.add(cleanName);
+      payload.push({ ...p, name: cleanName });
+    }
+
+    if (isBackfill) addMeasurement(payload, { date: measurementDate });
+    else addMeasurement(payload);
+    if (newSourceCount > 0) analytics.sourceCreated({ count: newSourceCount });
+    try { localStorage.removeItem(STORAGE_KEY_ENTRIES); } catch { /* private mode */ }
+
+    // An entry on or after the latest date becomes the new total, which the
+    // overview hero shows and announces. A first entry has no hero yet (the
+    // empty state is replaced), so it gets the toast, as does any other page.
+    const becomesLatest = !latestSnapshot || measurementDate.getTime() >= startOfDay(latestSnapshot.date).getTime();
+    if (becomesLatest) window.dispatchEvent(new Event(SNAPSHOT_SAVED_EVENT));
+    if (!becomesLatest) toast.success(`Entry for ${formatDate(measurementDate)} saved`);
+    else if (!latestSnapshot || pathname !== '/dashboard') {
+      toast.success('Entry saved', { description: `Net worth ${f.money(projectedTotal + draftDisplay)}` });
+    }
+
+    setSaving(false);
+    onOpenChange(false);
   }
 
-  // Cmd/Ctrl+Enter saves
+  // Enter moves to the next value; on the last one it saves. Ctrl/Cmd+Enter saves anywhere.
+  function onValueKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    const inputs = Array.from(trapRef.current?.querySelectorAll<HTMLInputElement>('.q-src-row input[inputmode="decimal"]') ?? []);
+    const next = inputs[inputs.indexOf(e.currentTarget) + 1];
+    if (next) { next.focus(); next.select(); } else handleSave();
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
-      void handleSave();
+      handleSave();
     }
   };
 
   if (!open) return null;
 
-  return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 grid place-items-center q-modal-backdrop"
-        aria-modal="true"
+  const sub = latestSnapshot
+    ? `Last entry ${formatDate(latestSnapshot.date)}, ${ago(latestSnapshot.date, today)}.${
+        existingSources.length > 0
+          ? ` ${existingSources.length} ${existingSources.length === 1 ? 'source' : 'sources'} pre-filled; change what moved.`
+          : ''}`
+    : "Your first entry. Add each account with today's balance.";
+  const deltaTone = f.tone(totalDelta);
+
+  return createPortal(
+    <div
+      className="q-modal-backdrop q-add-backdrop"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) requestClose(); }}
+    >
+      <div
+        ref={trapRef}
+        className="q-modal q-add-modal"
         role="dialog"
+        aria-modal="true"
         aria-labelledby="add-measurement-title"
-        variants={modalOverlay}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
+        aria-describedby="add-measurement-sub"
         onKeyDown={handleKeyDown}
       >
-        <motion.div
-          className="absolute inset-0"
-          onClick={() => onOpenChange(false)}
-        />
-        <motion.div
-          ref={trapRef}
-          className="q-modal q-add-modal relative"
-          style={{ width: 'min(640px, calc(100vw - 32px))' }}
-          variants={modalContent}
-        >
-          {saved ? (
-            <SaveSuccessPanel
-              saved={saved}
-              displayCurrency={displayCurrency}
-              onDone={() => onOpenChange(false)}
-            />
-          ) : (
-            <>
-              <div className="q-modal-head">
-                <div>
-                  <div className="q-modal-title" id="add-measurement-title">Add measurement</div>
-                  <div className="q-modal-sub q-modal-sub--addmeasurement">
-                    <span className="q-streak-pill">
-                      <span className="q-streak-pill-dot" />
-                      Tracked ·{' '}
-                      <span style={{ color: 'var(--fg)' }}>
-                        {streak} {streak === 1 ? 'month' : 'months'}
-                      </span>
-                    </span>
-                    {latestSnapshot && (
-                      <>
-                        <span className="q-modal-sub-sep">·</span>
-                        <span>
-                          Last snapshot {fmtShort(latestSnapshot.date)}
-                          {daysSinceLast != null && ` (${daysSinceLast}d ago)`}
-                        </span>
-                      </>
-                    )}
-                    {!latestSnapshot && (
-                      <>
-                        <span className="q-modal-sub-sep">·</span>
-                        <span>First snapshot</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onOpenChange(false)}
-                  className="q-icon-btn"
-                  aria-label="Close"
-                >
-                  <X size={16} />
-                </button>
-              </div>
+        <div className="q-modal-head">
+          <div style={{ minWidth: 0 }}>
+            <h2 className="q-modal-title" id="add-measurement-title" ref={titleRef} tabIndex={-1}>Add entry</h2>
+            <p className="q-modal-sub" id="add-measurement-sub">{sub}</p>
+          </div>
+          <button type="button" onClick={requestClose} className="q-icon-btn" aria-label="Close">
+            <X size={16} strokeWidth={1.75} />
+          </button>
+        </div>
 
-              <div className="q-modal-body">
-                {validationError && (
-                  <Notice variant="negative" role="alert" style={{ marginBottom: 'var(--s-3)' }}>
-                    <AlertCircle size={14} style={{ marginTop: 2, flexShrink: 0 }} />
-                    <span>{validationError}</span>
-                  </Notice>
-                )}
-
-                <div style={{ marginBottom: 16 }}>
-                  <span className="q-field-label" style={{ display: 'block', marginBottom: 6 }}>Snapshot date</span>
-                  <DateSelector
-                    date={date}
-                    todayIso={todayIso}
-                    isToday={isToday}
-                    onChange={setDate}
-                    fmtFull={fmtFull}
-                  />
-                </div>
-
-                <div className="q-source-list-head">
-                  <span className="q-field-label" style={{ margin: 0 }}>Sources</span>
-                  {hasCarryForward ? (
-                    <span className="q-source-list-count">
-                      <strong style={{ color: changedCount > 0 ? 'var(--accent-raw)' : 'var(--fg-muted)' }}>{changedCount}</strong>
-                      <span style={{ color: 'var(--fg-subtle)' }}> changed · {carriedCount} unchanged</span>
-                    </span>
-                  ) : (
-                    <span className="q-source-list-count">
-                      <strong style={{ color: filledCount > 0 ? 'var(--accent-raw)' : 'var(--fg-muted)' }}>{filledCount}</strong>
-                      <span style={{ color: 'var(--fg-subtle)' }}> of {totalCount} entered</span>
-                    </span>
-                  )}
-                </div>
-                <div className="q-source-list-progress">
-                  <div
-                    className="q-source-list-progress-fill"
-                    style={{ width: `${((hasCarryForward ? changedCount : filledCount) / Math.max(1, totalCount)) * 100}%` }}
-                  />
-                </div>
-                {hasCarryForward && (
-                  <div className="q-source-list-hint">
-                    Pre-filled from your last snapshot. Edit what's moved.
-                  </div>
-                )}
-
-                <div className="q-source-list">
-                  {allRows.map(r => (
-                    <SourceEntryRow
-                      key={rowKey(r)}
-                      row={r}
-                      value={entryValueFor(r)}
-                      ccy={ccyFor(r)}
-                      sourceCcy={rowSourceCcy(r)}
-                      changed={changedKeys.has(rowKey(r))}
-                      carryForward={hasCarryForward}
-                      onChange={v => setEntryFor(r, v)}
-                      onCcyChange={c => setCcyForRow(r, c)}
-                      focused={focusedId === rowKey(r)}
-                      onFocus={() => setFocusedId(rowKey(r))}
-                      onBlur={() => setFocusedId(null)}
-                      onRemove={r.kind === 'new' ? () => removeNewSource(r.source.id) : undefined}
-                      convertAt={convertAt}
-                      today={today}
-                      allCurrencies={allCurrencies}
-                      displayCurrency={displayCurrency}
-                    />
-                  ))}
-
-                  {addingNew ? (
-                    <NewSourceForm
-                      defaultCurrency={displayCurrency.code}
-                      onCancel={() => setAddingNew(false)}
-                      onAdd={addCustomSource}
-                      allCurrencies={allCurrencies}
-                      existingNamesLower={existingNamesLower}
-                      pendingNamesLower={new Set(newSources.map(s => s.name.trim().toLowerCase()))}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      className="q-add-source-row"
-                      onClick={() => setAddingNew(true)}
-                    >
-                      <span className="q-add-source-row-icon"><Plus size={14} /></span>
-                      <span>Add a new source</span>
-                      <span className="q-add-source-row-hint">Accounts, brokerages, crypto…</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              <div className="q-add-summary">
-                <div className="q-add-summary-row">
-                  <div className="q-add-summary-label">
-                    {filledCount === 0
-                      ? 'Snapshot impact'
-                      : (isBackfill ? `Backfilling ${fmtFull(measurementDate)}` : 'After save')}
-                  </div>
-                  {filledCount === 0 ? (
-                    <div className="q-add-summary-empty">Enter at least one value to preview the impact</div>
-                  ) : (
-                    <div className="q-add-summary-vals">
-                      <span className="q-add-summary-total">
-                        {formatFullCurrency(projectedTotal, displayCurrency.code, displayCurrency.locale)}
-                      </span>
-                      <span className={`q-add-summary-delta ${totalDelta >= 0 ? 'is-pos' : 'is-neg'}`}>
-                        {totalDelta >= 0 ? '▲' : '▼'}{' '}
-                        {totalDelta >= 0 ? '+' : '−'}
-                        {formatCurrency(Math.abs(totalDelta), displayCurrency.symbol)}
-                        <span className="q-add-summary-delta-pct">
-                          {totalDelta >= 0 ? '+' : '−'}{(Math.abs(totalPct) * 100).toFixed(2)}%
-                        </span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="q-modal-foot">
-                <button type="button" onClick={() => onOpenChange(false)} className="q-btn q-btn--ghost q-btn--md">
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={filledCount === 0 || saving}
-                  className="q-btn q-btn--primary q-btn--md"
-                  style={{ opacity: filledCount === 0 || saving ? 0.5 : 1 }}
-                >
-                  {saving ? 'Saving…' : 'Save measurement'}
-                </button>
-              </div>
-            </>
+        <div className="q-modal-body">
+          {validationError && (
+            <Notice variant="negative" role="alert" style={{ marginBottom: 'var(--s-4)' }}>
+              <div ref={errorRef} tabIndex={-1} style={{ outline: 'none' }}>{validationError}</div>
+            </Notice>
           )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+
+          <span className="q-add-label" id="add-date-label">Date</span>
+          <DateField date={date} todayIso={todayIso} onChange={setDate} />
+
+          <div className="q-source-list-head">
+            <span className="q-add-label">Sources</span>
+            {hasCarryForward && (
+              <span className="q-source-list-count" data-testid="composer-count">
+                {changedCount} changed, {unchangedCount} unchanged
+              </span>
+            )}
+          </div>
+
+          <div className="q-source-list">
+            {allRows.map((r) => (
+              <SourceEntryRow
+                key={rowKey(r)}
+                rowId={rowKey(r)}
+                row={r}
+                value={entries[rowKey(r)] ?? ''}
+                ccy={ccyFor(r)}
+                sourceCcy={rowSourceCcy(r)}
+                changed={changedKeys.has(rowKey(r))}
+                locale={f.ctx.locale}
+                onChange={(v) => setEntryFor(r, v)}
+                onCcyChange={(c) => setCcyOverrides((prev) => ({ ...prev, [rowKey(r)]: c }))}
+                onKeyDown={onValueKeyDown}
+                onRemove={r.kind === 'new' ? () => removeNewSource(r.source.id) : undefined}
+                convertAt={convertAt}
+                today={today}
+                allCurrencies={allCurrencies}
+                displayCurrency={displayCurrency}
+              />
+            ))}
+
+            {addingNew ? (
+              <NewSourceForm
+                draft={draft}
+                onChange={(patch) => { setDraft((d) => ({ ...d, ...patch })); setValidationError(null); }}
+                nameTaken={draftNameTaken}
+                canAdd={draftCanAdd}
+                onCancel={() => setAddingNew(false)}
+                onAdd={addCustomSource}
+                allCurrencies={allCurrencies}
+              />
+            ) : (
+              <button type="button" className="q-add-source-row" onClick={() => setAddingNew(true)}>
+                <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+                Add a new source
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="q-add-summary">
+          <span className="q-add-label">
+            {isBackfill ? `Net worth on ${formatDate(measurementDate)}` : 'Net worth after saving'}
+          </span>
+          {filledCount === 0 ? (
+            <p className="q-add-summary-empty">Enter a value to see the new total.</p>
+          ) : (
+            <div className="q-add-summary-vals">
+              <span className="q-add-summary-fig">
+                <span className="q-single-rule" aria-hidden="true" />
+                <span className="q-add-summary-total num">{f.money(projectedTotal)}</span>
+              </span>
+              {latestSnapshot && !isBackfill && (
+                <span className="q-add-summary-delta">
+                  {deltaTone === 'zero'
+                    ? <span className="q-add-nochange">No change</span>
+                    : <Delta text={f.money(totalDelta, { signed: true })} tone={deltaTone} />}
+                  <span className="q-hero-delta-when">since {formatDateShort(latestSnapshot.date, today)}</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {confirmDiscard ? (
+          <div className="q-modal-foot q-modal-foot--split">
+            <span className="q-add-discard" role="alert">
+              {`Discard ${changedCount} ${changedCount === 1 ? 'change' : 'changes'}?`}
+            </span>
+            <button ref={keepEditingRef} type="button" onClick={() => setConfirmDiscard(false)} className="q-btn q-btn--secondary q-btn--md">
+              Keep editing
+            </button>
+            <button type="button" onClick={() => onOpenChange(false)} className="q-btn q-btn--danger q-btn--md">
+              Discard
+            </button>
+          </div>
+        ) : (
+          <div className="q-modal-foot q-modal-foot--split">
+            <span className="q-modal-shortcut">{isMac() ? '⌘ Enter to save' : 'Ctrl+Enter to save'}</span>
+            <button type="button" onClick={requestClose} className="q-btn q-btn--ghost q-btn--md">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={(allRows.length === 0 && !draftStarted) || saving}
+              className="q-btn q-btn--primary q-btn--md"
+            >
+              {saving ? 'Saving…' : 'Save entry'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
   );
 }
 
-// ── Date selector ────────────────────────────────────────
-function DateSelector({
-  date, todayIso, isToday, onChange, fmtFull,
-}: {
-  date: string;
-  todayIso: string;
-  isToday: boolean;
-  onChange: (v: string) => void;
-  fmtFull: (d: Date) => string;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
+/** An exchange rate to 4 significant figures: 1 JPY is €0.006152, not €0.01. */
+function fxText(rate: number, ctx: FmtCtx): string {
+  return new Intl.NumberFormat(ctx.locale, {
+    style: 'currency', currency: ctx.currency, maximumSignificantDigits: 4, minimumSignificantDigits: 4,
+  }).format(rate);
+}
+
+function startOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+// ── Date ─────────────────────────────────────────────────
+// The native input sits transparent over a formatted label, so the picker is
+// the platform's but the date reads "29 Sep 2026" in every locale.
+function DateField({ date, todayIso, onChange }: { date: string; todayIso: string; onChange: (v: string) => void }) {
   const [y, m, d] = date.split('-').map(Number);
+  const isToday = date === todayIso;
   return (
-    <button
-      type="button"
-      className={`q-date-button ${!isToday ? 'is-backfill' : ''}`}
-      onClick={() => {
-        const el = inputRef.current;
-        if (!el) return;
-        const maybe = el as HTMLInputElement & { showPicker?: () => void };
-        if (typeof maybe.showPicker === 'function') maybe.showPicker();
-        else el.focus();
-      }}
-    >
-      <RefreshCw size={14} />
-      <span className="q-date-button-label">
-        {isToday && <span className="q-date-button-tag">Today ·</span>}
-        <span className="q-date-button-date">{fmtFull(new Date(y, m - 1, d))}</span>
-      </span>
-      {!isToday && (
-        <span className="q-date-button-backfill" aria-label="Backfill">
-          <RefreshCw size={10} /> Backfill
-        </span>
-      )}
-      <span style={{ flex: 1 }} />
-      <ChevronDown size={14} />
+    <div className="q-date-field">
+      <span aria-hidden="true">{isToday ? `Today, ${formatDate(new Date(y, m - 1, d))}` : formatDate(new Date(y, m - 1, d))}</span>
+      {!isToday && <span className="q-tag" aria-hidden="true">Past date</span>}
+      <ChevronDown size={16} strokeWidth={1.75} aria-hidden="true" />
       <input
-        ref={inputRef}
         type="date"
-        className="q-date-button-input"
+        aria-labelledby="add-date-label"
+        aria-describedby={isToday ? undefined : 'add-date-past'}
         value={date}
         max={todayIso}
+        onClick={(e) => {
+          const el = e.currentTarget as HTMLInputElement & { showPicker?: () => void };
+          try { el.showPicker?.(); } catch { /* not user-activated */ }
+        }}
         onChange={(e) => {
           const v = e.target.value;
-          if (v && v <= todayIso) onChange(v);
-          else onChange(todayIso);
+          onChange(v && v <= todayIso ? v : todayIso);
         }}
-        onClick={(e) => e.stopPropagation()}
       />
-    </button>
+      {!isToday && <span id="add-date-past" className="sr-only">Past date: this entry is added to your history</span>}
+    </div>
   );
 }
 
 // ── Per-source row ───────────────────────────────────────
-type SrcRow =
-  | { kind: 'existing'; meta: ExistingSourceMeta }
-  | { kind: 'new'; source: NewSource };
-
 function SourceEntryRow({
-  row, value, ccy, sourceCcy, changed, carryForward, onChange, onCcyChange, focused, onFocus, onBlur, onRemove,
+  rowId, row, value, ccy, sourceCcy, changed, locale, onChange, onCcyChange, onKeyDown, onRemove,
   convertAt, today, allCurrencies, displayCurrency,
 }: {
-  row: SrcRow;
+  rowId: string;
+  row: Row;
   value: string;
   ccy: CurrencyCode;
   sourceCcy: CurrencyCode;
   changed: boolean;
-  carryForward: boolean;
+  locale: string;
   onChange: (v: string) => void;
   onCcyChange: (c: CurrencyCode) => void;
-  focused: boolean;
-  onFocus: () => void;
-  onBlur: () => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   onRemove?: () => void;
   convertAt: (amount: number, from: CurrencyCode, to: CurrencyCode, date: Date) => number;
   today: Date;
-  allCurrencies: import('@/lib/currencies').CurrencyConfig[];
-  displayCurrency: import('@/lib/currencies').CurrencyConfig;
+  allCurrencies: CurrencyConfig[];
+  displayCurrency: CurrencyConfig;
 }) {
+  const isNew = row.kind === 'new';
   const name = row.kind === 'existing' ? row.meta.idSource : row.source.name;
   const subMeta = row.kind === 'existing' ? row.meta.category : row.source.category;
   const lastValue = row.kind === 'existing' ? row.meta.lastValue : 0;
   const history = row.kind === 'existing' ? row.meta.history : [];
-  const isNew = row.kind === 'new';
-  // A carried row is an existing source still sitting at its pre-filled last
-  // value — surfaced quietly so the user can see at a glance what they've
-  // reviewed without editing.
-  const isCarried = carryForward && !isNew && !changed;
+  const deltaId = `delta-${rowId.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+  const sourceCtx: FmtCtx = { currency: sourceCcy, locale };
 
-  // Empty input must NOT parse to 0 — `parseLocalizedNumber('')` returns 0,
-  // which would cascade into delta = -lastValue and a misleading -100% badge.
-  // Treat blank as "no value entered" so the row's delta column falls back
-  // to the CSS placeholder "—".
-  const parsed = (() => {
-    if (!value || value.trim() === '') return null;
-    const p = parseLocalizedNumber(value);
-    return typeof p === 'number' ? p : null;
-  })();
+  const parsed = parseEntry(value);
   const hasValue = parsed != null;
-
   const typedInNative = hasValue ? convertAt(parsed, ccy, sourceCcy, today) : 0;
   const delta = hasValue ? (Number.isFinite(typedInNative) ? typedInNative : 0) - lastValue : 0;
-  const deltaPct = hasValue && lastValue !== 0 ? delta / Math.abs(lastValue) : 0;
+  const deltaPct = hasValue && lastValue !== 0 ? (delta / Math.abs(lastValue)) * 100 : 0;
   const isCrossCcy = ccy !== sourceCcy;
   const fxRate = isCrossCcy ? convertAt(1, ccy, sourceCcy, today) : 1;
-  const sparkPositive = history.length > 1 ? history[history.length - 1] >= history[0] : true;
+  const tone = Math.abs(delta) < 0.005 ? 'zero' : delta > 0 ? 'pos' : 'neg';
+  // Unchanged and new rows carry no delta: "New" says it, and a carried row has nothing to report.
+  const showDelta = hasValue && changed && !isNew;
+  const deltaClass = !hasValue ? 'is-empty' : !showDelta ? 'is-quiet' : `is-${tone}`;
 
-  const ccyConf = CURRENCIES[ccy];
-  const sourceCcyConf = CURRENCIES[sourceCcy];
+  const spark = history.length > 1 ? history : [];
+  const sparkTone = spark.length > 1 ? (spark[spark.length - 1] > spark[0] ? 'pos' : spark[spark.length - 1] < spark[0] ? 'neg' : 'zero') : 'zero';
 
-  // Always include the chosen ccy + source-native + display currency, then
-  // fill out with the rest alphabetically. Keeps the dropdown sensible without
-  // a huge list scroll.
+  // The chosen, source and display currencies first, then the rest by name.
   const orderedCurrencies = useMemo(() => {
     const seen = new Set<CurrencyCode>();
-    const out: typeof allCurrencies = [];
+    const out: CurrencyConfig[] = [];
     const push = (code: CurrencyCode) => {
       if (seen.has(code)) return;
-      const cfg = allCurrencies.find(c => c.code === code);
+      const cfg = allCurrencies.find((c) => c.code === code);
       if (cfg) { out.push(cfg); seen.add(code); }
     };
     push(ccy);
@@ -822,91 +737,73 @@ function SourceEntryRow({
   }, [allCurrencies, ccy, sourceCcy, displayCurrency.code]);
 
   return (
-    <div className={`q-src-row ${hasValue ? 'is-filled' : ''} ${focused ? 'is-focused' : ''} ${isCarried ? 'is-carried' : ''}`}>
+    <div className={`q-src-row${hasValue ? ' is-filled' : ''}`}>
       <div className="q-src-row-info">
         <div className="q-src-row-name">
           <span className="q-src-row-name-text">{name}</span>
-          {isNew && <span className="q-src-row-newtag">NEW</span>}
-          {isCarried && <span className="q-src-row-carrytag" title="Unchanged since your last snapshot">carried</span>}
+          {isNew && <span className="q-tag">New</span>}
           {isNew && onRemove && (
-            <button
-              type="button"
-              className="q-src-row-remove"
-              onClick={onRemove}
-              aria-label={`Remove ${name}`}
-              title="Remove this source"
-            >
-              <X size={12} />
+            <button type="button" className="q-src-row-remove" onClick={onRemove} aria-label={`Remove ${name}`}>
+              <X size={14} strokeWidth={1.75} />
             </button>
           )}
         </div>
         {subMeta && <div className="q-src-row-meta">{subMeta}</div>}
       </div>
       <div className="q-src-row-spark">
-        {history.length > 1 && history.some(h => h !== 0) && (
-          <Sparkline values={history} width={72} height={22} positive={sparkPositive} />
-        )}
+        {spark.length > 1 && <Sparkline values={spark} tone={sparkTone} />}
       </div>
       <div className="q-src-row-last">
-        {row.kind === 'existing'
-          ? fmtMoney(lastValue, sourceCcy, sourceCcyConf.locale, true)
-          : '—'}
+        {row.kind === 'existing' ? money(lastValue, sourceCtx) : ''}
       </div>
-      <div className="q-src-row-input-wrap">
-        <span className="q-src-row-arrow">{'→'}</span>
-        <label className="q-src-row-input">
-          <span className="q-src-row-ccy-wrap">
-            <select
-              className="q-src-row-ccy-select"
-              value={ccy}
-              onChange={(e) => onCcyChange(e.target.value as CurrencyCode)}
-              aria-label={`Currency for ${name}`}
-              title={`Currency · ${ccy}`}
-            >
-              {orderedCurrencies.map(c => (
-                <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>
-              ))}
-            </select>
-            <span className="q-src-row-ccy" aria-hidden="true">{ccyConf.symbol}</span>
-            <ChevronDown size={10} className="q-src-row-ccy-chev" aria-hidden="true" />
-          </span>
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder={'—'}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onFocus={onFocus}
-            onBlur={onBlur}
-            aria-label={`Value for ${name}`}
-          />
-        </label>
-      </div>
-      <div className={`q-src-row-delta ${hasValue ? (delta >= 0 ? 'is-pos' : 'is-neg') : 'is-empty'}`}>
-        {hasValue && (
+      <label className="q-src-row-input">
+        <span className="q-src-row-ccy-wrap">
+          <select
+            className="q-src-row-ccy-select"
+            value={ccy}
+            onChange={(e) => onCcyChange(e.target.value as CurrencyCode)}
+            aria-label={`Currency for ${name}`}
+          >
+            {orderedCurrencies.map((c) => (
+              <option key={c.code} value={c.code}>{c.symbol} {c.code}</option>
+            ))}
+          </select>
+          <span className="q-src-row-ccy" aria-hidden="true">{CURRENCIES[ccy].symbol}</span>
+          <ChevronDown size={12} strokeWidth={1.75} className="q-src-row-ccy-chev" aria-hidden="true" />
+        </span>
+        <input
+          type="text"
+          inputMode="decimal"
+          enterKeyHint="next"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={onKeyDown}
+          aria-label={`Value for ${name}`}
+          aria-describedby={showDelta ? deltaId : undefined}
+        />
+      </label>
+      <div id={deltaId} className={`q-src-row-delta ${deltaClass}`}>
+        {showDelta && (tone === 'zero' ? (
+          <span>No change</span>
+        ) : (
           <>
-            <span className="q-src-row-delta-abs">
-              {delta >= 0 ? '+' : '−'}
-              {fmtMoney(Math.abs(delta), sourceCcy, sourceCcyConf.locale, true)}
-            </span>
-            <span className="q-src-row-delta-pct">
-              {delta >= 0 ? '+' : '−'}{(Math.abs(deltaPct) * 100).toFixed(1)}%
-            </span>
-            {isCrossCcy && Number.isFinite(fxRate) && (
-              <span className="q-src-row-delta-fx" title="Converted at today's FX rate">
-                via FX · 1 {ccy} = {fmtMoney(fxRate, sourceCcy, sourceCcyConf.locale, false)}
-              </span>
+            <span className="q-src-row-delta-abs">{money(delta, sourceCtx, { signed: true, compact: true })}</span>
+            {lastValue !== 0 && (
+              <span className="q-src-row-delta-pct">{pct(deltaPct, sourceCtx, { signed: true })}</span>
             )}
           </>
+        ))}
+        {hasValue && isCrossCcy && Number.isFinite(fxRate) && (
+          <span className="q-src-row-delta-fx">
+            {`At 1 ${ccy} = ${fxText(fxRate, sourceCtx)}`}
+          </span>
         )}
       </div>
     </div>
   );
 }
 
-// ── Help-icon tooltip ────────────────────────────────────
-// Uses the same HelpHint affordance as the dashboard KPI cards so the
-// hover/tap behaviour and bubble styling stay consistent across the app.
+// ── Field help ───────────────────────────────────────────
 function InfoTooltip({ label, content }: { label: string; content: string }) {
   return (
     <HelpHint side="top" content={content}>
@@ -914,45 +811,40 @@ function InfoTooltip({ label, content }: { label: string; content: string }) {
         type="button"
         className="q-new-src-info"
         aria-label={label}
-        tabIndex={-1}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
       >
-        ?
+        <Info size={16} strokeWidth={1.75} />
       </button>
     </HelpHint>
   );
 }
 
 // ── Inline new source form ───────────────────────────────
+// Controlled: the composer holds the fields so Save can include or refuse them.
 function NewSourceForm({
-  defaultCurrency,
+  draft,
+  onChange,
+  nameTaken,
+  canAdd,
   onCancel,
   onAdd,
   allCurrencies,
-  existingNamesLower,
-  pendingNamesLower,
 }: {
-  defaultCurrency: CurrencyCode;
+  draft: SourceDraft;
+  onChange: (patch: Partial<SourceDraft>) => void;
+  nameTaken: boolean;
+  canAdd: boolean;
   onCancel: () => void;
-  onAdd: (spec: { name: string; volatType: string; category: string; initialCcy: CurrencyCode; initialValue: string; isLiquid: boolean }) => void;
-  allCurrencies: import('@/lib/currencies').CurrencyConfig[];
-  existingNamesLower: Set<string>;
-  pendingNamesLower: Set<string>;
+  onAdd: () => void;
+  allCurrencies: CurrencyConfig[];
 }) {
-  const [name, setName] = useState('');
-  const [volatType, setVolatType] = useState('stable');
-  const [category, setCategory] = useState<string>(SOURCE_CATEGORIES[0]);
-  const [value, setValue] = useState('');
-  const [ccy, setCcy] = useState<CurrencyCode>(defaultCurrency);
-  const [isLiquid, setIsLiquid] = useState(true);
   const nameRef = useRef<HTMLInputElement>(null);
-
   useEffect(() => { nameRef.current?.focus(); }, []);
 
-  const trimmedLower = name.trim().toLowerCase();
-  const nameTaken = trimmedLower.length > 0 && (existingNamesLower.has(trimmedLower) || pendingNamesLower.has(trimmedLower));
-  const canAdd = name.trim().length > 1 && !nameTaken;
-  const ccyConf = CURRENCIES[ccy];
+  // Enter in a text field adds the source; it never saves the whole entry.
+  const onEnter = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) { e.preventDefault(); e.stopPropagation(); onAdd(); }
+  };
 
   return (
     <div className="q-new-src-form">
@@ -962,72 +854,71 @@ function NewSourceForm({
           <input
             ref={nameRef}
             type="text"
-            placeholder="e.g. Bank of America Savings account"
-            value={name}
-            onChange={e => setName(e.target.value)}
+            placeholder="e.g. Savings account"
+            value={draft.name}
+            onChange={(e) => onChange({ name: e.target.value })}
+            onKeyDown={onEnter}
             aria-invalid={nameTaken || undefined}
           />
           {nameTaken && (
             <span className="q-new-src-field-error" role="alert">
-              A source called “{name.trim()}” already exists. Pick a different name.
+              {`A source called "${draft.name.trim()}" already exists. Pick another name.`}
             </span>
           )}
         </label>
 
         <label className="q-new-src-field">
           <span className="q-new-src-field-label">Category</span>
-          <select
-            className="q-new-src-freetext"
-            value={category}
-            onChange={e => setCategory(e.target.value)}
-            aria-label="Source category"
-          >
-            {SOURCE_CATEGORIES.map(c => (
+          <select value={draft.category} onChange={(e) => onChange({ category: e.target.value })} aria-label="Source category">
+            {SOURCE_CATEGORIES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
         </label>
 
-        <label className="q-new-src-field">
+        <div className="q-new-src-field">
           <span className="q-new-src-field-label">
-            Volatility
+            <label htmlFor="new-src-volatility">Volatility</label>
             <InfoTooltip
               label="What is volatility?"
-              content="How much the value tends to swing. Use 'stable' for cash, savings and bonds; 'volatile' for diversified ETFs; 'very_volatile' for single stocks or crypto. Free text — use your own term."
+              content="How much the value tends to swing. Non-volatile for cash, savings and bonds; volatile for funds; highly volatile for single shares or crypto."
             />
           </span>
           <input
+            id="new-src-volatility"
             type="text"
-            className="q-new-src-freetext"
             list="q-volatility-suggestions"
-            placeholder="Type freely — e.g. stable, volatile, speculative…"
-            value={volatType}
-            onChange={e => setVolatType(e.target.value)}
+            placeholder="e.g. Non-volatile, Volatile"
+            value={draft.volatType}
+            onChange={(e) => onChange({ volatType: e.target.value })}
+            onKeyDown={onEnter}
           />
           <datalist id="q-volatility-suggestions">
-            <option value="stable" />
-            <option value="volatile" />
-            <option value="very_volatile" />
+            {/* The same three names Allocations groups by. */}
+            <option value="Non-volatile" />
+            <option value="Volatile" />
+            <option value="Highly volatile" />
           </datalist>
-        </label>
+        </div>
 
         <label className="q-new-src-field q-new-src-field--money">
-          <span className="q-new-src-field-label">Initial value</span>
-          <div className="q-new-src-field-money">
-            <span className="q-new-src-field-ccy">{ccyConf.symbol}</span>
+          <span className="q-new-src-field-label">Value today</span>
+          <span className="q-new-src-field-money">
+            <span className="q-new-src-field-ccy" aria-hidden="true">{CURRENCIES[draft.ccy].symbol}</span>
             <input
               type="text"
               inputMode="decimal"
               placeholder="0"
-              value={value}
-              onChange={e => setValue(e.target.value)}
+              value={draft.value}
+              onChange={(e) => onChange({ value: e.target.value })}
+              onKeyDown={onEnter}
             />
-            <select value={ccy} onChange={e => setCcy(e.target.value as CurrencyCode)} aria-label="Currency">
-              {allCurrencies.map(c => (
+            <select value={draft.ccy} onChange={(e) => onChange({ ccy: e.target.value as CurrencyCode })} aria-label="Currency">
+              {allCurrencies.map((c) => (
                 <option key={c.code} value={c.code}>{c.code}</option>
               ))}
             </select>
-          </div>
+          </span>
         </label>
 
         <div className="q-new-src-field q-new-src-field--toggle">
@@ -1035,105 +926,29 @@ function NewSourceForm({
             Liquidity
             <InfoTooltip
               label="What is liquidity?"
-              content="Liquid means you can convert it to cash in days, not months. Stocks, ETFs, crypto and savings are liquid. Real estate, pensions and locked-in plans are not."
+              content="Liquid means you can turn it into cash within days. Shares, funds, crypto and savings are liquid; property, pensions and locked-in plans are not."
             />
           </span>
-          <div className="q-new-src-field-toggle-wrap">
+          <span className="q-new-src-field-toggle-wrap">
+            <span className="q-new-src-field-toggle-label">{draft.isLiquid ? 'Cash within days' : 'Months or longer'}</span>
             <button
               type="button"
               role="switch"
-              aria-checked={isLiquid}
+              aria-checked={draft.isLiquid}
               aria-label="Liquid"
-              onClick={() => setIsLiquid(v => !v)}
-              className={`q-toggle${isLiquid ? ' is-on' : ''}`}
+              onClick={() => onChange({ isLiquid: !draft.isLiquid })}
+              className={`q-toggle${draft.isLiquid ? ' is-on' : ''}`}
             >
               <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
             </button>
-            <span className="q-new-src-field-toggle-label">
-              {isLiquid ? 'Accessible in days' : 'Locked — months or more'}
-            </span>
-          </div>
+          </span>
         </div>
       </div>
       <div className="q-new-src-form-foot">
-        <button type="button" onClick={onCancel} className="q-btn q-btn--ghost q-btn--sm">Cancel</button>
-        <button
-          type="button"
-          disabled={!canAdd}
-          onClick={() => onAdd({ name, volatType, category, initialCcy: ccy, initialValue: value, isLiquid })}
-          className="q-btn q-btn--primary q-btn--sm"
-          style={{ opacity: canAdd ? 1 : 0.5 }}
-        >
+        <button type="button" onClick={onCancel} className="q-btn q-btn--ghost q-btn--md">Cancel</button>
+        <button type="button" disabled={!canAdd} onClick={onAdd} className="q-btn q-btn--secondary q-btn--md">
           Add source
         </button>
-      </div>
-    </div>
-  );
-}
-
-// ── Success panel ────────────────────────────────────────
-function SaveSuccessPanel({
-  saved,
-  displayCurrency,
-  onDone,
-}: {
-  saved: SavedRecap;
-  displayCurrency: import('@/lib/currencies').CurrencyConfig;
-  onDone: () => void;
-}) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 2400);
-    return () => clearTimeout(t);
-  }, [onDone]);
-  const positive = saved.delta >= 0;
-  const fmtFull = (d: Date) => d.toLocaleDateString(displayCurrency.locale, {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-  });
-  return (
-    <div className="q-save-success">
-      <div className="q-save-success-ring">
-        <svg viewBox="0 0 64 64" width="64" height="64">
-          <circle cx="32" cy="32" r="29" fill="none" stroke="var(--accent-soft-raw)" strokeWidth="2" />
-          <path
-            d="M20 33 L29 42 L46 24"
-            fill="none"
-            stroke="var(--accent-raw)"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ strokeDasharray: 60, strokeDashoffset: 60, animation: 'q-tick-draw 460ms 120ms var(--ease-out) forwards' }}
-          />
-        </svg>
-      </div>
-      <div className="q-save-success-title">
-        {saved.backfill
-          ? `Backfilled ${saved.count} ${saved.count === 1 ? 'source' : 'sources'}`
-          : `Snapshot saved — ${saved.count} ${saved.count === 1 ? 'source' : 'sources'}`}
-      </div>
-      <div className="q-save-success-sub">{fmtFull(saved.date)}</div>
-      <div className="q-save-success-stats">
-        <div className="q-save-success-stat">
-          <div className="q-save-success-stat-label">Net worth</div>
-          <div className="q-save-success-stat-val">
-            {formatFullCurrency(saved.total, displayCurrency.code, displayCurrency.locale)}
-          </div>
-        </div>
-        <div className="q-save-success-stat">
-          <div className="q-save-success-stat-label">Change</div>
-          <div className={`q-save-success-stat-val ${positive ? 'is-pos' : 'is-neg'}`}>
-            {positive ? '+' : '−'}
-            {formatCurrency(Math.abs(saved.delta), displayCurrency.symbol)}
-          </div>
-        </div>
-        {!saved.backfill && (
-          <div className="q-save-success-stat">
-            <div className="q-save-success-stat-label">Tracked</div>
-            <div className="q-save-success-stat-val">{saved.newStreak} mo</div>
-          </div>
-        )}
-      </div>
-      <div className="q-save-success-foot">
-        <button type="button" onClick={onDone} className="q-btn q-btn--ghost q-btn--sm">Done</button>
       </div>
     </div>
   );

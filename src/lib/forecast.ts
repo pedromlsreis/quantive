@@ -1,26 +1,28 @@
 /**
  * @module forecast
  * Generates net worth forecast projections using Compound Annual Growth Rate (CAGR).
- * Includes confidence intervals based on historical residual standard deviation.
+ * Includes a range band sized from the spread of the history around its own trend.
  */
 
-/** A single forecast data point with confidence bounds. */
+/** A single forecast data point with its range bounds. */
 export interface ForecastPoint {
   /** The projected future date. */
   date: Date;
   /** The central forecast value. */
   forecast: number;
-  /** Upper bound of the 95% confidence interval. */
+  /** Upper edge of the range band. */
   upper: number;
-  /** Lower bound of the 95% confidence interval. */
+  /** Lower edge of the range band. */
   lower: number;
 }
 
 /**
  * Generate net worth forecast points from historical snapshots.
  *
- * Uses CAGR to project forward, then widens confidence bands over time
- * based on the standard deviation of historical residuals (±1.96σ for ~95% CI).
+ * Uses CAGR to project forward, then widens the band over time from the
+ * standard deviation of historical residuals (±1.96σ). This is a heuristic
+ * range, not a statistical 95% interval, so user-facing copy calls it "a range
+ * from your own history".
  *
  * @param snapshots - Historical data points with date and total net worth.
  * @param monthsForward - Number of months to forecast (default: 12).
@@ -54,7 +56,7 @@ export function generateForecast(
 
   const monthlyRate = Math.pow(1 + cagr, 1 / 12) - 1;
 
-  // Compute residuals for confidence interval
+  // Residuals around the fitted trend size the range band
   const residuals: number[] = [];
 
   for (const s of sorted) {
@@ -82,7 +84,7 @@ export function generateForecast(
     futureDate.setMonth(futureDate.getMonth() + m);
     const predicted = last.total * Math.pow(1 + monthlyRate, m);
 
-    // Confidence band widens over time (√(1 + m/3) factor)
+    // Band widens over time (√(1 + m/3) factor)
     const spread = stdDev * 1.96 * Math.sqrt(1 + m / 3);
     points.push({
       date: futureDate,

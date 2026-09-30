@@ -1,45 +1,20 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { createPortal } from 'react-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useEntitlements } from '@/hooks/useEntitlements';
-import { UpsellCard } from '@/components/billing/UpsellCard';
-import { Notice } from '@/components/ui/Notice';
-import { extractCheckoutErrorCode, messageForPortalError } from '@/lib/billing/checkoutError';
-import { analytics } from '@/lib/analytics';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, AUTO_LOCK_MINUTES_OPTIONS, type NumberFormat } from '@/contexts/PreferencesContext';
-import { REMINDER_OPTIONS, normaliseReminderFrequency, type ReminderFrequency } from '@/lib/reminders';
-import { supabase } from '@/integrations/supabase/client';
+import { useEntitlements } from '@/hooks/useEntitlements';
+import { browserNumberLocale } from '@/hooks/useFormat';
+import { useModalLayer } from '@/hooks/useModalLayer';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { Notice } from '@/components/ui/Notice';
 import { RecoveryCodeDisplay } from '@/components/auth/RecoveryCodeDisplay';
 import { PdfReportButton } from '@/components/export/PdfReportButton';
-import {
-  Pencil,
-  Check,
-  X,
-  Trash2,
-  ShieldCheck,
-  KeyRound,
-  RotateCcw,
-  Wallet,
-  Hash,
-  EyeOff,
-  Mail,
-  Bell,
-  Download,
-  Database,
-  CreditCard,
-  BarChart3,
-  Lock,
-} from 'lucide-react';
-import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/lib/consent';
-import { Link } from 'react-router-dom';
-import { resolvePlan } from '@/lib/billing/plans';
-import { mapAuthError } from '@/lib/authError';
-import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
-import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,25 +25,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
-const NUMBER_FORMAT_OPTIONS: { value: NumberFormat; label: string; sample?: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'us',   label: 'US-style',  sample: '1,234,567.89' },
-  { value: 'eu',   label: 'European',  sample: '1.234.567,89' },
-  { value: 'in',   label: 'Indian',    sample: '12,34,567.89' },
-];
-
-const fieldLabel: React.CSSProperties = {
-  display: 'block',
-  fontSize: 'var(--text-xs)',
-  fontWeight: 500,
-  color: 'var(--fg-muted)',
-  marginBottom: 'var(--s-1)',
-};
-
-/* See .q-pref-row in index.css — class controls layout so a media query
-   can stack rows vertically on mobile (inline styles can't do that). */
-const PREF_ROW_CLASS = 'q-pref-row';
+import { extractCheckoutErrorCode, messageForPortalError } from '@/lib/billing/checkoutError';
+import { resolvePlan } from '@/lib/billing/plans';
+import { PRO_PRICE_LINE } from '@/lib/billing/planCopy';
+import { analytics } from '@/lib/analytics';
+import { REMINDER_OPTIONS, normaliseReminderFrequency, type ReminderFrequency } from '@/lib/reminders';
+import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/lib/consent';
+import { mapAuthError } from '@/lib/authError';
+import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
+import { formatDate } from '@/lib/formatters';
+import { NUMBER_FORMAT_LOCALES } from '@/lib/numberLocale';
+import { LEGAL_LINKS } from '@/lib/nav-config';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function SettingsPage() {
   const { user, signOut, updatePassword, subscription, checkSubscription } = useAuth();
@@ -119,8 +87,7 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Deep-link support: `/settings#recovery` (e.g. from the sidebar avatar
-  // menu) scrolls to the recovery sub-section once the section has mounted.
+  // `/settings#recovery` (the account menu) and `#export` scroll to their row once mounted.
   useEffect(() => {
     if (!location.hash) return;
     const id = location.hash.slice(1);
@@ -195,11 +162,11 @@ export default function SettingsPage() {
       .eq('user_id', user.id);
     setSaving(false);
     if (error) {
-      toast.error('Failed to update display name.');
+      toast.error("Couldn't save your display name. Try again.");
     } else {
       setDisplayName(draft.trim());
       setEditing(false);
-      toast.success('Display name updated!');
+      toast.success('Display name saved.');
     }
   };
 
@@ -217,7 +184,7 @@ export default function SettingsPage() {
     setSavingReminder(false);
     if (error) {
       setReminderFrequency(previous);
-      toast.error("Couldn't save your reminder preference. Please try again.");
+      toast.error("Couldn't save your reminder setting. Try again.");
       return;
     }
     analytics.reminderFrequencyChanged({ frequency: next });
@@ -246,7 +213,7 @@ export default function SettingsPage() {
     e.preventDefault();
     if (!user) return;
     if (newPassword !== newPasswordConfirm) {
-      toast.error('Passwords do not match.');
+      toast.error("The two passwords don't match.");
       return;
     }
     if (passwordTooShort(newPassword)) {
@@ -267,7 +234,7 @@ export default function SettingsPage() {
       const { error: rewrapErr } = await keySession.rewrapForNewPassword(user.id, newPassword);
       if (rewrapErr) {
         toast.error(
-          'Password updated, but the encryption wrap could not be rotated. Please retry, or use your recovery code on next sign-in.',
+          "Password changed, but your data key couldn't be re-wrapped. Try again, or use your recovery code at your next sign-in.",
         );
         return;
       }
@@ -282,7 +249,7 @@ export default function SettingsPage() {
 
   const handleExport = async (fmt: 'xlsx' | 'csv') => {
     if (!data) {
-      toast.error('No data to export.');
+      toast.error('Nothing to export yet.');
       return;
     }
     const gated = fmt === 'xlsx' ? !canExportExcel : !canExportCsv;
@@ -300,7 +267,7 @@ export default function SettingsPage() {
         exporter.exportPortfolioCsv(data, `portfolio_${timestamp}.csv`);
       }
     } catch {
-      toast.error('Export failed.');
+      toast.error("Couldn't export. Try again.");
     } finally {
       setExporting(null);
     }
@@ -311,623 +278,347 @@ export default function SettingsPage() {
     try {
       const { data, error } = await supabase.functions.invoke('delete-account');
       if (error || !data?.success) {
-        toast.error('Failed to delete account. Please try again.');
+        toast.error("Couldn't delete your account. Try again.");
         setDeleting(false);
         return;
       }
       // PortfolioContext's user-id watcher wipes all client state when
       // signOut() flips user to null. See docs/security/encryption.md §8.3.
       await signOut();
-      toast.success('Your account and all data have been permanently deleted.');
+      toast.success('Your account and entries are deleted');
       navigate('/');
     } catch {
-      toast.error('Failed to delete account. Please try again.');
+      toast.error("Couldn't delete your account. Try again.");
       setDeleting(false);
     }
   };
 
+  const unlocked = keySession.status === 'unlocked-encrypted';
+  const autoLocale = browserNumberLocale();
+
   return (
-    <div className="mx-auto w-full max-w-3xl">
-      <header style={{ marginBottom: 'var(--s-8)' }}>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
-        <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-sm)', color: 'var(--fg-subtle)' }}>
-          Personalise your workspace, manage data, and control account security.
-        </p>
+    <div className="q-set">
+      <header className="q-page-head">
+        <h1 className="q-h1" tabIndex={-1}>Settings</h1>
       </header>
 
-      {/* Profile */}
       {user && (
-        <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
-          <div className="q-section-head">
-            <h2>Profile</h2>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-            <div>
-              <p style={fieldLabel}>Email</p>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>{user.email}</p>
-            </div>
-            <div>
-              <p style={fieldLabel}>Display name</p>
-              {editing ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-                  <label className="q-input" style={{ flex: 1, maxWidth: 300 }}>
-                    <input
-                      type="text"
-                      value={draft}
-                      onChange={e => setDraft(e.target.value)}
-                      placeholder="Enter display name"
-                      autoFocus
-                      onKeyDown={e => {
-                        if (e.key === 'Enter') handleSave();
-                        if (e.key === 'Escape') setEditing(false);
-                      }}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={saving || !draft.trim()}
-                    className="q-icon-btn"
-                    style={{ color: 'var(--accent-raw)', opacity: saving || !draft.trim() ? 0.4 : 1 }}
-                    title="Save"
-                  >
-                    <Check className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(false)}
-                    className="q-icon-btn"
-                    title="Cancel"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-                  <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>{displayName || '—'}</p>
-                  <button
-                    type="button"
-                    onClick={() => { setDraft(displayName || ''); setEditing(true); }}
-                    className="q-icon-btn"
-                    title="Edit display name"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+        <Section id="profile" title="Profile">
+          <Row label="Email">
+            <span className="q-set-value">{user.email}</span>
+          </Row>
+          <Row label="Display name" htmlFor={editing ? 'display-name' : undefined}>
+            {editing ? (
+              <div className="q-set-inline">
+                <label className="q-input" style={{ width: 240 }}>
+                  <input
+                    id="display-name"
+                    type="text"
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="e.g. Sam"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSave();
+                      if (e.key === 'Escape') setEditing(false);
+                    }}
+                  />
+                </label>
+                <button type="button" onClick={handleSave} disabled={saving || !draft.trim()} className="q-btn q-btn--secondary q-btn--md">
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button type="button" onClick={() => setEditing(false)} className="q-btn q-btn--ghost q-btn--md">
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="q-set-inline">
+                <span className="q-set-value">{displayName || 'Not set'}</span>
+                <button
+                  type="button"
+                  onClick={() => { setDraft(displayName || ''); setEditing(true); }}
+                  className="q-link-btn"
+                  aria-label="Edit display name"
+                >
+                  Edit
+                </button>
+              </div>
+            )}
+          </Row>
+        </Section>
       )}
 
-      {/* Billing */}
       {user && (
-        <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
-          <div className="q-section-head">
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-              <CreditCard className="h-4 w-4 text-primary" />
-              Billing
-            </h2>
-          </div>
+        <Section id="plan" title="Plan">
           {subscription.paymentPastDue && (
-            <Notice
-              variant="warning"
-              role="status"
-              style={{ marginBottom: 'var(--s-4)', flexDirection: 'column', alignItems: 'stretch', gap: 'var(--s-1)' }}
-            >
-              <p style={{ fontWeight: 600, margin: 0 }}>Your last payment didn't go through</p>
-              <p style={{ margin: 0, opacity: 0.9 }}>
-                We're still retrying, and you keep Pro access for now. Click 'Manage billing' below to update your card before retries run out.
+            <Notice variant="warning" role="status" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--s-1)', marginBottom: 'var(--s-4)' }}>
+              <p style={{ fontWeight: 600, margin: 0 }}>{"Your last payment didn't go through"}</p>
+              <p style={{ margin: 0 }}>
+                {"We're retrying the card and Pro stays on for now. Update your card in Manage billing before the retries run out."}
               </p>
             </Notice>
           )}
-          <div className={PREF_ROW_CLASS}>
-            <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
-                Current plan:{' '}
-                <span style={{ fontWeight: 600 }}>{currentPlan.name}</span>
-              </p>
-              {subscription.subscribed && subscription.subscriptionEnd && (
-                <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                  {subscription.cancelAtPeriodEnd
-                    ? `Cancels on ${format(new Date(subscription.subscriptionEnd), 'd MMM yyyy')}. You'll keep Pro access until then.`
-                    : `Renews on ${format(new Date(subscription.subscriptionEnd), 'd MMM yyyy')}.`}
-                </p>
-              )}
-              {!subscription.subscribed && (
-                <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                  Upgrade to unlock full history, forecasting, and exports.
-                </p>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--s-2)', flexShrink: 0 }}>
-              {/* Manage billing stays reachable for anyone with Stripe
-                  history — active subscribers and cancelled users alike —
-                  so they can pull invoices or reactivate without a fresh
-                  checkout flow. Upgrade button shows for everyone not
-                  currently subscribed (including ex-Pro). */}
+          <Row
+            label={currentPlan.name}
+            description={
+              subscription.subscribed && subscription.subscriptionEnd
+                ? subscription.cancelAtPeriodEnd
+                  ? `Cancels on ${formatDate(new Date(subscription.subscriptionEnd))}. Pro stays on until then.`
+                  : `Renews on ${formatDate(new Date(subscription.subscriptionEnd))}.`
+                : subscription.subscribed
+                  ? undefined
+                  : `Pro adds your full history, forecasts, goals, and Excel and PDF export. ${PRO_PRICE_LINE}.`
+            }
+          >
+            <div className="q-set-inline">
+              {/* Anyone with Stripe history keeps the portal, cancelled users included, for invoices and reactivation. */}
               {(subscription.subscribed || subscription.hasStripeHistory) && (
-                <button
-                  type="button"
-                  onClick={handleManageBilling}
-                  disabled={managingBilling}
-                  className="q-btn q-btn--secondary q-btn--sm"
-                  style={{ opacity: managingBilling ? 0.6 : 1 }}
-                >
+                <button type="button" onClick={handleManageBilling} disabled={managingBilling} className="q-btn q-btn--secondary q-btn--md">
                   {managingBilling ? 'Opening…' : 'Manage billing'}
                 </button>
               )}
               {!subscription.subscribed && (
-                <Link to="/pricing" className="q-btn q-btn--primary q-btn--sm">
+                <Link to="/pricing" className="q-btn q-btn--secondary q-btn--md">
                   Upgrade to Pro
                 </Link>
               )}
             </div>
-          </div>
-        </section>
+          </Row>
+        </Section>
       )}
 
-      {/* Preferences */}
-      <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
-        <div className="q-section-head">
-          <h2>Preferences</h2>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-6)' }}>
-          {/* Display currency */}
-          <div className={PREF_ROW_CLASS}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
-                <Wallet className="h-4 w-4 text-primary" />
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Display currency</span>
-              </div>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                All balances are shown in this currency. Values stored in other currencies are converted at the rate of the snapshot date.
-              </p>
-            </div>
-            <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
-              <select
-                value={currency.code}
-                onChange={(e) => {
-                  const next = e.target.value as CurrencyCode;
-                  setCurrency(next);
-                  analytics.currencyChanged({ currency: next });
-                }}
-              >
-                {[
-                  currency,
-                  ...allCurrencies
-                    .filter((c) => c.code !== currency.code)
-                    .sort((a, b) => a.name.localeCompare(b.name)),
-                ].map((c) => (
-                  <option key={c.code} value={c.code} title={c.name}>
-                    {c.name} ({c.code})
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {/* Number format */}
-          <div className={PREF_ROW_CLASS}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
-                <Hash className="h-4 w-4 text-primary" />
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Number format</span>
-              </div>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                How separators and decimals appear across the app.
-              </p>
-            </div>
-            <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
-              <select
-                value={numberFormat}
-                onChange={(e) => setNumberFormat(e.target.value as NumberFormat)}
-              >
-                {NUMBER_FORMAT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.sample ? `${opt.label} — ${opt.sample}` : opt.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {/* Privacy mode */}
-          <div className={PREF_ROW_CLASS}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
-                <EyeOff className="h-4 w-4 text-primary" />
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Privacy mode</span>
-              </div>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                Blur monetary values throughout the app. Hover a value to peek, or press and hold on touch.
-              </p>
-            </div>
-            <button
-              type="button"
-              className={`q-toggle${privacyMode ? ' is-on' : ''}`}
-              onClick={() => {
-                setPrivacyMode(!privacyMode);
-                analytics.privacyModeToggled({ enabled: !privacyMode });
+      <Section id="preferences" title="Preferences">
+        <Row
+          label="Display currency"
+          htmlFor="pref-currency"
+          description="Balances are shown in this currency. Entries in other currencies convert at the rate on their date."
+        >
+          <label className="q-input q-set-select">
+            <select
+              id="pref-currency"
+              value={currency.code}
+              onChange={(e) => {
+                const next = e.target.value as CurrencyCode;
+                setCurrency(next);
+                analytics.currencyChanged({ currency: next });
               }}
-              aria-checked={privacyMode}
-              aria-label="Privacy mode"
-              role="switch"
             >
-              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
-            </button>
-          </div>
-
-          {/* Auto-blur when the window loses focus */}
-          <div className={PREF_ROW_CLASS}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
-                <EyeOff className="h-4 w-4 text-primary" />
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Hide values when you switch away</span>
-              </div>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                Automatically blur values whenever this tab loses focus, and reveal them when you return. Handy on a shared screen or while presenting.
-              </p>
-            </div>
-            <button
-              type="button"
-              className={`q-toggle${blurOnUnfocus ? ' is-on' : ''}`}
-              onClick={() => setBlurOnUnfocus(!blurOnUnfocus)}
-              aria-checked={blurOnUnfocus}
-              aria-label="Hide values when the window loses focus"
-              role="switch"
-            >
-              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
-            </button>
-          </div>
-
-          {/* Auto-lock after inactivity */}
-          <div className={PREF_ROW_CLASS}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
-                <Lock className="h-4 w-4 text-primary" />
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Auto-lock when idle</span>
-              </div>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                Lock your data after a period of inactivity, so an unattended screen stops showing it. You re-enter your password to unlock.
-              </p>
-            </div>
-            <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
+              {[
+                currency,
+                ...allCurrencies
+                  .filter((c) => c.code !== currency.code)
+                  .sort((a, b) => a.name.localeCompare(b.name)),
+              ].map((c) => (
+                <option key={c.code} value={c.code} title={c.name}>
+                  {c.name} ({c.code})
+                </option>
+              ))}
+            </select>
+          </label>
+        </Row>
+        <Row label="Number format" htmlFor="pref-number" description="Automatic follows your browser's language.">
+          <label className="q-input q-set-select">
+            <select id="pref-number" value={numberFormat} onChange={(e) => setNumberFormat(e.target.value as NumberFormat)}>
+              {NUMBER_FORMAT_ORDER.map((nf) => (
+                <option key={nf} value={nf}>
+                  {nf === 'auto'
+                    ? `Automatic (${sampleNumber(autoLocale)})`
+                    : sampleNumber(NUMBER_FORMAT_LOCALES[nf] ?? autoLocale)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </Row>
+        <Row label="Privacy mode" description="Blur money values across the app. Hover a value to see it, or press and hold on touch.">
+          <Switch
+            on={privacyMode}
+            label="Privacy mode"
+            onChange={() => {
+              setPrivacyMode(!privacyMode);
+              analytics.privacyModeToggled({ enabled: !privacyMode });
+            }}
+          />
+        </Row>
+        <Row label="Hide values when you switch away" description="Blur values while this tab is in the background, for shared screens and presenting.">
+          <Switch on={blurOnUnfocus} label="Hide values when the window loses focus" onChange={() => setBlurOnUnfocus(!blurOnUnfocus)} />
+        </Row>
+        <Row label="Auto-lock when idle" htmlFor="pref-autolock" description="Lock your data after a period without activity. Your password unlocks it.">
+          <label className="q-input q-set-select">
+            <select id="pref-autolock" value={autoLockMinutes} onChange={(e) => setAutoLockMinutes(Number(e.target.value))}>
+              {AUTO_LOCK_MINUTES_OPTIONS.map((m) => (
+                <option key={m} value={m}>{m === 0 ? 'Never' : `After ${m} minutes`}</option>
+              ))}
+            </select>
+          </label>
+        </Row>
+        <Row label="Anonymous analytics" description="Record which pages and features you use, through PostHog. Balances, source names and your email are never sent.">
+          <Switch
+            on={analyticsConsent === 'granted'}
+            label="Anonymous analytics"
+            onChange={() => setConsent(analyticsConsent === 'granted' ? 'denied' : 'granted')}
+          />
+        </Row>
+        {user && (
+          <Row
+            label="Entry reminders"
+            htmlFor="pref-reminders"
+            description="An email when you haven't synced for a while. It uses only the date of your last sync."
+          >
+            <label className="q-input q-set-select">
               <select
-                value={autoLockMinutes}
-                onChange={(e) => setAutoLockMinutes(Number(e.target.value))}
-                aria-label="Auto-lock when idle"
+                id="pref-reminders"
+                value={reminderFrequency}
+                disabled={savingReminder}
+                onChange={(e) => handleReminderChange(e.target.value as ReminderFrequency)}
               >
-                {AUTO_LOCK_MINUTES_OPTIONS.map((m) => (
-                  <option key={m} value={m}>
-                    {m === 0 ? 'Never' : `After ${m} minutes`}
-                  </option>
+                {REMINDER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </label>
-          </div>
+          </Row>
+        )}
+      </Section>
 
-          {/* Anonymous analytics */}
-          <div className={PREF_ROW_CLASS}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
-                <BarChart3 className="h-4 w-4 text-primary" />
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Anonymous analytics</span>
-              </div>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                Share anonymous page views and feature usage with us via PostHog. No financial data, no email addresses, no cross-site tracking. Off by default.
-              </p>
-            </div>
-            <button
-              type="button"
-              className={`q-toggle${analyticsConsent === 'granted' ? ' is-on' : ''}`}
-              onClick={() => setConsent(analyticsConsent === 'granted' ? 'denied' : 'granted')}
-              aria-checked={analyticsConsent === 'granted'}
-              aria-label="Anonymous analytics"
-              role="switch"
-            >
-              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
+      <Section id="export" title="Your data">
+        {canExportCsv && (
+          <Row label="CSV export" description="All your entries, on both plans.">
+            <button type="button" onClick={() => handleExport('csv')} disabled={!data || exporting !== null} className="q-btn q-btn--secondary q-btn--md">
+              {exporting === 'csv' ? 'Exporting…' : 'Download CSV'}
             </button>
-          </div>
-
-          {/* Entry reminders */}
-          {user && (
-            <div className={PREF_ROW_CLASS}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
-                  <Bell className="h-4 w-4 text-primary" />
-                  <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Entry reminders</span>
-                </div>
-                <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                  Get an email nudge to update your balances if you haven't logged in for a while. We only check when you last synced, never what's in your portfolio.
-                </p>
-              </div>
-              <label className="q-input" style={{ width: 176, flexShrink: 0 }}>
-                <select
-                  value={reminderFrequency}
-                  disabled={savingReminder}
-                  onChange={(e) => handleReminderChange(e.target.value as ReminderFrequency)}
-                  aria-label="Entry reminder schedule"
-                >
-                  {REMINDER_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
+          </Row>
+        )}
+        <Row
+          label="Excel workbook"
+          tag={canExportExcel ? undefined : 'Pro'}
+          description="Your sources and entries in one .xlsx file."
+        >
+          {canExportExcel && (
+            <button type="button" onClick={() => handleExport('xlsx')} disabled={!data || exporting !== null} className="q-btn q-btn--secondary q-btn--md">
+              {exporting === 'xlsx' ? 'Exporting…' : 'Download Excel'}
+            </button>
           )}
+        </Row>
+        <Row
+          label="PDF report"
+          tag={has('export.pdf') ? undefined : 'Pro'}
+          description="A one-page summary for your records or an adviser."
+        >
+          <PdfReportButton />
+        </Row>
+      </Section>
 
-          {/* Email summaries — coming soon */}
-          <div className={PREF_ROW_CLASS} style={{ opacity: 0.7 }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', marginBottom: 'var(--s-1)' }}>
-                <Mail className="h-4 w-4 text-primary" />
-                <span style={{ fontSize: 'var(--text-sm)', fontWeight: 500, color: 'var(--fg)' }}>Email summaries</span>
-                <span className="q-badge q-badge--accent" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  Coming soon
+      {user && (
+        <Section id="security" title="Security">
+          <Row
+            label="End-to-end encryption"
+            description={unlocked
+              ? 'XChaCha20-Poly1305, with the key derived from your password by Argon2id.'
+              : 'Locked. Sign out and back in to manage encryption.'}
+          />
+          <Row
+            id="recovery"
+            label="Recovery code"
+            description={keySession.hasRecovery === true
+              ? 'Saved. A new code replaces the old one.'
+              : keySession.hasRecovery === false
+                ? "Not set up. Without one, a forgotten password means your data can't be recovered."
+                : 'Checking…'}
+          >
+            {keySession.hasRecovery !== null && (
+              <button
+                type="button"
+                onClick={handleSetUpRecovery}
+                disabled={provisioningRecovery || !unlocked}
+                className="q-btn q-btn--secondary q-btn--md"
+              >
+                {provisioningRecovery
+                  ? 'Generating…'
+                  : keySession.hasRecovery ? 'Replace recovery code' : 'Set up recovery code'}
+              </button>
+            )}
+          </Row>
+          <Row label="Password" description={changingPassword ? PASSWORD_LENGTH_HINT : undefined}>
+            {!changingPassword && (
+              <button type="button" onClick={() => setChangingPassword(true)} disabled={!unlocked} className="q-btn q-btn--secondary q-btn--md">
+                Change password
+              </button>
+            )}
+          </Row>
+          {changingPassword && (
+            <form onSubmit={handleChangePassword} className="q-set-form">
+              <div className="q-field">
+                <label className="q-field-label" htmlFor="new-password">New password</label>
+                <span className="q-input">
+                  <input
+                    id="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={PASSWORD_MIN_LENGTH}
+                    required
+                    autoFocus
+                  />
                 </span>
               </div>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                Monthly digest of net worth movement, allocation drift, and forecast updates.
-              </p>
-            </div>
-            <button
-              type="button"
-              className="q-toggle"
-              disabled
-              aria-checked={false}
-              role="switch"
-              aria-label="Email summaries (coming soon)"
-              style={{ opacity: 0.4, cursor: 'not-allowed' }}
-            >
-              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
+              <div className="q-field">
+                <label className="q-field-label" htmlFor="confirm-password">Confirm new password</label>
+                <span className="q-input">
+                  <input
+                    id="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPasswordConfirm}
+                    onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                    minLength={PASSWORD_MIN_LENGTH}
+                    required
+                  />
+                </span>
+              </div>
+              <div className="q-set-inline">
+                <button type="submit" disabled={submittingPassword} className="q-btn q-btn--secondary q-btn--md">
+                  {submittingPassword ? 'Saving…' : 'Save password'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setChangingPassword(false);
+                    setNewPassword('');
+                    setNewPasswordConfirm('');
+                  }}
+                  className="q-btn q-btn--ghost q-btn--md"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </Section>
+      )}
+
+      {user && (
+        <Section id="delete" title="Delete account">
+          <Row description="Permanently deletes your account and entries. Download a CSV first if you want a copy.">
+            <button type="button" onClick={() => setDeleteOpen(true)} className="q-btn q-btn--danger q-btn--md">
+              Delete account
             </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Data */}
-      <section
-        id="export"
-        className="q-card q-card--p-lg"
-        style={{ marginBottom: 'var(--s-8)', scrollMarginTop: 'calc(var(--q-topbar-h, 0px) + var(--s-4))' }}
-      >
-        <div className="q-section-head">
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-            <Database className="h-4 w-4 text-primary" />
-            Your data
-          </h2>
-        </div>
-        {canExportExcel || canExportCsv ? (
-          <div className={PREF_ROW_CLASS}>
-            <div style={{ minWidth: 0 }}>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>Export your data</p>
-              <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                {canExportExcel
-                  ? 'Excel preserves the full workbook (snapshots, per-source values, reference metadata). CSV flattens the facts sheet for spreadsheets, notebooks, and scripts.'
-                  : 'Download every measurement you have recorded as a CSV file, for spreadsheets, notebooks, and scripts. Available on every plan.'}
-              </p>
-              {!canExportExcel && (
-                <p style={{ marginTop: 'var(--s-1)', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)' }}>
-                  Excel workbooks and the PDF wealth report come with{' '}
-                  <Link to="/pricing" className="text-primary hover:underline">Pro</Link>.
-                </p>
-              )}
-            </div>
-            <div style={{ display: 'flex', gap: 'var(--s-2)', flexShrink: 0 }}>
-              {canExportExcel && (
-                <button
-                  type="button"
-                  onClick={() => handleExport('xlsx')}
-                  disabled={!data || exporting !== null}
-                  className="q-btn q-btn--secondary q-btn--sm"
-                  style={{ opacity: !data || exporting !== null ? 0.5 : 1 }}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  {exporting === 'xlsx' ? 'Exporting…' : 'Excel'}
-                </button>
-              )}
-              {canExportCsv && (
-                <button
-                  type="button"
-                  onClick={() => handleExport('csv')}
-                  disabled={!data || exporting !== null}
-                  className="q-btn q-btn--secondary q-btn--sm"
-                  style={{ opacity: !data || exporting !== null ? 0.5 : 1 }}
-                >
-                  <Download className="h-3.5 w-3.5" />
-                  {exporting === 'csv' ? 'Exporting…' : 'CSV'}
-                </button>
-              )}
-              <PdfReportButton />
-            </div>
-          </div>
-        ) : (
-          <UpsellCard feature="export.excel" compact />
-        )}
-      </section>
-
-      {/* Security */}
-      {user && (
-        <section className="q-card q-card--p-lg" style={{ marginBottom: 'var(--s-8)' }}>
-          <div className="q-section-head">
-            <h2 style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)' }}>
-              <ShieldCheck className="h-4 w-4 text-primary" />
-              Security
-            </h2>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-5)' }}>
-            <div>
-              <p style={fieldLabel}>End-to-end encryption</p>
-              {keySession.status === 'unlocked-encrypted' ? (
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
-                  <span className="q-badge q-badge--accent">Enabled</span>{' '}
-                  XChaCha20-Poly1305 + Argon2id.
-                </p>
-              ) : (
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>
-                  Locked — sign out and sign in to manage encryption settings.
-                </p>
-              )}
-            </div>
-
-            <div id="recovery" style={{ scrollMarginTop: 'calc(var(--q-topbar-h, 0px) + var(--s-4))' }}>
-              <p style={fieldLabel}>Recovery code</p>
-              {keySession.hasRecovery === true ? (
-                <div>
-                  <p style={{ marginBottom: 'var(--s-2)', fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
-                    Configured. Generate a new one to invalidate the old.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleSetUpRecovery}
-                    disabled={provisioningRecovery || keySession.status !== 'unlocked-encrypted'}
-                    className="q-btn q-btn--ghost q-btn--sm"
-                    style={{ opacity: provisioningRecovery || keySession.status !== 'unlocked-encrypted' ? 0.5 : 1 }}
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    {provisioningRecovery ? 'Generating…' : 'Rotate recovery code'}
-                  </button>
-                </div>
-              ) : keySession.hasRecovery === false ? (
-                <div>
-                  <p style={{ marginBottom: 'var(--s-2)', fontSize: 'var(--text-sm)', color: 'var(--fg)' }}>
-                    Not configured. Without one, a forgotten password means permanent loss of your encrypted data.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={handleSetUpRecovery}
-                    disabled={provisioningRecovery || keySession.status !== 'unlocked-encrypted'}
-                    className="q-btn q-btn--primary q-btn--sm"
-                    style={{ opacity: provisioningRecovery || keySession.status !== 'unlocked-encrypted' ? 0.5 : 1 }}
-                  >
-                    <KeyRound className="h-3.5 w-3.5" />
-                    {provisioningRecovery ? 'Generating…' : 'Set up recovery code'}
-                  </button>
-                </div>
-              ) : (
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>Loading…</p>
-              )}
-            </div>
-
-            <div>
-              <p style={fieldLabel}>Change password</p>
-              {!changingPassword ? (
-                <button
-                  type="button"
-                  onClick={() => setChangingPassword(true)}
-                  disabled={keySession.status !== 'unlocked-encrypted'}
-                  className="q-btn q-btn--ghost q-btn--sm"
-                  style={{ opacity: keySession.status !== 'unlocked-encrypted' ? 0.5 : 1 }}
-                >
-                  Change password
-                </button>
-              ) : (
-                <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-2)' }}>
-                  <label className="q-input" style={{ maxWidth: 300 }}>
-                    <input
-                      type="password"
-                      autoComplete="new-password"
-                      value={newPassword}
-                      onChange={e => setNewPassword(e.target.value)}
-                      placeholder="New password"
-                      minLength={PASSWORD_MIN_LENGTH}
-                      required
-                      autoFocus
-                    />
-                  </label>
-                  <label className="q-input" style={{ maxWidth: 300 }}>
-                    <input
-                      type="password"
-                      autoComplete="new-password"
-                      value={newPasswordConfirm}
-                      onChange={e => setNewPasswordConfirm(e.target.value)}
-                      placeholder="Confirm new password"
-                      minLength={PASSWORD_MIN_LENGTH}
-                      required
-                    />
-                  </label>
-                  <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
-                    <button
-                      type="submit"
-                      disabled={submittingPassword}
-                      className="q-btn q-btn--primary q-btn--sm"
-                      style={{ opacity: submittingPassword ? 0.5 : 1 }}
-                    >
-                      {submittingPassword ? 'Changing…' : 'Change password'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setChangingPassword(false);
-                        setNewPassword('');
-                        setNewPasswordConfirm('');
-                      }}
-                      className="q-btn q-btn--ghost q-btn--sm"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        </section>
+          </Row>
+        </Section>
       )}
 
-      {/* Danger zone */}
-      {user && (
-        <section
-          className="q-card q-card--p-lg"
-          style={{ borderColor: 'var(--negative)', background: 'var(--negative-bg)' }}
-        >
-          <div className="q-section-head">
-            <h2 style={{ color: 'var(--negative)' }}>Danger zone</h2>
-          </div>
-          <p style={{ marginBottom: 'var(--s-4)', fontSize: 'var(--text-sm)', color: 'var(--fg-muted)' }}>
-            Permanently delete your account and all associated data. This action cannot be undone.
-          </p>
-          <button
-            type="button"
-            onClick={() => setDeleteOpen(true)}
-            className="q-btn q-btn--sm"
-            style={{ background: 'var(--negative)', color: 'white', gap: 'var(--s-2)' }}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete my account
-          </button>
-        </section>
-      )}
+      <Section id="about" title="About">
+        <Row description="Your entries are encrypted in this browser before they're sent, so we can't read them. The remaining trust is in the code we serve.">
+          <nav aria-label="Legal" className="q-set-links">
+            {LEGAL_LINKS.map((l) => (
+              <Link key={l.to} to={l.to} className="q-inline-link">{l.label}</Link>
+            ))}
+          </nav>
+        </Row>
+      </Section>
 
       {showRecoveryCode && (
-        <div className="q-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="recovery-title">
-          <div className="q-modal">
-            <div className="q-modal-head">
-              <div className="q-modal-head-row">
-                <div className="q-modal-chip" aria-hidden>
-                  <KeyRound className="h-4 w-4" />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div className="q-modal-title" id="recovery-title">Your recovery code</div>
-                  <div className="q-modal-sub">
-                    Save these 24 words somewhere safe. Anyone with these words can unlock your data — we won't show them again.
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="q-modal-body">
-              <RecoveryCodeDisplay
-                code={showRecoveryCode}
-                onConfirmed={() => setShowRecoveryCode(null)}
-                onSkipConfirm={() => setShowRecoveryCode(null)}
-              />
-            </div>
-          </div>
-        </div>
+        <RecoveryCodeLayer code={showRecoveryCode} onDone={() => setShowRecoveryCode(null)} />
       )}
 
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
@@ -935,8 +626,7 @@ export default function SettingsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete your account?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete your account and all associated data including
-              portfolio snapshots, profile, and feedback. This action cannot be undone.
+              Your account, entries, profile and any feedback you sent are deleted permanently. This can't be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -944,13 +634,83 @@ export default function SettingsPage() {
             <AlertDialogAction
               onClick={handleDeleteAccount}
               disabled={deleting}
-              className="bg-destructive text-white hover:bg-destructive/90"
+              className="q-btn--destructive"
             >
-              {deleting ? 'Deleting…' : 'Yes, delete everything'}
+              {deleting ? 'Deleting…' : 'Delete everything'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+const NUMBER_FORMAT_ORDER: NumberFormat[] = ['auto', 'us', 'eu', 'space', 'in'];
+
+function sampleNumber(locale: string): string {
+  return new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(1234567.89);
+}
+
+/** A ruled settings section: title on the left, rows on the right. */
+function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
+  return (
+    <section id={id} className="q-set-sec" aria-labelledby={`${id}-title`}>
+      <h2 className="q-h2" id={`${id}-title`}>{title}</h2>
+      <div className="q-set-rows">{children}</div>
+    </section>
+  );
+}
+
+function Row({ id, label, htmlFor, tag, description, children }: {
+  id?: string;
+  label?: string;
+  htmlFor?: string;
+  tag?: string;
+  description?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div id={id} className="q-set-row">
+      <div style={{ minWidth: 0 }}>
+        {label && (
+          <div className="q-set-label">
+            {htmlFor ? <label htmlFor={htmlFor}>{label}</label> : label}
+            {tag && <span className="q-tag">{tag}</span>}
+          </div>
+        )}
+        {description && <p className="q-set-desc">{description}</p>}
+      </div>
+      {children && <div className="q-set-control">{children}</div>}
+    </div>
+  );
+}
+
+function Switch({ on, label, onChange }: { on: boolean; label: string; onChange: () => void }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} aria-label={label} onClick={onChange} className={`q-toggle${on ? ' is-on' : ''}`}>
+      <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
+    </button>
+  );
+}
+
+/** The new code is shown once and can't be dismissed until the user confirms or skips. */
+function RecoveryCodeLayer({ code, onDone }: { code: string; onDone: () => void }) {
+  useModalLayer(true);
+  const trapRef = useFocusTrap<HTMLDivElement>(true);
+  return createPortal(
+    <div className="q-modal-backdrop">
+      <div ref={trapRef} className="q-modal" role="dialog" aria-modal="true" aria-labelledby="recovery-title" aria-describedby="recovery-sub">
+        <div className="q-modal-head">
+          <h2 className="q-modal-title" id="recovery-title">Your recovery code</h2>
+          <p className="q-modal-sub" id="recovery-sub">
+            {"Write these 24 words down or keep them in a password manager. They're shown once, and anyone who has them can decrypt your data."}
+          </p>
+        </div>
+        <div className="q-modal-body">
+          <RecoveryCodeDisplay code={code} onConfirmed={onDone} onSkipConfirm={onDone} />
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }

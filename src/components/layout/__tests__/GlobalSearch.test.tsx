@@ -85,7 +85,7 @@ describe('GlobalSearch — action gating', () => {
     open();
 
     // Available to everyone.
-    expect(screen.getByText('Add measurement')).toBeInTheDocument();
+    expect(screen.getByText('Add entry')).toBeInTheDocument();
     expect(screen.getByText('Hide values')).toBeInTheDocument();
     expect(screen.getByText('Send feedback')).toBeInTheDocument();
 
@@ -101,7 +101,7 @@ describe('GlobalSearch — action gating', () => {
     open();
 
     expect(screen.getByText('Sign up to track yours')).toBeInTheDocument();
-    expect(screen.queryByText('Add measurement')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add entry')).not.toBeInTheDocument();
   });
 
   it('a signed-in, unlocked user can lock, export and sign out', () => {

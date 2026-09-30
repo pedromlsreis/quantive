@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { MoreHorizontal, Search, Pencil, History, Droplet, Pause, Play, Tag, Type } from 'lucide-react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
-import { useCurrency } from '@/contexts/CurrencyContext';
-import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
-import { FileUpload } from '@/components/dashboard/FileUpload';
+import { useFormat } from '@/hooks/useFormat';
+import { useSourceColors } from '@/hooks/useSourceColors';
+import { formatDate } from '@/lib/formatters';
+import { sentenceCase } from '@/lib/utils';
+import { PageSkeleton } from '@/components/dashboard/DashboardSkeleton';
+import { RouteEmpty } from '@/components/dashboard/EmptyState';
 import { Sparkline } from '@/components/charts/Sparkline';
 import { MeasurementHistoryModal } from '@/components/sources/MeasurementHistoryModal';
 import {
@@ -18,8 +20,8 @@ import { SOURCE_CATEGORIES } from '@/lib/categories';
 
 const SourcesPage = () => {
   const { data, isLoading, allSnapshots, updateRefSource, renameSource, lastCurrencyBySource } = usePortfolio();
-  const { fmtFull } = useCurrencyFormatter();
-  const { currency } = useCurrency();
+  const f = useFormat();
+  const colorOf = useSourceColors();
   const [searchParams, setSearchParams] = useSearchParams();
   const [filter, setFilter] = useState(() => searchParams.get('q') ?? '');
   const [hideStopped, setHideStopped] = useState(true);
@@ -33,11 +35,9 @@ const SourcesPage = () => {
   const [editingName, setEditingName] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState('');
   const nameInputRef = useRef<HTMLInputElement>(null);
-  // Set when the user picks a menu item that opens an inline editor. The
-  // DropdownMenuContent's onCloseAutoFocus reads this and skips Radix's
-  // default focus-restore-to-trigger — otherwise focus lands on the
-  // trigger right after we focus the editor, fires onBlur on the editor,
-  // and immediately unmounts it.
+  // Set when a menu item opens an inline editor: onCloseAutoFocus then skips
+  // Radix's focus restore to the trigger, which would blur and unmount the
+  // editor straight after it was focused.
   const opensEditorRef = useRef(false);
 
   const refMeta = useMemo(() => {
@@ -137,13 +137,10 @@ const SourcesPage = () => {
   }, [editingCategory]);
 
   const latestSnapshot = allSnapshots.length ? allSnapshots[allSnapshots.length - 1] : null;
-
-  // Build a 12-month series per source for the sparklines.
   const last12 = useMemo(() => allSnapshots.slice(-12), [allSnapshots]);
 
-  // Most recent value + date per source, across all snapshots. A paused or
-  // skipped source still belongs on this page — we show its last known figure
-  // with an "as of" hint when it isn't current.
+  // Most recent value + date per source, across all snapshots. A stopped or
+  // skipped source still belongs here, shown at its last known figure.
   const lastEntryBySource = useMemo(() => {
     const m = new Map<string, { value: number; date: Date }>();
     for (let i = allSnapshots.length - 1; i >= 0; i--) {
@@ -169,280 +166,245 @@ const SourcesPage = () => {
       .map((rs) => {
         const idSource = rs.idSource.trim();
         const entry = lastEntryBySource.get(idSource) ?? null;
-        const series = last12.map((snap) => snap.sources.find((x) => x.name === idSource)?.value ?? 0);
-        const positive = series.length > 1 ? series[series.length - 1] >= series[0] : true;
-        // Show the "as of" date whenever the figure won't update on its own:
-        // either the source is stopped (value frozen by user), or its last
-        // measurement predates the latest portfolio snapshot date.
+        // A month without an entry for this source is a gap, not a zero.
+        const series = last12.map((snap) => snap.sources.find((x) => x.name === idSource)?.value ?? null);
+        const present = series.filter((v): v is number => v !== null);
+        const change = present.length > 1 ? present[present.length - 1] - present[0] : null;
+        // "As of" whenever the figure won't update on its own: stopped, or
+        // last measured before the latest snapshot.
         const dateStale = !!(entry && latestSnapshot && entry.date.getTime() < latestSnapshot.date.getTime());
         const isStale = !!entry && (dateStale || !!rs.isPaused);
-        return { refSource: rs, idSource, entry, series, positive, isStale };
+        return { refSource: rs, idSource, entry, series, change, isStale };
       });
   }, [data, lastEntryBySource, last12, latestSnapshot, filter, hideStopped]);
 
-  if (isLoading) return <DashboardSkeleton />;
-  if (!data) return <FileUpload />;
+  if (isLoading) return <PageSkeleton />;
+  if (!data) return <RouteEmpty title="Sources" sentence="The accounts you track, with their latest value and currency." />;
+
+  const total = data.refSources.length;
+  const meta = hideStopped && stoppedCount > 0
+    ? `${total - stoppedCount} of ${total} tracked, ${stoppedCount} stopped hidden`
+    : `${total} ${total === 1 ? 'account' : 'accounts'} tracked`;
 
   return (
-    <div className="flex flex-col gap-8">
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em', margin: 0 }}>
-            Sources
-          </h1>
-          <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
-            {hideStopped && stoppedCount > 0
-              ? `${data.refSources.length - stoppedCount} of ${data.refSources.length} tracked · ${stoppedCount} stopped hidden`
-              : `${data.refSources.length} accounts and assets tracked`}
+    <div>
+      <header className="q-page-head">
+        <h1 className="q-h1" tabIndex={-1}>Sources</h1>
+        <p className="q-page-meta">{meta}</p>
+        {/* Only while something is unset: a standing instruction would be boilerplate. */}
+        {data.refSources.some((rs) => !rs.volatType || rs.volatType.toLowerCase() === 'unknown') && (
+          <p className="q-page-lede">
+            {"Some sources have no volatility set. Set it from each row's menu to split your assets by risk on Allocations."}
           </p>
-          <p style={{ color: 'var(--fg-faint)', fontSize: 12, margin: '4px 0 0', maxWidth: 620 }}>
-            Tag each source as volatile (e.g. stocks, crypto) or stable (e.g. savings, bonds) to power volatility insights. Not sure? Leave it as unknown, you can change it any time.
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          {stoppedCount > 0 && (
-            <button
-              type="button"
-              className={`q-toggle${hideStopped ? ' is-on' : ''}`}
-              onClick={() => setHideStopped((v) => !v)}
-              aria-checked={hideStopped}
-              aria-label={`Hide stopped sources (${stoppedCount})`}
-              role="switch"
-            >
-              <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
-              <span className="q-toggle-label">
-                Hide stopped
-                <span className="q-toggle-sub">{stoppedCount} {stoppedCount === 1 ? 'source' : 'sources'}</span>
-              </span>
-            </button>
-          )}
-          <div style={{ width: 240 }}>
-            <label className="q-input" style={{ height: 32 }}>
-              <span className="q-input-icon"><Search size={14} /></span>
-              <input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Search sources"
-                aria-label="Search sources"
-              />
-            </label>
-          </div>
-        </div>
+        )}
+      </header>
+
+      <div className="q-toolbar">
+        <label className="q-input q-toolbar-search">
+          <span className="q-input-icon"><Search size={14} strokeWidth={1.75} aria-hidden="true" /></span>
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Search sources"
+            aria-label="Search sources"
+          />
+        </label>
+        {stoppedCount > 0 && (
+          <button
+            type="button"
+            className={`q-toggle${hideStopped ? ' is-on' : ''}`}
+            onClick={() => setHideStopped((v) => !v)}
+            aria-checked={hideStopped}
+            aria-label={`Hide stopped sources (${stoppedCount})`}
+            role="switch"
+          >
+            <span className="q-toggle-track"><span className="q-toggle-thumb" /></span>
+            <span className="q-toggle-label">Hide stopped</span>
+          </button>
+        )}
       </div>
 
-      {/* Table */}
-      <div className="q-card q-card--p-none" style={{ overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="q-table q-table--responsive">
-            <thead>
-              <tr>
-                <th>Source</th>
-                <th data-col="secondary">Type</th>
-                <th data-col="secondary">Currency</th>
-                <th data-col="secondary">Last 12 mo.</th>
-                <th className="num">Value</th>
-                <th aria-label="Actions" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ refSource, idSource, entry, series, positive, isStale }, i) => {
-                const isEditing = editingVolat === idSource;
-                const isPaused = !!refSource.isPaused;
-                const category = refSource.category;
-                const isEditingCat = editingCategory === idSource;
-                const isLiquid = refSource.transferableInDays;
-                const value = entry?.value ?? null;
-                return (
-                  <tr key={idSource + i} style={isPaused ? { opacity: 0.65 } : undefined}>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <span style={{ width: 4, height: 28, borderRadius: 2, background: `var(--series-${(i % 8) + 1})`, flexShrink: 0 }} />
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          {editingName === idSource ? (
-                            <label className="q-input" style={{ height: 28, padding: '0 var(--s-2)', maxWidth: 280 }}>
-                              <input
-                                ref={nameInputRef}
-                                value={nameDraft}
-                                placeholder="Source name"
-                                onChange={(e) => setNameDraft(e.target.value)}
-                                onBlur={() => commitName(idSource)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                                  if (e.key === 'Escape') {
-                                    setEditingName(null);
-                                    (e.target as HTMLInputElement).blur();
-                                  }
-                                }}
-                                aria-label={`Rename ${idSource}`}
-                                maxLength={100}
-                              />
-                            </label>
-                          ) : (
-                            <div style={{ fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
-                              {idSource}
-                              {isPaused && <span className="q-badge q-badge--neutral" style={{ fontSize: 10 }}>Stopped</span>}
-                            </div>
-                          )}
-                          <div style={{ fontSize: 11, color: 'var(--fg-subtle)', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                            {isEditingCat ? (
-                              <select
-                                ref={categorySelectRef}
-                                className="q-input"
-                                style={{ height: 24, padding: '0 var(--s-2)', fontSize: 11, maxWidth: 220 }}
-                                defaultValue={category ?? ''}
-                                onChange={(e) => setCategoryFor(idSource, e.target.value)}
-                                onBlur={() => setEditingCategory(null)}
-                                aria-label={`Category for ${idSource}`}
-                              >
-                                <option value="" disabled>Choose a category…</option>
-                                {SOURCE_CATEGORIES.map(c => (
-                                  <option key={c} value={c}>{c}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              category || <span style={{ color: 'var(--fg-faint)' }}>Uncategorised</span>
-                            )}
-                            <span style={{ color: 'var(--fg-faint)' }}>·</span>
-                            {isLiquid ? 'Liquid' : 'Non-liquid'}
+      <div className="q-table-scroll">
+        <table className="q-table q-table--responsive">
+          <caption className="sr-only">Every source with its volatility, currency, last 12 months and latest value</caption>
+          <thead>
+            <tr>
+              <th scope="col">Source</th>
+              <th scope="col" data-col="secondary">Volatility</th>
+              <th scope="col" data-col="secondary">Currency</th>
+              <th scope="col" data-col="secondary">12 months</th>
+              <th scope="col" className="num">Value</th>
+              <th scope="col"><span className="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ refSource, idSource, entry, series, change, isStale }) => {
+              const isEditing = editingVolat === idSource;
+              const isPaused = !!refSource.isPaused;
+              const category = refSource.category;
+              const isEditingCat = editingCategory === idSource;
+              const isLiquid = refSource.transferableInDays;
+              const value = entry?.value ?? null;
+              const sourceCcy = lastCurrencyBySource.get(idSource) ?? f.currency.code;
+              const changeTone = change === null ? 'zero' : f.tone(change);
+              return (
+                <tr key={idSource} className={isPaused ? 'is-stopped' : undefined}>
+                  <td>
+                    <div className="q-src">
+                      <span className="q-src-swatch" aria-hidden="true" style={{ background: colorOf(idSource) }} />
+                      <div style={{ minWidth: 0 }}>
+                        {editingName === idSource ? (
+                          <label className="q-input q-input--inline" style={{ maxWidth: 280 }}>
+                            <input
+                              ref={nameInputRef}
+                              value={nameDraft}
+                              placeholder="Source name"
+                              onChange={(e) => setNameDraft(e.target.value)}
+                              onBlur={() => commitName(idSource)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                if (e.key === 'Escape') {
+                                  setEditingName(null);
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                              aria-label={`Rename ${idSource}`}
+                              maxLength={100}
+                            />
+                          </label>
+                        ) : (
+                          <div className="q-src-name">
+                            {idSource}
+                            {isPaused && <span className="q-tag">Stopped</span>}
                           </div>
+                        )}
+                        <div className="q-table-sub">
+                          {isEditingCat ? (
+                            <select
+                              ref={categorySelectRef}
+                              className="q-input q-input--inline"
+                              style={{ maxWidth: 220 }}
+                              defaultValue={category ?? ''}
+                              onChange={(e) => setCategoryFor(idSource, e.target.value)}
+                              onBlur={() => setEditingCategory(null)}
+                              aria-label={`Category for ${idSource}`}
+                            >
+                              <option value="" disabled>Choose a category</option>
+                              {SOURCE_CATEGORIES.map((c) => (
+                                <option key={c} value={c}>{c}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <>{category || 'Uncategorised'}, {isLiquid ? 'liquid' : 'non-liquid'}</>
+                          )}
                         </div>
                       </div>
-                    </td>
-                    <td data-col="secondary" style={{ width: 180 }}>
-                      {isEditing ? (
-                        <label className="q-input" style={{ height: 28, padding: '0 var(--s-2)' }}>
-                          <input
-                            ref={editInputRef}
-                            value={volatDraft}
-                            placeholder="e.g. volatile, stable"
-                            onChange={(e) => setVolatDraft(e.target.value)}
-                            onBlur={() => commitVolat(idSource, refSource.volatType)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                              if (e.key === 'Escape') {
-                                setEditingVolat(null);
-                                (e.target as HTMLInputElement).blur();
-                              }
-                            }}
-                            aria-label={`Volatility for ${idSource}`}
-                          />
-                        </label>
-                      ) : (
-                        <span className="q-badge q-badge--neutral">{refSource.volatType.replace(/_/g, ' ')}</span>
-                      )}
-                    </td>
-                    <td data-col="secondary">
-                      {(() => {
-                        // Show the source's own currency (most-recent fact),
-                        // not the global display currency. When the two
-                        // differ, the Value column is FX-converted at the
-                        // snapshot rate; hint at that with a small "→ EUR"
-                        // suffix so the user can see why their USD broker
-                        // shows a different number than their statement.
-                        const sourceCcy = lastCurrencyBySource.get(idSource) ?? currency.code;
-                        const converted = sourceCcy !== currency.code;
-                        return (
-                          <span className="mono" style={{ fontSize: 12, color: 'var(--fg-muted)' }}>
-                            {sourceCcy}
-                            {converted && (
-                              <span style={{ color: 'var(--fg-faint)' }}> → {currency.code}</span>
-                            )}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td data-col="secondary" style={{ width: 100 }}>
-                      {series.length > 1 && series.some(v => v !== 0)
-                        ? <Sparkline values={series} positive={positive} width={80} height={24} />
-                        : <span style={{ color: 'var(--fg-faint)', fontSize: 11 }}>—</span>}
-                    </td>
-                    <td className="num" style={{
-                      color: value !== null && value < 0 ? 'var(--negative)' : 'var(--fg)',
-                      fontFamily: 'var(--font-mono)',
-                    }}>
-                      {value !== null ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                          <span>{fmtFull(value)}</span>
-                          {isStale && entry && (
-                            <span style={{ fontSize: 10, color: 'var(--fg-faint)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
-                              as of {entry.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                          <span style={{ color: 'var(--fg-faint)' }}>—</span>
-                          <span style={{ fontSize: 10, color: 'var(--fg-faint)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
-                            No measurements yet
-                          </span>
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ width: 40 }}>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button className="q-icon-btn" aria-label={`Actions for ${idSource}`}>
-                            <MoreHorizontal size={14} />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-56"
-                          onCloseAutoFocus={(e) => {
-                            if (opensEditorRef.current) {
-                              e.preventDefault();
-                              opensEditorRef.current = false;
+                    </div>
+                  </td>
+                  <td data-col="secondary" style={{ width: 160, color: 'var(--fg-muted)' }}>
+                    {isEditing ? (
+                      <label className="q-input q-input--inline">
+                        <input
+                          ref={editInputRef}
+                          value={volatDraft}
+                          placeholder="e.g. Non-volatile, Volatile"
+                          onChange={(e) => setVolatDraft(e.target.value)}
+                          onBlur={() => commitVolat(idSource, refSource.volatType)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                            if (e.key === 'Escape') {
+                              setEditingVolat(null);
+                              (e.target as HTMLInputElement).blur();
                             }
                           }}
-                        >
-                          <DropdownMenuItem onSelect={() => { opensEditorRef.current = true; startEditName(idSource); }}>
-                            <Type className="mr-2 h-3.5 w-3.5" />
-                            Rename source
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => setHistorySource(idSource)}>
-                            <History className="mr-2 h-3.5 w-3.5" />
-                            Edit values
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => { opensEditorRef.current = true; setEditingCategory(idSource); }}>
-                            <Tag className="mr-2 h-3.5 w-3.5" />
-                            {category ? 'Edit category' : 'Set category'}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => { opensEditorRef.current = true; startEditVolat(idSource, refSource.volatType); }}>
-                            <Pencil className="mr-2 h-3.5 w-3.5" />
-                            Edit volatility
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => updateRefSource(idSource, { isLiquid: !isLiquid })}
-                          >
-                            <Droplet className="mr-2 h-3.5 w-3.5" />
-                            {isLiquid ? 'Mark as non-liquid' : 'Mark as liquid'}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onSelect={() => togglePaused(idSource)}>
-                            {isPaused
-                              ? <><Play className="mr-2 h-3.5 w-3.5" />Resume measurements</>
-                              : <><Pause className="mr-2 h-3.5 w-3.5" />Stop measurements</>}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                );
-              })}
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: 'var(--s-8)', color: 'var(--fg-subtle)' }}>
-                    {filter
-                      ? `No sources match “${filter}”`
-                      : hideStopped && stoppedCount > 0
-                        ? 'All your sources are stopped — toggle “Hide stopped” off to show them.'
-                        : 'No sources yet'}
+                          aria-label={`Volatility for ${idSource}`}
+                        />
+                      </label>
+                    ) : (
+                      sentenceCase(refSource.volatType)
+                    )}
+                  </td>
+                  <td data-col="secondary" className="mono" style={{ fontSize: 13, color: 'var(--fg-muted)' }}>
+                    {/* The source's own currency; Value is converted at each snapshot's rate. */}
+                    {sourceCcy}
+                    {sourceCcy !== f.currency.code && <span style={{ color: 'var(--fg-subtle)' }}> to {f.currency.code}</span>}
+                  </td>
+                  <td data-col="secondary" style={{ width: 170 }}>
+                    {change === null ? (
+                      <span style={{ color: 'var(--fg-subtle)', fontSize: 13 }}>Needs two entries</span>
+                    ) : (
+                      <span className="q-spark-cell">
+                        <Sparkline values={series} tone={changeTone} />
+                        <span className={`num q-tone-${changeTone}`}>
+                          {changeTone === 'zero' ? 'No change' : f.money(change, { signed: true, compact: true })}
+                        </span>
+                      </span>
+                    )}
+                  </td>
+                  <td className={`num${value !== null && value < 0 ? ' q-tone-neg' : ''}`}>
+                    {value !== null ? f.money(value) : <span style={{ color: 'var(--fg-subtle)' }}>No entries yet</span>}
+                    {value !== null && isStale && entry && (
+                      <span className="q-table-sub" style={{ fontFamily: 'var(--font-sans)' }}>
+                        as of {formatDate(entry.date)}
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ width: 44 }}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" className="q-icon-btn" aria-label={`Actions for ${idSource}`}>
+                          <MoreHorizontal size={16} strokeWidth={1.75} />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-56"
+                        onCloseAutoFocus={(e) => {
+                          if (opensEditorRef.current) {
+                            e.preventDefault();
+                            opensEditorRef.current = false;
+                          }
+                        }}
+                      >
+                        <DropdownMenuItem onSelect={() => { opensEditorRef.current = true; startEditName(idSource); }} className="gap-2 min-h-9">
+                          <Type size={14} strokeWidth={1.75} aria-hidden="true" /> Rename source
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setHistorySource(idSource)} className="gap-2 min-h-9">
+                          <History size={14} strokeWidth={1.75} aria-hidden="true" /> Edit values
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => { opensEditorRef.current = true; setEditingCategory(idSource); }} className="gap-2 min-h-9">
+                          <Tag size={14} strokeWidth={1.75} aria-hidden="true" /> {category ? 'Edit category' : 'Set category'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => { opensEditorRef.current = true; startEditVolat(idSource, refSource.volatType); }} className="gap-2 min-h-9">
+                          <Pencil size={14} strokeWidth={1.75} aria-hidden="true" /> Edit volatility
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => updateRefSource(idSource, { isLiquid: !isLiquid })} className="gap-2 min-h-9">
+                          <Droplet size={14} strokeWidth={1.75} aria-hidden="true" /> {isLiquid ? 'Mark as non-liquid' : 'Mark as liquid'}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => togglePaused(idSource)} className="gap-2 min-h-9">
+                          {isPaused
+                            ? <><Play size={14} strokeWidth={1.75} aria-hidden="true" /> Resume tracking</>
+                            : <><Pause size={14} strokeWidth={1.75} aria-hidden="true" /> Stop tracking</>}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={6} style={{ padding: 'var(--s-8) 0', color: 'var(--fg-subtle)' }}>
+                  {filter
+                    ? `No sources match "${filter}"`
+                    : hideStopped && stoppedCount > 0
+                      ? 'Every source is stopped. Turn off "Hide stopped" to see them.'
+                      : 'No sources yet'}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <MeasurementHistoryModal

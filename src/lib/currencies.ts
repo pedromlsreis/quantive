@@ -40,7 +40,7 @@ export interface CurrencyConfig {
   /** English display name (e.g. "Indian Rupee"). Shown alongside the code in pickers. */
   name: string;
   /**
-   * Glyph used in compact rendering (KPI cards, badges, axis labels). Chosen
+   * Glyph used in compact rendering (ledger projections, axis labels). Chosen
    * to be unambiguous: where a native glyph is shared across currencies
    * (`$`, `kr`), we fall back to the ISO code or a country-prefixed dollar.
    */

@@ -478,11 +478,11 @@ async function sendProWelcomeEmail(params: {
     <p style="margin: 0 0 12px;">What's now unlocked:</p>
     <ul style="margin: 0 0 16px; padding-left: 20px;">
       <li style="margin-bottom: 4px;">Full historical view — every snapshot you've recorded, charted and tabular</li>
-      <li style="margin-bottom: 4px;">Forecasting engine with CAGR projection and 95% confidence intervals</li>
+      <li style="margin-bottom: 4px;">Forecasts 1, 3 or 5 years out, with a range from your own history</li>
       <li style="margin-bottom: 4px;">Milestone &amp; goal tracking</li>
       <li style="margin-bottom: 4px;">Benchmark comparison against S&amp;P 500 and inflation</li>
       <li style="margin-bottom: 4px;">Month-by-month summary table</li>
-      <li>Excel/CSV export and PDF wealth report</li>
+      <li>Excel export and the one-page PDF report</li>
     </ul>
     <p style="margin: 0 0 16px;">You can manage your subscription, update your card, or cancel at any time from <a href="https://usequantive.app/settings" style="color: #111;">Settings → Billing</a>. If anything breaks or surprises you, reply to this email — it goes straight to me.</p>
     <p style="margin: 0 0 4px;">Thanks,</p>
@@ -495,11 +495,11 @@ async function sendProWelcomeEmail(params: {
     `Thanks for upgrading. Your subscription is active (${planLabel}). Stripe will email a separate receipt with the formal invoice for your records.\n\n` +
     `What's now unlocked:\n` +
     `- Full historical view — every snapshot you've recorded, charted and tabular\n` +
-    `- Forecasting engine with CAGR projection and 95% confidence intervals\n` +
+    `- Forecasts 1, 3 or 5 years out, with a range from your own history\n` +
     `- Milestone & goal tracking\n` +
     `- Benchmark comparison against S&P 500 and inflation\n` +
     `- Month-by-month summary table\n` +
-    `- Excel/CSV export and PDF wealth report\n\n` +
+    `- Excel export and the one-page PDF report\n\n` +
     `Manage your subscription at https://usequantive.app/settings. If anything breaks or surprises you, reply to this email — it goes straight to me.\n\n` +
     `Thanks,\nPedro · Quantive`;
 

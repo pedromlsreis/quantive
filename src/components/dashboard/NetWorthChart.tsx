@@ -1,331 +1,278 @@
-import { useRef, useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { useCurrencyFormatter } from '@/hooks/useCurrencyFormatter';
+import { useFormat } from '@/hooks/useFormat';
 import { useHistoryFloor } from '@/hooks/useHistoryFloor';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { analytics } from '@/lib/analytics';
 import { QTabs } from '@/components/ui/q-tabs';
-
-const HEIGHT = 300;
-const MARGIN = { top: 28, right: 16, bottom: 32, left: 64 };
+import { ProGate } from '@/components/billing/UpsellCard';
+import { axisMonth, formatDate, monthYear } from '@/lib/formatters';
+import { niceTicks } from '@/lib/dashboardData';
+import type { Snapshot } from '@/lib/types';
 
 type Period = '3m' | '6m' | '12m' | '24m' | 'all';
-
-const PERIOD_OPTIONS: { value: Period; label: string }[] = [
-  { value: '3m',  label: '3m'  },
-  { value: '6m',  label: '6m'  },
+const PERIODS: { value: Period; label: string }[] = [
+  { value: '3m', label: '3m' },
+  { value: '6m', label: '6m' },
   { value: '12m', label: '12m' },
   { value: '24m', label: '24m' },
   { value: 'all', label: 'All' },
 ];
 
-function fmtCompact(v: number, fmt: (n: number) => string): string {
-  const abs = Math.abs(v);
-  if (abs >= 1_000_000) return fmt(Math.round(v / 100_000) * 100_000).replace(/\.0+$/, '');
-  if (abs >= 1_000)     return fmt(Math.round(v / 1_000) * 1_000).replace(/\.0+$/, '');
-  return fmt(v);
-}
+// Plot plus the 24px x-axis band; y labels sit in a right-hand column.
+const MARGIN = { top: 10, right: 60, bottom: 24, left: 0 };
 
+/**
+ * Net worth over the chosen range: a 2px line through every entry, round
+ * ticks, and a readout above the plot instead of a floating tooltip. Pointer,
+ * touch-scrub and keyboard (a slider over the plot) all move the same
+ * readout; "Show table" gives the same numbers as rows.
+ */
 export function NetWorthChart() {
   const { allSnapshots } = usePortfolio();
-  const { fmt, fmtFull } = useCurrencyFormatter();
-  const historyFloor = useHistoryFloor();
+  const f = useFormat();
+  const floor = useHistoryFloor();
   const isMobile = useIsMobile();
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(700);
-  const [hover, setHover] = useState<number | null>(null);
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(720);
   const [period, setPeriod] = useState<Period>('12m');
+  const [active, setActive] = useState<number | null>(null);
+  const [showTable, setShowTable] = useState(false);
 
   useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setW(el.offsetWidth));
+    const el = plotRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
     ro.observe(el);
-    setW(el.offsetWidth);
+    setW(el.clientWidth);
     return () => ro.disconnect();
-  }, []);
+  }, [showTable]);
 
-  const snapshots = useMemo(() => {
-    // Drop snapshots with non-finite totals (e.g. non-EUR sources while
-    // fx_rates are still loading). NaNs propagate into the SVG scales and
-    // produce "Expected length, NaN" console warnings otherwise.
-    const finite = allSnapshots.filter(s => Number.isFinite(s.total));
-    if (period === 'all') return finite;
-    const months = period === '3m' ? 3 : period === '6m' ? 6 : period === '12m' ? 12 : 24;
-    const cutoff = new Date();
+  const finite = useMemo(() => allSnapshots.filter((s) => Number.isFinite(s.total)), [allSnapshots]);
+  // Free plans chart the rolling last 12 months; older entries stay saved.
+  const allowed = useMemo(() => (floor ? finite.filter((s) => s.date >= floor) : finite), [finite, floor]);
+  const hiddenMonths = useMemo(() => {
+    if (!floor) return 0;
+    return new Set(finite.filter((s) => s.date < floor).map((s) => `${s.date.getFullYear()}-${s.date.getMonth()}`)).size;
+  }, [finite, floor]);
+
+  const snaps = useMemo(() => {
+    if (period === 'all' || !allowed.length) return allowed;
+    const months = { '3m': 3, '6m': 6, '12m': 12, '24m': 24 }[period];
+    const cutoff = new Date(allowed[allowed.length - 1].date);
     cutoff.setMonth(cutoff.getMonth() - months);
-    return finite.filter(s => s.date >= cutoff);
-  }, [allSnapshots, period]);
+    return allowed.filter((s) => s.date >= cutoff);
+  }, [allowed, period]);
 
-  if (!allSnapshots.length) return null;
+  // A range change or new data invalidates the highlighted entry.
+  useEffect(() => setActive(null), [snaps]);
 
-  // Gate on the *filtered* count too: with non-EUR sources mid-FX-load the
-  // filter above can drop everything, and the rest of the function assumes
-  // a non-empty `snapshots` (Math.min(...[]) → Infinity → NaN coordinates).
-  if (snapshots.length < 2) {
+  if (!allowed.length) return null;
+
+  const gate = hiddenMonths > 0 ? (
+    <ProGate
+      feature="history.full"
+      variant="row"
+      title={`${hiddenMonths} earlier ${hiddenMonths === 1 ? 'month is' : 'months are'} saved`}
+      body="The free plan charts your last 12 months. Pro shows every entry since you started."
+    />
+  ) : null;
+
+  if (snaps.length < 2) {
     return (
-      <div className="q-card q-card--p-lg">
-        <div className="q-section-head">
-          <h2>Net worth over time</h2>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 200, border: '1px dashed var(--border-raw)', borderRadius: 'var(--r-3)' }}>
-          <p style={{ color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)' }}>
-            Add a measurement on another day to see your trend.
-          </p>
-        </div>
-      </div>
+      <section className="q-sec" aria-labelledby="nw-chart-title">
+        <div className="q-sec-head"><h2 className="q-h2" id="nw-chart-title">Net worth over time</h2></div>
+        <p className="q-body">Your history line starts with your second entry. Next month, your values will be pre-filled.</p>
+        {gate}
+      </section>
     );
   }
 
-  const values = snapshots.map(s => s.total);
-  const minV = Math.min(...values) * 0.94;
-  const maxV = Math.max(...values) * 1.04;
-  const innerW = Math.max(100, w - MARGIN.left - MARGIN.right);
-  const innerH = HEIGHT - MARGIN.top - MARGIN.bottom;
-  const xStep = innerW / (snapshots.length - 1 || 1);
-  const xScale = (i: number) => MARGIN.left + i * xStep;
-  const yScale = (v: number) => MARGIN.top + innerH - ((v - minV) / (maxV - minV)) * innerH;
+  const height = isMobile ? 220 : 280;
+  const innerW = Math.max(120, w - MARGIN.left - MARGIN.right);
+  const innerH = height - MARGIN.top - MARGIN.bottom;
+  const t0 = snaps[0].date.getTime();
+  const t1 = snaps[snaps.length - 1].date.getTime();
+  const x = (d: Date) => MARGIN.left + ((d.getTime() - t0) / Math.max(1, t1 - t0)) * innerW;
+  const values = snaps.map((s) => s.total);
+  const { ticks, lo, hi } = niceTicks(Math.min(...values), Math.max(...values), isMobile ? 4 : 5);
+  const y = (v: number) => MARGIN.top + innerH - ((v - lo) / Math.max(1, hi - lo)) * innerH;
+  const pts = snaps.map((s) => [x(s.date), y(s.total)] as const);
+  const path = pts.map(([px, py], i) => `${i ? 'L' : 'M'}${px.toFixed(1)} ${py.toFixed(1)}`).join('');
 
-  const points = snapshots.map((s, i) => [xScale(i), yScale(s.total)] as [number, number]);
+  const monthTicks = xMonthTicks(snaps[0].date, snaps[snaps.length - 1].date, isMobile ? 3 : 6);
 
-  // Split into ghost (older than floor) and visible (>= floor) ranges.
-  // We render the ghost segment as a low-opacity preview and keep all
-  // chart affordances (hover, markers, area fill) on the visible segment.
-  const firstVisible = historyFloor
-    ? snapshots.findIndex((s) => s.date >= historyFloor)
-    : 0;
-  const visibleStartIdx = firstVisible === -1 ? snapshots.length : firstVisible;
-  const hasGhost = visibleStartIdx > 0;
-  const hasVisible = visibleStartIdx < snapshots.length;
-
-  const buildPath = (start: number, end: number) =>
-    points
-      .slice(start, end + 1)
-      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
-      .join(' ');
-
-  // Overlap by one point so the visual handoff between ghost and visible is seamless.
-  const ghostPath = hasGhost
-    ? buildPath(0, Math.min(visibleStartIdx, snapshots.length - 1))
-    : '';
-  const visibleLinePath = hasVisible ? buildPath(visibleStartIdx, snapshots.length - 1) : '';
-  const visiblePoints = hasVisible ? points.slice(visibleStartIdx) : [];
-  const areaPath = visiblePoints.length > 1
-    ? `${visibleLinePath} L ${visiblePoints[visiblePoints.length - 1][0]} ${MARGIN.top + innerH} L ${visiblePoints[0][0]} ${MARGIN.top + innerH} Z`
-    : '';
-
-  // Markers and hover ignore the ghost range entirely.
-  let athIdx = visibleStartIdx;
-  if (hasVisible) {
-    for (let i = visibleStartIdx; i < values.length; i++) {
-      if (values[i] > values[athIdx]) athIdx = i;
-    }
-  }
-  let bestMoIdx = -1, bestGain = -Infinity;
-  for (let i = Math.max(visibleStartIdx, 1); i < values.length; i++) {
-    const g = values[i] - values[i - 1];
-    if (g > bestGain) { bestGain = g; bestMoIdx = i; }
-  }
-
-  const yTicks = Array.from({ length: 5 }, (_, i) => {
-    const v = minV + (maxV - minV) * (i / 4);
-    return { v, y: yScale(v) };
+  let hiIdx = 0;
+  let loIdx = 0;
+  values.forEach((v, i) => {
+    if (v > values[hiIdx]) hiIdx = i;
+    if (v < values[loIdx]) loIdx = i;
   });
 
-  const targetTicks = isMobile ? 4 : 6;
-  const xTicks = snapshots
-    .map((s, i) => ({ s, i }))
-    .filter((_, i) => i % Math.max(1, Math.floor(snapshots.length / targetTicks)) === 0 || i === snapshots.length - 1);
+  const pointText = (i: number) => {
+    const s = snaps[i];
+    const prev = i > 0 ? snaps[i - 1] : null;
+    const change = prev ? `, ${f.money(s.total - prev.total, { signed: true })} since the previous entry` : '';
+    return `${f.money(s.total)} on ${formatDate(s.date)}${change}`;
+  };
+  // Amounts carry .num so privacy mode blurs them like every other figure.
+  const rangeText = (
+    <>
+      {`${snaps.length} entries. Highest `}<span className="num">{f.money(values[hiIdx])}</span>
+      {` on ${formatDate(snaps[hiIdx].date)}, lowest `}<span className="num">{f.money(values[loIdx])}</span>
+      {` on ${formatDate(snaps[loIdx].date)}.`}
+    </>
+  );
+  const summary = `Net worth, ${monthYear(snaps[0].date)} to ${monthYear(snaps[snaps.length - 1].date)}: ${f.money(values[0])} to ${f.money(values[values.length - 1])}.`;
 
-  const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left - MARGIN.left;
-    const idx = Math.round(x / xStep);
-    if (idx >= visibleStartIdx && idx < snapshots.length) setHover(idx);
-    else setHover(null);
+  const nearest = (clientX: number) => {
+    const rect = plotRef.current?.getBoundingClientRect();
+    if (!rect) return null;
+    const px = clientX - rect.left;
+    let best = 0;
+    pts.forEach(([ptx], i) => { if (Math.abs(ptx - px) < Math.abs(pts[best][0] - px)) best = i; });
+    return best;
+  };
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    const i = nearest(e.clientX);
+    if (i != null) setActive(i);
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const last = snaps.length - 1;
+    const cur = active ?? last;
+    const next =
+      e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? cur - 1
+      : e.key === 'ArrowRight' || e.key === 'ArrowUp' ? cur + 1
+      : e.key === 'PageDown' ? cur - 12
+      : e.key === 'PageUp' ? cur + 12
+      : e.key === 'Home' ? 0
+      : e.key === 'End' ? last
+      : null;
+    if (e.key === 'Escape') { setActive(null); return; }
+    if (next == null) return;
+    e.preventDefault();
+    const i = Math.max(0, Math.min(last, next));
+    setActive(i);
   };
 
-  const tooltipX = hover != null ? Math.min(Math.max(0, xScale(hover) - 72), w - 160) : 0;
+  const activePoint = active != null ? snaps[active] : null;
 
   return (
-    <div className="q-card q-card--p-lg">
-      <div className="q-section-head">
-        <div>
-          <h2>Net worth over time</h2>
-          <div className="q-section-sub">
-            All sources · Hover to inspect any month
-            {hasGhost && (
-              <>
-                {' · '}
-                <Link
-                  to="/pricing"
-                  onClick={() => analytics.proGateHit({ feature: 'history.full' })}
-                  style={{ color: 'var(--accent-raw)', textDecoration: 'none' }}
-                >
-                  Full history with Pro →
-                </Link>
-              </>
-            )}
-          </div>
-        </div>
-        <QTabs<Period>
-          value={period}
-          onChange={setPeriod}
-          options={PERIOD_OPTIONS}
-          size="sm"
-          ariaLabel="Time period"
-        />
+    <section className="q-sec" aria-labelledby="nw-chart-title">
+      <div className="q-chart-head">
+        <h2 className="q-h2" id="nw-chart-title">Net worth over time</h2>
+        <QTabs<Period> value={period} onChange={setPeriod} options={PERIODS} size="sm" ariaLabel="Time period" />
       </div>
 
-      <div
-        ref={wrapRef}
-        className="q-chart-wrap"
-        style={{ userSelect: 'none' }}
-        role="img"
-        aria-label="Net worth over time chart"
-      >
-        <svg
-          width={w}
-          height={HEIGHT}
-          style={{ display: 'block', overflow: 'visible' }}
-          onMouseMove={handleMove}
-          onMouseLeave={() => setHover(null)}
-        >
-          <defs>
-            <linearGradient id="nw-area-grad" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%"   stopColor="var(--accent-raw)" stopOpacity="0.28" />
-              <stop offset="100%" stopColor="var(--accent-raw)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
+      <div className="q-chart-readout" aria-hidden="true">
+        {activePoint ? (
+          <ReadoutPoint snaps={snaps} i={active!} f={f} />
+        ) : (
+          <span>{rangeText}</span>
+        )}
+      </div>
 
-          {yTicks.map((t, i) => (
-            <g key={i}>
-              <line
-                x1={MARGIN.left} x2={MARGIN.left + innerW}
-                y1={t.y} y2={t.y}
-                stroke="var(--border-soft-raw)" strokeDasharray="2 4" strokeWidth="1"
-              />
-              <text
-                className="num"
-                x={MARGIN.left - 10} y={t.y + 3}
-                textAnchor="end" fill="var(--fg-subtle)"
-                fontSize="10"
-                style={{ fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono)' }}
-              >
-                {fmtCompact(t.v, fmt)}
-              </text>
-            </g>
-          ))}
-
-          {xTicks.map(({ s, i }) => (
-            <text
-              key={i}
-              x={xScale(i)} y={HEIGHT - 8}
-              textAnchor="middle" fill="var(--fg-subtle)" fontSize="10"
-            >
-              {format(s.date, 'MMM yy')}
-            </text>
-          ))}
-
-          <path d={areaPath} fill="url(#nw-area-grad)" style={{ animation: 'q-path-fade 600ms ease-out' }} />
-
-          {hasGhost && (
-            <>
-              <path
-                d={ghostPath}
-                fill="none"
-                stroke="var(--fg-subtle)"
-                strokeOpacity="0.4"
-                strokeWidth="1"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <line
-                x1={xScale(visibleStartIdx)} x2={xScale(visibleStartIdx)}
-                y1={MARGIN.top} y2={MARGIN.top + innerH}
-                stroke="var(--border-raw)"
-                strokeDasharray="2 3"
-                strokeWidth="1"
-              />
-            </>
-          )}
-
-          <path
-            d={visibleLinePath}
-            fill="none"
-            stroke="var(--accent-raw)"
-            strokeWidth="1.75"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ animation: 'q-path-draw 1200ms cubic-bezier(0.22,1,0.36,1) forwards' }}
-            pathLength="1"
-          />
-
-          {[
-            { idx: athIdx,    label: 'ATH',      color: 'var(--accent-raw)' },
-            { idx: bestMoIdx, label: 'Best mo.', color: 'var(--positive)' },
-          ]
-            .filter(a => hasVisible && a.idx >= visibleStartIdx && a.idx < snapshots.length && (a.label !== 'Best mo.' || a.idx !== athIdx))
-            .map((a) => (
-              <g key={a.label}>
-                <circle cx={xScale(a.idx)} cy={yScale(values[a.idx])} r="4"
-                  fill="var(--bg)" stroke={a.color} strokeWidth="1.5" />
-                <line
-                  x1={xScale(a.idx)} x2={xScale(a.idx)}
-                  y1={yScale(values[a.idx]) - 6} y2={yScale(values[a.idx]) - 18}
-                  stroke={a.color} strokeWidth="1" />
-                <text
-                  x={xScale(a.idx)} y={yScale(values[a.idx]) - 22}
-                  textAnchor="middle" fontSize="10" fontWeight="500" fill={a.color}
-                >
-                  {a.label}
+      {showTable ? (
+        <table className="q-table" style={{ marginBottom: 'var(--s-2)' }}>
+          <caption className="sr-only">Net worth by entry, newest first</caption>
+          <thead>
+            <tr><th scope="col">Date</th><th scope="col" className="num">Net worth</th><th scope="col" className="num">Change</th></tr>
+          </thead>
+          <tbody>
+            {[...snaps].reverse().map((s, ri) => {
+              const i = snaps.length - 1 - ri;
+              const change = i > 0 ? s.total - snaps[i - 1].total : null;
+              return (
+                <tr key={s.date.getTime()}>
+                  <td><time dateTime={s.date.toISOString().slice(0, 10)}>{formatDate(s.date)}</time></td>
+                  <td className="num">{f.money(s.total)}</td>
+                  <td className={`num q-tone-${change == null ? 'zero' : f.tone(change)}`}>{change == null ? '—' : f.money(change, { signed: true })}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <div ref={plotRef} className="q-chart-plot">
+          <svg width={w} height={height} role="img" aria-label={summary}>
+            {ticks.map((t) => (
+              <g key={t}>
+                <line x1={MARGIN.left} x2={MARGIN.left + innerW} y1={y(t)} y2={y(t)} stroke="var(--border-soft-raw)" strokeWidth={1} />
+                <text className="num" x={MARGIN.left + innerW + 10} y={y(t) + 4} fill="var(--fg-subtle)" fontSize={11} style={{ fontFamily: 'var(--font-mono)' }}>
+                  {f.money(t, { compact: true })}
                 </text>
               </g>
             ))}
+            {monthTicks.map((d, i) => (
+              <text key={d.getTime()} x={x(d)} y={height - 6} fill="var(--fg-subtle)" fontSize={11} textAnchor={i === 0 ? 'start' : 'middle'}>
+                {axisMonth(d, d.getMonth() === 0 || i === 0)}
+              </text>
+            ))}
+            <path d={path} fill="none" stroke="var(--accent-raw)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            {snaps.length <= 24 && pts.slice(0, -1).map(([px, py], i) => (
+              <circle key={i} cx={px} cy={py} r={3} fill="var(--accent-raw)" stroke="var(--bg)" strokeWidth={2} />
+            ))}
+            <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r={4.5} fill="var(--accent-raw)" stroke="var(--bg)" strokeWidth={3} />
+            {active != null && (
+              <g>
+                <line x1={pts[active][0]} x2={pts[active][0]} y1={MARGIN.top} y2={MARGIN.top + innerH} stroke="var(--border-strong-raw)" strokeWidth={1} />
+                <circle cx={pts[active][0]} cy={pts[active][1]} r={4.5} fill="var(--accent-raw)" stroke="var(--bg)" strokeWidth={2} />
+              </g>
+            )}
+          </svg>
+          <div
+            className="q-chart-scrub"
+            role="slider"
+            tabIndex={0}
+            aria-label="Net worth by entry"
+            aria-valuemin={0}
+            aria-valuemax={snaps.length - 1}
+            aria-valuenow={active ?? snaps.length - 1}
+            aria-valuetext={pointText(active ?? snaps.length - 1)}
+            onPointerMove={onPointerMove}
+            onPointerDown={onPointerMove}
+            onPointerLeave={(e) => { if (e.pointerType === 'mouse') setActive(null); }}
+            onKeyDown={onKeyDown}
+            onBlur={() => setActive(null)}
+          />
+        </div>
+      )}
 
-          {hover != null && (
-            <g>
-              <line
-                x1={xScale(hover)} x2={xScale(hover)}
-                y1={MARGIN.top} y2={MARGIN.top + innerH}
-                stroke="var(--fg-subtle)" strokeDasharray="2 3" strokeWidth="1"
-              />
-              <circle
-                cx={xScale(hover)} cy={yScale(values[hover])} r="5"
-                fill="var(--bg)" stroke="var(--accent-raw)" strokeWidth="2"
-              />
-            </g>
-          )}
-        </svg>
-
-        {hover != null && (
-          <div style={{
-            position: 'absolute',
-            left: tooltipX,
-            top: MARGIN.top - 4,
-            background: 'var(--tooltip-bg)',
-            border: '1px solid var(--tooltip-border)',
-            borderRadius: 'var(--r-2)',
-            padding: '8px 12px',
-            color: 'var(--tooltip-fg, var(--fg))',
-            fontSize: 12,
-            minWidth: 140,
-            pointerEvents: 'none',
-            boxShadow: 'var(--shadow-md)',
-            transform: 'translateY(-100%)',
-            zIndex: 5,
-          }}>
-            <div style={{ color: 'var(--fg-subtle)', fontSize: 10, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              {format(snapshots[hover].date, 'MMMM yyyy')}
-            </div>
-            <div className="num" style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: 14, color: 'var(--fg)' }}>
-              {fmtFull(snapshots[hover].total)}
-            </div>
-          </div>
-        )}
+      <div className="q-chart-foot">
+        <button type="button" className="q-link-btn" aria-pressed={showTable} onClick={() => setShowTable((v) => !v)} style={{ fontSize: 12, marginLeft: 'auto' }}>
+          {showTable ? 'Show chart' : 'Show table'}
+        </button>
       </div>
-    </div>
+      {gate}
+    </section>
   );
+}
+
+function ReadoutPoint({ snaps, i, f }: { snaps: Snapshot[]; i: number; f: ReturnType<typeof useFormat> }) {
+  const s = snaps[i];
+  const change = i > 0 ? s.total - snaps[i - 1].total : null;
+  return (
+    <span>
+      <span className="q-chart-readout-val num">{f.money(s.total)}</span>
+      {' on '}{formatDate(s.date)}
+      {change != null && (
+        <>
+          {', '}
+          <span className={`num q-tone-${f.tone(change)}`}>{f.money(change, { signed: true })}</span>
+          {' since the previous entry'}
+        </>
+      )}
+    </span>
+  );
+}
+
+/** First-of-month dates between `from` and `to`, spaced to about `target` labels. */
+function xMonthTicks(from: Date, to: Date, target: number): Date[] {
+  const span = (to.getFullYear() - from.getFullYear()) * 12 + to.getMonth() - from.getMonth();
+  const step = Math.max(1, [1, 2, 3, 6, 12, 24].find((s) => span / s <= target) ?? 24);
+  const out: Date[] = [];
+  const d = new Date(from.getFullYear(), from.getMonth() + (from.getDate() > 1 ? 1 : 0), 1);
+  // Align to multiples of the step so labels land on Jan/Apr/Jul/Oct etc.
+  while (d.getMonth() % step !== 0 && step <= 12) d.setMonth(d.getMonth() + 1);
+  for (; d <= to; d.setMonth(d.getMonth() + step)) out.push(new Date(d));
+  return out;
 }
