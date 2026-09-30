@@ -1,17 +1,20 @@
 // Re-records the landing tour clip (public/landing/tour.mp4 + tour.webm):
-// dashboard overview scrolling to the end, the allocations view cycling
-// treemap → bars → donut (each once), then the forecast page and the
-// performance page scrolled down to reveal the drawdown / downside stats.
+// the dashboard overview scrolling to the end, the allocations view switching
+// treemap → bars, then the forecast page and the performance page scrolled
+// down to "Highs and lows".
 //
 // Run whenever those screens change visibly, together with
-// capture-landing-poster.mjs so the clip and its poster stay in sync.
+// capture-landing-poster.mjs so the clip and its poster stay in sync. If the
+// sequence changes, update the video's aria-label in
+// src/pages/landing/TourVideo.tsx to describe it.
 //
 // Prereqs: dev server running (`npm run dev`; override the origin with BASE)
 // and ffmpeg on PATH (`scoop install ffmpeg`). Playwright records the whole
 // session to a raw webm; the lazy-route pre-warm at the start is trimmed off
 // by encoding from the measured offset. Headed launch is deliberate: headless
 // rendering takes a slightly different font/AA path and the clip should match
-// what users see.
+// what users see. Automation turns the app's CSS motion off, so the clip shows
+// the static UI, as reduced-motion users see it.
 import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -32,17 +35,20 @@ try {
 
 const rawDir = fs.mkdtempSync(path.join(os.tmpdir(), 'quantive-tour-'));
 
+// Sidebar links only: overview sections also link to these routes.
 async function nav(page, name, hold = 1600) {
-  await page.getByRole('link', { name }).first().click({ timeout: 6000 });
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name }).click({ timeout: 6000 });
   await page.waitForTimeout(hold);
 }
 
-// Eased scroll to the bottom of the page, so the recording pans smoothly
-// instead of jumping.
-async function smoothScroll(page, ms) {
-  await page.evaluate(async (ms) => {
+// Eased scroll, so the recording pans smoothly instead of jumping. Scrolls to
+// the bottom, or to `selector` sitting `offset` px below the viewport top.
+async function smoothScroll(page, ms, selector, offset = 72) {
+  await page.evaluate(async ({ ms, selector, offset }) => {
     const start = window.scrollY;
-    const end = document.documentElement.scrollHeight - window.innerHeight;
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const el = selector ? document.querySelector(selector) : null;
+    const end = el ? Math.min(max, start + el.getBoundingClientRect().top - offset) : max;
     const t0 = performance.now();
     await new Promise((res) => {
       function step(now) {
@@ -54,7 +60,7 @@ async function smoothScroll(page, ms) {
       }
       requestAnimationFrame(step);
     });
-  }, ms);
+  }, { ms, selector, offset });
 }
 
 const browser = await chromium.launch({ headless: false });
@@ -62,13 +68,12 @@ const ctx = await browser.newContext({
   viewport: { width: 1200, height: 760 },
   recordVideo: { dir: rawDir, size: { width: 1200, height: 760 } },
 });
-// Suppress the welcome modal and cookie banner for a clean recording.
+// Keep the consent banner out of the recording.
 await ctx.addInitScript(() => {
   try {
-    localStorage.setItem('finance-cockpit-welcome-dismissed', 'true');
     localStorage.setItem('quantive_analytics_consent', 'denied');
   } catch {
-    /* storage unavailable — banners will show, recording still works */
+    /* storage unavailable — the banner will show, recording still works */
   }
 });
 
@@ -96,23 +101,19 @@ await smoothScroll(page, 3600); // pan the dashboard to the bottom
 await page.waitForTimeout(1100); // hold at bottom
 
 await nav(page, /allocations/i, 1200);
-const tabs = page.locator('.q-tab');
-if ((await tabs.count()) >= 3) {
-  // treemap → bars → donut, each shown once (no return to treemap — redundant).
-  await tabs.nth(0).click();
-  await page.waitForTimeout(1500);
-  await tabs.nth(1).click();
-  await page.waitForTimeout(1500);
-  await tabs.nth(2).click();
-  await page.waitForTimeout(1500);
-}
+const views = page.getByRole('tablist', { name: 'View mode' }).getByRole('tab');
+// Treemap is the default view: hold on it, then show bars once.
+await page.waitForTimeout(1500);
+await views.filter({ hasText: /bars/i }).click();
+await page.waitForTimeout(1800);
+
 await nav(page, /forecast/i, 2400);
 
-// Performance opens on the benchmark overlay; scroll down to reveal the
-// drawdown / downside stats that sit below the fold.
+// Performance opens on the benchmark overlay; scroll to "Highs and lows",
+// which sits below the fold.
 await nav(page, /performance/i, 1400);
-await smoothScroll(page, 3200);
-await page.waitForTimeout(1500);
+await smoothScroll(page, 2600, '#downside-title');
+await page.waitForTimeout(1800);
 
 const rawPath = await page.video().path();
 await ctx.close();

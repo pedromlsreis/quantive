@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { loadDemo } from './helpers/loadDemo';
 
-// /allocations: view toggle (Treemap/Bars/Donut), aggregate cards, and the
+// /allocations: view toggle (Treemap/Bars), aggregate cards, and the
 // full source table. Demo data seeds positive sources across multiple
 // volatility types and a mix of liquid/non-liquid, so all three views render.
 

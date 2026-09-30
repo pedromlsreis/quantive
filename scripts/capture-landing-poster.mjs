@@ -19,10 +19,9 @@ const BASE = process.env.BASE || 'http://localhost:8080';
 
 const browser = await chromium.launch({ headless: false });
 const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 });
-// Suppress the welcome modal and cookie banner for a clean capture.
+// Keep the consent banner out of the capture.
 await ctx.addInitScript(() => {
   try {
-    localStorage.setItem('finance-cockpit-welcome-dismissed', 'true');
     localStorage.setItem('quantive_analytics_consent', 'denied');
   } catch {
     /* storage unavailable — banners will show, capture still works */
@@ -32,7 +31,7 @@ await ctx.addInitScript(() => {
 const page = await ctx.newPage();
 // /demo seeds mock data then redirects to /dashboard.
 await page.goto(`${BASE}/demo`, { waitUntil: 'networkidle', timeout: 30_000 });
-await page.waitForTimeout(2600); // entrance animation + chart draw + stagger
+await page.waitForTimeout(2600); // lazy route + fonts + chart layout settle
 
 const png = await page.screenshot();
 

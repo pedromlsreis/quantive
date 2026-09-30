@@ -107,11 +107,6 @@ function Actions() {
 }
 
 function Shell({ title, children, footer }: { title: string; children: ReactNode; footer?: ReactNode }) {
-  // Anchors the activation funnel: this is where a new user lands.
-  useEffect(() => {
-    analytics.onboardingEmptyStateViewed();
-  }, []);
-
   return (
     <div className="q-empty">
       <h1 className="q-h1" tabIndex={-1}>{title}</h1>
@@ -127,6 +122,11 @@ export function DashboardEmpty() {
   const { isLoading } = usePortfolio();
   const importFile = useImport();
   const dragging = useWindowDrop(importFile);
+  // Anchors the activation funnel: the overview is where a new user lands.
+  // Not in Shell, so empty /forecast, /sources etc. don't re-fire it.
+  useEffect(() => {
+    analytics.onboardingEmptyStateViewed();
+  }, []);
   return (
     <div className={dragging ? 'q-dropzone-active' : undefined}>
     <Shell

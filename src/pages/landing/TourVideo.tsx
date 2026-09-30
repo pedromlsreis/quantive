@@ -64,7 +64,7 @@ export function TourVideo({ motion }: { motion: boolean }) {
           height={900}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
-          aria-label="Screen recording of Quantive: the dashboard overview, then the allocations view cycling through treemap, bars and donut charts, then the forecast and performance pages"
+          aria-label="Screen recording of Quantive: the dashboard overview, then the allocations view switching from treemap to bars, then the forecast and performance pages"
         >
           <source src="/landing/tour.webm" type="video/webm" />
           <source src="/landing/tour.mp4" type="video/mp4" />
