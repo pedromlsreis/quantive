@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { NUMBER_FORMAT_LOCALES, type NumberFormat } from '@/lib/numberLocale';
 
-export type NumberFormat = 'auto' | 'us' | 'eu' | 'in';
+export type { NumberFormat };
 
 interface PreferencesContextType {
   numberFormat: NumberFormat;
@@ -25,7 +26,7 @@ interface PreferencesContextType {
    */
   autoLockMinutes: number;
   setAutoLockMinutes: (minutes: number) => void;
-  /** Locale to use for formatting numbers, or undefined to fall back to the currency's locale. */
+  /** Locale to use for formatting numbers, or undefined to follow the browser's language. */
   numberLocale: string | undefined;
 }
 
@@ -52,13 +53,6 @@ const parseAutoLock = (v: string): number | null => {
   return AUTO_LOCK_MINUTES_OPTIONS.includes(n) ? n : null;
 };
 
-const LOCALE_MAP: Record<NumberFormat, string | undefined> = {
-  auto: undefined,
-  us: 'en-US',
-  eu: 'de-DE',
-  in: 'en-IN',
-};
-
 function readStored<T>(key: string, fallback: T, parse: (v: string) => T | null): T {
   try {
     const raw = localStorage.getItem(key);
@@ -74,7 +68,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
   const { user } = useAuth();
   const [numberFormat, setNumberFormatState] = useState<NumberFormat>(() =>
     readStored<NumberFormat>(NF_KEY, 'auto', (v) =>
-      v === 'auto' || v === 'us' || v === 'eu' || v === 'in' ? v : null,
+      v === 'auto' || v === 'us' || v === 'eu' || v === 'space' || v === 'in' ? v : null,
     ),
   );
   const [privacyMode, setPrivacyModeState] = useState<boolean>(() =>
@@ -240,7 +234,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     setBlurOnUnfocus,
     autoLockMinutes,
     setAutoLockMinutes,
-    numberLocale: LOCALE_MAP[numberFormat],
+    numberLocale: NUMBER_FORMAT_LOCALES[numberFormat],
   }), [numberFormat, setNumberFormat, privacyMode, setPrivacyMode, blurOnUnfocus, setBlurOnUnfocus, autoLockMinutes, setAutoLockMinutes]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -51,7 +51,7 @@ export function EmailConfirmationBanner() {
         color: 'var(--warning)',
       }}
     >
-      <span className="inline-flex items-center gap-2 text-xs font-medium tracking-wide">
+      <span className="inline-flex items-center gap-2 text-xs font-medium">
         <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <span>Confirm your email to enable cloud sync</span>
       </span>

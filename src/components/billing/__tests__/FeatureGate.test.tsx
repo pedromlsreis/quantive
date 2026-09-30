@@ -84,3 +84,16 @@ describe('FeatureGate', () => {
     expect(proGateHit).toHaveBeenCalledWith({ feature: 'benchmarks' });
   });
 });
+
+describe('FeatureGate with an explicit null fallback', () => {
+  it('renders nothing and still counts the blocked impression', () => {
+    entitlements.has = () => false;
+    const { container } = renderGate(
+      <FeatureGate feature="export.pdf" fallback={null}>
+        <div>hidden</div>
+      </FeatureGate>,
+    );
+    expect(container.textContent).toBe('');
+    expect(proGateHit).toHaveBeenCalledTimes(1);
+  });
+});

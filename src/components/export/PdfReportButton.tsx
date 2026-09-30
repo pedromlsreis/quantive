@@ -12,14 +12,21 @@
  * `<img src="data:image/svg+xml;...">`.
  */
 import { useCallback, useState } from 'react';
-import { FileText, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency } from '@/contexts/CurrencyContext';
 import { FeatureGate } from '@/components/billing/FeatureGate';
+import { useModalLayer } from '@/hooks/useModalLayer';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { analytics } from '@/lib/analytics';
 import type { Snapshot } from '@/lib/types';
 import type { ReportInput, ReportPeriod } from '@/lib/pdfReport';
+import { axisMoney, formatDate, type FmtCtx } from '@/lib/formatters';
+import type { CurrencyCode } from '@/lib/currencies';
+import { niceTicks } from '@/lib/dashboardData';
+import { buildSourceColors, printColor, sourceColor } from '@/lib/sourceColors';
 
 interface PeriodChoice {
   id: ReportPeriod;
@@ -68,8 +75,7 @@ function filterSnapshotsByPeriod(
   const inRange = sorted.filter(
     (s) => s.date.getTime() >= start.getTime() && s.date.getTime() <= end.getTime(),
   );
-  const fmt = (d: Date) => d.toISOString().slice(0, 10);
-  return { snaps: inRange, label: `${fmt(start)} – ${fmt(end)}` };
+  return { snaps: inRange, label: `${formatDate(start)} to ${formatDate(end)}` };
 }
 
 function computeSplits(snap: Snapshot | undefined): {
@@ -93,58 +99,60 @@ function computeSplits(snap: Snapshot | undefined): {
   };
 }
 
-function topSourcesFrom(snap: Snapshot | undefined) {
+function topSourcesFrom(snap: Snapshot | undefined, colors: Map<string, string>) {
   if (!snap || snap.total === 0) return [];
   const ranked = [...snap.sources].sort((a, b) => b.value - a.value);
   return ranked.slice(0, 5).map((s) => ({
     name: s.name,
     value: s.value,
     percentOfTotal: snap.total !== 0 ? (s.value / snap.total) * 100 : 0,
+    color: printColor(sourceColor(colors, s.name)),
   }));
 }
 
+/** Money and date labels go inside SVG text, so escape markup characters. */
+function escapeXml(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 /**
- * Rasterise a minimal line chart of `(date,total)` pairs to a PNG data URL.
- * Uses a hand-rolled SVG path — vastly simpler than booting Recharts off
- * screen and keeps the rasterise pipeline deterministic across browsers.
- * (Recharts SVG inside @react-pdf doesn't survive cleanly; the plan's
- * "rasterise-to-PNG at generation time" is satisfied by producing PNG bytes
- * we then embed via the report's <Image> element.)
+ * Rasterise the period's net worth line to a PNG data URL for the report:
+ * hairline grid on round ticks, labels on the right, one emerald line with an
+ * end dot, dates at both ends. Drawn at ~2x the printed size so it stays sharp.
  */
 async function rasteriseTrajectory(
   snaps: Snapshot[],
-  width = 720,
-  height = 280,
+  currency: CurrencyCode,
+  width = 1020,
+  height = 340,
 ): Promise<string | null> {
   if (snaps.length < 2) return null;
+  const ctxFmt: FmtCtx = { currency, locale: 'en-GB' };
   const xs = snaps.map((s) => s.date.getTime());
   const ys = snaps.map((s) => s.total);
   const xMin = Math.min(...xs);
-  const xMax = Math.max(...xs);
-  const yMin = Math.min(...ys);
-  const yMax = Math.max(...ys);
-  const xRange = xMax - xMin || 1;
-  const yRange = yMax - yMin || 1;
-  const pad = 32;
-  const project = (x: number, y: number): [number, number] => [
-    pad + ((x - xMin) / xRange) * (width - pad * 2),
-    height - pad - ((y - yMin) / yRange) * (height - pad * 2),
-  ];
-  const pathParts: string[] = [];
-  snaps.forEach((s, i) => {
-    const [px, py] = project(s.date.getTime(), s.total);
-    pathParts.push(`${i === 0 ? 'M' : 'L'}${px.toFixed(1)} ${py.toFixed(1)}`);
-  });
-  const startLabel = snaps[0].date.toISOString().slice(0, 10);
-  const endLabel = snaps[snaps.length - 1].date.toISOString().slice(0, 10);
+  const xRange = Math.max(...xs) - xMin || 1;
+  const { ticks, lo, hi } = niceTicks(Math.min(...ys), Math.max(...ys), 4);
+  const yRange = hi - lo || 1;
+  const left = 8;
+  const right = width - 150;
+  const top = 16;
+  const bottom = height - 44;
+  const px = (x: number) => left + ((x - xMin) / xRange) * (right - left);
+  const py = (y: number) => bottom - ((y - lo) / yRange) * (bottom - top);
+  const path = snaps.map((s, i) => `${i === 0 ? 'M' : 'L'}${px(s.date.getTime()).toFixed(1)} ${py(s.total).toFixed(1)}`).join(' ');
+  const lastSnap = snaps[snaps.length - 1];
+  const font = 'font-family="Helvetica, Arial, sans-serif" font-size="19" fill="#6b665f"';
+  const grid = ticks.map((t) => `
+  <line x1="${left}" y1="${py(t).toFixed(1)}" x2="${right}" y2="${py(t).toFixed(1)}" stroke="#e8e6e2" stroke-width="1.5"/>
+  <text x="${right + 16}" y="${(py(t) + 7).toFixed(1)}" ${font}>${escapeXml(axisMoney(t, ctxFmt))}</text>`).join('');
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <rect width="100%" height="100%" fill="#ffffff"/>
-  <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" stroke="#e5e7eb" stroke-width="1"/>
-  <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height - pad}" stroke="#e5e7eb" stroke-width="1"/>
-  <path d="${pathParts.join(' ')}" fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/>
-  <text x="${pad}" y="${height - 6}" font-family="Helvetica" font-size="10" fill="#6b7280">${startLabel}</text>
-  <text x="${width - pad}" y="${height - 6}" text-anchor="end" font-family="Helvetica" font-size="10" fill="#6b7280">${endLabel}</text>
+  <rect width="100%" height="100%" fill="#ffffff"/>${grid}
+  <path d="${path}" fill="none" stroke="#008252" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="${px(lastSnap.date.getTime()).toFixed(1)}" cy="${py(lastSnap.total).toFixed(1)}" r="7" fill="#008252"/>
+  <text x="${left}" y="${height - 8}" ${font}>${escapeXml(formatDate(snaps[0].date))}</text>
+  <text x="${right}" y="${height - 8}" text-anchor="end" ${font}>${escapeXml(formatDate(lastSnap.date))}</text>
 </svg>`;
 
   // Render SVG → canvas → PNG. In SSR/test environments where Image is not
@@ -186,10 +194,12 @@ function PdfReportButtonInner() {
     if (generating) return;
     setOpen(false);
   }, [generating]);
+  useModalLayer(open, handleClose);
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   const handleGenerate = useCallback(async () => {
     if (noData) {
-      toast.error('Add a measurement first to generate a report.');
+      toast.error('Add an entry first.');
       return;
     }
     setGenerating(true);
@@ -198,10 +208,10 @@ function PdfReportButtonInner() {
       const customE = period === 'custom' && customEnd ? new Date(customEnd) : undefined;
       const { snaps, label } = filterSnapshotsByPeriod(allSnapshots, period, customS, customE);
       if (snaps.length === 0) {
-        toast.error('No snapshots fall within that period.');
+        toast.error('No entries fall in that period.');
         return;
       }
-      const png = await rasteriseTrajectory(snaps);
+      const png = await rasteriseTrajectory(snaps, currency.code);
 
       // Lazy-load the renderer + builder. The dynamic import is the
       // load-bearing line for bundle-size control: the chunk only enters
@@ -219,7 +229,7 @@ function PdfReportButtonInner() {
         baseCurrency: currency.code,
         snapshotsInPeriod: snaps,
         allSnapshots,
-        topSources: topSourcesFrom(lastInPeriod),
+        topSources: topSourcesFrom(lastInPeriod, buildSourceColors(allSnapshots[allSnapshots.length - 1])),
         volatilitySplit: vol,
         liquiditySplit: liq,
         trajectoryPng: png,
@@ -235,7 +245,7 @@ function PdfReportButtonInner() {
           : 0;
 
       const stamp = new Date().toISOString().slice(0, 10);
-      await mod.exportWealthReport(input, `quantive_wealth_report_${stamp}.pdf`);
+      await mod.exportWealthReport(input, `quantive_net_worth_report_${stamp}.pdf`);
 
       analytics.pdfReportGenerated({
         period,
@@ -243,11 +253,11 @@ function PdfReportButtonInner() {
         months,
       });
 
-      toast.success('Report ready — check your downloads.');
+      toast.success('Report downloaded');
       setOpen(false);
     } catch (err) {
       console.error('[PdfReportButton] generation failed', err);
-      toast.error('PDF generation failed.');
+      toast.error("Couldn't create the report. Try again.");
     } finally {
       setGenerating(false);
     }
@@ -259,124 +269,90 @@ function PdfReportButtonInner() {
         type="button"
         onClick={() => setOpen(true)}
         disabled={noData}
-        className="q-btn q-btn--secondary q-btn--sm"
+        className="q-btn q-btn--secondary q-btn--md"
         data-testid="pdf-report-trigger"
-        aria-label="Generate PDF wealth report"
+        aria-label="Download PDF report"
       >
-        <FileText className="h-3.5 w-3.5" />
         PDF report
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="pdf-report-modal-title"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(15, 23, 42, 0.55)',
-            zIndex: 80,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={handleClose}
-        >
+      {open && createPortal(
+        <div className="q-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) handleClose(); }}>
           <div
-            onClick={(e) => e.stopPropagation()}
-            className="q-card q-card--p-lg"
-            style={{ maxWidth: 460, width: '100%', background: 'var(--bg, white)' }}
+            ref={trapRef}
+            className="q-modal"
+            style={{ maxWidth: 460 }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pdf-report-modal-title"
+            aria-describedby="pdf-report-modal-sub"
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 'var(--s-3)' }}>
+            <div className="q-modal-head">
               <div>
-                <h3 id="pdf-report-modal-title" style={{ margin: 0, fontSize: 'var(--text-base)', fontWeight: 600 }}>
-                  PDF wealth report
-                </h3>
-                <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-subtle)', margin: '4px 0 0' }}>
-                  One page, base currency {currency.code}. Generated locally — nothing leaves your browser.
+                <h2 id="pdf-report-modal-title" className="q-modal-title">PDF report</h2>
+                <p id="pdf-report-modal-sub" className="q-modal-sub">
+                  {`One page in ${currency.code}, built in this browser. Nothing is uploaded.`}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="q-icon-btn"
-                aria-label="Close"
-                disabled={generating}
-              >
-                <X className="h-4 w-4" />
+              <button type="button" onClick={handleClose} className="q-icon-btn" aria-label="Close" disabled={generating}>
+                <X size={16} strokeWidth={1.75} />
               </button>
             </div>
 
-            <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
-              <legend style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', marginBottom: 6 }}>
-                Period
-              </legend>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {CHOICES.map((c) => (
-                  <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--text-sm)', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="pdf-period"
-                      value={c.id}
-                      checked={period === c.id}
-                      onChange={() => setPeriod(c.id)}
-                      disabled={generating}
-                    />
-                    <span>{c.label}</span>
-                  </label>
-                ))}
-              </div>
-              {period === 'custom' && (
-                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                  <label style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
-                    From
-                    <input
-                      type="date"
-                      value={customStart}
-                      onChange={(e) => setCustomStart(e.target.value)}
-                      className="q-input"
-                      style={{ width: '100%', marginTop: 2 }}
-                      disabled={generating}
-                    />
-                  </label>
-                  <label style={{ flex: 1, fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>
-                    To
-                    <input
-                      type="date"
-                      value={customEnd}
-                      onChange={(e) => setCustomEnd(e.target.value)}
-                      className="q-input"
-                      style={{ width: '100%', marginTop: 2 }}
-                      disabled={generating}
-                    />
-                  </label>
+            <div className="q-modal-body">
+              <fieldset style={{ border: 0, padding: 0, margin: 0 }}>
+                <legend className="q-field-label" style={{ marginBottom: 'var(--s-2)' }}>Period</legend>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {CHOICES.map((c) => (
+                    <label key={c.id} className="q-radio-row">
+                      <input
+                        type="radio"
+                        name="pdf-period"
+                        value={c.id}
+                        checked={period === c.id}
+                        onChange={() => setPeriod(c.id)}
+                        disabled={generating}
+                      />
+                      <span>{c.label}</span>
+                    </label>
+                  ))}
                 </div>
-              )}
-            </fieldset>
+                {period === 'custom' && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--s-3)', marginTop: 'var(--s-3)' }}>
+                    <div className="q-field">
+                      <label className="q-field-label" htmlFor="pdf-from">From</label>
+                      <span className="q-input">
+                        <input id="pdf-from" type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} disabled={generating} />
+                      </span>
+                    </div>
+                    <div className="q-field">
+                      <label className="q-field-label" htmlFor="pdf-to">To</label>
+                      <span className="q-input">
+                        <input id="pdf-to" type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} disabled={generating} />
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </fieldset>
+            </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 'var(--s-4)' }}>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="q-btn q-btn--ghost q-btn--sm"
-                disabled={generating}
-              >
+            <div className="q-modal-foot q-modal-foot--split">
+              <button type="button" onClick={handleClose} className="q-btn q-btn--ghost q-btn--md" disabled={generating}>
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={handleGenerate}
-                className="q-btn q-btn--primary q-btn--sm"
+                className="q-btn q-btn--primary q-btn--md"
                 disabled={generating || noData}
                 data-testid="pdf-report-generate"
               >
-                {generating ? 'Generating…' : 'Generate report'}
+                {generating ? 'Creating…' : 'Download report'}
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

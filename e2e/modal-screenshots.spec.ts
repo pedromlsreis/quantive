@@ -23,48 +23,31 @@ async function shot(page: Page, name: string, viewport: string) {
   });
 }
 
-async function gotoEmptyDashboard(page: Page) {
-  // Dismiss consent only — leave welcome flag alone if we want the welcome modal.
-  await page.addInitScript(() => {
-    try { window.localStorage.setItem('quantive_analytics_consent', 'denied'); }
-    catch { /* noop */ }
-  });
-  await page.goto('/dashboard');
-}
-
 for (const vp of VIEWPORTS) {
   test.describe(`Modal screenshots — ${vp.name} (${vp.width}x${vp.height})`, () => {
     test.use({ viewport: { width: vp.width, height: vp.height } });
 
-    test('WelcomeModal', async ({ page }) => {
-      await gotoEmptyDashboard(page);
-      const dialog = page.getByRole('dialog', { name: /welcome to quantive/i });
-      await dialog.waitFor({ timeout: 8000 });
-      await shot(page, 'welcome', vp.name);
-    });
-
     test('AddMeasurementModal', async ({ page }) => {
       await seedClean(page); // dismiss welcome + consent
       await page.goto('/dashboard');
-      const cta = page.getByRole('button', { name: /add your first measurement/i });
+      const cta = page.getByRole('button', { name: /add your first entry/i });
       await cta.waitFor({ timeout: 6000 });
       await cta.click();
-      await page.getByRole('dialog', { name: /add measurement/i }).waitFor({ timeout: 4000 });
+      await page.getByRole('dialog', { name: /add entry/i }).waitFor({ timeout: 4000 });
       await shot(page, 'add-measurement', vp.name);
     });
 
-    test('FeedbackButton modal', async ({ page }) => {
+    test('Feedback dialog', async ({ page }) => {
       await seedClean(page);
       await page.goto('/dashboard');
-      // FeedbackButton is rendered in a 0x0 hidden container (FeedbackLauncher).
-      // The offscreen native click() is geometry-blocked even with force:true,
-      // so dispatch a click via JS — works on both viewports.
+      // The sidebar's "Send feedback" opens it; the sidebar is hidden on
+      // mobile, so dispatch the click via JS on both viewports.
+      await page.waitForFunction(() => Array.from(document.querySelectorAll('button')).some(b => /^Send feedback$/i.test((b.textContent ?? '').trim())), { timeout: 8000 });
       await page.evaluate(() => {
         const buttons = Array.from(document.querySelectorAll('button'));
-        const target = buttons.find(b => /Suggest a feature or improvement|Feedback/i.test(b.textContent ?? ''));
-        target?.click();
+        buttons.find(b => /^Send feedback$/i.test((b.textContent ?? '').trim()))?.click();
       });
-      const dialog = page.getByRole('dialog', { name: /share your feedback/i });
+      const dialog = page.getByRole('dialog', { name: /send feedback/i });
       await dialog.waitFor({ timeout: 5000 });
       await shot(page, 'feedback-empty', vp.name);
 
@@ -77,14 +60,11 @@ for (const vp of VIEWPORTS) {
     test('GoalForm modal', async ({ page }) => {
       await seedClean(page);
       await page.goto('/goals');
-      // Wait for hydration then JS-click the Add-goal CTA; geometry checks
-      // sometimes mark it "hidden" inside the responsive shell, so dispatch
-      // a click on the underlying DOM node.
-      await page.waitForFunction(() => !!document.querySelector('button[aria-label="Add a goal"]'), { timeout: 8000 });
-      await page.evaluate(() => {
-        const btn = document.querySelector<HTMLButtonElement>('button[aria-label="Add a goal"]');
-        btn?.click();
-      });
+      // With no goals the page offers "Add your first goal"; with goals, the
+      // header button is labelled "Add a goal".
+      const addGoal = page.getByRole('button', { name: /add your first goal|add a goal/i }).first();
+      await addGoal.waitFor({ timeout: 8000 });
+      await addGoal.click();
       const dialog = page.getByRole('dialog', { name: /add a goal|edit goal/i });
       await dialog.waitFor({ timeout: 5000 });
       await shot(page, 'goal-form', vp.name);
@@ -101,8 +81,8 @@ for (const vp of VIEWPORTS) {
         btn?.click();
       });
       await page.getByRole('dialog', { name: /sign in|create your account/i }).waitFor({ timeout: 5000 });
-      // Switch to signup link inside the modal.
-      const signUpLink = page.getByRole('button', { name: /^sign up$/i });
+      // Switch to sign-up from inside the modal.
+      const signUpLink = page.getByRole('button', { name: /^create an account$/i });
       if (await signUpLink.first().isVisible({ timeout: 2000 }).catch(() => false)) {
         await signUpLink.first().click();
         await page.getByRole('dialog', { name: /create your account/i }).waitFor({ timeout: 5000 });

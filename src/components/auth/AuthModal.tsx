@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Link } from 'react-router-dom';
+import { X, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useModalLayer } from '@/hooks/useModalLayer';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { supabase } from '@/integrations/supabase/client';
-import { LogIn, UserPlus, X, Mail, KeyRound, MailCheck, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Notice } from '@/components/ui/Notice';
 import { mapAuthError } from '@/lib/authError';
@@ -15,56 +16,71 @@ import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/l
 import { Turnstile } from './Turnstile';
 import { isCaptchaEnabled } from '@/lib/captcha';
 
+type Mode = 'signin' | 'signup' | 'forgot' | 'confirm';
+
 interface AuthModalProps {
   open: boolean;
   onClose: () => void;
-  defaultMode?: 'signin' | 'signup';
+  defaultMode?: 'signin' | 'signup' | 'forgot';
+  /** Pre-fills the email field, e.g. after "Sign out and reset password". */
+  defaultEmail?: string;
 }
 
-export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalProps) {
+const TITLE: Record<Mode, string> = {
+  signin: 'Sign in',
+  signup: 'Create your account',
+  forgot: 'Reset password',
+  confirm: 'Check your inbox',
+};
+
+const SUB: Record<Mode, string> = {
+  signin: 'Your password signs you in and decrypts your data on this device.',
+  signup: 'Save your history and open it on any device. Entries are encrypted in your browser before upload.',
+  forgot: "Enter your email and we'll send you a reset link.",
+  confirm: 'Open the link in that email to activate your account.',
+};
+
+export function AuthModal({ open, onClose, defaultMode = 'signup', defaultEmail }: AuthModalProps) {
   const { signUp, signIn, resetPassword, resendConfirmation } = useAuth();
   const keySession = useKeySession();
-  const [mode, setMode] = useState<'signin' | 'signup' | 'forgot' | 'confirm'>(defaultMode);
+  const [mode, setMode] = useState<Mode>(defaultMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  // Resend cooldown: Supabase rate-limits resends to ~once per minute; keep
-  // the button visually unavailable during that window so users don't keep
-  // tapping and hit a 429.
+  // Inline, not a toast: the page behind the dialog is inert, so a toast
+  // there is neither announced nor readable for long enough.
+  const [error, setError] = useState<string | null>(null);
+  // Supabase rate-limits resends to about once a minute.
   const [resendCooldown, setResendCooldown] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   // Turnstile token + a nonce that remounts the widget for a fresh token.
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaNonce, setCaptchaNonce] = useState(0);
-  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
-  // Tokens are single-use — call after each attempt to get a fresh one.
+  // Tokens are single-use: reset after each attempt.
   const resetCaptcha = () => {
     setCaptchaToken(null);
-    setCaptchaNonce(n => n + 1);
+    setCaptchaNonce((n) => n + 1);
   };
-  // When CAPTCHA is on, block submits until we have a token.
   const captchaPending = isCaptchaEnabled && !captchaToken;
   const submitDisabled = submitting || (mode === 'signup' && !acceptedTerms) || captchaPending;
-  // Turnstile runs invisibly (interaction-only), so the only signal a user gets
-  // is the disabled button. Surface it as a label when the captcha is the *sole*
-  // remaining blocker — not while terms are still unchecked (that's a different
-  // disabled reason with its own affordance).
+  // Turnstile is invisible, so say why the button waits when it is the only blocker.
   const captchaVerifying = captchaPending && !submitting && (mode !== 'signup' || acceptedTerms);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
-    const id = setInterval(() => setResendCooldown(s => Math.max(0, s - 1)), 1000);
+    const id = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [resendCooldown]);
 
-  // Each open event honours the latest `defaultMode` from the trigger.
-  // Without this, a user who switched to 'signin' inside the modal would
-  // re-open in 'signin' next time even if the new trigger asked for 'signup'.
+  // Each open honours the trigger's mode and email.
   useEffect(() => {
-    if (open) setMode(defaultMode);
-  }, [open, defaultMode]);
+    if (!open) return;
+    setMode(defaultMode);
+    setEmail(defaultEmail ?? '');
+    setError(null);
+  }, [open, defaultMode, defaultEmail]);
 
   const handleClose = () => {
     setEmail('');
@@ -72,16 +88,27 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     setAcceptedTerms(false);
     setSubmitting(false);
     setShowPassword(false);
+    setError(null);
     resetCaptcha();
     onClose();
   };
 
+  useModalLayer(open, handleClose);
+  // With a known email (reset after unlock), start where the typing is.
+  const trapRef = useFocusTrap<HTMLDivElement>(open, {
+    initialFocus: () => document.getElementById(defaultEmail ? 'auth-password' : 'auth-email')
+      ?? document.querySelector<HTMLElement>('.q-modal button[type="submit"]'),
+  });
+
   if (!open) return null;
 
-  // Backdrop dismiss is "soft close" — fine when the form is empty and idle,
-  // but a stray edge-click should NOT throw away typed credentials or
-  // interrupt a submit in flight. The × button and Esc remain the always-on
-  // explicit close (#3: "popup closed without saying why").
+  const switchMode = (next: Mode) => {
+    setMode(next);
+    setError(null);
+  };
+
+  // A stray backdrop click must not throw away typed credentials or a submit
+  // in flight; the close button and Escape always close.
   const hasUserInput = email.trim().length > 0 || password.trim().length > 0;
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return;
@@ -93,15 +120,16 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     e.preventDefault();
     if (!email.trim()) return;
     setSubmitting(true);
+    setError(null);
 
     if (mode === 'forgot') {
-      const { error } = await resetPassword(email.trim(), captchaToken ?? undefined);
+      const { error: resetErr } = await resetPassword(email.trim(), captchaToken ?? undefined);
       resetCaptcha();
       setSubmitting(false);
-      if (error) {
-        toast.error(mapAuthError(error));
+      if (resetErr) {
+        setError(mapAuthError(resetErr));
       } else {
-        toast.success('Check your email for a password reset link.');
+        toast.success('Reset link sent. Check your email.');
         handleClose();
       }
       return;
@@ -110,41 +138,37 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     if (!password.trim()) { setSubmitting(false); return; }
     if (mode === 'signup' && passwordTooShort(password)) {
       setSubmitting(false);
-      toast.error(PASSWORD_LENGTH_HINT);
+      setError(PASSWORD_LENGTH_HINT);
       return;
     }
     if (mode === 'signup' && !acceptedTerms) {
-      toast.error('You must accept the Privacy Policy and Terms of Service.');
       setSubmitting(false);
+      setError('Accept the Privacy Policy and Terms to continue.');
       return;
     }
     const token = captchaToken ?? undefined;
-    const { error } = mode === 'signup'
+    const { error: authErr } = mode === 'signup'
       ? await signUp(email.trim(), password, token)
       : await signIn(email.trim(), password, token);
     resetCaptcha();
-    if (error) {
+    if (authErr) {
       setSubmitting(false);
-      // 8s instead of the default ~4s — auth errors are the moment the user
-      // most needs the message ("wrong password", "user not found") and a
-      // toast that vanishes mid-read is what made #3 feel like a silent close.
-      toast.error(mapAuthError(error), { duration: 8000 });
+      setError(mapAuthError(authErr));
       return;
     }
 
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       const { error: unlockErr } = await keySession.unlock(session.user.id, password);
-      // Only count returning-user sign-ins as unlock attempts — a fresh
-      // sign-up provisions keys and effectively never "fails to unlock", so
-      // including it would inflate the success rate of the churn metric.
+      // Only returning users count as unlock attempts: a sign-up provisions
+      // keys and never "fails to unlock", which would inflate the metric.
       if (mode === 'signin') {
         if (unlockErr) analytics.unlockFailed();
         else analytics.unlockSucceeded();
       }
       if (unlockErr) {
         setSubmitting(false);
-        toast.error('Could not unlock encrypted data. Try again or reset your password.');
+        setError("Signed in, but your data couldn't be decrypted. Try again, or reset your password.");
         return;
       }
     }
@@ -152,17 +176,15 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
     setSubmitting(false);
     if (mode === 'signup') {
       if (session?.user) {
-        toast.success('Account created and unlocked.');
+        toast.success('Account created');
         handleClose();
       } else {
-        // No session means email confirmation is required. Keep the modal
-        // open and switch to a confirmation panel — a toast is too ephemeral
-        // for a moment where the user is asking "did anything happen?".
+        // No session: email confirmation is required, so stay open and say so.
         setPassword('');
-        setMode('confirm');
+        switchMode('confirm');
       }
     } else {
-      toast.success('Signed in successfully!');
+      toast.success('Signed in');
       handleClose();
     }
   };
@@ -170,67 +192,51 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
   const handleResend = async () => {
     if (resendCooldown > 0 || !email.trim() || captchaPending) return;
     setResendCooldown(60);
-    const { error } = await resendConfirmation(email.trim(), captchaToken ?? undefined);
+    setError(null);
+    const { error: resendErr } = await resendConfirmation(email.trim(), captchaToken ?? undefined);
     resetCaptcha();
-    if (error) {
-      toast.error(mapAuthError(error));
+    if (resendErr) {
+      setError(mapAuthError(resendErr));
       setResendCooldown(0);
     } else {
-      toast.success('Confirmation email resent.');
+      toast.success('Confirmation email sent again');
     }
   };
 
+  const errorNotice = error && (
+    <Notice variant="negative" role="alert">
+      <span>{error}</span>
+    </Notice>
+  );
+
   return createPortal(
-    <div
-      className="q-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="auth-modal-title"
-      onClick={handleBackdropClick}
-    >
-      <div ref={trapRef} className="q-modal">
+    <div className="q-modal-backdrop q-modal-backdrop--top" onClick={handleBackdropClick}>
+      <div
+        ref={trapRef}
+        className="q-modal"
+        style={{ maxWidth: 440 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        aria-describedby="auth-modal-sub"
+      >
         <div className="q-modal-head">
           <div>
-            <div className="q-modal-title" id="auth-modal-title">
-              {mode === 'signin' ? 'Sign in'
-                : mode === 'signup' ? 'Create your account'
-                : mode === 'forgot' ? 'Reset password'
-                : 'Check your inbox'}
-            </div>
-            <div className="q-modal-sub">
-              {mode === 'signin'
-                ? 'Sign in to access your dashboard.'
-                : mode === 'signup'
-                ? 'Sign up to save and sync your portfolio data.'
-                : mode === 'forgot'
-                ? "Enter your email and we'll send you a reset link."
-                : "We've sent a confirmation link to your email. Click it to activate your account."}
-            </div>
+            <h2 className="q-modal-title" id="auth-modal-title">{TITLE[mode]}</h2>
+            <p className="q-modal-sub" id="auth-modal-sub">{SUB[mode]}</p>
           </div>
           <button type="button" onClick={handleClose} className="q-icon-btn" aria-label="Close">
-            <X className="h-4 w-4" />
+            <X size={16} strokeWidth={1.75} />
           </button>
         </div>
 
         <div className="q-modal-body">
           {mode === 'confirm' ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--s-3)', textAlign: 'center', paddingBlock: 'var(--s-2)' }}>
-              <div
-                aria-hidden="true"
-                style={{
-                  display: 'grid', placeItems: 'center',
-                  width: 56, height: 56,
-                  borderRadius: '50%',
-                  background: 'var(--accent-faint-raw)',
-                  color: 'var(--accent-fg-raw)',
-                }}
-              >
-                <MailCheck className="h-7 w-7" />
-              </div>
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-muted)', lineHeight: 1.5, maxWidth: 360 }}>
-                Sent to <strong style={{ color: 'var(--fg)', fontWeight: 600, wordBreak: 'break-all' }}>{email}</strong>.
-                The link expires in 24 hours. You can close this window - your account is waiting.
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: '22px', color: 'var(--fg-muted)' }}>
+                Sent to <strong style={{ color: 'var(--fg)', fontWeight: 500, overflowWrap: 'anywhere' }}>{email}</strong>. The link expires in 24 hours.
               </p>
+              {errorNotice}
               <Turnstile
                 key={`confirm-${captchaNonce}`}
                 onVerify={setCaptchaToken}
@@ -242,145 +248,123 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
                 onClick={handleResend}
                 disabled={resendCooldown > 0 || captchaPending}
                 aria-busy={captchaVerifying && resendCooldown <= 0}
-                className="q-btn q-btn--secondary q-btn--md"
-                style={{ width: '100%', opacity: resendCooldown > 0 || captchaPending ? 0.5 : 1 }}
-              >
-                {captchaVerifying && resendCooldown <= 0
-                  ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                  : <Mail className="h-4 w-4" />}
-                {resendCooldown > 0 ? `Resend in ${resendCooldown}s`
-                  : captchaVerifying ? "Verifying you're human…"
-                  : 'Resend confirmation email'}
-              </button>
-              <button
-                type="button"
-                onClick={handleClose}
-                className="q-btn q-btn--ghost q-btn--sm"
+                className="q-btn q-btn--secondary q-btn--lg"
                 style={{ width: '100%' }}
               >
-                I'll do it later
+                {captchaVerifying && resendCooldown <= 0 && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                {resendCooldown > 0 ? `Send again in ${resendCooldown}s`
+                  : captchaVerifying ? 'Checking your browser…'
+                  : 'Send the email again'}
               </button>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', marginTop: 'var(--s-1)' }}>
+              <button type="button" onClick={handleClose} className="q-btn q-btn--ghost q-btn--lg" style={{ width: '100%' }}>
+                Close
+              </button>
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--fg-subtle)' }}>
                 Wrong address?{' '}
-                <button type="button" onClick={() => setMode('signup')} className="text-primary hover:underline">
-                  Start over
-                </button>
+                <button type="button" onClick={() => switchMode('signup')} className="q-link-btn">Start again</button>
               </p>
             </div>
           ) : (
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-3)' }}>
-            <label className="q-input">
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                required
-                autoComplete="email"
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
+              <div className="q-field">
+                <label className="q-field-label" htmlFor="auth-email">Email</label>
+                <span className="q-input">
+                  <input
+                    id="auth-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); setError(null); }}
+                    required
+                    autoComplete="email"
+                  />
+                </span>
+              </div>
+              {mode !== 'forgot' && (
+                <div className="q-field">
+                  <label className="q-field-label" htmlFor="auth-password">Password</label>
+                  <span className="q-input">
+                    <input
+                      id="auth-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => { setPassword(e.target.value); setError(null); }}
+                      required
+                      minLength={mode === 'signup' ? PASSWORD_MIN_LENGTH : undefined}
+                      autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                      aria-describedby={mode === 'signup' ? 'auth-password-help' : undefined}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="q-input-reveal"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-pressed={showPassword}
+                    >
+                      {showPassword ? <EyeOff size={16} strokeWidth={1.75} /> : <Eye size={16} strokeWidth={1.75} />}
+                    </button>
+                  </span>
+                  {mode === 'signup' && <span className="q-field-help" id="auth-password-help">{PASSWORD_LENGTH_HINT}</span>}
+                </div>
+              )}
+              {mode === 'signup' && (
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)', cursor: 'pointer' }}>
+                  <Checkbox
+                    checked={acceptedTerms}
+                    onCheckedChange={(v) => setAcceptedTerms(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span style={{ fontSize: 13, color: 'var(--fg-muted)', lineHeight: '20px' }}>
+                    I agree to the{' '}
+                    <Link to="/privacy" onClick={handleClose} className="q-inline-link">Privacy Policy</Link>
+                    {' '}and{' '}
+                    <Link to="/terms" onClick={handleClose} className="q-inline-link">Terms of Service</Link>
+                  </span>
+                </label>
+              )}
+              {mode === 'forgot' && (
+                <p style={{ margin: 0, fontSize: 13, lineHeight: '20px', color: 'var(--fg-muted)' }}>
+                  {"You'll need your 24-word recovery code to keep your data. Without it, a new password opens an empty account."}
+                </p>
+              )}
+              {errorNotice}
+              <Turnstile
+                key={`form-${captchaNonce}`}
+                onVerify={setCaptchaToken}
+                onExpire={() => setCaptchaToken(null)}
+                onError={() => setCaptchaToken(null)}
               />
-            </label>
-            {mode !== 'forgot' && (
-              <label className="q-input" style={{ position: 'relative' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Password"
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  required
-                  minLength={mode === 'signup' ? PASSWORD_MIN_LENGTH : undefined}
-                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                  style={{ paddingRight: 36 }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(s => !s)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  aria-pressed={showPassword}
-                  style={{
-                    position: 'absolute',
-                    right: 8, top: '50%', transform: 'translateY(-50%)',
-                    display: 'grid', placeItems: 'center',
-                    width: 28, height: 28,
-                    background: 'transparent', border: 0,
-                    color: 'var(--fg-muted)', cursor: 'pointer',
-                    borderRadius: 'var(--r-1)',
-                  }}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </label>
-            )}
-            {mode === 'signup' && (
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)', cursor: 'pointer' }}>
-                <Checkbox
-                  checked={acceptedTerms}
-                  onCheckedChange={(v) => setAcceptedTerms(v === true)}
-                  className="mt-0.5"
-                />
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-muted)', lineHeight: 1.4 }}>
-                  I agree to the{' '}
-                  <Link to="/privacy" onClick={handleClose} className="text-primary hover:underline">Privacy Policy</Link>
-                  {' '}and{' '}
-                  <Link to="/terms" onClick={handleClose} className="text-primary hover:underline">Terms of Service</Link>
-                </span>
-              </label>
-            )}
-            {mode === 'forgot' && (
-              <Notice variant="warning">
-                <KeyRound className="h-3.5 w-3.5 shrink-0" style={{ marginTop: 2 }} aria-hidden="true" />
-                <span>
-                  Have your 24-word recovery code handy. Without it, encrypted data cannot be recovered.
-                </span>
-              </Notice>
-            )}
-            <Turnstile
-              key={`form-${captchaNonce}`}
-              onVerify={setCaptchaToken}
-              onExpire={() => setCaptchaToken(null)}
-              onError={() => setCaptchaToken(null)}
-            />
-            <button
-              type="submit"
-              disabled={submitDisabled}
-              aria-busy={submitting || captchaVerifying}
-              className="q-btn q-btn--primary q-btn--md"
-              style={{ width: '100%', opacity: submitDisabled ? 0.5 : 1 }}
-            >
-              {submitting || captchaVerifying
-                ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                : mode === 'signin' ? <LogIn className="h-4 w-4" /> : mode === 'signup' ? <UserPlus className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-              {submitting ? 'Please wait…'
-                : captchaVerifying ? "Verifying you're human…"
-                : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Sign up' : 'Send reset link'}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={submitDisabled}
+                aria-busy={submitting || captchaVerifying}
+                className="q-btn q-btn--primary q-btn--lg"
+                style={{ width: '100%' }}
+              >
+                {(submitting || captchaVerifying) && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                {submitting ? (mode === 'signin' ? 'Signing in…' : mode === 'signup' ? 'Creating account…' : 'Sending link…')
+                  : captchaVerifying ? 'Checking your browser…'
+                  : mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Sign up' : 'Send reset link'}
+              </button>
+            </form>
           )}
 
           {mode !== 'confirm' && (
-            <p style={{ textAlign: 'center', fontSize: 'var(--text-xs)', color: 'var(--fg-muted)', marginTop: 'var(--s-4)' }}>
+            <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--fg-subtle)', margin: 'var(--s-4) 0 0' }}>
               {mode === 'signin' ? (
                 <>
-                  <button type="button" onClick={() => setMode('forgot')} className="text-primary hover:underline">
-                    Forgot password?
-                  </button>
-                  <span style={{ margin: '0 6px' }}>·</span>
-                  <button type="button" onClick={() => setMode('signup')} className="text-primary hover:underline">
-                    Sign up
-                  </button>
+                  <button type="button" onClick={() => switchMode('forgot')} className="q-link-btn">Forgot password?</button>
+                  <span aria-hidden="true" style={{ margin: '0 8px' }}>·</span>
+                  <button type="button" onClick={() => switchMode('signup')} className="q-link-btn">Create an account</button>
                 </>
               ) : mode === 'signup' ? (
                 <>
                   Already have an account?{' '}
-                  <button type="button" onClick={() => setMode('signin')} className="text-primary hover:underline">
-                    Sign in
-                  </button>
+                  <button type="button" onClick={() => switchMode('signin')} className="q-link-btn">Sign in</button>
                 </>
               ) : (
                 <>
                   Remember your password?{' '}
-                  <button type="button" onClick={() => setMode('signin')} className="text-primary hover:underline">
-                    Sign in
-                  </button>
+                  <button type="button" onClick={() => switchMode('signin')} className="q-link-btn">Sign in</button>
                 </>
               )}
             </p>
@@ -388,6 +372,6 @@ export function AuthModal({ open, onClose, defaultMode = 'signup' }: AuthModalPr
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

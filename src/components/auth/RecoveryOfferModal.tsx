@@ -18,7 +18,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
-import { AlertTriangle, Lock, X } from 'lucide-react';
+import { useModalLayer } from '@/hooks/useModalLayer';
+import { X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
@@ -37,7 +38,6 @@ export function RecoveryOfferModal() {
   const [step, setStep] = useState<'offer' | 'display' | 'done'>('offer');
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const trapRef = useFocusTrap<HTMLDivElement>(true);
 
   const shouldOffer = useMemo(() => {
     if (!user) return false;
@@ -70,17 +70,30 @@ export function RecoveryOfferModal() {
     }
   }, [shouldOffer, step]);
 
-  if (!user) return null;
-  if (step === 'offer' && !shouldOffer) return null;
-  if (step === 'done') return null;
+  const visible = !!user && step !== 'done' && !(step === 'offer' && !shouldOffer);
 
   const markOffered = () => {
+    if (!user) return;
     try {
       localStorage.setItem(offeredKey(user.id), '1');
     } catch {
       // Storage unavailable; user will be re-prompted next session.
     }
   };
+
+  // Dismissing the offer is a skip. The word list can't be dismissed: it
+  // closes through Confirm or "Close without checking".
+  const dismissOffer = () => {
+    analytics.recoverySkipped();
+    markOffered();
+    setRecoveryCode(null);
+    setStep('done');
+  };
+
+  useModalLayer(visible, step === 'offer' ? dismissOffer : undefined);
+  const trapRef = useFocusTrap<HTMLDivElement>(visible);
+
+  if (!visible || !user) return null;
 
   const handleSetUp = async () => {
     setSubmitting(true);
@@ -89,19 +102,11 @@ export function RecoveryOfferModal() {
       analytics.recoverySetupCompleted({ source: 'offer_modal' });
       setRecoveryCode(result.recoveryCode);
       setStep('display');
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : 'Failed to set up recovery code.',
-      );
+    } catch {
+      toast.error("Couldn't create a recovery code. Try again.");
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleSkip = () => {
-    analytics.recoverySkipped();
-    markOffered();
-    setStep('done');
   };
 
   const finishDisplay = () => {
@@ -110,94 +115,48 @@ export function RecoveryOfferModal() {
     setStep('done');
   };
 
-  const close = () => {
-    if (step === 'display') {
-      toast.info('Either confirm the word or click "I\'ll save it later" below.');
-      return;
-    }
-    // Dismissing the offer via × is a skip, same as the Skip button.
-    if (step === 'offer') analytics.recoverySkipped();
-    markOffered();
-    setRecoveryCode(null);
-    setStep('done');
-  };
-
   return createPortal(
-    <div
-      className="q-modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="recovery-offer-title"
-      style={{ zIndex: 55 }}
-    >
-      <div ref={trapRef} className="q-modal">
+    <div className="q-modal-backdrop">
+      <div
+        ref={trapRef}
+        className="q-modal"
+        style={{ maxWidth: 520 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recovery-offer-title"
+        aria-describedby="recovery-offer-sub"
+      >
         <div className="q-modal-head">
-          <div className="q-modal-head-row">
-            <div className="q-modal-chip" aria-hidden>
-              <Lock className="h-4 w-4" />
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div className="q-modal-title" id="recovery-offer-title">
-                {step === 'offer' ? 'Set up a recovery code' : 'Your recovery code'}
-              </div>
-              <div className="q-modal-sub">
-                {step === 'offer'
-                  ? 'Your data is end-to-end encrypted. If you forget your password, we cannot recover it for you.'
-                  : "Save these 24 words somewhere safe — we'll only show them once. Anyone with these words can unlock your data."}
-              </div>
-            </div>
+          <div>
+            <h2 className="q-modal-title" id="recovery-offer-title">
+              {step === 'offer' ? 'Create a recovery code' : 'Your recovery code'}
+            </h2>
+            <p className="q-modal-sub" id="recovery-offer-sub">
+              {step === 'offer'
+                ? "If you forget your password, these 24 words are the only way to decrypt your data. We can't reset it for you."
+                : "Write these 24 words down or keep them in a password manager. They're shown once, and anyone who has them can decrypt your data."}
+            </p>
           </div>
-          <button type="button" onClick={close} className="q-icon-btn" aria-label="Close">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
           {step === 'offer' && (
-            <div style={{
-              borderRadius: 'var(--r-2)',
-              border: '1px solid color-mix(in oklch, var(--warning) 35%, transparent)',
-              background: 'color-mix(in oklch, var(--warning) 12%, transparent)',
-              padding: 'var(--s-3)',
-              fontSize: 'var(--text-xs)',
-              color: 'var(--warning)',
-              display: 'flex', alignItems: 'flex-start', gap: 'var(--s-2)',
-            }}>
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" style={{ marginTop: 1 }} />
-              <span>
-                Without a recovery code, a forgotten password means permanent loss of your encrypted data.
-              </span>
-            </div>
-          )}
-
-          {step === 'display' && recoveryCode && (
-            <RecoveryCodeDisplay
-              code={recoveryCode}
-              onConfirmed={finishDisplay}
-              onSkipConfirm={finishDisplay}
-            />
+            <button type="button" onClick={dismissOffer} className="q-icon-btn" aria-label="Close">
+              <X size={16} strokeWidth={1.75} />
+            </button>
           )}
         </div>
+
+        {step === 'display' && recoveryCode && (
+          <div className="q-modal-body">
+            <RecoveryCodeDisplay code={recoveryCode} onConfirmed={finishDisplay} onSkipConfirm={finishDisplay} />
+          </div>
+        )}
 
         {step === 'offer' && (
           <div className="q-modal-foot q-modal-foot--split">
-            <button
-              type="button"
-              onClick={handleSkip}
-              disabled={submitting}
-              className="q-btn q-btn--ghost q-btn--md"
-              style={{ opacity: submitting ? 0.5 : 1 }}
-            >
-              Skip for now
+            <button type="button" onClick={dismissOffer} disabled={submitting} className="q-btn q-btn--ghost q-btn--md">
+              Not now
             </button>
-            <button
-              type="button"
-              onClick={handleSetUp}
-              disabled={submitting}
-              className="q-btn q-btn--primary q-btn--md"
-              style={{ opacity: submitting ? 0.5 : 1 }}
-            >
-              {submitting ? 'Generating…' : 'Set up now'}
+            <button type="button" onClick={handleSetUp} disabled={submitting} className="q-btn q-btn--primary q-btn--md">
+              {submitting ? 'Creating…' : 'Create recovery code'}
             </button>
           </div>
         )}

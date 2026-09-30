@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { X, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { useModalLayer } from '@/hooks/useModalLayer';
+import { useFormat } from '@/hooks/useFormat';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
 import { CURRENCIES, CURRENCY_CODES } from '@/lib/currencies';
 import { parseLocalizedNumber } from '@/lib/utils';
-import { modalOverlay, modalContent } from '@/lib/motion';
+import { formatDate, money } from '@/lib/formatters';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,10 +35,6 @@ interface HistoryRow {
   currency: CurrencyCode;
 }
 
-function formatRowDate(d: Date): string {
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return `${String(d.getDate()).padStart(2, '0')} ${months[d.getMonth()]} ${d.getFullYear()}`;
-}
 
 /**
  * History list + edit/delete affordances for a single source's measurements.
@@ -53,7 +51,8 @@ function formatRowDate(d: Date): string {
  */
 export function MeasurementHistoryModal({ open, onOpenChange, idSource }: MeasurementHistoryModalProps) {
   const { data, updateMeasurement, deleteMeasurement } = usePortfolio();
-  const trapRef = useFocusTrap<HTMLDivElement>(open);
+  const f = useFormat();
+  const visible = open && !!idSource;
 
   const [editing, setEditing] = useState<HistoryRow | null>(null);
   const [deleting, setDeleting] = useState<HistoryRow | null>(null);
@@ -84,15 +83,11 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
     return Array.from(byDate.values()).sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [idSource, data]);
 
-  // Don't intercept Escape when a stacked dialog is open — let those close first.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !editing && !deleting) onOpenChange(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, editing, deleting, onOpenChange]);
+  // The edit layer answers Escape itself (topmost); the Radix delete
+  // confirmation handles its own, so the list ignores Escape while it shows.
+  const close = () => { if (!editing && !deleting) onOpenChange(false); };
+  useModalLayer(visible, close);
+  const trapRef = useFocusTrap<HTMLDivElement>(visible);
 
   const handleConfirmDelete = () => {
     if (!deleting || !idSource) return;
@@ -107,139 +102,81 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
   // re-attaches cleanly.
   const isLastMeasurement = rows.length === 1;
 
-  return (
-    <AnimatePresence>
-      {open && idSource && (
-        <motion.div
-          variants={modalOverlay}
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          className="fixed inset-0 z-50 grid place-items-center"
-          aria-modal="true"
-          role="dialog"
-          aria-labelledby="measurement-history-title"
-          style={{ background: 'oklch(0% 0 0 / 0.5)', backdropFilter: 'blur(8px)' }}
-        >
-          <motion.div
-            className="absolute inset-0"
-            onClick={() => {
-              if (!editing && !deleting) onOpenChange(false);
-            }}
-          />
+  if (!visible || !idSource) return null;
 
-          <motion.div
+  return (
+    <>
+      {createPortal(
+        <div className="q-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+          <div
             ref={trapRef}
-            variants={modalContent}
-            className="q-modal relative"
-            style={{ width: 'min(640px, calc(100vw - 32px))' }}
+            className="q-modal"
+            style={{ width: 'min(600px, calc(100vw - 32px))' }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="measurement-history-title"
+            aria-describedby="measurement-history-sub"
           >
             <div className="q-modal-head">
-              <div>
-                <div className="q-modal-title" id="measurement-history-title">
-                  Measurements for {idSource}
-                </div>
-                <div className="q-modal-sub">
+              <div style={{ minWidth: 0 }}>
+                <h2 className="q-modal-title" id="measurement-history-title">Entries for {idSource}</h2>
+                <p className="q-modal-sub" id="measurement-history-sub">
                   {rows.length === 0
-                    ? 'No measurements recorded yet for this source.'
-                    : `${rows.length} record${rows.length === 1 ? '' : 's'}, newest first. Edit a value or remove an entry.`}
-                </div>
+                    ? 'No entries for this source yet.'
+                    : `${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}, newest first.`}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="q-icon-btn"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
+              <button type="button" onClick={close} className="q-icon-btn" aria-label="Close">
+                <X size={16} strokeWidth={1.75} />
               </button>
             </div>
 
             <div className="q-modal-body" style={{ paddingTop: 0 }}>
               {rows.length === 0 ? (
-                <p style={{ color: 'var(--fg-subtle)', fontSize: 'var(--text-sm)', margin: 'var(--s-3) 0' }}>
-                  Add a measurement to start tracking this source.
+                <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: 'var(--s-3) 0' }}>
+                  Add an entry to start this source's history.
                 </p>
               ) : (
-                <div
-                  role="region"
-                  aria-label="Measurement history"
-                  style={{
-                    maxHeight: '60vh',
-                    // Both axes: prevents the action icons from being clipped
-                    // on narrow viewports if a future column ever widens.
-                    overflow: 'auto',
-                    border: '1px solid var(--border-raw)',
-                    borderRadius: 'var(--r-2)',
-                  }}
-                >
-                  <table className="q-table q-table--responsive" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
-                    <thead
-                      style={{
-                        position: 'sticky',
-                        top: 0,
-                        background: 'var(--surface, var(--bg))',
-                        boxShadow: 'inset 0 -1px 0 var(--border-raw)',
-                        zIndex: 1,
-                      }}
-                    >
-                      <tr style={{ textAlign: 'left' }}>
-                        <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)' }}>Date</th>
-                        <th scope="col" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)', textAlign: 'right' }}>Value</th>
-                        <th scope="col" data-col="secondary" style={{ padding: '8px 10px', fontWeight: 500, color: 'var(--fg-subtle)' }}>Currency</th>
-                        <th scope="col" aria-label="Actions" style={{ width: 80 }} />
+                <div role="region" aria-label="Entry history" tabIndex={0} className="q-history-scroll">
+                  <table className="q-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Date</th>
+                        <th scope="col" className="num">Value</th>
+                        <th scope="col"><span className="sr-only">Actions</span></th>
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((row) => {
-                        const symbol = CURRENCIES[row.currency]?.symbol ?? row.currency;
-                        return (
-                          <tr key={row.date.getTime()} style={{ borderBottom: '1px solid var(--border-raw)' }}>
-                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>{formatRowDate(row.date)}</td>
-                            <td
-                              className="num"
-                              style={{
-                                padding: '8px 10px',
-                                textAlign: 'right',
-                                fontFamily: 'var(--font-mono)',
-                                fontVariantNumeric: 'tabular-nums',
-                                color: row.sourceVl < 0 ? 'var(--negative)' : 'var(--fg)',
-                              }}
-                            >
-                              {symbol}{row.sourceVl.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </td>
-                            <td data-col="secondary" style={{ padding: '8px 10px', color: 'var(--fg-muted)' }}>
-                              <span className="mono" style={{ fontSize: 'var(--text-xs)' }}>{row.currency}</span>
-                            </td>
-                            <td style={{ padding: '8px 10px', whiteSpace: 'nowrap' }}>
-                              {/* Flex + gap satisfies touch-spacing (≥8px between adjacent
-                                  targets). Right-aligned via justify-content so the cell
-                                  still reads as an "actions" column. */}
-                              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditing(row)}
-                                  className="q-icon-btn"
-                                  aria-label={`Edit measurement from ${formatRowDate(row.date)}`}
-                                  title="Edit"
-                                >
-                                  <Pencil size={14} />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleting(row)}
-                                  className="q-icon-btn"
-                                  aria-label={`Delete measurement from ${formatRowDate(row.date)}`}
-                                  title="Delete"
-                                  style={{ color: 'var(--negative)' }}
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {rows.map((row) => (
+                        <tr key={row.date.getTime()}>
+                          <td style={{ whiteSpace: 'nowrap' }}>
+                            <time dateTime={row.date.toISOString().slice(0, 10)}>{formatDate(row.date)}</time>
+                          </td>
+                          <td className={`num${row.sourceVl < 0 ? ' q-tone-neg' : ''}`}>
+                            {money(row.sourceVl, { currency: row.currency, locale: f.ctx.locale }, { cents: true })}
+                          </td>
+                          <td style={{ width: 96 }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--s-2)' }}>
+                              <button
+                                type="button"
+                                onClick={() => setEditing(row)}
+                                className="q-icon-btn"
+                                aria-label={`Edit entry from ${formatDate(row.date)}`}
+                              >
+                                <Pencil size={16} strokeWidth={1.75} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleting(row)}
+                                className="q-icon-btn q-icon-btn--danger"
+                                aria-label={`Delete entry from ${formatDate(row.date)}`}
+                              >
+                                <Trash2 size={16} strokeWidth={1.75} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -247,60 +184,55 @@ export function MeasurementHistoryModal({ open, onOpenChange, idSource }: Measur
             </div>
 
             <div className="q-modal-foot q-modal-foot--split">
-              <button
-                type="button"
-                onClick={() => onOpenChange(false)}
-                className="q-btn q-btn--secondary q-btn--md"
-              >
+              <button type="button" onClick={close} className="q-btn q-btn--secondary q-btn--md">
                 Done
               </button>
             </div>
-          </motion.div>
-
-          {/* Stacked Edit sub-modal */}
-          {editing && (
-            <EditMeasurementModal
-              row={editing}
-              idSource={idSource}
-              onClose={() => setEditing(null)}
-              onSubmit={(patch) => {
-                updateMeasurement(editing.date, idSource, patch);
-                toast.success(`Updated measurement from ${formatRowDate(editing.date)}`);
-                setEditing(null);
-              }}
-            />
-          )}
-
-          {/* Stacked delete confirmation */}
-          <AlertDialog
-            open={!!deleting}
-            onOpenChange={(o) => { if (!o) setDeleting(null); }}
-          >
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Delete measurement from {deleting ? formatRowDate(deleting.date) : ''}?
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {isLastMeasurement
-                    ? `This is the only measurement for ${idSource}. Removing it hides the source from your dashboard until you record a new value. You can undo for a few seconds afterwards.`
-                    : 'This removes the measurement. You can undo for a few seconds afterwards.'}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleConfirmDelete}
-                  className="bg-destructive text-white hover:bg-destructive/90"
-                >
-                  Delete measurement
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </motion.div>
+          </div>
+        </div>,
+        document.body,
       )}
-    </AnimatePresence>
+
+      {editing && (
+        <EditMeasurementModal
+          row={editing}
+          idSource={idSource}
+          onClose={() => setEditing(null)}
+          onSubmit={(patch) => {
+            updateMeasurement(editing.date, idSource, patch);
+            toast.success(`Entry from ${formatDate(editing.date)} updated`);
+            setEditing(null);
+          }}
+        />
+      )}
+
+      <AlertDialog
+        open={!!deleting}
+        onOpenChange={(o) => { if (!o) setDeleting(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete entry from {deleting ? formatDate(deleting.date) : ''}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isLastMeasurement
+                ? `This is the only entry for ${idSource}, so the source leaves your overview until you add a new value. You can undo for a few seconds.`
+                : 'You can undo for a few seconds.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="q-btn--destructive"
+            >
+              Delete entry
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -320,23 +252,14 @@ interface EditMeasurementModalProps {
 function EditMeasurementModal({ row, idSource, onClose, onSubmit }: EditMeasurementModalProps) {
   const { currency: displayCurrency } = useCurrency();
   const { convertAt } = useFxRates();
-  const trapRef = useFocusTrap<HTMLDivElement>(true);
   const valueInputRef = useRef<HTMLInputElement>(null);
+  useModalLayer(true, onClose);
+  const trapRef = useFocusTrap<HTMLDivElement>(true, { initialFocus: () => valueInputRef.current });
+  const f = useFormat();
 
   const [amount, setAmount] = useState<string>(() => String(row.sourceVl));
   const [currency, setCurrency] = useState<CurrencyCode>(row.currency);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', onKey, true);
-    return () => window.removeEventListener('keydown', onKey, true);
-  }, [onClose]);
 
   // Live conversion preview when the user changes the currency. Helps catch
   // currency typos before saving — the dashboard would otherwise re-anchor
@@ -363,107 +286,74 @@ function EditMeasurementModal({ row, idSource, onClose, onSubmit }: EditMeasurem
     onSubmit({ sourceVl: parsed, currency });
   };
 
-  return (
-    <motion.div
-      className="fixed inset-0 z-[60] grid place-items-center"
-      aria-modal="true"
-      role="dialog"
-      aria-labelledby="edit-measurement-title"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      style={{ background: 'oklch(0% 0 0 / 0.5)', backdropFilter: 'blur(8px)' }}
-    >
-      <div className="absolute inset-0" onClick={onClose} />
-      <motion.div
+  return createPortal(
+    <div className="q-modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div
         ref={trapRef}
-        variants={modalContent}
-        initial="hidden"
-        animate="visible"
-        exit="exit"
-        className="q-modal relative"
+        className="q-modal"
         style={{ width: 'min(440px, calc(100vw - 32px))' }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-measurement-title"
+        aria-describedby="edit-measurement-sub"
       >
         <div className="q-modal-head">
-          <div>
-            <div id="edit-measurement-title" className="q-modal-title">Edit measurement</div>
-            <div className="q-modal-sub">
-              {idSource} · {formatRowDate(row.date)}
-            </div>
+          <div style={{ minWidth: 0 }}>
+            <h2 id="edit-measurement-title" className="q-modal-title">Edit entry</h2>
+            <p id="edit-measurement-sub" className="q-modal-sub">{idSource}, {formatDate(row.date)}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="q-icon-btn"
-          >
-            <X size={16} />
+          <button type="button" onClick={onClose} aria-label="Close" className="q-icon-btn">
+            <X size={16} strokeWidth={1.75} />
           </button>
         </div>
         <form onSubmit={handleSubmit}>
           <div className="q-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--s-4)' }}>
-            <div style={{ display: 'flex', gap: 'var(--s-3)', alignItems: 'flex-end' }}>
-              <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>Value</span>
-                <div className="q-input">
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 140px', gap: 'var(--s-3)' }}>
+              <div className="q-field">
+                <label className="q-field-label" htmlFor="edit-measurement-value">Value</label>
+                <span className="q-input">
                   <input
+                    id="edit-measurement-value"
                     ref={valueInputRef}
                     type="text"
                     inputMode="decimal"
                     value={amount}
                     onChange={(e) => { setAmount(e.target.value); setError(null); }}
-                    autoFocus
                     aria-invalid={error ? true : undefined}
-                    aria-label="Measurement value"
+                    aria-label="Entry value"
+                    aria-describedby={error ? 'edit-measurement-error' : undefined}
                     style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}
                   />
-                </div>
-              </label>
-              <label style={{ flex: '0 0 140px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)' }}>Currency</span>
-                <div className="q-input">
-                  <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
-                    aria-label="Currency"
-                  >
+                </span>
+              </div>
+              <div className="q-field">
+                <label className="q-field-label" htmlFor="edit-measurement-currency">Currency</label>
+                <span className="q-input">
+                  <select id="edit-measurement-currency" value={currency} onChange={(e) => setCurrency(e.target.value as CurrencyCode)}>
                     {CURRENCY_CODES.map((code) => (
-                      <option key={code} value={code}>
-                        {CURRENCIES[code].symbol} · {code}
-                      </option>
+                      <option key={code} value={code}>{`${CURRENCIES[code].symbol} ${code}`}</option>
                     ))}
                   </select>
-                </div>
-              </label>
+                </span>
+              </div>
             </div>
 
             {previewInDisplay !== null && (
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-subtle)', margin: 0 }}>
-                ≈ {displayCurrency.symbol}{previewInDisplay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} at the {formatRowDate(row.date)} rate.
+              <p style={{ fontSize: 13, color: 'var(--fg-subtle)', margin: 0 }}>
+                {`About ${money(previewInDisplay, { currency: displayCurrency.code, locale: f.ctx.locale }, { cents: true })} at the rate of ${formatDate(row.date)}.`}
               </p>
             )}
 
-            {error && (
-              <div role="alert" style={{ fontSize: 'var(--text-xs)', color: 'var(--negative)' }}>
-                {error}
-              </div>
-            )}
+            {error && <p className="q-field-error" id="edit-measurement-error" role="alert" style={{ margin: 0 }}>{error}</p>}
           </div>
 
           <div className="q-modal-foot q-modal-foot--split">
-            <button
-              type="button"
-              onClick={onClose}
-              className="q-btn q-btn--ghost q-btn--md"
-            >
-              Cancel
-            </button>
-            <button type="submit" className="q-btn q-btn--primary q-btn--md">
-              Save changes
-            </button>
+            <button type="button" onClick={onClose} className="q-btn q-btn--ghost q-btn--md">Cancel</button>
+            <button type="submit" className="q-btn q-btn--primary q-btn--md">Save changes</button>
           </div>
         </form>
-      </motion.div>
-    </motion.div>
+      </div>
+    </div>,
+    document.body,
   );
 }

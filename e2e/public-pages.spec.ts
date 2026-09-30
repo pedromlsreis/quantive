@@ -11,7 +11,7 @@ test.describe('Pricing page', () => {
   test.beforeEach(async ({ page }) => {
     await seedClean(page);
     await page.goto('/pricing');
-    // The page wraps the hero in framer-motion; wait for the h1 instead of
+    // Wait for the h1 instead of
     // networkidle (the StickyNav re-fetches subscription on each render).
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 12_000 });
   });

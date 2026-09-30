@@ -39,35 +39,34 @@ import { usePreferences } from '@/contexts/PreferencesContext';
 import { Topbar } from '../Topbar';
 
 type AuthShape = { user: { id: string } | null };
-type PortfolioShape = { isMockData: boolean };
+type PortfolioShape = { data: object | null; isMockData: boolean; clearData: ReturnType<typeof vi.fn> };
 type PrefsShape = { privacyMode: boolean; setPrivacyMode: ReturnType<typeof vi.fn> };
 
 function setup({
   user = null,
   isMockData = false,
   privacyMode = false,
-}: { user?: AuthShape['user']; isMockData?: boolean; privacyMode?: boolean } = {}) {
+  data = {},
+}: { user?: AuthShape['user']; isMockData?: boolean; privacyMode?: boolean; data?: object | null } = {}) {
   const setPrivacyMode = vi.fn();
+  const clearData = vi.fn();
   vi.mocked(useAuth).mockReturnValue({ user } as unknown as ReturnType<typeof useAuth>);
-  vi.mocked(usePortfolio).mockReturnValue({ isMockData } as unknown as ReturnType<typeof usePortfolio>);
+  vi.mocked(usePortfolio).mockReturnValue({ data, isMockData, clearData } as PortfolioShape as unknown as ReturnType<typeof usePortfolio>);
   vi.mocked(usePreferences).mockReturnValue({ privacyMode, setPrivacyMode } as PrefsShape as unknown as ReturnType<typeof usePreferences>);
 
-  const onMenuClick = vi.fn();
   const onAdd = vi.fn();
   const onSignIn = vi.fn();
   const onSignUp = vi.fn();
   const onFeedback = vi.fn();
   render(
     <Topbar
-      pathname="/dashboard"
-      onMenuClick={onMenuClick}
       onAdd={onAdd}
       onSignIn={onSignIn}
       onSignUp={onSignUp}
       onFeedback={onFeedback}
     />,
   );
-  return { setPrivacyMode, onMenuClick, onAdd, onSignIn, onSignUp, onFeedback };
+  return { setPrivacyMode, clearData, onAdd, onSignIn, onSignUp, onFeedback };
 }
 
 beforeEach(() => {
@@ -122,10 +121,23 @@ describe('Topbar — right-aligned action cluster', () => {
 
   it('swaps the add button to a sign-up CTA when viewing mock data', () => {
     const { onAdd, onSignIn, onSignUp } = setup({ user: null, isMockData: true });
-    const cta = screen.getByRole('button', { name: /sign up to track your own portfolio/i });
+    const cta = screen.getByRole('button', { name: /sign up to track yours/i });
     fireEvent.click(cta);
     expect(onSignUp).toHaveBeenCalledTimes(1);
     expect(onSignIn).not.toHaveBeenCalled();
     expect(onAdd).not.toHaveBeenCalled();
+  });
+
+  it('offers a signed-in user their own numbers instead of sign-up while on the demo', () => {
+    const { onAdd, onSignUp, clearData } = setup({ user: { id: 'u1' }, isMockData: true });
+    fireEvent.click(screen.getByRole('button', { name: /use my own numbers/i }));
+    expect(clearData).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    expect(onSignUp).not.toHaveBeenCalled();
+  });
+
+  it('leaves the first entry to the empty state: no topbar primary without data', () => {
+    setup({ data: null });
+    expect(document.querySelector('.q-topbar-add')).toBeNull();
   });
 });

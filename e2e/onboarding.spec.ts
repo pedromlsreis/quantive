@@ -13,13 +13,13 @@ test.describe('Onboarding / Empty State', () => {
   test('shows FileUpload empty state when no data', async ({ page }) => {
     // Either the file-upload CTA or a level-1 heading is fine — use auto-waiting
     // because the empty-state content animates in (opacity 0 → 1).
-    const uploadCta = page.getByRole('button', { name: /add your first measurement/i });
+    const uploadCta = page.getByRole('button', { name: /add your first entry/i });
     const landingH1 = page.getByRole('heading', { level: 1 });
     await expect(uploadCta.or(landingH1).first()).toBeVisible({ timeout: 6000 });
   });
 
-  test('empty state has "Add your first measurement" button', async ({ page }) => {
-    const btn = page.getByRole('button', { name: /add your first measurement/i });
+  test('empty state has "Add your first entry" button', async ({ page }) => {
+    const btn = page.getByRole('button', { name: /add your first entry/i });
     if (await btn.isVisible()) {
       await expect(btn).toBeVisible();
       await expect(btn).toBeEnabled();

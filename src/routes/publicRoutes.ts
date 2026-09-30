@@ -1,8 +1,8 @@
 import { lazyRoute, type PreloadableRoute } from '@/lib/lazyRoute';
 
 // The prerendered public pages (scripts/prerender.mjs ROUTES, routeMeta
-// PUBLIC_ROUTES). App routes and NotFound stay on plain lazy(): they are never
-// prerendered, so preloading them would only delay the first render.
+// PUBLIC_ROUTES). App routes (routes/appRoutes.ts) are never preloaded before
+// the first render, which would only delay it; NotFound stays on plain lazy().
 export const LandingPage = lazyRoute(() => import('@/pages/LandingPage'));
 export const PricingPage = lazyRoute(() => import('@/pages/PricingPage'));
 export const SecurityPage = lazyRoute(() => import('@/pages/SecurityPage'));

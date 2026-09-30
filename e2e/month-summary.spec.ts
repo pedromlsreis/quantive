@@ -40,14 +40,15 @@ test.describe('Month-by-month summary table', () => {
     await expect(page.getByRole('columnheader', { name: /month-end/i })).toBeVisible();
     await expect(page.getByRole('columnheader', { name: /net worth/i })).toBeVisible();
 
-    // First body row's Month-end cell should be lexicographically >= the last.
-    const monthEndCells = page.locator('table.q-table tbody tr td:first-child');
-    const count = await monthEndCells.count();
+    // Month-end cells read "Sep 2026"; their <time dateTime> carries the
+    // ISO date, which sorts. Newest first means the first is the latest.
+    const monthEnds = page.locator('table.q-table tbody tr td:first-child time');
+    const count = await monthEnds.count();
     expect(count).toBeGreaterThan(0);
     if (count >= 2) {
-      const first = (await monthEndCells.nth(0).innerText()).trim();
-      const last = (await monthEndCells.nth(count - 1).innerText()).trim();
-      expect(first.localeCompare(last)).toBeGreaterThanOrEqual(0);
+      const first = await monthEnds.nth(0).getAttribute('datetime');
+      const last = await monthEnds.nth(count - 1).getAttribute('datetime');
+      expect((first ?? '').localeCompare(last ?? '')).toBeGreaterThanOrEqual(0);
     }
   });
 

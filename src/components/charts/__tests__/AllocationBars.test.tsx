@@ -68,10 +68,8 @@ describe('AllocationBars', () => {
         max={400}
       />,
     );
-    // The inner bar div carries inline `width: <pct>%`. Find it.
-    const bars = Array.from(container.querySelectorAll('div')).filter((d) =>
-      (d.getAttribute('style') ?? '').includes('width:'),
-    );
+    // Each bar carries inline `width: <pct>%`.
+    const bars = Array.from(container.querySelectorAll('.q-bar'));
     // 2 bar fills, one per datum. Heuristic: pick the largest width%.
     const widths = bars
       .map((b) => {

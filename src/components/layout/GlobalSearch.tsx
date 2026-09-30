@@ -60,7 +60,7 @@ interface ActionDef {
 
 export function GlobalSearch({ onAdd, onSignUp, onFeedback }: { onAdd: () => void; onSignUp: () => void; onFeedback: () => void }) {
   const navigate = useNavigate();
-  const { allSources, snapshots, isMockData } = usePortfolio();
+  const { allSources, snapshots, isMockData, clearData } = usePortfolio();
   const { user, signOut } = useAuth();
   const { status, lock, hasRecovery } = useKeySession();
   const { privacyMode, setPrivacyMode } = usePreferences();
@@ -144,20 +144,29 @@ export function GlobalSearch({ onAdd, onSignUp, onFeedback }: { onAdd: () => voi
 
     // Actions — workspace commands. Each is keyword-matched and gated to the
     // states where it makes sense (e.g. Lock only while unlocked). In demo
-    // mode the primary action mirrors the topbar's "sign up" swap.
+    // mode the primary action mirrors the topbar's swap: sign up for guests,
+    // "Use my own numbers" for a signed-in user.
     const actionDefs: ActionDef[] = [
-      isMockData
+      isMockData && user
+        ? {
+            id: 'action:own-numbers',
+            label: 'Use my own numbers',
+            keywords: 'use my own numbers clear demo add entry track',
+            icon: <Plus size={14} />,
+            run: () => { clearData(); navigate('/dashboard'); onAdd(); },
+          }
+        : isMockData
         ? {
             id: 'action:signup',
             label: 'Sign up to track yours',
-            keywords: 'sign up signup register create account add measurement track',
+            keywords: 'sign up signup register create account add entry track',
             icon: <UserPlus size={14} />,
             run: onSignUp,
           }
         : {
             id: 'action:add',
-            label: 'Add measurement',
-            keywords: 'add measurement new entry record snapshot',
+            label: 'Add entry',
+            keywords: 'add entry new measurement record snapshot value',
             icon: <Plus size={14} />,
             run: onAdd,
           },
@@ -219,7 +228,7 @@ export function GlobalSearch({ onAdd, onSignUp, onFeedback }: { onAdd: () => voi
     return out;
   }, [
     query, allSources, snapshots, navigate, onAdd, onSignUp, onFeedback,
-    isMockData, privacyMode, setPrivacyMode, user, hasRecovery, status, lock, signOut,
+    isMockData, clearData, privacyMode, setPrivacyMode, user, hasRecovery, status, lock, signOut,
   ]);
 
   // Keep active index in range when results change.
@@ -302,13 +311,15 @@ export function GlobalSearch({ onAdd, onSignUp, onFeedback }: { onAdd: () => voi
           onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={onInputKeyDown}
-          placeholder="Search pages, sources, actions…  (/ or ⌘K)"
+          placeholder="Search sources and pages"
           aria-label="Quick search"
           role="combobox"
           aria-expanded={open}
           aria-controls="q-global-search-results"
           aria-activedescendant={open && flatItems[activeIdx] ? `q-gs-${flatItems[activeIdx].id}` : undefined}
         />
+        {/* "/" opens search on every system; the Cmd/Ctrl+K alias stays unadvertised. */}
+        <kbd className="q-kbd" aria-hidden="true">/</kbd>
       </label>
 
       {open && (
@@ -336,20 +347,12 @@ export function GlobalSearch({ onAdd, onSignUp, onFeedback }: { onAdd: () => voi
               color: 'var(--fg-subtle)',
               fontSize: 13,
             }}>
-              No matches for &ldquo;{query}&rdquo;
+              {`No matches for "${query}"`}
             </div>
           ) : (
             groups.map((group) => (
               <div key={group.kind} style={{ marginBottom: 4 }}>
-                <div
-                  style={{
-                    fontSize: 10,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.06em',
-                    color: 'var(--fg-faint)',
-                    padding: '8px 10px 4px',
-                  }}
-                >
+                <div className="q-nav-section-title" style={{ padding: '8px 10px 4px' }}>
                   {group.label}
                 </div>
                 {group.items.map((item) => {

@@ -51,3 +51,43 @@ export function generateScenarioForecast(
   }
   return points;
 }
+
+/** "Your pace" needs a year of history; annualising a few months overstates it. */
+export const PACE_MIN_MONTHS = 12;
+
+export interface HistoricalPace {
+  /** Annual growth rate as a fraction (0.065 = 6.5% a year). */
+  rate: number;
+  /** Whole months between the first and latest entry. */
+  months: number;
+  /** Date of the first entry the pace is measured from. */
+  since: Date;
+}
+
+/**
+ * The user's own annual growth rate from first to latest entry, new savings
+ * included. Both the dashboard's 5-year figure and the forecast page's
+ * default scenario use this, so they always agree. Null when history is
+ * shorter than PACE_MIN_MONTHS or either endpoint is not positive.
+ */
+/**
+ * Entries a projection can use. A total that couldn't be converted yet (FX
+ * rates still loading) is NaN and is left out, so the overview and /forecast
+ * always project from the same history.
+ */
+export function projectionHistory<T extends { total: number }>(snapshots: T[]): T[] {
+  return snapshots.filter((s) => Number.isFinite(s.total));
+}
+
+export function historicalPace(snapshots: { date: Date; total: number }[]): HistoricalPace | null {
+  const usable = projectionHistory(snapshots);
+  if (usable.length < 2) return null;
+  const sorted = [...usable].sort((a, b) => a.date.getTime() - b.date.getTime());
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
+  const months =
+    (last.date.getFullYear() - first.date.getFullYear()) * 12 +
+    (last.date.getMonth() - first.date.getMonth());
+  if (months < PACE_MIN_MONTHS || first.total <= 0 || last.total <= 0) return null;
+  return { rate: Math.pow(last.total / first.total, 12 / months) - 1, months, since: first.date };
+}

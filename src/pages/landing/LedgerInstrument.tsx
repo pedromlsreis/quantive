@@ -242,7 +242,7 @@ export function LedgerInstrument({ currency, onCurrencyChange, month, onMonthCha
     return {
       when: relativeMonth(index, inst.latest),
       value: money(f.forecast, currency),
-      range: `95% range ${compactMoney(f.lower, currency)} to ${compactMoney(f.upper, currency)}`,
+      range: `range ${compactMoney(f.lower, currency)} to ${compactMoney(f.upper, currency)}`,
     };
   }, [index, inst, currency]);
 

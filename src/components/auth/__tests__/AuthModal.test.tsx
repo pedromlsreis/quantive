@@ -94,7 +94,7 @@ describe('AuthModal — backdrop close behaviour (#3)', () => {
 
   it('does NOT close on backdrop click after the user has typed an email', () => {
     const { onClose } = setup();
-    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'pedro@example.com' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pedro@example.com' } });
     const backdrop = document.querySelector('.q-modal-backdrop') as HTMLElement;
     fireEvent.click(backdrop);
     expect(onClose).not.toHaveBeenCalled();
@@ -102,7 +102,7 @@ describe('AuthModal — backdrop close behaviour (#3)', () => {
 
   it('does NOT close on backdrop click after the user has typed a password', () => {
     const { onClose } = setup();
-    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'hunter2!' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2!' } });
     const backdrop = document.querySelector('.q-modal-backdrop') as HTMLElement;
     fireEvent.click(backdrop);
     expect(onClose).not.toHaveBeenCalled();
@@ -110,7 +110,7 @@ describe('AuthModal — backdrop close behaviour (#3)', () => {
 
   it('still closes when the × button is clicked, regardless of typed input', () => {
     const { onClose } = setup();
-    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'pedro@example.com' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pedro@example.com' } });
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(onClose).toHaveBeenCalled();
   });
@@ -119,13 +119,13 @@ describe('AuthModal — backdrop close behaviour (#3)', () => {
 describe('AuthModal — password toggle (#1.1)', () => {
   it('renders the password input as type=password by default', () => {
     setup();
-    const pwInput = screen.getByPlaceholderText('Password') as HTMLInputElement;
+    const pwInput = screen.getByLabelText('Password') as HTMLInputElement;
     expect(pwInput.type).toBe('password');
   });
 
   it('flips to type=text when the eye toggle is clicked, and back again', () => {
     setup();
-    const pwInput = screen.getByPlaceholderText('Password') as HTMLInputElement;
+    const pwInput = screen.getByLabelText('Password') as HTMLInputElement;
     const toggle = screen.getByRole('button', { name: /show password/i });
     fireEvent.click(toggle);
     expect(pwInput.type).toBe('text');
@@ -150,8 +150,8 @@ describe('AuthModal — post-signup confirm panel (#2)', () => {
 
     const { signUp } = setup({ defaultMode: 'signup' });
 
-    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'pedro@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'hunter2hunter2' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pedro@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2hunter2' } });
     fireEvent.click(screen.getByTestId('terms-checkbox'));
 
     await act(async () => {
@@ -165,7 +165,7 @@ describe('AuthModal — post-signup confirm panel (#2)', () => {
       // Confirm panel shows: title + email surfaced + resend affordance.
       expect(screen.getByText(/check your inbox/i)).toBeInTheDocument();
       expect(screen.getByText('pedro@example.com')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /resend confirmation email/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /send the email again/i })).toBeInTheDocument();
     });
   });
 
@@ -176,8 +176,8 @@ describe('AuthModal — post-signup confirm panel (#2)', () => {
 
     const { onClose } = setup({ defaultMode: 'signup' });
 
-    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'pedro@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'hunter2hunter2' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pedro@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'hunter2hunter2' } });
     fireEvent.click(screen.getByTestId('terms-checkbox'));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^sign up$/i }));
@@ -191,23 +191,23 @@ describe('AuthModal — post-signup confirm panel (#2)', () => {
 });
 
 describe('AuthModal — error visibility (#3 follow-on)', () => {
-  it('shows auth errors via toast with extended duration so the message can be read', async () => {
+  it('shows auth errors inline, next to the form, instead of a toast', async () => {
     const { signIn } = setup({ defaultMode: 'signin' });
     signIn.mockResolvedValueOnce({ error: 'Invalid login credentials' });
 
-    fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'pedro@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'wrong' } });
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'pedro@example.com' } });
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrong' } });
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
     });
 
+    // The page behind the dialog is inert, so a toast there would not be
+    // announced; the error sits in the dialog as an alert.
     await waitFor(() => {
       // Raw GoTrue string is mapped via lib/authError for a friendlier message.
-      expect(toastError).toHaveBeenCalledWith(
-        expect.stringContaining("email or password didn't match"),
-        expect.objectContaining({ duration: 8000 }),
-      );
+      expect(screen.getByRole('alert')).toHaveTextContent("email or password didn't match");
     });
+    expect(toastError).not.toHaveBeenCalled();
   });
 });

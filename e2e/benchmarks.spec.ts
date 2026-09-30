@@ -87,19 +87,20 @@ test.describe('Performance — benchmark comparison', () => {
     const overlayGroup = page.getByRole('group', { name: 'Benchmark overlay' });
     await expect(overlayGroup).toBeVisible();
     const sp500Btn = overlayGroup.getByRole('button', { name: /S.*P.*500/ });
-    const inflationBtn = overlayGroup.getByRole('button', { name: 'Inflation EU' });
+    const inflationBtn = overlayGroup.getByRole('button', { name: 'EU inflation' });
     const offBtn = overlayGroup.getByRole('button', { name: 'Off' });
     await expect(sp500Btn).toBeVisible();
     await expect(inflationBtn).toBeVisible();
     await expect(offBtn).toBeVisible();
 
-    // Default: S&P 500 on, Inflation EU off, Off not pressed.
-    await expect(sp500Btn).toHaveAttribute('aria-pressed', 'true');
-    await expect(inflationBtn).toHaveAttribute('aria-pressed', 'false');
+    // Default: EU inflation on (the comparison a net-worth line can answer
+    // honestly), S&P 500 off, Off not pressed.
+    await expect(sp500Btn).toHaveAttribute('aria-pressed', 'false');
+    await expect(inflationBtn).toHaveAttribute('aria-pressed', 'true');
     await expect(offBtn).toHaveAttribute('aria-pressed', 'false');
 
-    // Activate Inflation EU alongside S&P 500 — both should now be pressed.
-    await inflationBtn.click();
+    // Activate S&P 500 alongside EU inflation: both should now be pressed.
+    await sp500Btn.click();
     await expect(sp500Btn).toHaveAttribute('aria-pressed', 'true');
     await expect(inflationBtn).toHaveAttribute('aria-pressed', 'true');
 
@@ -122,15 +123,12 @@ test.describe('Performance — benchmark comparison', () => {
     await page.waitForURL('**/performance');
     await expect(page.getByRole('heading', { name: 'Benchmark comparison' })).toBeVisible({ timeout: 8000 });
 
-    // The 12-month note is rendered for Free users on the benchmark overlay.
-    // After the merge, the MonthSummaryTable below also surfaces an
-    // `history.full` upsell containing "last 12 months", so match the
-    // benchmark-specific copy exclusively.
-    await expect(
-      page.getByText(/Showing the last 12 months\. Upgrade to Pro for the full horizon\./i)
-    ).toBeVisible();
+    // Free compares 12 months: the range starts on 1y and 3y isn't offered.
+    // The page's one Pro gate sits under the month table.
+    await expect(page.getByRole('tab', { name: '1y' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: '3y' })).toHaveCount(0);
 
-    // The benchmarks UpsellCard appears with its "Upgrade to Pro" CTA.
+    // The page's Pro gate carries its "Upgrade to Pro" link.
     await expect(page.getByRole('link', { name: /upgrade to pro/i }).first()).toBeVisible();
   });
 
@@ -147,10 +145,10 @@ test.describe('Performance — benchmark comparison', () => {
     await page.waitForURL('**/performance');
     await expect(page.getByRole('heading', { name: 'Benchmark comparison' })).toBeVisible({ timeout: 8000 });
 
-    // S&P 500 is the default active toggle, so the staleness banner for it
-    // should already be visible. The banner is tied to whichever series are
-    // currently active in the multi-select group.
+    // The notice is tied to whichever series are active; EU inflation is the
+    // default, so turn S&P 500 on.
     const overlayGroup = page.getByRole('group', { name: 'Benchmark overlay' });
+    await overlayGroup.getByRole('button', { name: /S.*P.*500/ }).click();
     await expect(overlayGroup.getByRole('button', { name: /S.*P.*500/ }))
       .toHaveAttribute('aria-pressed', 'true');
 

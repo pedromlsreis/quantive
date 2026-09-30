@@ -4,12 +4,11 @@ exports[`buildWealthReport — document tree > renders a structural snapshot tha
 {
   "hasForecastSection": false,
   "hasTrajectoryImage": false,
-  "headlineText": "€12,000.00",
+  "headlineText": "€12,000",
   "sectionTitles": [
-    "Net worth at period end",
+    "Net worth over the period",
+    "Largest sources",
     "Allocation",
-    "Trajectory",
-    "Top sources",
   ],
   "sourceNames": [
     "Brokerage",

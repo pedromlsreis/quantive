@@ -1,4 +1,4 @@
-﻿import { clsx, type ClassValue } from "clsx";
+import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
 export function cn(...inputs: ClassValue[]) {
@@ -14,6 +14,12 @@ const CONTROL_CHAR_RE = /[\x00-\x1F\x7F]/;
 
 export function toTitleCase(s: string): string {
   return s.replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** "Non-Volatile" → "Non-volatile": UI labels are sentence case. */
+export function sentenceCase(s: string): string {
+  const t = s.trim().toLowerCase();
+  return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
 export function sanitizeSourceName(raw: string): { value: string; error?: string } {

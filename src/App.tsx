@@ -1,5 +1,4 @@
-import { lazy, Suspense, useEffect, useRef } from "react";
-import { Toaster } from "@/components/ui/toaster";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -20,6 +19,7 @@ import { RecoveryOfferModal } from "@/components/auth/RecoveryOfferModal";
 import { QueryCacheGuard } from "@/components/auth/QueryCacheGuard";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
+import { useMotionAllowed } from "@/hooks/useMotionAllowed";
 // The six prerendered public pages are preloadable (see main.tsx); every
 // other route below stays on plain lazy().
 import {
@@ -31,15 +31,18 @@ import {
   TermsOfService,
 } from "@/routes/publicRoutes";
 
-const Index = lazy(() => import("./pages/Index"));
+import {
+  AllocationsPage,
+  ForecastPage,
+  GoalsPage,
+  Index,
+  PerformancePage,
+  SettingsPage,
+  SourcesPage,
+} from "@/routes/appRoutes";
+
 const DemoRedirect = lazy(() => import("./pages/DemoRedirect"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const SettingsPage = lazy(() => import("./pages/SettingsPage"));
-const ForecastPage = lazy(() => import("./pages/ForecastPage"));
-const PerformancePage = lazy(() => import("./pages/PerformancePage"));
-const GoalsPage = lazy(() => import("./pages/GoalsPage"));
-const AllocationsPage = lazy(() => import("./pages/AllocationsPage"));
-const SourcesPage = lazy(() => import("./pages/SourcesPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -113,11 +116,37 @@ function ScrollToHash() {
   return null;
 }
 
-const LoadingSpinner = () => (
-  <div className="flex flex-1 items-center justify-center bg-background">
-    <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-  </div>
-);
+// Chunk loads under 300ms show nothing; longer ones get a hairline at the top
+// of the viewport instead of a spinner over an empty page.
+function RouteFallback() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setVisible(true), 300);
+    return () => window.clearTimeout(t);
+  }, []);
+  // Absent from the accessibility tree until it is shown, so a fast load announces nothing.
+  if (!visible) return null;
+  return (
+    <div
+      className="q-route-progress is-visible"
+      style={{ position: "fixed", top: 0, bottom: "auto", zIndex: "var(--z-toast)" }}
+      role="progressbar"
+      aria-label="Loading"
+    />
+  );
+}
+
+// Authored motion in index.css runs only under html[data-app-motion='on'].
+// Portalled overlays sit outside the shell, hence the root element.
+function MotionFlag() {
+  const allowed = useMotionAllowed();
+  useEffect(() => {
+    const root = document.documentElement;
+    if (allowed) root.dataset.appMotion = "on";
+    else delete root.dataset.appMotion;
+  }, [allowed]);
+  return null;
+}
 
 // Routes that render the in-app shell (sidebar + topbar). All of these
 // currently render encrypted user data, so they also need to appear in
@@ -163,8 +192,8 @@ function AppRoutes() {
 
   if (useShell) {
     return (
-      <AppShell pathname={location.pathname}>
-        <Suspense fallback={<LoadingSpinner />}>{routes}</Suspense>
+      <AppShell>
+        <Suspense fallback={<RouteFallback />}>{routes}</Suspense>
       </AppShell>
     );
   }
@@ -172,7 +201,7 @@ function AppRoutes() {
   return (
     <div className="flex min-h-screen flex-col">
       <EmailConfirmationBanner />
-      <Suspense fallback={<LoadingSpinner />}>{routes}</Suspense>
+      <Suspense fallback={<RouteFallback />}>{routes}</Suspense>
     </div>
   );
 }
@@ -180,7 +209,7 @@ function AppRoutes() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
+      <MotionFlag />
       <Sonner />
       <ErrorBoundary>
         <AuthProvider>
@@ -193,10 +222,11 @@ const App = () => (
                   <PageViewTracker />
                   <ScrollToTop />
                   <ScrollToHash />
-                  <RequireUnlock />
                   <IdleAutoLock />
                   <RecoveryOfferModal />
                   <AuthModalProvider>
+                    {/* Inside the provider: its reset path signs out and opens the auth modal in forgot mode. */}
+                    <RequireUnlock />
                     {/* Route-scoped boundary: a page-level crash resets when
                         the user navigates away, instead of poisoning the
                         whole shell. The outer ErrorBoundary still catches

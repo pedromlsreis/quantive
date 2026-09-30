@@ -1,6 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { render, screen, act } from '@testing-library/react';
 import { DashboardSkeleton } from '../DashboardSkeleton';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('DashboardSkeleton', () => {
   it('renders without crashing', () => {
@@ -8,31 +12,25 @@ describe('DashboardSkeleton', () => {
     expect(container.firstChild).toBeTruthy();
   });
 
-  it('has accessible loading status role', () => {
+  it('stays hidden for the first 300ms so a fast decrypt never flashes it', () => {
+    vi.useFakeTimers();
     render(<DashboardSkeleton />);
-    const status = screen.getByRole('status');
-    expect(status).toBeInTheDocument();
-    expect(status).toHaveAttribute('aria-label', 'Loading dashboard');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    act(() => { vi.advanceTimersByTime(300); });
+    expect(screen.getByRole('status')).toHaveAttribute('aria-label', 'Loading your overview');
   });
 
-  it('renders KPI card skeletons (4 of them)', () => {
+  it('mirrors the overview: page head, hero and chart section', () => {
     const { container } = render(<DashboardSkeleton />);
-    // New design system uses q-card class
-    const kpiCards = container.querySelectorAll('.q-card');
-    // 4 KPI cards + 3 skeleton chart cards = 7 total
-    expect(kpiCards.length).toBeGreaterThanOrEqual(4);
+    expect(container.querySelector('.q-page-head')).toBeInTheDocument();
+    expect(container.querySelector('.q-hero')).toBeInTheDocument();
+    expect(container.querySelector('.q-sec')).toBeInTheDocument();
   });
 
-  it('has aria-hidden on shimmer blocks', () => {
+  it('hides the placeholder blocks from assistive tech', () => {
     const { container } = render(<DashboardSkeleton />);
-    const shimmerBlocks = container.querySelectorAll('[aria-hidden="true"]');
-    expect(shimmerBlocks.length).toBeGreaterThan(0);
-  });
-
-  it('applies shimmer animation class', () => {
-    const { container } = render(<DashboardSkeleton />);
-    // New design system uses q-skeleton instead of animate-shimmer
-    const shimmerEl = container.querySelector('.q-skeleton');
-    expect(shimmerEl).toBeInTheDocument();
+    const blocks = container.querySelectorAll('.q-skeleton');
+    expect(blocks.length).toBeGreaterThan(0);
+    blocks.forEach((b) => expect(b).toHaveAttribute('aria-hidden', 'true'));
   });
 });

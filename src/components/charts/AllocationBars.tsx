@@ -8,55 +8,36 @@ interface AllocationBarsProps {
   fmt: (v: number) => string;
   /** Optional ceiling for bar widths. Defaults to the dataset total. */
   max?: number;
+  /** Per-item colour (sources); omitted for ordinal groups, which stay neutral. */
+  colorOf?: (name: string) => string;
+  /** Share formatter; defaults to one decimal. */
+  fmtPct?: (v: number) => string;
 }
 
-export function AllocationBars({ data, fmt, max }: AllocationBarsProps) {
+/** Ruled rows with a 4px bar under each; the bar is the only mark, no track. */
+export function AllocationBars({ data, fmt, max, colorOf, fmtPct = (v) => `${v.toFixed(1)}%` }: AllocationBarsProps) {
   const total = data.reduce((s, d) => s + d.value, 0);
   const ceiling = max ?? total ?? 1;
   if (!data.length) return null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {data.map((d, i) => {
+    <ul className="q-rows">
+      {data.map((d) => {
         const pct = ceiling > 0 ? (d.value / ceiling) * 100 : 0;
         const sharePct = total > 0 ? (d.value / total) * 100 : 0;
         return (
-          <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                <span style={{ color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {d.name}
-                </span>
-                <span className="num" style={{
-                  color: 'var(--fg-muted)',
-                  fontFamily: 'var(--font-mono)',
-                  fontVariantNumeric: 'tabular-nums',
-                  fontSize: 11,
-                  flexShrink: 0,
-                  marginLeft: 8,
-                }}>
-                  {fmt(d.value)}
-                  <span style={{ color: 'var(--fg-faint)', marginLeft: 8 }}>
-                    {sharePct.toFixed(1)}%
-                  </span>
-                </span>
-              </div>
-              <div style={{ marginTop: 4, height: 4, borderRadius: 2, background: 'var(--surface-strong)', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    height: '100%',
-                    background: `var(--series-${(i % 8) + 1})`,
-                    width: `${pct}%`,
-                    borderRadius: 2,
-                    animation: `q-bar-grow 800ms cubic-bezier(0.22,1,0.36,1) ${i * 60}ms backwards`,
-                    transformOrigin: 'left center',
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+          <li key={d.name} className="q-row">
+            <span className="q-row-name">{d.name}</span>
+            <span className="q-row-val num">{fmt(d.value)}</span>
+            <span className="q-row-val q-row-val--muted num">{fmtPct(sharePct)}</span>
+            <span
+              className="q-bar"
+              aria-hidden="true"
+              style={{ width: `${Math.max(1, pct)}%`, background: colorOf ? colorOf(d.name) : 'var(--fg-subtle)' }}
+            />
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }

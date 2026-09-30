@@ -1,14 +1,13 @@
-﻿import { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Plus, Target } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCurrency } from '@/contexts/CurrencyContext';
+import { useFormat } from '@/hooks/useFormat';
 import { GoalCard } from '@/components/goals/GoalCard';
 import { GoalForm } from '@/components/goals/GoalForm';
-import { staggerContainer, staggerItem } from '@/lib/motion';
-import { latestNetWorth } from '@/lib/goalEta';
+import { ProGate } from '@/components/billing/UpsellCard';
+import { classifyGoalTrial, latestNetWorth } from '@/lib/goalEta';
+import { formatDate } from '@/lib/formatters';
 import type { Goal } from '@/lib/types';
 import type { CurrencyCode } from '@/contexts/CurrencyContext';
 import { analytics } from '@/lib/analytics';
@@ -17,41 +16,33 @@ const GoalsPage = () => {
   const { goals, addGoal, updateGoal, archiveGoal, allSnapshots } = usePortfolio();
   const { has } = useEntitlements();
   const { user } = useAuth();
-  const { currency } = useCurrency();
+  const f = useFormat();
   const hasMilestones = has('milestones');
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
 
   const currentNetWorth = useMemo(() => latestNetWorth(allSnapshots), [allSnapshots]);
-  const snapshotSeries = useMemo(
-    () => allSnapshots.map(s => ({ date: s.date, total: s.total })),
-    [allSnapshots],
+  const snapshotSeries = useMemo(() => allSnapshots.map((s) => ({ date: s.date, total: s.total })), [allSnapshots]);
+  const trials = useMemo(
+    () => new Map(goals.map((g) => [g.id, classifyGoalTrial({ hasMilestones, goals, goalId: g.id })])),
+    [goals, hasMilestones],
   );
+  const trialGoal = [...trials.values()].find((t) => t.kind === 'trial');
+  const anyGated = [...trials.values()].some((t) => t.kind === 'gated');
 
   const openAdd = () => {
     setEditingGoal(null);
     setFormOpen(true);
   };
 
-  const openEdit = (goal: Goal) => {
-    setEditingGoal(goal);
-    setFormOpen(true);
-  };
-
-  const handleSubmit = (input: {
-    name: string;
-    targetAmount: number;
-    targetCurrency: CurrencyCode;
-    targetDate: string;
-  }) => {
+  const handleSubmit = (input: { name: string; targetAmount: number; targetCurrency: CurrencyCode; targetDate: string }) => {
     if (editingGoal) {
       updateGoal(editingGoal.id, input);
     } else {
       const created = addGoal(input);
-      // Best-effort completion event — fires if the user is already past the
-      // target at creation time.
-      if (currentNetWorth !== null && created.targetCurrency === currency.code && currentNetWorth >= created.targetAmount) {
+      // Best-effort completion event, for goals already reached when created.
+      if (currentNetWorth !== null && created.targetCurrency === f.currency.code && currentNetWorth >= created.targetAmount) {
         analytics.goalCompleted();
       }
     }
@@ -60,111 +51,62 @@ const GoalsPage = () => {
   };
 
   const handleArchive = (goal: Goal) => {
-    if (window.confirm(`Archive "${goal.name}"? You can still see archived goals if you re-upgrade later.`)) {
+    if (window.confirm(`Archive "${goal.name}"? It stops showing here; you can add it again any time.`)) {
       archiveGoal(goal.id);
     }
   };
 
-  return (
-    <div className="flex flex-col gap-8">
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 'var(--s-4)', flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 500, letterSpacing: '-0.02em', margin: 0 }}>
-            Goals
-          </h1>
-          <p style={{ color: 'var(--fg-subtle)', fontSize: 14, margin: '6px 0 0' }}>
-            Set net worth milestones and watch your trajectory toward them.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={openAdd}
-          className="q-btn q-btn--primary q-btn--sm"
-          aria-label="Add a goal"
-        >
-          <Plus size={14} />
-          <span>Add goal</span>
-        </button>
-      </div>
+  const trialEnd = trialGoal && trialGoal.kind === 'trial'
+    ? new Date(Date.now() + trialGoal.daysRemaining * 86_400_000)
+    : null;
 
-      {/* Empty state or list */}
-      {goals.length === 0 ? (
-        <div
-          className="q-card q-card--p-lg"
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            gap: 'var(--s-3)',
-            padding: 'var(--s-8) var(--s-6)',
-          }}
-        >
-          <div
-            aria-hidden="true"
-            style={{
-              width: 40, height: 40,
-              borderRadius: 'var(--r-3)',
-              background: 'var(--surface-soft)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: 'var(--fg-subtle)',
-            }}
-          >
-            <Target size={20} />
-          </div>
-          <div>
-            <h2 style={{ fontSize: 'var(--text-base)', fontWeight: 500, margin: 0 }}>
-              No goals yet
-            </h2>
-            <p style={{ fontSize: 'var(--text-sm)', color: 'var(--fg-subtle)', margin: '6px auto 0', maxWidth: 420 }}>
-              Try{' '}
-              <em style={{ fontStyle: 'normal', color: 'var(--fg)' }}>
-                "Reach €100k by 2027"
-              </em>
-              {' '}or{' '}
-              <em style={{ fontStyle: 'normal', color: 'var(--fg)' }}>
-                "Hit €1M by 50"
-              </em>
-              . We'll show progress against your latest net worth and project an ETA from your trailing growth.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={openAdd}
-            className="q-btn q-btn--primary q-btn--sm"
-            style={{ marginTop: 'var(--s-2)' }}
-          >
-            <Plus size={14} />
-            <span>Add your first goal</span>
-          </button>
-          {!user && (
-            <p style={{ fontSize: 'var(--text-xs)', color: 'var(--fg-faint)', margin: '6px 0 0' }}>
-              You can preview goals as a guest; sign in to keep them across sessions.
-            </p>
+  return (
+    <div>
+      <header className="q-page-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--s-4)', flexWrap: 'wrap' }}>
+        <div>
+          <h1 className="q-h1" tabIndex={-1}>Goals</h1>
+          <p className="q-page-lede">
+            {goals.length === 0 && currentNetWorth !== null
+              ? `Name an amount and a date. Progress is measured against your latest net worth, ${f.money(currentNetWorth)}, and projected at your current pace.`
+              : 'Progress is measured against your latest net worth and projected at your current pace.'}
+          </p>
+          {trialEnd && (
+            <p className="q-page-meta">{`Goals are part of Pro. On the free plan, your first goal shows progress until ${formatDate(trialEnd)}.`}</p>
           )}
         </div>
+        {goals.length > 0 && (
+          <button type="button" onClick={openAdd} className="q-btn q-btn--secondary q-btn--md" aria-label="Add a goal">
+            Add goal
+          </button>
+        )}
+      </header>
+
+      {goals.length === 0 ? (
+        <div className="q-empty">
+          <div className="q-empty-actions" style={{ marginTop: 0 }}>
+            <button type="button" onClick={openAdd} className="q-btn q-btn--secondary q-btn--md">
+              Add your first goal
+            </button>
+          </div>
+          {!user && <p className="q-empty-close">Goals stay in this browser until you sign in.</p>}
+        </div>
       ) : (
-        <motion.div
-          variants={staggerContainer}
-          initial="hidden"
-          animate="visible"
-          style={{ display: 'grid', gap: 'var(--s-4)' }}
-        >
-          {goals.map((goal) => (
-            <motion.div key={goal.id} variants={staggerItem}>
+        <section className="q-sec" aria-label="Your goals">
+          <ul className="q-goals">
+            {goals.map((goal) => (
               <GoalCard
+                key={goal.id}
                 goal={goal}
-                goals={goals}
-                hasMilestones={hasMilestones}
+                trial={trials.get(goal.id) ?? { kind: 'gated' }}
                 snapshots={snapshotSeries}
                 currentNetWorth={currentNetWorth}
-                onEdit={openEdit}
+                onEdit={(g) => { setEditingGoal(g); setFormOpen(true); }}
                 onArchive={handleArchive}
               />
-            </motion.div>
-          ))}
-        </motion.div>
+            ))}
+          </ul>
+          {anyGated && <ProGate feature="milestones" variant="row" />}
+        </section>
       )}
 
       <GoalForm

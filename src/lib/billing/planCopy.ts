@@ -20,6 +20,9 @@ export interface PlanCopySection {
 export const PRICING_HEADLINE = '€0 forever, or €90 a year';
 export const PRICING_SUB = 'The free plan has no time limit.';
 
+/** Short price line for in-app Pro gates. */
+export const PRO_PRICE_LINE = '€9 a month or €90 a year';
+
 export const VAT_NOTE =
   'All prices final. No VAT charged under German legislation (§ 19 UStG).';
 
@@ -40,7 +43,7 @@ export const FREE_SECTIONS: PlanCopySection[] = [
     items: [
       'End-to-end encrypted: only you can read your data',
       'Privacy mode to blur sensitive numbers',
-      'CSV export of every measurement, at any time',
+      'CSV export of all your entries, at any time',
       'Delete your account and data at any time',
     ],
   },
@@ -51,7 +54,7 @@ export const PRO_SECTIONS: PlanCopySection[] = [
     head: 'History and forecast',
     items: [
       'Every month since your first entry, as charts and a table',
-      'Forecast with a 95% confidence band',
+      'Forecast 1, 3 or 5 years out, with a range from your own history',
       'Milestones and goals',
       'Benchmark comparison (S&P 500 and inflation)',
       'Month-by-month summary table',

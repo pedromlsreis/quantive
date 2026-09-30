@@ -51,7 +51,7 @@ The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no sid
 - Drawdown and downside stats: maximum drawdown with recovery time, longest decline, best and worst rolling year
 - Optional email reminders to update your balances on a schedule you set
 - Cloud sync with end-to-end encryption
-- CSV export of every measurement, at any time
+- CSV export of all your entries, at any time
 - Rolling 12-month history view
 - Demo mode: the full dashboard without signing up
 
@@ -75,7 +75,7 @@ The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no sid
 | Routing / state | React Router 6, TanStack Query 5 |
 | UI | Tailwind CSS 3 + shadcn/ui + Radix UI |
 | Charts | Recharts 2 |
-| Animation | Framer Motion 12 |
+| Animation | CSS transitions, off under reduced motion |
 | Crypto | libsodium-wrappers-sumo (XChaCha20-Poly1305, Argon2id) |
 | Backend | Supabase (Postgres + Auth + Edge Functions on Deno) |
 | Payments | Stripe |
