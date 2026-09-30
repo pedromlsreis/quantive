@@ -337,6 +337,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem(CUSTOM_MILESTONES_KEY);
         localStorage.removeItem(`${RECOVERY_OFFERED_PREFIX}${previousUserId}`);
         localStorage.removeItem(`${ONBOARDING_DISMISSED_PREFIX}${previousUserId}`);
+        // Set by AuthContext's welcome-email effect; per tab, but still keyed to the previous user.
+        sessionStorage.removeItem(`welcome-invoked:${previousUserId}`);
         clearAttribution();
       } catch {
         // Storage unavailable; nothing to clean up.
