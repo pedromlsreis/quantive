@@ -7,7 +7,6 @@
  */
 
 import {
-  AEAD_NONCE_BYTES,
   decrypt,
   encrypt,
   generateKey,
@@ -17,28 +16,12 @@ import {
   aadForDataKeyWrap,
   aadForRecoveryWrap,
 } from './aad';
+import { pack, unpack } from './wrapFormat';
 
 export const DATA_KEY_BYTES = 32;
 
 export async function generateDataKey(): Promise<Uint8Array> {
   return generateKey();
-}
-
-function pack(nonce: Uint8Array, ciphertext: Uint8Array): Uint8Array {
-  const out = new Uint8Array(nonce.length + ciphertext.length);
-  out.set(nonce, 0);
-  out.set(ciphertext, nonce.length);
-  return out;
-}
-
-function unpack(packed: Uint8Array): { nonce: Uint8Array; ciphertext: Uint8Array } {
-  if (packed.length <= AEAD_NONCE_BYTES) {
-    throw new Error(`wrapped key too short: ${packed.length} bytes`);
-  }
-  return {
-    nonce: packed.subarray(0, AEAD_NONCE_BYTES),
-    ciphertext: packed.subarray(AEAD_NONCE_BYTES),
-  };
 }
 
 export async function wrapDataKey(args: {

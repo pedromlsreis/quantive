@@ -3,6 +3,9 @@ import {
   ENC_VERSION_BYTES,
   UUID_BYTES,
   aadForDataKeyWrap,
+  aadForInviteWrap,
+  aadForPortfolioData,
+  aadForPortfolioKeyWrap,
   aadForRecoveryWrap,
   aadForSnapshot,
   uuidToBytes,
@@ -93,5 +96,40 @@ describe('AAD: aadForRecoveryWrap', () => {
     expect(Array.from(dk)).not.toEqual(Array.from(snap));
     expect(Array.from(dk)).not.toEqual(Array.from(rec));
     expect(Array.from(snap)).not.toEqual(Array.from(rec));
+  });
+});
+
+describe('AAD: portfolio formats (§15.1.3)', () => {
+  const PORTFOLIO = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+  const INVITE = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
+  const u32 = (n: number) => {
+    const b = new Uint8Array(4);
+    new DataView(b.buffer).setUint32(0, n, true);
+    return Array.from(b);
+  };
+  const bytesOf = (s: string) => Array.from(new TextEncoder().encode(s));
+  const uuid = (s: string) => Array.from(uuidToBytes(s));
+
+  it('PK wrap: "nwa-pk-v1" || 0x00 || user || portfolio || key_epoch', () => {
+    expect(Array.from(aadForPortfolioKeyWrap(SAMPLE_UUID, PORTFOLIO, 3))).toEqual([
+      ...bytesOf('nwa-pk-v1'), 0x00, ...SAMPLE_UUID_BYTES, ...uuid(PORTFOLIO), ...u32(3),
+    ]);
+  });
+
+  it('portfolio data: "nwa-pf-v1" || 0x00 || portfolio || key_epoch || enc_version', () => {
+    expect(Array.from(aadForPortfolioData(PORTFOLIO, 2, 1))).toEqual([
+      ...bytesOf('nwa-pf-v1'), 0x00, ...uuid(PORTFOLIO), ...u32(2), ...u32(1),
+    ]);
+  });
+
+  it('invite wrap: "nwa-inv-v1" || 0x00 || invite || portfolio || key_epoch', () => {
+    expect(Array.from(aadForInviteWrap(INVITE, PORTFOLIO, 1))).toEqual([
+      ...bytesOf('nwa-inv-v1'), 0x00, ...uuid(INVITE), ...uuid(PORTFOLIO), ...u32(1),
+    ]);
+  });
+
+  it('rejects a key epoch that is not a u32', () => {
+    expect(() => aadForPortfolioData(PORTFOLIO, -1, 1)).toThrow(/keyEpoch/);
+    expect(() => aadForPortfolioKeyWrap(SAMPLE_UUID, PORTFOLIO, 1.5)).toThrow(/keyEpoch/);
   });
 });
