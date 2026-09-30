@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
 import { useKeySession } from './KeySessionContext';
 import { devPlanOverride } from '@/hooks/useEntitlements';
-import { planHas, resolvePlan } from '@/lib/billing/plans';
+import { planHas, resolvePlanForStatus } from '@/lib/billing/plans';
 import { sanitizeSourceName } from '@/lib/utils';
 import {
   attemptCloudSync,
@@ -20,6 +20,23 @@ import { useCurrency, type CurrencyCode } from './CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
 import { coerceCurrency } from '@/lib/fxConvert';
 import { clearAttribution } from '@/lib/analytics';
+import {
+  MAX_EXTRA_PORTFOLIOS,
+  PERSONAL_PORTFOLIO_ID,
+  PERSONAL_PORTFOLIO_NAME,
+  PortfolioLimitError,
+  createPortfolio as createPortfolioRemote,
+  createSerialSaver,
+  deletePortfolio as deletePortfolioRemote,
+  fetchPortfolio,
+  listPortfolios,
+  portfolioNameTaken,
+  sanitizePortfolioName,
+  savePortfolio,
+  type ExtraPortfolioMeta,
+  type LoadedPortfolio,
+  type SaveOutcome,
+} from '@/lib/portfolios';
 
 const STORAGE_KEY = 'portfolio-data';
 const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
@@ -30,6 +47,17 @@ const ADD_MEASUREMENT_DRAFT_KEY = 'add-measurement-draft';
 const CUSTOM_MILESTONES_KEY = 'portfolio-custom-milestones';
 const RECOVERY_OFFERED_PREFIX = 'recovery-offered:';
 const ONBOARDING_DISMISSED_PREFIX = 'onboarding-dismissed:';
+// The portfolio a signed-in user last had open. Holds an id, not data, but
+// it is keyed to the user, so the watcher wipes it like the others.
+const ACTIVE_PORTFOLIO_PREFIX = 'active-portfolio:';
+
+function readActivePortfolioId(userId: string): string | null {
+  try { return localStorage.getItem(`${ACTIVE_PORTFOLIO_PREFIX}${userId}`); } catch { return null; }
+}
+
+function writeActivePortfolioId(userId: string, portfolioId: string): void {
+  try { localStorage.setItem(`${ACTIVE_PORTFOLIO_PREFIX}${userId}`, portfolioId); } catch { /* storage unavailable */ }
+}
 
 /**
  * Safely parse a date value, returning null for invalid dates.
@@ -82,6 +110,41 @@ function coerceGoals(value: unknown): Goal[] {
     out.push({ id, name, targetAmount, targetCurrency, targetDate, createdAt, archivedAt });
   }
   return out;
+}
+
+/**
+ * Validated facts, sources and goals from a decoded blob. Facts with an
+ * invalid date are dropped and counted.
+ */
+function normalisePortfolio(raw: Partial<RawCloudPortfolio>, context: string): { data: PortfolioData; skipped: number } {
+  const rawFacts = Array.isArray(raw.facts) ? raw.facts : [];
+  const facts = rawFacts
+    .map((f, i): FactRow | null => {
+      const date = safeDateWithWarning(f.date, context, i);
+      if (!date) return null;
+      return {
+        date,
+        idSource: String(f.idSource ?? ''),
+        sourceVl: Number(f.sourceVl ?? 0),
+        currency: coerceCurrency(f.currency),
+      };
+    })
+    .filter((f): f is FactRow => f !== null);
+  return {
+    data: {
+      facts,
+      refSources: Array.isArray(raw.refSources) ? raw.refSources : [],
+      goals: coerceGoals(raw.goals),
+    },
+    skipped: rawFacts.length - facts.length,
+  };
+}
+
+/** An extra portfolio's content, or null while it is still empty (the dashboard then shows its first-entry state). */
+function extraPortfolioData(content: Record<string, unknown>): PortfolioData | null {
+  const { data } = normalisePortfolio(content as Partial<RawCloudPortfolio>, 'portfolio-load');
+  const empty = data.facts.length === 0 && data.refSources.length === 0 && data.goals.length === 0;
+  return empty ? null : data;
 }
 
 export type SyncStatus = 'idle' | 'syncing' | 'error' | 'synced';
@@ -159,6 +222,20 @@ interface PortfolioContextType {
   updateGoal: (id: string, patch: Partial<Pick<Goal, 'name' | 'targetAmount' | 'targetCurrency' | 'targetDate'>>) => void;
   /** Soft-delete: stamps `archivedAt`. Archived goals don't surface on the goals page but stay in the blob. */
   archiveGoal: (id: string) => void;
+  /**
+   * The portfolio on screen: PERSONAL_PORTFOLIO_ID, or the id of an extra
+   * portfolio (Family). Every read and mutation above applies to it.
+   */
+  activePortfolioId: string;
+  activePortfolioName: string;
+  /** Extra portfolios the user can open, oldest first. Empty without Family. */
+  extraPortfolios: ExtraPortfolioMeta[];
+  switchPortfolio: (portfolioId: string) => Promise<void>;
+  /** Creates an extra portfolio and opens it. Resolves false (after a toast) on failure. */
+  createPortfolio: (name: string) => Promise<boolean>;
+  renamePortfolio: (portfolioId: string, name: string) => Promise<boolean>;
+  /** Owner only. Deletes the portfolio and every entry in it. */
+  deletePortfolio: (portfolioId: string) => Promise<boolean>;
 }
 
 const defaultFilters: FilterState = {
@@ -220,6 +297,17 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [isCloudLoading, setIsCloudLoading] = useState<boolean>(() => !!user || authLoading);
   const [isMockData, setIsMockData] = useState(false);
 
+  const [activePortfolioId, setActivePortfolioId] = useState<string>(PERSONAL_PORTFOLIO_ID);
+  const [extraPortfolios, setExtraPortfolios] = useState<ExtraPortfolioMeta[]>([]);
+  // Mirrors for callbacks that run after a render (saves, conflict reloads),
+  // so they read the current portfolio rather than the one they closed over.
+  const activePortfolioIdRef = useRef<string>(PERSONAL_PORTFOLIO_ID);
+  const extraMetaRef = useRef(new Map<string, ExtraPortfolioMeta>());
+  const saversRef = useRef(new Map<string, (data: PortfolioData) => Promise<void>>());
+  // Bumped by every load and switch; a load that finishes after a newer one started is dropped.
+  const loadSeqRef = useRef(0);
+  const goalCrossedRef = useRef<Set<string>>(new Set());
+
   // The retired milestones panel stored user-set thresholds in plaintext for
   // signed-in users and nothing wiped them on tab close. Drop any leftover.
   useEffect(() => {
@@ -241,6 +329,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setData(null);
     setIsMockData(false);
     setFilters(defaultFilters);
+    setActivePortfolioId(PERSONAL_PORTFOLIO_ID);
+    setExtraPortfolios([]);
     // Arm the skeleton if we're entering an authed identity (a real cloud
     // fetch is about to happen). On sign-out (user → null) we leave it false
     // so the dashboard can fall through to the file-upload empty state.
@@ -254,6 +344,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // recurse into a null context. Mirrors useEntitlements semantics: demo data
   // unlocks everything, dev override wins over the real plan.
   const keySession = useKeySession();
+  // Stable callbacks (useCallback with no deps), safe in dependency arrays.
+  const { getDataKey, getPortfolioKey, setPortfolioKey, forgetPortfolioKey } = keySession;
   const { currency: displayCurrency } = useCurrency();
   // Each fact carries its own `currency`. We convert per fact at the rate
   // valid on its snapshot date — historical values use historical rates,
@@ -272,7 +364,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   const hasFullHistory = useMemo(() => {
     const override = devPlanOverride();
-    const plan = override ?? resolvePlan(subscription.subscribed ? subscription.productId : null);
+    const plan = override ?? resolvePlanForStatus(subscription);
     // Match useEntitlements:
     //   - dev override wins over demo unlock (Playwright Free-tier specs);
     //   - demo unlock only applies to unauthed sessions (signed-in Free users
@@ -280,7 +372,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (override) return planHas(plan, 'history.full');
     if (isMockData && !user) return true;
     return planHas(plan, 'history.full');
-  }, [isMockData, user, subscription.subscribed, subscription.productId]);
+  }, [isMockData, user, subscription]);
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
     const dates = parsed.facts.map(f => f.date.getTime());
     if (dates.length === 0) return;
@@ -330,6 +422,14 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       // Invalidate any in-flight cloud save so its callback can't re-write status.
       requestIdRef.current += 1;
       setSyncStatus('idle');
+      // Portfolio keys are zeroed by KeySessionContext; drop what refers to them.
+      loadSeqRef.current += 1;
+      activePortfolioIdRef.current = PERSONAL_PORTFOLIO_ID;
+      extraMetaRef.current.clear();
+      saversRef.current.clear();
+      goalCrossedRef.current = new Set();
+      setActivePortfolioId(PERSONAL_PORTFOLIO_ID);
+      setExtraPortfolios([]);
       try {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(MOCK_FLAG_KEY);
@@ -337,6 +437,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         localStorage.removeItem(CUSTOM_MILESTONES_KEY);
         localStorage.removeItem(`${RECOVERY_OFFERED_PREFIX}${previousUserId}`);
         localStorage.removeItem(`${ONBOARDING_DISMISSED_PREFIX}${previousUserId}`);
+        localStorage.removeItem(`${ACTIVE_PORTFOLIO_PREFIX}${previousUserId}`);
+        // Set by AuthContext's welcome-email effect; per tab, but still keyed to the previous user.
+        sessionStorage.removeItem(`welcome-invoked:${previousUserId}`);
         clearAttribution();
       } catch {
         // Storage unavailable; nothing to clean up.
@@ -387,6 +490,324 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('beforeunload', handler);
   }, [user]);
 
+  // ── Extra portfolios (Family) ───────────────────────────────────────────
+  //
+  // The personal portfolio keeps the portfolio_snapshots path. Extra ones are
+  // listed at unlock (their names are inside the ciphertext), opened one at a
+  // time, and saved through a per-portfolio serial saver. See
+  // docs/security/encryption.md §15.1 and src/lib/portfolios.ts.
+
+  const putExtraMeta = useCallback((meta: ExtraPortfolioMeta) => {
+    extraMetaRef.current.set(meta.id, meta);
+    setExtraPortfolios(Array.from(extraMetaRef.current.values()));
+  }, []);
+
+  const removeExtra = useCallback((portfolioId: string) => {
+    extraMetaRef.current.delete(portfolioId);
+    saversRef.current.delete(portfolioId);
+    forgetPortfolioKey(portfolioId);
+    setExtraPortfolios(Array.from(extraMetaRef.current.values()));
+  }, [forgetPortfolioKey]);
+
+  // Keep the key already in memory unless the epoch moved: a save in flight
+  // may still be encrypting with it, and replacing it would zero it.
+  const adoptPortfolioKey = useCallback((loaded: LoadedPortfolio) => {
+    const known = extraMetaRef.current.get(loaded.meta.id);
+    if (getPortfolioKey(loaded.meta.id) && known?.keyEpoch === loaded.meta.keyEpoch) {
+      loaded.portfolioKey.fill(0);
+    } else {
+      setPortfolioKey(loaded.meta.id, loaded.portfolioKey);
+    }
+  }, [getPortfolioKey, setPortfolioKey]);
+
+  const activate = useCallback((portfolioId: string) => {
+    activePortfolioIdRef.current = portfolioId;
+    setActivePortfolioId(portfolioId);
+    if (user) writeActivePortfolioId(user.id, portfolioId);
+  }, [user]);
+
+  const applyLoadedData = useCallback((next: PortfolioData) => {
+    setData(next);
+    setIsMockData(false);
+    setDefaultDateRange(next);
+  }, [setDefaultDateRange]);
+
+  // Fetch and decode the personal snapshot. null when there is none, when it
+  // can't be decrypted (a toast says so), or when it holds no valid facts.
+  // Authed users: cloud is the source of truth post-decode; nothing is
+  // mirrored into localStorage (see encryption.md §8.6).
+  const loadPersonalData = useCallback(async (userId: string): Promise<PortfolioData | null> => {
+    const { data: rows } = await supabase
+      .from('portfolio_snapshots')
+      .select('data, encrypted_data, nonce, enc_version')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    if (!rows || rows.length === 0) return null;
+
+    const row = rows[0] as unknown as SnapshotRow;
+    let cloudData: RawCloudPortfolio;
+    try {
+      const decoded = await decodeSnapshot(row, { userId, dataKey: getDataKey() });
+      cloudData = decoded.data as RawCloudPortfolio;
+    } catch (e) {
+      console.error('[cloud-load] failed to decode snapshot:', e);
+      toast.error("Couldn't decrypt your saved data. Sign out and back in to retry.");
+      return null;
+    }
+
+    const { data: validData, skipped } = normalisePortfolio(cloudData, 'cloud-load');
+    if (skipped > 0) {
+      console.debug(`[cloud-load] Skipped ${skipped}/${validData.facts.length + skipped} facts with invalid dates`);
+      toast.warning(`${skipped} ${skipped > 1 ? 'rows' : 'row'} had an invalid date and ${skipped > 1 ? 'were' : 'was'} skipped.`, {
+        id: 'cloud-date-warning',
+      });
+    }
+    if (validData.facts.length === 0) {
+      console.debug('[cloud-load] No valid facts after date validation — skipping cloud data');
+      return null;
+    }
+    return validData;
+  }, [getDataKey]);
+
+  // Every extra portfolio the user can open, with keys adopted and the list
+  // replaced. Empty without Family, and before the portfolios migration exists.
+  const loadExtraPortfolios = useCallback(async (userId: string): Promise<LoadedPortfolio[]> => {
+    const dk = getDataKey();
+    if (!dk) return [];
+    let loaded: LoadedPortfolio[] = [];
+    try {
+      const result = await listPortfolios(supabase, userId, dk);
+      loaded = result.loaded;
+      if (result.failed > 0) {
+        toast.error(
+          `${result.failed} ${result.failed > 1 ? "portfolios couldn't be decrypted and are" : "portfolio couldn't be decrypted and is"} hidden.`,
+          { id: 'portfolio-decrypt-error' },
+        );
+      }
+    } catch (e) {
+      console.debug('[cloud-load] extra portfolios unavailable:', e);
+    }
+    const listed = new Set(loaded.map((p) => p.meta.id));
+    for (const id of extraMetaRef.current.keys()) {
+      if (!listed.has(id)) forgetPortfolioKey(id);
+    }
+    loaded.forEach(adoptPortfolioKey);
+    extraMetaRef.current = new Map(loaded.map((p) => [p.meta.id, p.meta]));
+    setExtraPortfolios(loaded.map((p) => p.meta));
+    return loaded;
+  }, [getDataKey, forgetPortfolioKey, adoptPortfolioKey]);
+
+  const switchPortfolio = useCallback(async (portfolioId: string) => {
+    if (!user || portfolioId === activePortfolioIdRef.current) return;
+    if (portfolioId !== PERSONAL_PORTFOLIO_ID && !extraMetaRef.current.has(portfolioId)) return;
+    const dk = getDataKey();
+    if (!dk) {
+      toast.info('Unlock your data to switch portfolios.', { id: 'sync-locked' });
+      return;
+    }
+
+    const seq = ++loadSeqRef.current;
+    // Reset in the same batch as the id change, so no render pairs the new
+    // portfolio's name with the previous one's numbers.
+    activate(portfolioId);
+    setData(null);
+    setIsMockData(false);
+    setFilters(defaultFilters);
+    setSyncStatus('idle');
+    lastAttemptRef.current = null;
+    requestIdRef.current += 1;
+    goalCrossedRef.current = new Set();
+    setIsCloudLoading(true);
+
+    try {
+      let next: PortfolioData | null;
+      if (portfolioId === PERSONAL_PORTFOLIO_ID) {
+        next = await loadPersonalData(user.id);
+      } else {
+        const loaded = await fetchPortfolio(supabase, user.id, dk, portfolioId);
+        if (loaded) {
+          adoptPortfolioKey(loaded);
+          putExtraMeta(loaded.meta);
+          next = extraPortfolioData(loaded.content);
+        } else {
+          toast.error('You no longer have access to this portfolio.', { id: 'portfolio-forbidden' });
+          removeExtra(portfolioId);
+          activate(PERSONAL_PORTFOLIO_ID);
+          next = await loadPersonalData(user.id);
+        }
+      }
+      if (seq === loadSeqRef.current && next) applyLoadedData(next);
+    } catch (e) {
+      console.error('[portfolios] switch failed:', e);
+      toast.error("Couldn't open this portfolio. Try again.");
+    } finally {
+      if (seq === loadSeqRef.current) setIsCloudLoading(false);
+    }
+  }, [user, getDataKey, activate, loadPersonalData, adoptPortfolioKey, putExtraMeta, removeExtra, applyLoadedData]);
+
+  // After a conflict: the stored version becomes this tab's baseline.
+  const reloadExtra = useCallback(async (portfolioId: string) => {
+    const dk = getDataKey();
+    if (!user || !dk) return;
+    const loaded = await fetchPortfolio(supabase, user.id, dk, portfolioId);
+    if (!loaded) return;
+    adoptPortfolioKey(loaded);
+    putExtraMeta(loaded.meta);
+    if (activePortfolioIdRef.current !== portfolioId) return;
+    const next = extraPortfolioData(loaded.content);
+    if (next) applyLoadedData(next);
+    else setData(null);
+  }, [user, getDataKey, adoptPortfolioKey, putExtraMeta, applyLoadedData]);
+
+  const runExtraSave = useCallback(async (portfolioId: string, portfolioData: PortfolioData) => {
+    const isActive = () => activePortfolioIdRef.current === portfolioId;
+    const meta = extraMetaRef.current.get(portfolioId);
+    const portfolioKey = getPortfolioKey(portfolioId);
+    if (!meta || !portfolioKey) {
+      if (isActive()) toast.error("Couldn't sync this change. Unlock your data again to retry.");
+      return;
+    }
+
+    // Transient failures retry once through attemptCloudSync; conflict and
+    // forbidden come back as outcomes, not errors.
+    const result: { outcome?: SaveOutcome } = {};
+    const synced = await attemptCloudSync(portfolioData, {
+      upsert: async (p) => { result.outcome = await savePortfolio(supabase, { meta, portfolioKey, data: p }); },
+      // Saves for one portfolio run one at a time (createSerialSaver), so none is superseded.
+      isLatest: () => true,
+      delay: (ms) => new Promise(r => setTimeout(r, ms)),
+      onStatus: (status) => { if (status !== 'synced' && isActive()) setSyncStatus(status); },
+      onError: (reason) => analytics.cloudSyncFailed({ reason }),
+    });
+    const outcome = result.outcome;
+    if (synced !== 'synced' || !outcome) {
+      if (isActive()) {
+        toast.error("Couldn't sync. Your changes stay in this tab; use Retry at the top of the page.", {
+          id: 'cloud-sync-error',
+        });
+      }
+      return;
+    }
+
+    if (outcome.status === 'ok') {
+      const latest = extraMetaRef.current.get(portfolioId);
+      if (latest) putExtraMeta({ ...latest, revision: outcome.revision });
+      if (isActive()) {
+        setSyncStatus('synced');
+        setTimeout(() => setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev)), 2000);
+      }
+      return;
+    }
+    if (outcome.status === 'conflict') {
+      if (isActive()) setSyncStatus('idle');
+      toast.warning("This portfolio changed on another device, so your last change wasn't saved. It now shows the latest version.", {
+        id: 'portfolio-conflict',
+      });
+      await reloadExtra(portfolioId);
+      return;
+    }
+    toast.error('You no longer have access to this portfolio.', { id: 'portfolio-forbidden' });
+    if (isActive()) await switchPortfolio(PERSONAL_PORTFOLIO_ID);
+    removeExtra(portfolioId);
+  }, [getPortfolioKey, putExtraMeta, reloadExtra, switchPortfolio, removeExtra]);
+
+  // Savers outlive renders, so they call the current runExtraSave through a ref.
+  const runExtraSaveRef = useRef(runExtraSave);
+  useEffect(() => { runExtraSaveRef.current = runExtraSave; }, [runExtraSave]);
+
+  const saverFor = useCallback((portfolioId: string) => {
+    let saver = saversRef.current.get(portfolioId);
+    if (!saver) {
+      saver = createSerialSaver((next: PortfolioData) => runExtraSaveRef.current(portfolioId, next));
+      saversRef.current.set(portfolioId, saver);
+    }
+    return saver;
+  }, []);
+
+  const createPortfolio = useCallback(async (rawName: string): Promise<boolean> => {
+    const dk = getDataKey();
+    if (!user || !dk) {
+      toast.info('Unlock your data to create a portfolio.', { id: 'sync-locked' });
+      return false;
+    }
+    const { value: name, error } = sanitizePortfolioName(rawName);
+    if (error) {
+      toast.error(error);
+      return false;
+    }
+    if (portfolioNameTaken(name, Array.from(extraMetaRef.current.values()))) {
+      toast.error(`A portfolio called "${name}" already exists. Pick another name.`);
+      return false;
+    }
+    try {
+      const created = await createPortfolioRemote(supabase, user.id, dk, name);
+      adoptPortfolioKey(created);
+      putExtraMeta(created.meta);
+      analytics.portfolioCreated();
+      await switchPortfolio(created.meta.id);
+      return true;
+    } catch (e) {
+      if (e instanceof PortfolioLimitError) {
+        toast.error(`You can have up to ${MAX_EXTRA_PORTFOLIOS} portfolios besides ${PERSONAL_PORTFOLIO_NAME}.`);
+      } else {
+        console.error('[portfolios] create failed:', e);
+        toast.error("Couldn't create the portfolio. Try again.");
+      }
+      return false;
+    }
+  }, [user, getDataKey, adoptPortfolioKey, putExtraMeta, switchPortfolio]);
+
+  const renamePortfolio = useCallback(async (portfolioId: string, rawName: string): Promise<boolean> => {
+    const dk = getDataKey();
+    if (!user || !dk || !extraMetaRef.current.has(portfolioId)) return false;
+    const { value: name, error } = sanitizePortfolioName(rawName);
+    if (error) {
+      toast.error(error);
+      return false;
+    }
+    if (portfolioNameTaken(name, Array.from(extraMetaRef.current.values()), portfolioId)) {
+      toast.error(`A portfolio called "${name}" already exists. Pick another name.`);
+      return false;
+    }
+    try {
+      // The name is inside the ciphertext, so renaming rewrites the blob.
+      // Start from the stored copy, not this tab's, and retry once on a conflict.
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const loaded = await fetchPortfolio(supabase, user.id, dk, portfolioId);
+        if (!loaded) break;
+        adoptPortfolioKey(loaded);
+        const portfolioKey = getPortfolioKey(portfolioId);
+        if (!portfolioKey) break;
+        const meta = { ...loaded.meta, name };
+        const outcome = await savePortfolio(supabase, { meta, portfolioKey, data: extraPortfolioData(loaded.content) });
+        if (outcome.status === 'ok') {
+          putExtraMeta({ ...meta, revision: outcome.revision });
+          return true;
+        }
+        if (outcome.status === 'forbidden') break;
+      }
+    } catch (e) {
+      console.error('[portfolios] rename failed:', e);
+    }
+    toast.error("Couldn't rename the portfolio. Try again.");
+    return false;
+  }, [user, getDataKey, getPortfolioKey, adoptPortfolioKey, putExtraMeta]);
+
+  const deletePortfolio = useCallback(async (portfolioId: string): Promise<boolean> => {
+    if (!user || !extraMetaRef.current.has(portfolioId)) return false;
+    try {
+      await deletePortfolioRemote(supabase, portfolioId);
+    } catch (e) {
+      console.error('[portfolios] delete failed:', e);
+      toast.error("Couldn't delete the portfolio. Try again.");
+      return false;
+    }
+    if (activePortfolioIdRef.current === portfolioId) await switchPortfolio(PERSONAL_PORTFOLIO_ID);
+    removeExtra(portfolioId);
+    return true;
+  }, [user, switchPortfolio, removeExtra]);
+
   // Save data to cloud when user is authenticated AND email confirmed
   const saveToCloud = useCallback(async (portfolioData: PortfolioData) => {
     if (!user) return;
@@ -423,6 +844,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    const portfolioId = activePortfolioIdRef.current;
+    if (portfolioId !== PERSONAL_PORTFOLIO_ID) {
+      void saverFor(portfolioId)(portfolioData);
+      return;
+    }
+
     const outcome = await attemptCloudSync(portfolioData, {
       upsert: (p) => upsertEncryptedSnapshot(supabase, user.id, p, dk),
       isLatest,
@@ -443,7 +870,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       });
     }
     // outcome === null: superseded by a newer call; do nothing.
-  }, [user, keySession]);
+  }, [user, keySession, saverFor]);
 
   const retrySync = useCallback(() => {
     if (!lastAttemptRef.current) return;
@@ -475,71 +902,27 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (keySession.status === 'locked') return;
 
     const loadFromCloud = async () => {
+      const seq = ++loadSeqRef.current;
       try {
-        const { data: rows } = await supabase
-          .from('portfolio_snapshots')
-          .select('data, encrypted_data, nonce, enc_version')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .limit(1);
-
-        if (rows && rows.length > 0) {
-          const row = rows[0] as unknown as SnapshotRow;
-          let cloudData: RawCloudPortfolio;
-          try {
-            const decoded = await decodeSnapshot(row, {
-              userId: user.id,
-              dataKey: keySession.getDataKey(),
-            });
-            cloudData = decoded.data as RawCloudPortfolio;
-          } catch (e) {
-            console.error('[cloud-load] failed to decode snapshot:', e);
-            toast.error("Couldn't decrypt your saved data. Sign out and back in to retry.");
-            return;
-          }
-
-          // Validate dates on cloud load, filter out invalid ones
-          const parsedFacts: FactRow[] = cloudData.facts
-            .map((f, i): FactRow | null => {
-              const date = safeDateWithWarning(f.date, 'cloud-load', i);
-              if (!date) return null;
-              return {
-                date,
-                idSource: String(f.idSource ?? ''),
-                sourceVl: Number(f.sourceVl ?? 0),
-                currency: coerceCurrency(f.currency),
-              };
-            })
-            .filter((f): f is FactRow => f !== null);
-
-          const skipped = cloudData.facts.length - parsedFacts.length;
-          if (skipped > 0) {
-            console.debug(`[cloud-load] Skipped ${skipped}/${cloudData.facts.length} facts with invalid dates`);
-            toast.warning(`${skipped} ${skipped > 1 ? 'rows' : 'row'} had an invalid date and ${skipped > 1 ? 'were' : 'was'} skipped.`, {
-              id: 'cloud-date-warning',
-            });
-          }
-
-          if (parsedFacts.length === 0) {
-            console.debug('[cloud-load] No valid facts after date validation — skipping cloud data');
-            return;
-          }
-
-          const validData: PortfolioData = {
-            facts: parsedFacts,
-            refSources: cloudData.refSources,
-            goals: coerceGoals(cloudData.goals),
-          };
-          setData(validData);
-          setIsMockData(false);
-          setDefaultDateRange(validData);
-          // Authed users: cloud is the source of truth post-decode; do NOT
-          // mirror plaintext into localStorage (see encryption.md §8.3).
+        const extras = await loadExtraPortfolios(user.id);
+        if (seq !== loadSeqRef.current) return;
+        // Reopen the portfolio the user last had open, if it's still theirs.
+        const remembered = readActivePortfolioId(user.id);
+        const target = extras.find((p) => p.meta.id === remembered);
+        if (target) {
+          activate(target.meta.id);
+          const next = extraPortfolioData(target.content);
+          if (next) applyLoadedData(next);
+          return;
         }
+        const personal = await loadPersonalData(user.id);
+        if (seq !== loadSeqRef.current) return;
+        activate(PERSONAL_PORTFOLIO_ID);
+        if (personal) applyLoadedData(personal);
       } catch (e) {
         console.error('Failed to load from cloud:', e);
       } finally {
-        setIsCloudLoading(false);
+        if (seq === loadSeqRef.current) setIsCloudLoading(false);
       }
     };
     loadFromCloud();
@@ -653,6 +1036,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   }, [saveToCloud, setDefaultDateRange, user]);
 
   const loadMockData = useCallback(() => {
+    // Demo data replaces what's on screen; an extra portfolio's entries are real.
+    if (activePortfolioIdRef.current !== PERSONAL_PORTFOLIO_ID) return;
     const mock = generateMockData();
     setData(mock);
     setIsMockData(true);
@@ -1267,7 +1652,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // time a given goal id is observed crossed in this session. Honours the
   // "no portfolio data in events" rule — the event payload is empty.
   // (Agent A added a creation-time emitter on GoalsPage; this complements it.)
-  const goalCrossedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (!allSnapshots.length || !goals.length) return;
     const latest = allSnapshots[allSnapshots.length - 1];
@@ -1290,6 +1674,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [allSnapshots, goals, fxConvertAt, displayCurrency.code]);
+
+  const activePortfolioName = activePortfolioId === PERSONAL_PORTFOLIO_ID
+    ? PERSONAL_PORTFOLIO_NAME
+    : extraPortfolios.find((p) => p.id === activePortfolioId)?.name ?? '';
 
   const value = {
     data,
@@ -1319,6 +1707,13 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     addGoal,
     updateGoal,
     archiveGoal,
+    activePortfolioId,
+    activePortfolioName,
+    extraPortfolios,
+    switchPortfolio,
+    createPortfolio,
+    renamePortfolio,
+    deletePortfolio,
   };
 
   return (

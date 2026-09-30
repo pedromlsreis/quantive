@@ -4,8 +4,9 @@
  *
  * Spec: docs/security/encryption.md §8.
  *
- *   user_keys exists -> derive KEK, unwrap DK
- *   no user_keys     -> NEW user. Provision keys.
+ *   user_keys exists              -> derive KEK, unwrap DK
+ *   no user_keys, no snapshot     -> NEW user. Provision keys.
+ *   no user_keys, snapshot exists -> MissingKeysError (the DK is gone)
  */
 
 import {
@@ -28,6 +29,19 @@ export type SessionState = {
   dk: Uint8Array;
 };
 
+/**
+ * A snapshot exists but its user_keys row doesn't, so the DK that encrypted
+ * it is gone. Provisioning a fresh DK here would leave that snapshot
+ * permanently undecryptable without saying so (spec §8.3). The way out is a
+ * password reset, which clears both rows (§8.5).
+ */
+export class MissingKeysError extends Error {
+  constructor() {
+    super('encrypted data exists but its key row is missing');
+    this.name = 'MissingKeysError';
+  }
+}
+
 export async function detectAndUnlock(
   userId: string,
   password: Uint8Array,
@@ -42,6 +56,10 @@ export async function detectAndUnlock(
       userId,
     });
     return { kind: 'encrypted-unlocked', kek, dk };
+  }
+
+  if (await keyStore.hasPortfolioSnapshot(userId)) {
+    throw new MissingKeysError();
   }
 
   const salt = await generateSalt();

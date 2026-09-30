@@ -34,10 +34,28 @@ export {
   ENC_VERSION_BYTES,
   UUID_BYTES,
   aadForDataKeyWrap,
+  aadForInviteWrap,
+  aadForPortfolioData,
+  aadForPortfolioKeyWrap,
   aadForRecoveryWrap,
   aadForSnapshot,
   uuidToBytes,
 } from './aad';
+
+export type { EncryptedPortfolio } from './portfolioKey';
+export {
+  INVITE_SECRET_BYTES,
+  PORTFOLIO_ENC_VERSION,
+  PORTFOLIO_KEY_BYTES,
+  decryptPortfolio,
+  encryptPortfolio,
+  generateInviteSecret,
+  generatePortfolioKey,
+  unwrapPortfolioKey,
+  unwrapPortfolioKeyFromInvite,
+  wrapPortfolioKey,
+  wrapPortfolioKeyForInvite,
+} from './portfolioKey';
 
 export {
   DATA_KEY_BYTES,

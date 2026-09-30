@@ -4,7 +4,10 @@ import { analytics } from '@/lib/analytics';
 import { PRO_PRICE_LINE } from '@/lib/billing/planCopy';
 import type { Entitlement } from '@/lib/billing/plans';
 
-const COPY: Record<Entitlement, { title: string; body: string }> = {
+/** Entitlements Pro sells. The Family-only ones get their own prompt. */
+export type ProFeature = Exclude<Entitlement, 'portfolios.multiple' | 'portfolios.share'>;
+
+const COPY: Record<ProFeature, { title: string; body: string }> = {
   'history.full': {
     title: 'Your full history',
     body: 'The free plan shows your last 12 months. Pro shows your earlier entries too. Your CSV export includes all entries on both plans.',
@@ -51,7 +54,7 @@ export function ProGate({
   title,
   body,
 }: {
-  feature: Entitlement;
+  feature: ProFeature;
   variant?: 'block' | 'row';
   title?: string;
   body?: string;
@@ -84,6 +87,6 @@ export function ProGate({
 }
 
 /** Default FeatureGate fallback: the block form of the gate. */
-export function UpsellCard({ feature }: { feature: Entitlement }) {
+export function UpsellCard({ feature }: { feature: ProFeature }) {
   return <ProGate feature={feature} />;
 }

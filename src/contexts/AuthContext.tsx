@@ -33,6 +33,7 @@ const defaultSubscription: SubscriptionStatus = {
   cancelAtPeriodEnd: false,
   paymentPastDue: false,
   hasStripeHistory: false,
+  familyBeta: false,
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -60,6 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         cancelAtPeriodEnd: data?.cancel_at_period_end ?? false,
         paymentPastDue: data?.payment_past_due ?? false,
         hasStripeHistory: data?.has_stripe_history ?? false,
+        familyBeta: data?.family_beta ?? false,
       });
     } catch (err) {
       console.error('Error checking subscription:', err);

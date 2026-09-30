@@ -7,8 +7,8 @@ vi.mock('@/lib/analytics', () => ({
   analytics: { proUpgradeClicked, proGateHit },
 }));
 
-import { ProGate, UpsellCard } from '../UpsellCard';
-import type { Entitlement } from '@/lib/billing/plans';
+import { ProGate, UpsellCard, type ProFeature } from '../UpsellCard';
+
 
 beforeEach(() => {
   proUpgradeClicked.mockClear();
@@ -20,7 +20,7 @@ function renderGate(ui: React.ReactNode) {
 }
 
 describe('ProGate', () => {
-  it.each<[Entitlement, RegExp]>([
+  it.each<[ProFeature, RegExp]>([
     ['history.full',    /your full history/i],
     ['forecasting',     /scenarios and the likely range/i],
     ['export.excel',    /excel workbook/i],

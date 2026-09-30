@@ -66,6 +66,24 @@ export type Database = {
         }
         Relationships: []
       }
+      family_beta: {
+        Row: {
+          created_at: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
           created_at: string
@@ -111,6 +129,38 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_members: {
+        Row: {
+          created_at: string
+          key_epoch: number
+          portfolio_id: string
+          user_id: string
+          wrapped_pk: string
+        }
+        Insert: {
+          created_at?: string
+          key_epoch: number
+          portfolio_id: string
+          user_id: string
+          wrapped_pk: string
+        }
+        Update: {
+          created_at?: string
+          key_epoch?: number
+          portfolio_id?: string
+          user_id?: string
+          wrapped_pk?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfolio_snapshots: {
         Row: {
           data: Json | null
@@ -141,6 +191,45 @@ export type Database = {
           updated_at?: string
           uploaded_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      portfolios: {
+        Row: {
+          created_at: string
+          enc_version: number
+          encrypted_data: string
+          id: string
+          key_epoch: number
+          nonce: string
+          owner_id: string
+          revision: number
+          rotation_due: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enc_version: number
+          encrypted_data: string
+          id: string
+          key_epoch?: number
+          nonce: string
+          owner_id: string
+          revision?: number
+          rotation_due?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enc_version?: number
+          encrypted_data?: string
+          id?: string
+          key_epoch?: number
+          nonce?: string
+          owner_id?: string
+          revision?: number
+          rotation_due?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
@@ -260,6 +349,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_portfolio: {
+        Args: {
+          p_enc_version: number
+          p_encrypted_data: string
+          p_id: string
+          p_nonce: string
+          p_wrapped_pk: string
+        }
+        Returns: undefined
+      }
+      is_portfolio_member: {
+        Args: { _portfolio_id: string }
+        Returns: boolean
+      }
+      save_portfolio: {
+        Args: {
+          p_enc_version: number
+          p_encrypted_data: string
+          p_expected_revision: number
+          p_id: string
+          p_key_epoch: number
+          p_nonce: string
+        }
+        Returns: {
+          current_revision: number | null
+          status: string
+        }[]
+      }
       check_rate_limit: {
         Args: {
           p_ip: string

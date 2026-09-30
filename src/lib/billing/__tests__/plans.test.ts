@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   PLANS,
+  FAMILY_PLAN,
   FREE_PLAN,
   planHas,
   resolvePlan,
+  resolvePlanForStatus,
   type SubscriptionStatus,
 } from '@/lib/billing/plans';
 
@@ -42,6 +44,36 @@ describe('resolvePlan', () => {
   });
 });
 
+describe('Family plan', () => {
+  it('has every Pro entitlement plus the portfolio ones', () => {
+    const pro = PLANS.find((p) => p.id === 'pro')!;
+    for (const e of pro.entitlements) expect(planHas(FAMILY_PLAN, e)).toBe(true);
+    expect(planHas(FAMILY_PLAN, 'portfolios.multiple')).toBe(true);
+    expect(planHas(FAMILY_PLAN, 'portfolios.share')).toBe(true);
+  });
+
+  it('has no Stripe product yet, so no product ID resolves to it', () => {
+    expect(FAMILY_PLAN.productIds).toEqual([]);
+    expect(FAMILY_PLAN.prices).toBeUndefined();
+  });
+});
+
+describe('resolvePlanForStatus', () => {
+  const base = { subscribed: false, productId: null, familyBeta: false };
+  const proProduct = PLANS.find((p) => p.id === 'pro')!.productIds[0];
+
+  it('follows the Stripe product when not in the Family beta', () => {
+    expect(resolvePlanForStatus(base).id).toBe('free');
+    expect(resolvePlanForStatus({ ...base, subscribed: true, productId: proProduct }).id).toBe('pro');
+    expect(resolvePlanForStatus({ ...base, subscribed: false, productId: proProduct }).id).toBe('free');
+  });
+
+  it('returns Family for the beta, whatever the Stripe state', () => {
+    expect(resolvePlanForStatus({ ...base, familyBeta: true }).id).toBe('family');
+    expect(resolvePlanForStatus({ subscribed: true, productId: proProduct, familyBeta: true }).id).toBe('family');
+  });
+});
+
 describe('planHas', () => {
   it('free plan grants only the CSV export', () => {
     expect(FREE_PLAN.entitlements).toEqual(['export.csv']);
@@ -69,6 +101,7 @@ describe('SubscriptionStatus type', () => {
       cancelAtPeriodEnd: false,
       paymentPastDue: false,
       hasStripeHistory: false,
+      familyBeta: false,
     };
     expect(s.subscribed).toBe(false);
   });
@@ -81,6 +114,7 @@ describe('SubscriptionStatus type', () => {
       cancelAtPeriodEnd: false,
       paymentPastDue: false,
       hasStripeHistory: true,
+      familyBeta: false,
     };
     expect(s.subscribed).toBe(true);
     expect(s.productId).toBe('prod_abc123');
@@ -94,6 +128,7 @@ describe('SubscriptionStatus type', () => {
       cancelAtPeriodEnd: false,
       paymentPastDue: true,
       hasStripeHistory: true,
+      familyBeta: false,
     };
     expect(s.subscribed).toBe(true);
     expect(s.paymentPastDue).toBe(true);
@@ -107,6 +142,7 @@ describe('SubscriptionStatus type', () => {
       cancelAtPeriodEnd: false,
       paymentPastDue: false,
       hasStripeHistory: true,
+      familyBeta: false,
     };
     expect(s.subscribed).toBe(false);
     expect(s.hasStripeHistory).toBe(true);

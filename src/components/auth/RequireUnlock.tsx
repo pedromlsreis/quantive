@@ -18,6 +18,7 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useModalLayer } from '@/hooks/useModalLayer';
 import { Notice } from '@/components/ui/Notice';
 import { analytics } from '@/lib/analytics';
+import { MISSING_KEYS_MESSAGE } from '@/lib/authError';
 import { isProtectedPath } from './protectedPaths';
 
 const EMPTY_PASSWORD = 'Enter your password to unlock.';
@@ -50,9 +51,13 @@ export function RequireUnlock() {
     setSubmitting(true);
     setErrorMessage(null);
     try {
-      const { error } = await keySession.unlock(user.id, password);
+      const { error, missingKeys } = await keySession.unlock(user.id, password);
       if (error) analytics.unlockFailed();
       else analytics.unlockSucceeded();
+      if (missingKeys) {
+        setErrorMessage(MISSING_KEYS_MESSAGE);
+        return;
+      }
       if (error) {
         // unlock() does not tell a wrong password from a network failure, so
         // the message covers both: retry for the transient case, reset for

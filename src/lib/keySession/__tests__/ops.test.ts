@@ -7,7 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { detectAndUnlock } from '../ops';
+import { MissingKeysError, detectAndUnlock } from '../ops';
 import type { KeyStore, UserKeysRow } from '../types';
 
 const USER_A = '550e8400-e29b-41d4-a716-446655440000';
@@ -73,6 +73,14 @@ describe('detectAndUnlock', () => {
     expect(persisted!.kdf_salt.length).toBe(16);
     expect(persisted!.wrapped_dk_kek.length).toBe(72);
   }, 30_000);
+
+  it('snapshot without a key row -> MissingKeysError, nothing provisioned', async () => {
+    keyStore.snapshotUsers.add(USER_A);
+    await expect(
+      detectAndUnlock(USER_A, utf8('password123'), keyStore),
+    ).rejects.toBeInstanceOf(MissingKeysError);
+    expect(await keyStore.getUserKeys(USER_A)).toBeNull();
+  });
 
   it('returning user with correct password -> unwraps the same DK', async () => {
     const password = utf8('correct horse battery staple');

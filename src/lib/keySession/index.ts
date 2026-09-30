@@ -1,6 +1,7 @@
 export type { KeyStore, UserKeysRow } from './types';
 export type { SessionState } from './ops';
 export {
+  MissingKeysError,
   detectAndUnlock,
   recoverAndRewrap,
   rewrapDataKey,

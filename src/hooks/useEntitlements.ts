@@ -1,14 +1,14 @@
 import { useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { type Entitlement, type Plan, PLANS, FREE_PLAN, planHas, resolvePlan } from '@/lib/billing/plans';
+import { type Entitlement, type Plan, PLANS, FREE_PLAN, planHas, resolvePlanForStatus } from '@/lib/billing/plans';
 
 /**
  * Dev/test-only override for the resolved plan. Honoured ONLY when the build
  * is running under Vite dev mode. Lets Playwright drive Pro/Free flows
  * without provisioning real Stripe data.
  *
- * Set `localStorage.setItem('quantive-test-plan', 'pro' | 'free')`.
+ * Set `localStorage.setItem('quantive-test-plan', 'free' | 'pro' | 'family')`.
  *
  * Production builds (import.meta.env.PROD === true) ignore this entirely —
  * Vite inlines `import.meta.env.DEV` as `false` in `build`, so the entire
@@ -29,6 +29,10 @@ export function devPlanOverride(): Plan | null {
   }
 }
 
+function isPortfolioEntitlement(entitlement: Entitlement): boolean {
+  return entitlement === 'portfolios.multiple' || entitlement === 'portfolios.share';
+}
+
 export function useEntitlements(): {
   plan: Plan;
   has: (entitlement: Entitlement) => boolean;
@@ -37,7 +41,7 @@ export function useEntitlements(): {
   const { isMockData } = usePortfolio();
   return useMemo(() => {
     const override = devPlanOverride();
-    const plan = override ?? resolvePlan(subscription.subscribed ? subscription.productId : null);
+    const plan = override ?? resolvePlanForStatus(subscription);
     // Demo mode short-circuits every entitlement to true so the /demo surface
     // shows the full Pro experience — paywalling the most-persuasive
     // pre-signup view defeats the demo. Real plan resolution resumes the
@@ -57,9 +61,10 @@ export function useEntitlements(): {
     const demoUnlock = isMockData && !user;
     const has = (entitlement: Entitlement) => {
       if (override) return planHas(plan, entitlement);
-      if (demoUnlock) return true;
+      // Portfolios live in the account, so a guest's demo can't show them.
+      if (demoUnlock) return !isPortfolioEntitlement(entitlement);
       return planHas(plan, entitlement);
     };
     return { plan, has };
-  }, [user, subscription.subscribed, subscription.productId, isMockData]);
+  }, [user, subscription, isMockData]);
 }

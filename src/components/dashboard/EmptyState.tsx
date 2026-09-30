@@ -4,6 +4,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { analytics } from '@/lib/analytics';
 import { openComposer } from '@/lib/appEvents';
+import { PERSONAL_PORTFOLIO_ID } from '@/lib/portfolios';
 
 
 /**
@@ -54,7 +55,9 @@ function useImport() {
 }
 
 function TryDemo() {
-  const { loadMockData } = usePortfolio();
+  const { loadMockData, activePortfolioId } = usePortfolio();
+  // Demo data would stand in for an extra portfolio's real entries.
+  if (activePortfolioId !== PERSONAL_PORTFOLIO_ID) return null;
   return (
     <button
       type="button"
@@ -119,14 +122,16 @@ function Shell({ title, children, footer }: { title: string; children: ReactNode
 /** The overview before the first entry: the dashboard at rest, with no numbers yet. */
 export function DashboardEmpty() {
   const { user } = useAuth();
-  const { isLoading } = usePortfolio();
+  const { isLoading, activePortfolioId } = usePortfolio();
   const importFile = useImport();
   const dragging = useWindowDrop(importFile);
+  const isPersonal = activePortfolioId === PERSONAL_PORTFOLIO_ID;
   // Anchors the activation funnel: the overview is where a new user lands.
-  // Not in Shell, so empty /forecast, /sources etc. don't re-fire it.
+  // Not in Shell, so empty /forecast, /sources etc. don't re-fire it. An
+  // empty extra portfolio is not a new user, so it doesn't count.
   useEffect(() => {
-    analytics.onboardingEmptyStateViewed();
-  }, []);
+    if (isPersonal) analytics.onboardingEmptyStateViewed();
+  }, [isPersonal]);
   return (
     <div className={dragging ? 'q-dropzone-active' : undefined}>
     <Shell

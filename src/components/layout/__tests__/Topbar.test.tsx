@@ -33,6 +33,11 @@ vi.mock('@/components/layout/GlobalSearch', () => ({
   GlobalSearch: () => <div data-testid="global-search" />,
 }));
 
+// Tested on its own in PortfolioSwitcher.test.tsx.
+vi.mock('@/components/layout/PortfolioSwitcher', () => ({
+  PortfolioSwitcher: () => null,
+}));
+
 import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { usePreferences } from '@/contexts/PreferencesContext';

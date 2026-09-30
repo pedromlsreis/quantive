@@ -6,6 +6,7 @@ import { usePreferences } from '@/contexts/PreferencesContext';
 import { SyncIndicator } from '@/components/dashboard/SyncIndicator';
 import { Monogram } from '@/components/layout/Brand';
 import { GlobalSearch } from '@/components/layout/GlobalSearch';
+import { PortfolioSwitcher } from '@/components/layout/PortfolioSwitcher';
 import { analytics } from '@/lib/analytics';
 
 export function Topbar({
@@ -52,6 +53,8 @@ export function Topbar({
       >
         <Monogram size={22} />
       </button>
+
+      <PortfolioSwitcher placement="topbar" />
 
       <GlobalSearch onAdd={onAdd} onSignUp={onSignUp} onFeedback={onFeedback} />
 

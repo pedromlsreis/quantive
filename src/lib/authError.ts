@@ -51,3 +51,8 @@ export function mapAuthError(raw: string | null | undefined): string {
   // which is often lowercase and technical.
   return "Something went wrong. Please try again.";
 }
+
+// Shown when unlock finds saved data whose key row is gone (MissingKeysError).
+// A password reset clears both and starts the account empty.
+export const MISSING_KEYS_MESSAGE =
+  "Your saved entries can't be opened because their encryption key is missing. Reset your password to start again with an empty portfolio.";

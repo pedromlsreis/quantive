@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { findOrCreateStripeCustomer } from "../_shared/stripeCustomer.ts";
+import { isCheckoutPrice } from "../_shared/billingPlans.ts";
 
 import { buildCorsHeaders, corsPreflightResponse, safeRedirectOrigin } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
@@ -79,6 +80,12 @@ serve(async (req) => {
       return errorResponse("invalid_request", 400);
     }
     if (typeof priceId !== "string" || !priceId) {
+      return errorResponse("invalid_request", 400);
+    }
+    // The client picks the price, so refuse anything that isn't one of ours:
+    // otherwise any live price on the Stripe account could be bought here.
+    if (!isCheckoutPrice(priceId)) {
+      logStep("Rejected unknown price", { priceId });
       return errorResponse("invalid_request", 400);
     }
     logStep("Price ID received", { priceId });
