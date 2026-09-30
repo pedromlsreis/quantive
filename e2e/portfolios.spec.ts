@@ -9,13 +9,17 @@ import { openNewSourceForm } from './helpers/composer';
  * Extra portfolios for one user (Family plan, phase 1). The Family plan is
  * granted with the dev override; the server side needs the portfolios
  * migration (20260930120000), so the spec skips until it's applied.
- * Test user 1's portfolios are deleted before and after.
+ *
+ * Runs as test user 2: specs run in parallel and most sign in as user 1, whose
+ * sidebar would otherwise show this spec's portfolio mid-run. User 2's
+ * portfolios are deleted before and after.
  *
  * A full page load locks the keys, so the spec moves around with in-app
  * links and unlocks again after its one deliberate reload.
  */
 
 const PORTFOLIO = 'E2E joint';
+const SLOT = 2;
 
 function serviceClient() {
   return createClient(process.env.VITE_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
@@ -41,7 +45,7 @@ async function deletePortfolios(userId: string) {
 }
 
 async function unlockAfterReload(page: Page) {
-  const { password } = getTestCreds(1);
+  const { password } = getTestCreds(SLOT);
   const unlock = page.getByRole('dialog', { name: /unlock your data/i });
   await unlock.waitFor({ state: 'visible', timeout: 15_000 });
   await unlock.getByLabel('Password', { exact: true }).fill(password);
@@ -58,8 +62,11 @@ async function addEntry(page: Page, name: string, value: string) {
   await form.getByLabel('Name', { exact: true }).fill(name);
   await form.locator('input[inputmode="decimal"]').fill(value);
   await form.getByRole('button', { name: /^add source$/i }).click();
+  // Wait for the save itself: a reload while it's in flight aborts it.
+  const saved = page.waitForResponse((r) => r.url().includes('/rpc/save_portfolio') && r.ok(), { timeout: 10_000 });
   await dialog.getByRole('button', { name: /save entry/i }).click();
   await expect(dialog).not.toBeVisible({ timeout: 6000 });
+  await saved;
 }
 
 const sidebar = (page: Page) => page.locator('.q-sidebar');
@@ -75,12 +82,12 @@ test.describe('Extra portfolios', () => {
   let userId: string | null = null;
 
   test.beforeEach(async ({ page }) => {
-    test.skip(!hasE2EAuth(1), 'E2E auth secrets not set.');
+    test.skip(!hasE2EAuth(SLOT), 'E2E auth secrets for test user 2 not set.');
     test.skip(!(await portfoliosTableExists()), 'Portfolios migration not applied.');
     await seedClean(page);
     await page.goto('/');
     await page.evaluate(() => localStorage.setItem('quantive-test-plan', 'family'));
-    await signIn(page);
+    await signIn(page, SLOT);
     userId = await userIdFromPage(page);
     await deletePortfolios(userId);
   });
@@ -102,8 +109,6 @@ test.describe('Extra portfolios', () => {
 
     await addEntry(page, 'Joint savings', '4200');
     await expect(page.locator('#performance')).toBeVisible({ timeout: 8000 });
-    // Let save_portfolio finish before the reload drops the tab.
-    await page.waitForLoadState('networkidle');
 
     // The reload locks the keys; after unlocking, the same portfolio reopens with its entry.
     await page.reload();
