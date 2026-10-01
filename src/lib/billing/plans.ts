@@ -61,10 +61,10 @@ const PRO_ENTITLEMENTS: readonly Entitlement[] = [
 export const FAMILY_PLAN: Plan = {
   id: 'family',
   name: 'Family',
-  productIds: ['prod_FAMILY_PLACEHOLDER'],
+  productIds: ['prod_VMPNVxnBJWMbsR'],
   prices: {
-    monthly: { priceId: 'price_FAMILY_MONTHLY_PLACEHOLDER', amount: 14, currency: 'EUR' },
-    yearly: { priceId: 'price_FAMILY_YEARLY_PLACEHOLDER', amount: 120, currency: 'EUR' },
+    monthly: { priceId: 'price_1ULgYf6exGYK5NssPboygCI8', amount: 14, currency: 'EUR' },
+    yearly: { priceId: 'price_1ULgYf6exGYK5NssfltE7uZe', amount: 120, currency: 'EUR' },
   },
   entitlements: [...PRO_ENTITLEMENTS, 'portfolios.multiple', 'portfolios.share'],
 };

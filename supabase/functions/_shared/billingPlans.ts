@@ -12,14 +12,14 @@ export const PLAN_PRICES: Record<PaidPlanId, Record<BillingInterval, string>> = 
     yearly: "price_1TXnys6exGYK5NssXTjUgqGW",
   },
   family: {
-    monthly: "price_FAMILY_MONTHLY_PLACEHOLDER",
-    yearly: "price_FAMILY_YEARLY_PLACEHOLDER",
+    monthly: "price_1ULgYf6exGYK5NssPboygCI8",
+    yearly: "price_1ULgYf6exGYK5NssfltE7uZe",
   },
 };
 
 export const PLAN_PRODUCTS: Record<PaidPlanId, readonly string[]> = {
   pro: ["prod_UWriaLlxoMTR4K"],
-  family: ["prod_FAMILY_PLACEHOLDER"],
+  family: ["prod_VMPNVxnBJWMbsR"],
 };
 
 export const CHECKOUT_PRICE_IDS: readonly string[] = Object.values(PLAN_PRICES)
