@@ -3,12 +3,13 @@ import { test, expect, type Browser, type Locator, type Page } from '@playwright
 import { getTestCreds, hasE2EAuth, signIn } from './helpers/auth';
 import { seedClean } from './helpers/seedClean';
 import { openNewSourceForm } from './helpers/composer';
-import { OWNER_SLOT, PARTNER_SLOT, grantOwnerFamily, resetFamily, sharingTablesExist, testUser } from './helpers/family';
+import { OWNER_SLOT, PARTNER_SLOT, grantOwnerFamily, resetFamily, revokeOwnerFamily, sharingTablesExist, testUser } from './helpers/family';
 
 /**
  * Sharing a portfolio end to end, in two browsers: the owner (test user 2)
  * shares, the partner (test user 1) joins through the link, both edit at
- * once and the later save is replayed, then the owner removes the partner.
+ * once and the later save is replayed, then the owner removes the partner
+ * and, once Family has lapsed, can only read the portfolio.
  * Runs in the "family" project (playwright.config.ts): after the other
  * specs, and never at the same time as rls-portfolios.spec.ts, since both
  * reset the same users.
@@ -172,5 +173,22 @@ test.describe('Sharing a portfolio', () => {
     await listed;
     await expect(switcher(partner)).toHaveCount(0);
     await expect(partner.getByRole('progressbar', { name: /Holiday fund/i })).toHaveCount(0);
+  });
+
+  test("once Family lapses, the owner's portfolio stays readable but takes no edits", async () => {
+    test.skip(!(await revokeOwnerFamily()), 'The owner has a real Family beta grant.');
+    await owner.evaluate(() => localStorage.removeItem('quantive-test-plan'));
+    // Settings checks the plan again as it mounts; the owner is on it already.
+    await sidebar(owner).getByRole('link', { name: 'Goals' }).click();
+    await openSettings(owner);
+    await expect(owner.getByRole('note', { name: 'Read-only portfolio' })).toBeVisible({ timeout: 10_000 });
+    await expect(owner.getByRole('button', { name: `Share ${PORTFOLIO}` })).toHaveCount(0);
+
+    // The composer explains instead of opening a form it couldn't save.
+    await owner.getByRole('button', { name: /^add entry$/i }).first().click();
+    await expect(owner.locator('[data-sonner-toast]').filter({ hasText: /needs the Family plan/ })).toBeVisible();
+    await expect(owner.getByRole('dialog', { name: /add entry/i })).toHaveCount(0);
+    await sidebar(owner).getByRole('link', { name: 'Goals' }).click();
+    await expect(owner.getByRole('progressbar', { name: /Holiday fund/i })).toBeVisible({ timeout: 10_000 });
   });
 });

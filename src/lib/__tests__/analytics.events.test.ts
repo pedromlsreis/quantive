@@ -45,7 +45,7 @@ describe('analytics event capture', () => {
     consentState = 'denied';
     const analytics = await loadAnalytics();
     analytics.proUpgradeClicked({ feature: 'forecasting' });
-    analytics.checkoutStarted({ interval: 'yearly' });
+    analytics.checkoutStarted({ plan: 'pro', interval: 'yearly' });
     analytics.unlockFailed();
     analytics.consentGranted();
     expect(captureSpy).not.toHaveBeenCalled();
@@ -54,7 +54,7 @@ describe('analytics event capture', () => {
   it('does not capture when consent has not been decided', async () => {
     consentState = null;
     const analytics = await loadAnalytics();
-    analytics.subscriptionStarted();
+    analytics.subscriptionStarted({ plan: 'pro' });
     expect(captureSpy).not.toHaveBeenCalled();
   });
 
@@ -69,14 +69,25 @@ describe('analytics event capture', () => {
 
   it('captures the checkout funnel with anonymous payloads only', async () => {
     const analytics = await loadAnalytics();
-    analytics.checkoutStarted({ interval: 'monthly' });
+    analytics.checkoutStarted({ plan: 'family', interval: 'monthly' });
     analytics.checkoutFailed({ reason: 'no_email' });
-    analytics.subscriptionStarted();
+    analytics.subscriptionStarted({ plan: 'family' });
+    analytics.planSwitchStarted({ to: 'family' });
 
     const byName = new Map(captureSpy.mock.calls.map((c) => [c[0], c[1]]));
-    expect(byName.get('checkout_started')).toMatchObject({ interval: 'monthly' });
+    expect(byName.get('checkout_started')).toEqual({ plan: 'family', interval: 'monthly' });
     expect(byName.get('checkout_failed')).toMatchObject({ reason: 'no_email' });
-    expect(byName.has('subscription_started')).toBe(true);
+    expect(byName.get('subscription_started')).toEqual({ plan: 'family' });
+    expect(byName.get('plan_switch_started')).toEqual({ to: 'family' });
+  });
+
+  it('splits the Family prompt impression from its click', async () => {
+    const analytics = await loadAnalytics();
+    analytics.familyGateHit({ location: 'settings_portfolios' });
+    analytics.familyUpgradeClicked({ location: 'settings_portfolios' });
+    const byName = new Map(captureSpy.mock.calls.map((c) => [c[0], c[1]]));
+    expect(byName.get('family_gate_hit')).toEqual({ location: 'settings_portfolios' });
+    expect(byName.get('family_upgrade_clicked')).toEqual({ location: 'settings_portfolios' });
   });
 
   it('captures the unlock and recovery funnel events', async () => {

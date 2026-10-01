@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Settings, LogOut, Shield, MessageSquarePlus, ChevronsUpDown, KeyRound } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
@@ -14,6 +15,8 @@ import { Wordmark } from '@/components/layout/Brand';
 import { MobileTabBar } from '@/components/layout/MobileTabBar';
 import { Topbar } from '@/components/layout/Topbar';
 import { PortfolioSwitcher } from '@/components/layout/PortfolioSwitcher';
+import { ReadOnlyBanner } from '@/components/layout/ReadOnlyBanner';
+import { READ_ONLY_MESSAGES, usePortfolio } from '@/contexts/PortfolioContext';
 import { NAV_SECTIONS, MOBILE_PRIMARY_ITEMS, LEGAL_LINKS } from '@/lib/nav-config';
 import { intentPrefetch, prefetchAppRoute } from '@/routes/appRoutes';
 import { ADD_MEASUREMENT_EVENT } from '@/lib/appEvents';
@@ -185,6 +188,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [addOpen, setAddOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const { openAuth } = useAuthModalActions();
+  const { readOnlyReason } = usePortfolio();
 
   // Every in-app sign-in / sign-up entry is captured: a guest exploring the
   // demo who opens sign-up is the intent signal `demo_loaded` alone can't reach.
@@ -195,11 +199,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   // Lets descendants (empty states, the dashboard's monthly prompt) open the
   // composer without threading a callback through the tree.
+  // A read-only portfolio explains itself instead of opening a form it can't save.
+  const openAdd = useCallback(() => {
+    if (readOnlyReason) toast.error(READ_ONLY_MESSAGES[readOnlyReason]);
+    else setAddOpen(true);
+  }, [readOnlyReason]);
   useEffect(() => {
-    const open = () => setAddOpen(true);
-    window.addEventListener(ADD_MEASUREMENT_EVENT, open);
-    return () => window.removeEventListener(ADD_MEASUREMENT_EVENT, open);
-  }, []);
+    window.addEventListener(ADD_MEASUREMENT_EVENT, openAdd);
+    return () => window.removeEventListener(ADD_MEASUREMENT_EVENT, openAdd);
+  }, [openAdd]);
 
   // Once the first page has rendered, fetch the tab-bar pages in idle time so
   // the common hops never wait on a chunk.
@@ -220,12 +228,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="q-main">
         <EmailConfirmationBanner />
         <Topbar
-          onAdd={() => setAddOpen(true)}
+          onAdd={openAdd}
           onSignIn={() => openAuthTracked('signin')}
           onSignUp={() => openAuthTracked('signup')}
           onFeedback={openFeedback}
         />
         <main id="main-content" className="q-content">
+          <ReadOnlyBanner />
           {children}
         </main>
         <MobileTabBar onFeedback={openFeedback} />

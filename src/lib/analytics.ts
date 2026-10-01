@@ -1,5 +1,6 @@
 import posthog, { type CaptureResult } from 'posthog-js';
 import { getConsent, subscribeConsent } from './consent';
+import type { CheckoutInterval, CheckoutPlan } from './billing/checkoutIntent';
 
 const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) ?? 'https://eu.i.posthog.com';
@@ -165,7 +166,7 @@ function capture(event: string, props?: Record<string, unknown>): void {
   posthog.capture(event, { ...attribution, ...props });
 }
 
-export type LandingCta = 'get_started' | 'try_demo' | 'pro_signup' | 'sign_in';
+export type LandingCta = 'get_started' | 'try_demo' | 'pro_signup' | 'family_signup' | 'sign_in';
 export type LandingCtaLocation =
   | 'hero'
   | 'hero_instrument'
@@ -186,7 +187,7 @@ export type FileUploadFailureReason =
   | 'wrong_type'
   | 'unknown';
 export type CloudSyncFailureReason = 'transient' | 'terminal';
-export type CheckoutInterval = 'monthly' | 'yearly';
+export type FamilyGateLocation = 'settings_portfolios';
 export type RecoverySetupSource = 'offer_modal' | 'settings';
 export type AuthOpenMode = 'signin' | 'signup';
 export type WebVitalName = 'LCP' | 'INP' | 'CLS' | 'FCP' | 'TTFB';
@@ -293,8 +294,23 @@ export const analytics = {
     capture('pro_upgrade_clicked', { feature: props.feature });
   },
   /** Fired right before redirecting to Stripe Checkout. */
-  checkoutStarted(props: { interval: CheckoutInterval }): void {
-    capture('checkout_started', { interval: props.interval });
+  checkoutStarted(props: { plan: CheckoutPlan; interval: CheckoutInterval }): void {
+    capture('checkout_started', { plan: props.plan, interval: props.interval });
+  },
+  /** Fired when a Pro subscriber opens Stripe's page for switching to Family. */
+  planSwitchStarted(props: { to: 'family' }): void {
+    capture('plan_switch_started', { to: props.to });
+  },
+  /**
+   * Fired when the Family prompt renders for someone without Family, and
+   * when its link is clicked: the Family pair of proGateHit and
+   * proUpgradeClicked.
+   */
+  familyGateHit(props: { location: FamilyGateLocation }): void {
+    capture('family_gate_hit', { location: props.location });
+  },
+  familyUpgradeClicked(props: { location: FamilyGateLocation }): void {
+    capture('family_upgrade_clicked', { location: props.location });
   },
   /**
    * Fired when creating the Stripe Checkout session fails. `reason` is the
@@ -310,8 +326,8 @@ export const analytics = {
    * monetisation funnel. Entitlement itself is granted server-side by the
    * webhook — this event is the client-observed completion, no amounts.
    */
-  subscriptionStarted(): void {
-    capture('subscription_started');
+  subscriptionStarted(props: { plan: CheckoutPlan }): void {
+    capture('subscription_started', { plan: props.plan });
   },
   /** Fired when the user opens the Stripe billing portal (manage/cancel). */
   billingPortalOpened(): void {

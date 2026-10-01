@@ -16,10 +16,11 @@ test.describe('Pricing page', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 12_000 });
   });
 
-  test('renders both Free and Pro tier cards', async ({ page }) => {
+  test('renders the Free, Pro and Family cards', async ({ page }) => {
     await expect(page.getByRole('heading', { level: 1, name: /€0 forever/i })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: /^free$/i })).toBeVisible();
     await expect(page.getByRole('heading', { level: 2, name: /^pro$/i })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: /^family$/i })).toBeVisible();
     // Free CTA is a link to /dashboard so guests aren't asked to sign up first.
     await expect(page.getByRole('link', { name: /get started/i }).first()).toBeVisible();
   });
@@ -30,16 +31,21 @@ test.describe('Pricing page', () => {
     const monthly = group.getByRole('radio', { name: /monthly/i });
     const yearly = group.getByRole('radio', { name: /yearly/i });
 
-    // Yearly is the default; price reads €90/year.
+    const family = page.getByRole('region', { name: /^family$/i });
+
+    // Yearly is the default; Pro reads €90 a year and Family €120.
     await expect(yearly).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByText(/€90/).first()).toBeVisible();
+    await expect(family.getByText(/€120/).first()).toBeVisible();
 
-    // Switch to monthly — price should flip to €9/month.
+    // Switch to monthly — prices flip to €9 and €14 a month.
     await monthly.click();
     await expect(monthly).toHaveAttribute('aria-checked', 'true');
     await expect(page.getByText(/€9\b/).first()).toBeVisible({ timeout: 6000 });
-    // The caption changes form too.
+    await expect(family.getByText(/€14\b/).first()).toBeVisible({ timeout: 6000 });
+    // The captions change form too.
     await expect(page.getByText(/save €18/i).first()).toBeVisible();
+    await expect(family.getByText(/save €48/i)).toBeVisible();
 
     // And back to yearly — confirm bi-directional.
     await yearly.click();
@@ -47,11 +53,21 @@ test.describe('Pricing page', () => {
     await expect(page.getByText(/€90/).first()).toBeVisible({ timeout: 6000 });
   });
 
-  test('Pro CTA copy is the signed-out variant for guests', async ({ page }) => {
-    // For a guest the button reads "Sign up to subscribe" and the supporting
-    // line tells them they'll be able to subscribe from the dashboard.
-    await expect(page.getByRole('button', { name: /sign up to subscribe/i })).toBeVisible();
-    await expect(page.getByText(/sign up first/i)).toBeVisible();
+  test('paid-plan CTAs use the signed-out variant for guests', async ({ page }) => {
+    // For a guest each button reads "Sign up to subscribe" and the supporting
+    // line tells them checkout opens once they confirm their email.
+    for (const name of [/^pro$/i, /^family$/i]) {
+      const card = page.getByRole('region', { name });
+      await expect(card.getByRole('button', { name: /sign up to subscribe/i })).toBeVisible();
+      await expect(card.getByText(/sign up first/i)).toBeVisible();
+    }
+  });
+
+  test('a guest choosing Family carries the plan through sign-up', async ({ page }) => {
+    await page.getByRole('radiogroup', { name: /billing interval/i }).getByRole('radio', { name: /monthly/i }).click();
+    await page.getByRole('region', { name: /^family$/i }).getByRole('button', { name: /sign up to subscribe/i }).click();
+    await expect(page).toHaveURL(/\/dashboard\?intent=subscribe&plan=family-monthly/);
+    await expect(page.getByRole('region', { name: /family subscription pending/i })).toContainText('€14 a month');
   });
 
   test('legal microcopy mentions §19 UStG (Kleinunternehmer)', async ({ page }) => {

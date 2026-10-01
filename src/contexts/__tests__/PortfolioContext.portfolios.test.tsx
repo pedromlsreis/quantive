@@ -5,14 +5,20 @@ import React from 'react';
 const USER = 'u1';
 const PARTNER = 'u2';
 
+type TestSubscription = { subscribed: boolean; productId: string | null; familyBeta: boolean; familyMember: boolean };
+const FAMILY_BETA: TestSubscription = { subscribed: false, productId: null, familyBeta: true, familyMember: false };
+const NO_FAMILY: TestSubscription = { subscribed: false, productId: null, familyBeta: false, familyMember: false };
+
 const authState: {
   user: { id: string; email_confirmed_at: string } | null;
   loading: boolean;
-  subscription: { subscribed: boolean; productId: string | null; familyBeta: boolean; familyMember: boolean };
+  subscription: TestSubscription;
+  subscriptionChecked: boolean;
 } = {
   user: { id: USER, email_confirmed_at: '2026-01-01T00:00:00Z' },
   loading: false,
-  subscription: { subscribed: false, productId: null, familyBeta: true, familyMember: false },
+  subscription: FAMILY_BETA,
+  subscriptionChecked: true,
 };
 
 const portfolioKeys = new Map<string, Uint8Array>();
@@ -99,6 +105,8 @@ beforeEach(() => {
   portfolioKeys.clear();
   localStorage.clear();
   authState.user = { id: USER, email_confirmed_at: '2026-01-01T00:00:00Z' };
+  authState.subscription = FAMILY_BETA;
+  authState.subscriptionChecked = true;
   vi.mocked(listPortfolios).mockImplementation(async () => ({ loaded: [loaded('p1', 'Joint')], failed: 0 }));
   vi.mocked(fetchPortfolio).mockImplementation(async (_c, _u, _dk, id) => (id === 'p1' ? loaded('p1', 'Joint') : null));
   vi.mocked(savePortfolio).mockImplementation(async (_client, { meta }) => ({ status: 'ok', revision: meta.revision + 1 }));
@@ -321,6 +329,55 @@ describe('managing', () => {
     expect(ok).toBe(true);
     expect(vi.mocked(savePortfolio).mock.calls[0][1].data?.facts.map((f) => f.sourceVl)).toEqual([42]);
     expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([42]);
+  });
+});
+
+describe('without Family', () => {
+  it("keeps the owner's portfolio readable but refuses edits", async () => {
+    authState.subscription = NO_FAMILY;
+    const { result } = await openP1();
+    expect(result.current.readOnlyReason).toBe('needs_family');
+    expect(result.current.data?.facts).toHaveLength(1);
+
+    await act(async () => { result.current.addMeasurement([{ name: 'Joint account', value: 150, currency: 'EUR' }]); });
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/needs the Family plan/));
+    expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([100]);
+    let renamed = true;
+    await act(async () => { renamed = await result.current.renamePortfolio('p1', 'Company'); });
+    expect(renamed).toBe(false);
+    let restored = true;
+    await act(async () => { restored = await result.current.restorePortfolioVersion('p1', 1); });
+    expect(restored).toBe(false);
+    expect(savePortfolio).not.toHaveBeenCalled();
+  });
+
+  it("follows the owner's plan for a partner", async () => {
+    vi.mocked(listPortfolios).mockResolvedValue({ loaded: [loaded('p1', 'Joint', 1, 100, { ownerId: PARTNER })], failed: 0 });
+    vi.mocked(fetchPortfolio).mockResolvedValue(loaded('p1', 'Joint', 1, 100, { ownerId: PARTNER }));
+    // The partner's own plan doesn't matter: the owner's Family covers them.
+    authState.subscription = { ...NO_FAMILY, familyMember: true };
+    const { result, rerender } = await openP1();
+    expect(result.current.readOnlyReason).toBeNull();
+
+    authState.subscription = { ...FAMILY_BETA, familyMember: false };
+    rerender();
+    expect(result.current.readOnlyReason).toBe('owner_needs_family');
+    await act(async () => { result.current.addMeasurement([{ name: 'Joint account', value: 150, currency: 'EUR' }]); });
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/has ended/));
+    expect(savePortfolio).not.toHaveBeenCalled();
+  });
+
+  it('stays editable until the plan is known, and never limits Personal', async () => {
+    authState.subscription = NO_FAMILY;
+    authState.subscriptionChecked = false;
+    const { result, rerender } = await openP1();
+    expect(result.current.readOnlyReason).toBeNull();
+
+    authState.subscriptionChecked = true;
+    rerender();
+    expect(result.current.readOnlyReason).toBe('needs_family');
+    await act(async () => { await result.current.switchPortfolio('personal'); });
+    expect(result.current.readOnlyReason).toBeNull();
   });
 });
 

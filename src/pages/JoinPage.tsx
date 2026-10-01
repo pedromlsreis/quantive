@@ -87,7 +87,7 @@ const PROBLEM_COPY: Record<Problem, { title: string; body: string }> = {
 export default function JoinPage() {
   const { inviteId = '' } = useParams();
   const navigate = useNavigate();
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading, signOut, checkSubscription } = useAuth();
   const keySession = useKeySession();
   const { openAuth } = useAuthModalActions();
   const { openJoinedPortfolio } = usePortfolio();
@@ -130,6 +130,9 @@ export default function JoinPage() {
       clearInviteSecret();
       analytics.inviteAccepted();
       toast.success('You joined the portfolio.');
+      // The plan was checked before this seat existed: without a refresh the
+      // portfolio would open read-only, as if the Family plan had ended.
+      await checkSubscription();
       await openPortfolio(invite.portfolioId);
     } catch (e) {
       if (!(e instanceof InviteLinkMismatchError)) console.error('[join] accept failed:', e);

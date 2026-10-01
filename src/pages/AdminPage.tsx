@@ -42,6 +42,8 @@ interface AdminStats {
   /** Absent until admin-stats is redeployed with the Family counts. */
   family?: {
     betaUsers: number;
+    /** Absent until admin-stats is redeployed with the Family plan. */
+    subscribers?: number;
     portfolios: number;
     sharedPortfolios: number;
     partners: number;
@@ -61,6 +63,8 @@ interface AdminStats {
     arrEur: number | null;
     annualSubs: number | null;
     monthlySubs: number | null;
+    /** Absent until admin-stats is redeployed with the Family plan. */
+    byPlan?: Record<'pro' | 'family', { subs: number; mrrEur: number }> | null;
     error?: string;
   };
 }
@@ -78,6 +82,8 @@ interface AdminUser {
   confirmed: boolean;
   roles: { role: AppRole; granted_at: string }[];
   subscriptionStatus: string | null;
+  /** 'pro' or 'family'; absent until admin-users is redeployed. */
+  subscriptionPlan?: string | null;
   subscriptionEnd: string | null;
   cancelAtPeriodEnd: boolean;
   preferredCurrency: string | null;
@@ -267,6 +273,9 @@ export default function AdminPage() {
                           stats.subscriptions.annualSubs !== null && stats.subscriptions.monthlySubs !== null
                             ? `${stats.subscriptions.annualSubs} annual, ${stats.subscriptions.monthlySubs} monthly.`
                             : '',
+                          stats.subscriptions.byPlan
+                            ? `Pro ${stats.subscriptions.byPlan.pro.subs} (${eur(stats.subscriptions.byPlan.pro.mrrEur)} MRR), Family ${stats.subscriptions.byPlan.family.subs} (${eur(stats.subscriptions.byPlan.family.mrrEur)} MRR).`
+                            : '',
                           stats.subscriptions.activeSubs !== null
                             ? `${pct(stats.subscriptions.activeSubs, stats.users.total)} of users, ${pct(stats.subscriptions.activeSubs, stats.snapshots.total)} of those with data.`
                             : '',
@@ -288,8 +297,8 @@ export default function AdminPage() {
               {stats.family && (
                 <Stat
                   label="Family"
-                  value={stats.family.betaUsers}
-                  detail={`Users in the Family beta. ${stats.family.portfolios} extra ${stats.family.portfolios === 1 ? 'portfolio' : 'portfolios'}, ${stats.family.sharedPortfolios} shared, ${stats.family.partners} ${stats.family.partners === 1 ? 'partner' : 'partners'}, ${stats.family.pendingInvites} pending ${stats.family.pendingInvites === 1 ? 'invite' : 'invites'}.`}
+                  value={stats.family.subscribers ?? stats.family.betaUsers}
+                  detail={`${stats.family.subscribers !== undefined ? `${stats.family.subscribers} paying, ` : ''}${stats.family.betaUsers} in the beta. ${stats.family.portfolios} extra ${stats.family.portfolios === 1 ? 'portfolio' : 'portfolios'}, ${stats.family.sharedPortfolios} shared, ${stats.family.partners} ${stats.family.partners === 1 ? 'partner' : 'partners'}, ${stats.family.pendingInvites} pending ${stats.family.pendingInvites === 1 ? 'invite' : 'invites'}.`}
                 />
               )}
             </dl>
@@ -519,14 +528,16 @@ function Distribution({ title, dist, total, format = (k: string) => k }: { title
   );
 }
 
-// Plan status from the cached subscription columns on profiles. Pro entitlement
+// Plan status from the cached subscription columns on profiles. Entitlement
 // mirrors the server gate; past_due and pending-cancel are surfaced because
-// they're the states a paying user is most likely to email about.
+// they're the states a paying user is most likely to email about. A partner
+// covered by someone's Family plan shows as Free here: the badge is about
+// who pays.
 function PlanCell({ user }: { user: AdminUser }) {
   if (!isProUser(user)) return <span style={{ color: 'var(--fg-subtle)' }}>Free</span>;
   return (
     <span>
-      <span className="q-tag">Pro</span>
+      <span className="q-tag">{user.subscriptionPlan === 'family' ? 'Family' : 'Pro'}</span>
       {user.subscriptionStatus === 'past_due' && <span className="q-table-sub" style={{ color: 'var(--negative)' }}>Past due</span>}
       {user.cancelAtPeriodEnd && user.subscriptionEnd && <span className="q-table-sub">{`Ends ${fmtDate(user.subscriptionEnd)}`}</span>}
     </span>

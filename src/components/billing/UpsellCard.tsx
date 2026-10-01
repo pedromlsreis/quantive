@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { analytics } from '@/lib/analytics';
-import { PRO_PRICE_LINE } from '@/lib/billing/planCopy';
+import { analytics, type FamilyGateLocation } from '@/lib/analytics';
+import { FAMILY_PRICE_LINE, PRO_PRICE_LINE } from '@/lib/billing/planCopy';
 import type { Entitlement } from '@/lib/billing/plans';
 
 /** Entitlements Pro sells. The Family-only ones get their own prompt. */
@@ -89,4 +89,38 @@ export function ProGate({
 /** Default FeatureGate fallback: the block form of the gate. */
 export function UpsellCard({ feature }: { feature: ProFeature }) {
   return <ProGate feature={feature} />;
+}
+
+/**
+ * The Family prompt, in the row form of the Pro gate: more portfolios and
+ * sharing one. Settings → Portfolios shows it to anyone without Family or a
+ * portfolio shared with them.
+ */
+export function FamilyGate({ location }: { location: FamilyGateLocation }) {
+  useEffect(() => {
+    analytics.familyGateHit({ location });
+  }, [location]);
+
+  return (
+    <div className="q-gate q-gate--row">
+      <div className="q-gate-text">
+        <h3 className="q-gate-title">More portfolios, and one to share</h3>
+        <p className="q-gate-body">
+          Family adds up to five portfolios besides your personal one, for a joint account or a company. Share any of
+          them with your partner, who gets Pro too. Shared portfolios stay end-to-end encrypted.
+        </p>
+        <p className="q-gate-price">
+          <span className="q-tag">Family</span>
+          {FAMILY_PRICE_LINE}
+        </p>
+      </div>
+      <Link
+        to="/pricing#family"
+        className="q-btn q-btn--secondary q-btn--md"
+        onClick={() => analytics.familyUpgradeClicked({ location })}
+      >
+        See the Family plan
+      </Link>
+    </div>
+  );
 }

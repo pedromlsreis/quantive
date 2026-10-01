@@ -9,6 +9,12 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   subscription: SubscriptionStatus;
+  /**
+   * True once `subscription` comes from check-subscription for the
+   * signed-in user, rather than the default (or the previous account's).
+   * Gates that take something away wait for it.
+   */
+  subscriptionChecked: boolean;
   checkSubscription: () => Promise<void>;
   signUp: (email: string, password: string, captchaToken?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error: string | null }>;
@@ -35,6 +41,7 @@ const defaultSubscription: SubscriptionStatus = {
   hasStripeHistory: false,
   familyBeta: false,
   familyMember: false,
+  familyOwnerEmail: null,
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -42,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionStatus>(defaultSubscription);
+  const [subscriptionUserId, setSubscriptionUserId] = useState<string | null>(null);
 
   // useCallback so consumers can put `checkSubscription` in effect dep arrays
   // without re-firing on every parent render. The fn captures no React state,
@@ -64,7 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         hasStripeHistory: data?.has_stripe_history ?? false,
         familyBeta: data?.family_beta ?? false,
         familyMember: data?.family_member ?? false,
+        familyOwnerEmail: data?.family_owner_email ?? null,
       });
+      setSubscriptionUserId(currentSession.user.id);
     } catch (err) {
       console.error('Error checking subscription:', err);
     }
@@ -79,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => checkSubscription(), 0);
       } else {
         setSubscription(defaultSubscription);
+        setSubscriptionUserId(null);
       }
     });
 
@@ -204,7 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, subscription, checkSubscription, signUp, signIn, signOut, resetPassword, updatePassword, resendConfirmation }}>
+    <AuthContext.Provider value={{ user, session, loading, subscription, subscriptionChecked: !!user && subscriptionUserId === user.id, checkSubscription, signUp, signIn, signOut, resetPassword, updatePassword, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   );

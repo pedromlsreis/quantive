@@ -356,7 +356,7 @@ The legacy plaintext column is retained in the schema for forensic reasons only 
 
 ### 7.3 Extra portfolios and sharing
 
-Migrations [`20260930120000_portfolios.sql`](../../supabase/migrations/20260930120000_portfolios.sql) and [`20261001120000_portfolio_sharing.sql`](../../supabase/migrations/20261001120000_portfolio_sharing.sql).
+Migrations [`20260930120000_portfolios.sql`](../../supabase/migrations/20260930120000_portfolios.sql), [`20261001120000_portfolio_sharing.sql`](../../supabase/migrations/20261001120000_portfolio_sharing.sql) and [`20261002120000_family_billing.sql`](../../supabase/migrations/20261002120000_family_billing.sql).
 
 | Table | Holds | Who can write |
 |---|---|---|
@@ -371,7 +371,7 @@ Migrations [`20260930120000_portfolios.sql`](../../supabase/migrations/202609301
 
 - `create_portfolio`: sets the owner to the caller; at most 5 per owner.
 - `save_portfolio`: a compare-and-swap on `revision` and `key_epoch` that returns `ok`, `conflict` or `forbidden`.
-- `create_portfolio_invite`: the caller must own the portfolio and have the Family plan, no rotation may be due, and the epoch must be current. Once the seat is taken, invites can only go to that partner. A new invite replaces the pending one.
+- `create_portfolio_invite`: the caller must own the portfolio and have the Family plan, no rotation may be due, and the epoch must be current. "Has the Family plan" is `has_family()`: a `family_beta` row, or an active, trialing or past-due subscription whose `profiles.subscription_plan` is `family`. Only the service role writes either (the Stripe webhook and `check-subscription` write the plan); clients can't insert or update those columns. `accept_portfolio_invite` applies the same test to the owner. Once the seat is taken, invites can only go to that partner. A new invite replaces the pending one.
 - `get_portfolio_invite` and `accept_portfolio_invite`: see §8.8. Statuses that describe the invite come only after the caller's email matches, so a stranger holding the id learns only that it isn't theirs.
 - `rotate_portfolio_key`: owner only, and only once the owner is the only member left.
 - `list_portfolio_people`: the members of the caller's portfolios, with their email addresses.
@@ -589,6 +589,8 @@ Both run [`release_owned_portfolios`](../../supabase/migrations/20261001120000_p
 - `portfolios.owner_id` is `ON DELETE RESTRICT`. If the release fails, the deletion stops instead of cascading a partner's data away.
 
 The same applies to the wipe after a password reset without a recovery code (§8.5): the user can no longer open their portfolio keys, but their partner can.
+
+Without the Family plan, the new owner can view and export the portfolio but not edit it. The same holds for both people when a Family subscription ends. Like every plan limit, this is enforced in the client; it protects revenue, not confidentiality, and the server still refuses new invites.
 
 When a partner deletes their account, their member row goes, `rotation_due` is set and the seat frees.
 

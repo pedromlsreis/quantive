@@ -1,6 +1,6 @@
 # Terms of Service
 
-_Last updated: 28 May 2026_
+_Last updated: 1 October 2026_
 
 ## 1. Acceptance of terms
 
@@ -14,7 +14,7 @@ Quantive is a personal finance dashboard that allows you to upload, visualise, a
 
 - You must provide a valid email address to create an account.
 - You are responsible for maintaining the security of your account credentials.
-- You must not share your account with others or create multiple accounts.
+- You must not share your account with others or create multiple accounts. The Family plan does not change this: it shares portfolios between two accounts, and each person signs in with their own.
 
 ## 4. Acceptable use
 
@@ -27,7 +27,9 @@ You agree not to:
 
 ## 5. Subscriptions and payments
 
-The Service offers a free tier and a paid Pro tier. Pro subscriptions are billed monthly or annually via Stripe. You can cancel at any time; access continues until the end of your billing period.
+The Service offers a free tier and two paid tiers, Pro and Family, billed monthly or annually via Stripe. You can cancel at any time; access continues until the end of your billing period.
+
+Family covers the subscriber and one partner the subscriber invites. The partner keeps their own account and has Pro features for as long as the Family subscription is active. The subscriber can create additional portfolios and share them with the partner. If the Family subscription ends, the portfolios it covers stay readable and exportable for both people but can no longer be edited, and the partner's Pro features end unless they have their own subscription. Switching from Pro to Family is prorated by Stripe.
 
 We reserve the right to change pricing with 30 days' notice. Refunds are handled on a case-by-case basis.
 
@@ -119,6 +121,8 @@ _(*) Delete as appropriate._
 
 You retain full ownership of your portfolio data. We do not claim any rights over your uploaded content. You can export or delete your data at any time.
 
+A shared portfolio (Family plan) is held by the subscriber who created it. While it is shared, the partner can read, edit and export it. Either person can stop sharing at any time: the subscriber by removing the partner, the partner by leaving.
+
 ## 8. Disclaimer
 
 The Service is not financial advice. We do not provide investment recommendations. You are solely responsible for your financial decisions. The Service is provided without warranties of any kind, express or implied.
@@ -129,7 +133,7 @@ To the maximum extent permitted by law, Quantive and its creators shall not be l
 
 ## 10. Termination
 
-We may suspend or terminate your account if you violate these terms. You may delete your account at any time. Upon termination, your data will be permanently removed.
+We may suspend or terminate your account if you violate these terms. You may delete your account at any time. Upon termination, your data will be permanently removed, with one exception: a portfolio you share with a partner passes to them, so their shared records are not lost. It stays read-only for them unless they have the Family plan.
 
 ## 11. Changes to these terms
 
