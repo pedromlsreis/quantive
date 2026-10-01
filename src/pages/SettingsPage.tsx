@@ -9,6 +9,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { portfolioFileSuffix } from '@/lib/portfolios';
 import { SettingsRow as Row, SettingsSection as Section } from '@/components/settings/SettingsRows';
 import { PortfolioSettings } from '@/components/settings/PortfolioSettings';
+import { exportNote } from '@/components/settings/exportNote';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, AUTO_LOCK_MINUTES_OPTIONS, type NumberFormat } from '@/contexts/PreferencesContext';
 import { useEntitlements } from '@/hooks/useEntitlements';
@@ -51,10 +52,16 @@ export default function SettingsPage() {
     checkSubscription();
   }, [checkSubscription]);
   const keySession = useKeySession();
-  const { data, activePortfolioId, activePortfolioName, extraPortfolios } = usePortfolio();
+  const { data, isLoading: portfolioLoading, activePortfolioId, activePortfolioName, extraPortfolios } = usePortfolio();
   const { has } = useEntitlements();
   const canExportExcel = has('export.excel');
   const canExportCsv = has('export.csv');
+  const exportNoteText = exportNote({
+    name: activePortfolioName,
+    multiple: extraPortfolios.length > 0,
+    hasEntries: (data?.facts.length ?? 0) > 0,
+    loading: portfolioLoading,
+  });
   const currentPlan = resolvePlanForStatus(subscription);
   // The plan this account pays for, which can differ from currentPlan (the
   // Family beta, or Pro through a partner's Family plan).
@@ -521,6 +528,7 @@ export default function SettingsPage() {
       </Section>
 
       <Section id="export" title="Your data">
+        {exportNoteText && <Row description={exportNoteText} />}
         {canExportCsv && (
           <Row label="CSV export" description="All your entries, on both plans.">
             <button type="button" onClick={() => handleExport('csv')} disabled={!data || exporting !== null} className="q-btn q-btn--secondary q-btn--md">
