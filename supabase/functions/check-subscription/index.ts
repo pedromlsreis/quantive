@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { findStripeCustomer } from "../_shared/stripeCustomer.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
-import { pickEntitledSubscription } from "./entitled.ts";
+import { pickEntitledSubscription } from "../_shared/entitled.ts";
 import {
   buildCacheRow,
   emptyView,
@@ -67,16 +67,22 @@ serve(async (req) => {
     { auth: { persistSession: false } }
   );
 
-  // Family features before the Stripe plan exists: a row in family_beta.
-  // A partner on someone's Family plan (family_partners) gets Pro. Both are
-  // attached to every response once the user is known.
+  // Family without Stripe: a row in family_beta. A partner on someone's
+  // Family plan (family_partners) gets Pro, and Settings names whose plan it
+  // is. All three are attached to every response once the user is known.
   let familyBeta = false;
   let familyMember = false;
+  let familyOwnerEmail: string | null = null;
   const respond = (view: SubscriptionView) =>
-    new Response(JSON.stringify({ ...view, family_beta: familyBeta, family_member: familyMember }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    new Response(
+      JSON.stringify({
+        ...view,
+        family_beta: familyBeta,
+        family_member: familyMember,
+        family_owner_email: familyOwnerEmail,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 },
+    );
 
   try {
     logStep("Function started");
@@ -106,19 +112,20 @@ serve(async (req) => {
     familyBeta = betaRow != null;
 
     // The partner gets Pro, never Family itself: sharing and extra
-    // portfolios stay with the owner. Only while the owner has Family.
+    // portfolios stay with the owner. Only while the owner has Family, by
+    // beta or subscription (has_family reads the owner's cached plan).
     const { data: seat } = await admin
       .from("family_partners")
       .select("owner_id")
       .eq("partner_id", user.id)
       .maybeSingle();
     if (seat) {
-      const { data: ownerBeta } = await admin
-        .from("family_beta")
-        .select("user_id")
-        .eq("user_id", seat.owner_id)
-        .maybeSingle();
-      familyMember = ownerBeta != null;
+      const { data: ownerHasFamily } = await admin.rpc("has_family", { _user_id: seat.owner_id });
+      familyMember = ownerHasFamily === true;
+      if (familyMember) {
+        const { data: owner } = await admin.auth.admin.getUserById(seat.owner_id);
+        familyOwnerEmail = owner.user?.email ?? null;
+      }
     }
 
     // 1) Read the cache. The webhook is the source of truth — if it has
@@ -169,6 +176,7 @@ serve(async (req) => {
         .from("profiles")
         .update({
           subscription_status: null,
+          subscription_plan: null,
           subscription_synced_at: new Date().toISOString(),
         })
         .eq("user_id", user.id);
@@ -192,6 +200,7 @@ serve(async (req) => {
           stripe_customer_id: customer.id,
           subscription_status: null,
           subscription_product_id: null,
+          subscription_plan: null,
           subscription_end: null,
           subscription_cancel_at_period_end: false,
           subscription_synced_at: new Date().toISOString(),

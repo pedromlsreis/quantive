@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { findStripeCustomer } from "../_shared/stripeCustomer.ts";
+import { PLAN_PRICES, planForPrice } from "../_shared/billingPlans.ts";
+import { pickEntitledSubscription } from "../_shared/entitled.ts";
 import { buildCorsHeaders, corsPreflightResponse, safeRedirectOrigin } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 
@@ -61,13 +63,48 @@ serve(async (req) => {
       return errorResponse("not_found", 404);
     }
 
+    // No body opens the plain portal. `{ flow: "switch_to_family" }` opens
+    // Stripe's confirmation page for moving the current Pro subscription to
+    // Family at the same interval; Stripe prorates. The subscription item
+    // isn't cached, so it's looked up live.
+    let flow: unknown = null;
+    try {
+      ({ flow } = await req.json());
+    } catch {
+      // No JSON body: the plain portal.
+    }
+
     const origin = safeRedirectOrigin(req);
+    let flowData: Stripe.BillingPortal.SessionCreateParams.FlowData | undefined;
+    if (flow === "switch_to_family") {
+      const subscriptions = await stripe.subscriptions.list({ customer: customer.id, status: "all", limit: 10 });
+      const subscription = pickEntitledSubscription(subscriptions.data);
+      const item = subscription?.items.data[0];
+      const current = planForPrice(item?.price.id);
+      if (!subscription || !item || !current) {
+        logStep("No subscription to switch", { userId: user.id });
+        return errorResponse("not_subscribed", 409);
+      }
+      if (current.plan === "family") return errorResponse("already_family", 409);
+      flowData = {
+        type: "subscription_update_confirm",
+        subscription_update_confirm: {
+          subscription: subscription.id,
+          items: [{ id: item.id, price: PLAN_PRICES.family[current.interval], quantity: 1 }],
+        },
+        after_completion: { type: "redirect", redirect: { return_url: `${origin}/settings?switched=family` } },
+      };
+    } else if (flow != null) {
+      return errorResponse("invalid_request", 400);
+    }
+
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customer.id,
       return_url: `${origin}/settings`,
+      ...(flowData ? { flow_data: flowData } : {}),
     });
 
-    logStep("Portal session created");
+    logStep("Portal session created", { flow: flowData?.type ?? "portal" });
 
     return new Response(JSON.stringify({ url: portalSession.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
