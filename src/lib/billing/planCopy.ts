@@ -17,8 +17,9 @@ export interface PlanCopySection {
   items: string[];
 }
 
-export const PRICING_HEADLINE = '€0 forever, or €90 a year';
-export const PRICING_SUB = 'The free plan has no time limit.';
+export const PRICING_HEADLINE = '€0 forever, or from €90 a year';
+export const PRICING_SUB =
+  'The free plan has no time limit. Pro is for one person; Family is Pro for two people, plus portfolios you can share.';
 
 /** Short price line for in-app Pro gates. */
 export const PRO_PRICE_LINE = '€9 a month or €90 a year';

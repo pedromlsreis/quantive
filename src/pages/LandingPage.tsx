@@ -186,6 +186,7 @@ export default function LandingPage() {
               <li className="lp-fit-item">You hold accounts across several brokers, banks and currencies, and want one total across all of them.</li>
               <li className="lp-fit-item">You'd rather enter balances once a month than connect a bank to an aggregator.</li>
               <li className="lp-fit-item">You want a clean year-by-year record of your wealth, for yourself or an adviser.</li>
+              <li className="lp-fit-item">You share finances with a partner and want one record you both update, with each personal portfolio kept private.</li>
               <li className="lp-fit-item">You've outgrown a hand-built spreadsheet but want to keep its history.</li>
             </ul>
           </div>
@@ -217,7 +218,8 @@ export default function LandingPage() {
             <h2 className="pub-display" id="lp-priv-h2">We store your net worth. We can&rsquo;t read it.</h2>
             <p className="pub-lede">
               Balances are encrypted in your browser with a key only you can unlock, so our servers only ever hold
-              ciphertext. The remaining trust is in the code we serve, which is why the cryptography is open source and
+              ciphertext. A portfolio you share on the Family plan can also be read by your partner, and no one else.
+              The remaining trust is in the code we serve, which is why the cryptography is open source and
               the threat model is public. Quantive has no ads and sells no data, and every plan can export all of your
               data as CSV.
             </p>
@@ -312,7 +314,7 @@ export default function LandingPage() {
         </div>
         <p className="lp-rate-hinge">
           Free shows your last 12 months. Pro opens every month since your first entry, plus the full forecast and the
-          PDF report. Older entries are kept on Free either way.
+          PDF report; Family gives the same to two people. Older entries are kept on Free either way.
         </p>
         <p className="pub-fine lp-rate-fine">{VAT_NOTE}</p>
       </section>

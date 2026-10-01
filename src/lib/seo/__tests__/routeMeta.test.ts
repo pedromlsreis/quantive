@@ -15,7 +15,7 @@ describe('getRouteMeta', () => {
   it('returns the exact metadata for a known public route', () => {
     const meta = getRouteMeta('/pricing');
     expect(meta.path).toBe('/pricing');
-    expect(meta.title).toBe('Pricing - Quantive');
+    expect(meta.title).toBe('Pricing: Free, Pro and Family - Quantive');
     expect(meta.description).toContain('free forever');
   });
 

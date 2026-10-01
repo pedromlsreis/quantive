@@ -140,9 +140,10 @@ export default function SecurityPage() {
                   blob alone reveals nothing without your password.
                 </li>
                 <li>
-                  <strong>Cross-user attacks.</strong> The encrypted blob is cryptographically bound to your user ID.
-                  Even with full database write access, an attacker cannot move one user's data into another user's
-                  account without it failing to decrypt.
+                  <strong>Cross-user attacks.</strong> Your personal portfolio is cryptographically bound to your user
+                  ID, and a shared portfolio to its own ID. Even with full database write access, an attacker cannot
+                  move one user's data into another user's account, or one portfolio's into another, without it
+                  failing to decrypt.
                 </li>
                 <li>
                   <strong>A stolen or lost device, after sign-out.</strong> Your encryption key lives only in browser

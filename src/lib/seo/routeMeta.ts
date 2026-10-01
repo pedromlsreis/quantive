@@ -36,9 +36,9 @@ export const PUBLIC_ROUTES: RouteMeta[] = [
   },
   {
     path: '/pricing',
-    title: 'Pricing - Quantive',
+    title: 'Pricing: Free, Pro and Family - Quantive',
     description:
-      'Quantive is free forever. Pro adds full history, forecasts and exports: €9/month or €90/year. Family is Pro for two with shared portfolios: €120/year.',
+      'Quantive is free forever. Pro adds full history and forecasts: €9/month or €90/year. Family is Pro for two plus shared portfolios: €14/month or €120/year.',
   },
   {
     path: '/security',

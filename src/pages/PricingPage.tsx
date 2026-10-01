@@ -248,7 +248,7 @@ export default function PricingPage() {
         <header className="pp-head">
           <h1 className="pub-display">{PRICING_HEADLINE}</h1>
           <p className="pub-lede">
-            {PRICING_SUB} Pro is also available monthly, at €9. Family covers two people for €120 a year.
+            {PRICING_SUB} Both can also be paid monthly.
           </p>
         </header>
 
