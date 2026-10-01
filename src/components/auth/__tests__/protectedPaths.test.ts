@@ -6,7 +6,7 @@ import { PROTECTED_PATHS, isProtectedPath } from '../protectedPaths';
 // accidental addition / removal forces the test to be updated.
 
 describe('PROTECTED_PATHS — explicit list', () => {
-  it('exposes the eight known data routes in order', () => {
+  it('exposes the eight known data routes and the join page, in order', () => {
     expect(PROTECTED_PATHS).toEqual([
       '/dashboard',
       '/allocations',
@@ -16,6 +16,7 @@ describe('PROTECTED_PATHS — explicit list', () => {
       '/sources',
       '/settings',
       '/admin',
+      '/join',
     ]);
   });
 

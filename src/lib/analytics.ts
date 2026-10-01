@@ -1,4 +1,4 @@
-import posthog from 'posthog-js';
+import posthog, { type CaptureResult } from 'posthog-js';
 import { getConsent, subscribeConsent } from './consent';
 
 const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined;
@@ -51,6 +51,31 @@ export function clearAttribution(): void {
   }
 }
 
+/**
+ * A URL or path as analytics may see it: without its fragment, and with a
+ * /join/<invite id> collapsed to /join. The fragment can hold an invite
+ * secret (#k=, see inviteFragment.ts) or an auth callback's tokens; neither
+ * belongs in an event.
+ */
+export function scrubUrl(value: string): string {
+  return value.replace(/#.*$/s, '').replace(/\/join\/[^/?#]+/, '/join');
+}
+
+// Every string property shaped like a URL or a path goes through scrubUrl.
+// inviteFragment.ts already strips the secret from the address bar before
+// PostHog starts; this is the second layer, for anything that captured the
+// URL earlier or builds it another way.
+function scrubEvent(event: CaptureResult | null): CaptureResult | null {
+  if (!event) return event;
+  for (const props of [event.properties, event.$set, event.$set_once]) {
+    if (!props) continue;
+    for (const [key, value] of Object.entries(props)) {
+      if (typeof value === 'string' && /^(https?:\/\/|\/)/.test(value)) props[key] = scrubUrl(value);
+    }
+  }
+  return event;
+}
+
 function bootPosthog(): void {
   if (typeof window === 'undefined') return;
   if (!KEY) return;
@@ -63,6 +88,7 @@ function bootPosthog(): void {
     capture_pageleave: false,
     disable_session_recording: true,
     persistence: 'localStorage',
+    before_send: scrubEvent,
   });
   posthogInitialised = true;
 }
@@ -169,7 +195,7 @@ export type OnboardingStep = 'accounts' | 'recovery';
 
 export const analytics = {
   pageViewed(path: string): void {
-    capture('page_viewed', { path });
+    capture('page_viewed', { path: scrubUrl(path) });
   },
   signedUp(): void {
     capture('signed_up');
@@ -387,6 +413,26 @@ export const analytics = {
   /** Fired when a Family user creates an extra portfolio. No name attached. */
   portfolioCreated(): void {
     capture('portfolio_created');
+  },
+  /** Fired when an owner creates an invite link. No email or portfolio attached. */
+  inviteCreated(): void {
+    capture('invite_created');
+  },
+  /** Fired when a partner joins a portfolio through an invite. */
+  inviteAccepted(): void {
+    capture('invite_accepted');
+  },
+  /** Fired when an owner removes their partner from a portfolio. */
+  partnerRemoved(): void {
+    capture('partner_removed');
+  },
+  /** Fired when a partner leaves a portfolio shared with them. */
+  portfolioLeft(): void {
+    capture('portfolio_left');
+  },
+  /** Fired when an earlier version of an extra portfolio is restored. */
+  portfolioVersionRestored(): void {
+    capture('portfolio_version_restored');
   },
   /** Fired when current net worth crosses a goal's target. No amounts attached. */
   goalCompleted(): void {

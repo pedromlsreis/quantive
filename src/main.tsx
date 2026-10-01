@@ -1,3 +1,5 @@
+// First: takes an invite secret out of the URL before analytics can see it.
+import "./lib/inviteFragment";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 // Self-host the brand fonts so the first paint does not block on a Google

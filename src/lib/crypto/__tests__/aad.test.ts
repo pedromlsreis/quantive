@@ -99,7 +99,7 @@ describe('AAD: aadForRecoveryWrap', () => {
   });
 });
 
-describe('AAD: portfolio formats (§15.1.3)', () => {
+describe('AAD: portfolio formats (§6.4–§6.6)', () => {
   const PORTFOLIO = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
   const INVITE = '6ba7b811-9dad-11d1-80b4-00c04fd430c8';
   const u32 = (n: number) => {

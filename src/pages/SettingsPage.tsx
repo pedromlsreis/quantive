@@ -51,7 +51,7 @@ export default function SettingsPage() {
     checkSubscription();
   }, [checkSubscription]);
   const keySession = useKeySession();
-  const { data, activePortfolioId, activePortfolioName } = usePortfolio();
+  const { data, activePortfolioId, activePortfolioName, extraPortfolios } = usePortfolio();
   const { has } = useEntitlements();
   const canExportExcel = has('export.excel');
   const canExportCsv = has('export.csv');
@@ -371,7 +371,9 @@ export default function SettingsPage() {
                   : `Renews on ${formatDate(new Date(subscription.subscriptionEnd))}.`
                 : subscription.subscribed
                   ? undefined
-                  : `Pro adds your full history, forecasts, goals, and Excel and PDF export. ${PRO_PRICE_LINE}.`
+                  : subscription.familyMember
+                    ? 'Included with the Family plan you share.'
+                    : `Pro adds your full history, forecasts, goals, and Excel and PDF export. ${PRO_PRICE_LINE}.`
             }
           >
             <div className="q-set-inline">
@@ -381,7 +383,7 @@ export default function SettingsPage() {
                   {managingBilling ? 'Opening…' : 'Manage billing'}
                 </button>
               )}
-              {!subscription.subscribed && (
+              {!subscription.subscribed && !subscription.familyMember && (
                 <Link to="/pricing" className="q-btn q-btn--secondary q-btn--md">
                   Upgrade to Pro
                 </Link>
@@ -633,6 +635,8 @@ export default function SettingsPage() {
             <AlertDialogTitle>Delete your account?</AlertDialogTitle>
             <AlertDialogDescription>
               Your account, entries, profile and any feedback you sent are deleted permanently. This can't be undone.
+              {extraPortfolios.length > 0 &&
+                " A portfolio you share passes to your partner, who keeps it; your other portfolios are deleted. You also leave any portfolio shared with you."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

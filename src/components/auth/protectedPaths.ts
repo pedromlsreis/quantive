@@ -1,6 +1,7 @@
 /**
  * Routes that render decrypted portfolio data and therefore need an unlocked
- * DK in memory. Should mirror the data routes inside AppShell.
+ * DK in memory. Should mirror the data routes inside AppShell, plus /join,
+ * which is outside the shell but re-wraps a portfolio key under the DK.
  *
  * MAINTENANCE: if you add a new route in src/App.tsx APP_SHELL_PATHS that
  * reads encrypted user data, add it here too. The reciprocal comment lives
@@ -20,6 +21,7 @@ export const PROTECTED_PATHS = [
   '/sources',
   '/settings',
   '/admin',
+  '/join',
 ];
 
 export function isProtectedPath(pathname: string): boolean {

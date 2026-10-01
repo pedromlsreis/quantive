@@ -1,9 +1,10 @@
 // entry-reminders — daily cron that emails users who asked to be nudged to
 // update their balances and have gone a full cadence without syncing.
 //
-// Privacy: the decision uses only profiles.reminder_frequency and
-// portfolio_snapshots.updated_at (the last sync time, which the server already
-// stores). It never reads encrypted_data. No portfolio plaintext is involved.
+// Privacy: the decision uses only profiles.reminder_frequency and save times
+// the server already stores (portfolio_snapshots.updated_at, and
+// portfolios.saved_at for extra portfolios the user is a member of). It never
+// reads encrypted_data. No portfolio plaintext is involved.
 //
 // Auth: same shared CRON_SECRET as fx-ingest / benchmark-ingest. Not browser-
 // callable, so no CORS handling here.
@@ -15,6 +16,7 @@ import {
   cadenceLabel,
   isReminderDue,
   isReminderFrequency,
+  latestActivity,
   type ReminderFrequency,
 } from "./reminders.ts";
 
@@ -92,23 +94,30 @@ serve(async (req) => {
         continue;
       }
 
-      // Last sync time — the only activity signal we have, and one the server
-      // already knows. No snapshot row means the user never entered data, so
-      // there is nothing to remind them to update.
+      // Last save time — the only activity signal we have, and one the server
+      // already knows: the personal snapshot, or any extra portfolio the user
+      // is in (a save by a partner counts). None means the user never entered
+      // data, so there is nothing to remind them to update.
       const { data: snap, error: snapErr } = await admin
         .from("portfolio_snapshots")
         .select("updated_at")
         .eq("user_id", row.user_id)
         .maybeSingle();
-      if (snapErr) {
-        log("snapshot lookup failed", { user: row.user_id, error: snapErr.message });
+      const { data: memberships, error: memberErr } = await admin
+        .from("portfolio_members")
+        .select("portfolios(saved_at)")
+        .eq("user_id", row.user_id);
+      if (snapErr || memberErr) {
+        log("activity lookup failed", { user: row.user_id, error: (snapErr ?? memberErr)?.message });
         skipped++;
         continue;
       }
+      const extraSaves = ((memberships ?? []) as Array<{ portfolios: { saved_at: string } | null }>)
+        .map((m) => m.portfolios?.saved_at ?? null);
 
       const due = isReminderDue({
         frequency,
-        lastActivityAt: snap?.updated_at ?? null,
+        lastActivityAt: latestActivity([snap?.updated_at ?? null, ...extraSaves]),
         lastSentAt: row.reminder_last_sent_at,
         now,
       });

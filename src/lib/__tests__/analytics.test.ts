@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { captureAttribution, getAttribution, clearAttribution } from '../analytics';
+import { captureAttribution, getAttribution, clearAttribution, scrubUrl } from '../analytics';
 
 const STORAGE_KEY = 'quantive_utm';
 
@@ -73,5 +73,22 @@ describe('analytics attribution', () => {
     expect(stored.utm_source).toBe('reddit');
     expect((stored as Record<string, unknown>).foo).toBeUndefined();
     expect((stored as Record<string, unknown>).session_id).toBeUndefined();
+  });
+});
+
+describe('scrubUrl', () => {
+  it('drops the fragment, which can hold an invite secret or auth tokens', () => {
+    expect(scrubUrl('https://usequantive.app/reset-password#access_token=abc&type=recovery')).toBe('https://usequantive.app/reset-password');
+    expect(scrubUrl('https://usequantive.app/#faq')).toBe('https://usequantive.app/');
+  });
+
+  it('collapses an invite id to /join', () => {
+    expect(scrubUrl('https://usequantive.app/join/7d9f3c2e-1b4a-4c1e-9a55-0f6b2a1d8e40#k=secret')).toBe('https://usequantive.app/join');
+    expect(scrubUrl('/join/7d9f3c2e-1b4a-4c1e-9a55-0f6b2a1d8e40?utm_source=x')).toBe('/join?utm_source=x');
+  });
+
+  it('leaves other URLs as they are', () => {
+    expect(scrubUrl('https://usequantive.app/dashboard?utm_source=hn')).toBe('https://usequantive.app/dashboard?utm_source=hn');
+    expect(scrubUrl('/joinery')).toBe('/joinery');
   });
 });

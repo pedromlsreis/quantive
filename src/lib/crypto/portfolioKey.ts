@@ -1,5 +1,5 @@
 /**
- * Portfolio keys (PK) for extra portfolios. Spec: docs/security/encryption.md §15.1.
+ * Portfolio keys (PK) for extra portfolios. Spec: docs/security/encryption.md §5.2, §6.4–§6.6.
  *
  * Each extra portfolio has its own random PK. The PK encrypts the portfolio's
  * blob and is stored only wrapped: under each member's DK, and under a

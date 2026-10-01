@@ -10,6 +10,7 @@ export const ForecastPage = lazyRoute(() => import('@/pages/ForecastPage'));
 export const PerformancePage = lazyRoute(() => import('@/pages/PerformancePage'));
 export const GoalsPage = lazyRoute(() => import('@/pages/GoalsPage'));
 export const SettingsPage = lazyRoute(() => import('@/pages/SettingsPage'));
+export const JoinPage = lazyRoute(() => import('@/pages/JoinPage'));
 
 const APP_ROUTES_BY_PATH: Readonly<Record<string, PreloadableRoute>> = {
   '/dashboard': Index,

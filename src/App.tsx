@@ -36,6 +36,7 @@ import {
   ForecastPage,
   GoalsPage,
   Index,
+  JoinPage,
   PerformancePage,
   SettingsPage,
   SourcesPage,
@@ -167,6 +168,9 @@ function AppRoutes() {
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/demo" element={<DemoRedirect />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      {/* Outside the shell; it handles signed-out visitors itself, and
+          RequireUnlock prompts for the password (see PROTECTED_PATHS). */}
+      <Route path="/join/:inviteId" element={<JoinPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/security" element={<SecurityPage />} />

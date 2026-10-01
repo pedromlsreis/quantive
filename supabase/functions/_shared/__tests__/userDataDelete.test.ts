@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
-import { deleteUserData, ENCRYPTED_DATA_TABLES, USER_DATA_TABLES } from '../userDataDelete';
+import {
+  deleteAccountData,
+  deleteUserData,
+  ENCRYPTED_DATA_TABLES,
+  releaseOwnedPortfolios,
+  USER_DATA_TABLES,
+} from '../userDataDelete';
 
 interface Call {
   table: string;
@@ -7,10 +13,14 @@ interface Call {
   value: string;
 }
 
-function fakeClient(opts: { failOn?: Record<string, string> } = {}) {
+function fakeClient(opts: { failOn?: Record<string, string>; releaseError?: string } = {}) {
   const calls: Call[] = [];
   const failOn = opts.failOn ?? {};
   const client = {
+    async rpc(fn: 'release_owned_portfolios', args: { p_user_id: string }) {
+      calls.push({ table: `rpc:${fn}`, column: 'p_user_id', value: args.p_user_id });
+      return { error: opts.releaseError ? { message: opts.releaseError } : null };
+    },
     from(table: string) {
       return {
         delete() {
@@ -33,9 +43,10 @@ describe('USER_DATA_TABLES', () => {
     // Snapshot the contract so anyone adding a user-scoped table sees this
     // test fail and remembers to wire it into the deletion path. Consumed
     // by both self-delete (delete-account) and admin-delete (admin-users).
+    // Owned portfolios aren't listed: releaseOwnedPortfolios handles them first.
     expect([...USER_DATA_TABLES]).toEqual([
-      { table: 'portfolios', column: 'owner_id' },
       'portfolio_members',
+      'portfolio_key_history',
       'family_beta',
       'portfolio_snapshots',
       'feedback',
@@ -51,8 +62,8 @@ describe('ENCRYPTED_DATA_TABLES', () => {
     // reset-encrypted-data deletes in this order and stops at the first
     // failure, so data is never left behind without its key row.
     expect([...ENCRYPTED_DATA_TABLES]).toEqual([
-      { table: 'portfolios', column: 'owner_id' },
       'portfolio_members',
+      'portfolio_key_history',
       'portfolio_snapshots',
       'user_keys',
     ]);
@@ -65,8 +76,8 @@ describe('deleteUserData', () => {
     const result = await deleteUserData(client, 'user-123');
 
     expect(calls).toEqual([
-      { table: 'portfolios', column: 'owner_id', value: 'user-123' },
       { table: 'portfolio_members', column: 'user_id', value: 'user-123' },
+      { table: 'portfolio_key_history', column: 'user_id', value: 'user-123' },
       { table: 'family_beta', column: 'user_id', value: 'user-123' },
       { table: 'portfolio_snapshots', column: 'user_id', value: 'user-123' },
       { table: 'feedback', column: 'user_id', value: 'user-123' },
@@ -75,8 +86,8 @@ describe('deleteUserData', () => {
       { table: 'profiles', column: 'user_id', value: 'user-123' },
     ]);
     expect(result.deletedTables).toEqual([
-      'portfolios',
       'portfolio_members',
+      'portfolio_key_history',
       'family_beta',
       'portfolio_snapshots',
       'feedback',
@@ -95,8 +106,8 @@ describe('deleteUserData', () => {
     const result = await deleteUserData(client, 'user-123');
 
     expect(calls.map((c) => c.table)).toEqual([
-      'portfolios',
       'portfolio_members',
+      'portfolio_key_history',
       'family_beta',
       'portfolio_snapshots',
       'feedback',
@@ -105,8 +116,8 @@ describe('deleteUserData', () => {
       'profiles',
     ]);
     expect(result.deletedTables).toEqual([
-      'portfolios',
       'portfolio_members',
+      'portfolio_key_history',
       'family_beta',
       'portfolio_snapshots',
       'user_keys',
@@ -125,7 +136,7 @@ describe('deleteUserData', () => {
     });
     const result = await deleteUserData(client, 'user-xyz');
 
-    expect(result.deletedTables).toEqual(['portfolios', 'portfolio_members', 'family_beta', 'feedback', 'user_keys', 'user_roles']);
+    expect(result.deletedTables).toEqual(['portfolio_members', 'portfolio_key_history', 'family_beta', 'feedback', 'user_keys', 'user_roles']);
     expect(result.errors).toEqual([
       { table: 'portfolio_snapshots', message: 'connection refused' },
       { table: 'profiles', message: 'permission denied' },
@@ -181,5 +192,31 @@ describe('deleteUserData — call shape', () => {
     await deleteUserData(client, 'u1', ['profiles']);
     expect(fromSpy).toHaveBeenCalledWith('profiles');
     expect(eqSpy).toHaveBeenCalledWith('user_id', 'u1');
+  });
+});
+
+describe('releaseOwnedPortfolios / deleteAccountData', () => {
+  it('releases owned portfolios before any table is cleared', async () => {
+    const { client, calls } = fakeClient();
+    const result = await deleteAccountData(client, 'user-123');
+    expect(calls[0]).toEqual({ table: 'rpc:release_owned_portfolios', column: 'p_user_id', value: 'user-123' });
+    expect(calls.slice(1).map((c) => c.table)).toEqual([...USER_DATA_TABLES]);
+    expect(result.errors).toEqual([]);
+  });
+
+  it('touches no table when the release fails', async () => {
+    // A shared portfolio that failed to pass to the partner must stop the
+    // deletion; clearing member rows first would lock the partner out.
+    const { client, calls } = fakeClient({ releaseError: 'deadlock detected' });
+    const result = await deleteAccountData(client, 'user-123');
+    expect(calls.map((c) => c.table)).toEqual(['rpc:release_owned_portfolios']);
+    expect(result).toEqual({ deletedTables: [], errors: [{ table: 'portfolios', message: 'deadlock detected' }] });
+  });
+
+  it('reports the release error on its own', async () => {
+    const { client } = fakeClient({ releaseError: 'permission denied' });
+    expect(await releaseOwnedPortfolios(client, 'u1')).toEqual({ error: 'permission denied' });
+    const ok = fakeClient();
+    expect(await releaseOwnedPortfolios(ok.client, 'u1')).toEqual({ error: null });
   });
 });

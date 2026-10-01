@@ -1,7 +1,7 @@
 # End-to-End Encryption — Design
 
 **Status:** Implemented (v0.1 wire format = `enc_version = 1`)
-**Last updated:** 2026-09-30
+**Last updated:** 2026-10-01
 **Tracking issue:** [#33](https://github.com/pedromlsreis/quantive/issues/33)
 
 > This document is the source of truth for how Quantive encrypts user data. It is **public on purpose**: the encryption module is open-source under [`src/lib/crypto/`](../../src/lib/crypto/), and this design is meant to be reviewed by the community. If you spot something wrong, please open an issue.
@@ -22,15 +22,24 @@
 | Recovery flow round-trip + **byte-identical DK invariant** | [keySession/recovery.test.ts](../../src/lib/keySession/__tests__/recovery.test.ts) |
 | Change-password rotates wrap; recovery wrap untouched | [keySession/recovery.test.ts](../../src/lib/keySession/__tests__/recovery.test.ts) |
 | Encrypted-snapshot upsert + decode round-trip | [cloudSync.encrypted.test.ts](../../src/lib/__tests__/cloudSync.encrypted.test.ts) |
-| AAD framing for portfolio-key, portfolio-blob and invite wraps (§15.1.3) | [aad.test.ts](../../src/lib/crypto/__tests__/aad.test.ts) |
+| AAD framing for portfolio-key, portfolio-blob and invite wraps (§6.4–§6.6) | [aad.test.ts](../../src/lib/crypto/__tests__/aad.test.ts) |
 | **Portfolio isolation**: a PK wrap or blob fails under another user, portfolio, epoch or key | [portfolioKey.test.ts](../../src/lib/crypto/__tests__/portfolioKey.test.ts) |
-| Portfolio create / list / compare-and-swap save; a swapped blob is skipped, not shown | [portfolios.test.ts](../../src/lib/__tests__/portfolios.test.ts) |
+| Portfolio create / list / compare-and-swap save; a swapped blob is skipped, not shown; fact dates stored as calendar days | [portfolios.test.ts](../../src/lib/__tests__/portfolios.test.ts) |
+| Key rotation re-encrypts at the next epoch and the old key can no longer write; an earlier version opens with the retired key | [portfolios.test.ts](../../src/lib/__tests__/portfolios.test.ts) |
+| **Invite secret never reaches the server**; a changed secret or another invite's id is refused before any call; the partner's re-wrap opens with their DK only | [portfolioSharing.test.ts](../../src/lib/__tests__/portfolioSharing.test.ts) |
+| Invite secret taken out of the address bar before the app starts; analytics never carries a URL fragment or an invite id | [inviteFragment.test.ts](../../src/lib/__tests__/inviteFragment.test.ts), [analytics.events.test.ts](../../src/lib/__tests__/analytics.events.test.ts) |
+| Concurrent edits: unsaved edits replayed on the stored version, applying an edit twice changes nothing, a clashing rename is dropped with a message | [portfolioOps.test.ts](../../src/lib/__tests__/portfolioOps.test.ts), [portfolioSync.test.ts](../../src/lib/__tests__/portfolioSync.test.ts) |
+| **RLS, triggers and sharing functions** on an in-memory Postgres with the real migrations: isolation, one-time invites, the partner seat, rotation, revisions, ownership transfer | [portfolioSharing.sql.test.ts](../../supabase/tests/portfolioSharing.sql.test.ts) |
+| The same, against the live project as two signed-in users (run locally; needs the E2E test users) | [rls-portfolios.spec.ts](../../e2e/rls-portfolios.spec.ts) |
+| Invite, join, concurrent edits and removal in two browsers | [family-sharing.spec.ts](../../e2e/family-sharing.spec.ts) |
 
 ---
 
 ## 1. TL;DR
 
 Portfolio data (`portfolio_snapshots.data`) is encrypted in the user's browser **before** it ever reaches the server. The server stores ciphertext only; a full database leak reveals no portfolio contents. Encryption keys are derived from the user's password using Argon2id; data is encrypted with XChaCha20-Poly1305 with per-encryption random nonces. A separate, opt-in 24-word recovery code can be used to recover access if the password is forgotten.
+
+With the Family plan a user can keep extra portfolios, each under its own key, and share one with a partner. The key travels to the partner in an invite link the owner sends themselves; the server never holds anything that opens a shared portfolio (§5.2, §8.7–§8.10).
 
 We do **not** claim to defend against an actively malicious server, a compromised browser, or a forgotten password without a recovery code. Section 13 enumerates exactly what we don't protect against.
 
@@ -44,6 +53,7 @@ We do **not** claim to defend against an actively malicious server, a compromise
 - Authenticated key derivation tied to the user's account password.
 - Optional, opt-in recovery via a 24-word code generated at signup.
 - A clean migration path for existing users with plaintext snapshots.
+- Extra portfolios per account, each under its own portfolio key, and sharing one with a partner who has their own account (Family plan, [#38](https://github.com/pedromlsreis/quantive/issues/38); §5.2, §6.4–§6.6, §7.3, §8.7–§8.10, §9.3).
 
 ### Out of scope (v1)
 
@@ -51,7 +61,7 @@ We do **not** claim to defend against an actively malicious server, a compromise
 - Encryption of feedback messages.
 - Encryption of email addresses or auth metadata (Supabase auth requires plaintext email for password reset / magic links).
 - Multi-device "trust this device" flows (would require storing a wrapped key locally — deferred).
-- Multiple portfolios per account and sharing encrypted data between users ([#38](https://github.com/pedromlsreis/quantive/issues/38)). Designed for the Family plan but not implemented; the design is in §15.1.
+- Sharing with more than one person, and sharing the personal portfolio. A portfolio is shared with at most one partner, and the personal portfolio is never shared (§5.2).
 - Subresource integrity (SRI) on the two third-party `script-src` origins (`js.stripe.com`, `eu.i.posthog.com`/`eu-assets.i.posthog.com`). The decision and rationale are documented in [`sri-policy.md`](./sri-policy.md). Stripe.js is not loaded from our HTML at all (billing is a hosted-Checkout redirect, not Stripe Elements); PostHog's bundled core ships inside our hashed, immutable assets, and the dynamically-loaded extension bundles have no published per-version hashes to pin against. Reproducible build pipelines remain out of scope (see §16 for why this matters and §15 for the path forward).
 
 ---
@@ -66,6 +76,7 @@ The system MUST guarantee, under the assumed adversary capabilities (§3.3):
 2. **Integrity.** The server cannot tamper with stored ciphertext without detection on decryption.
 3. **User-binding.** The server cannot substitute one user's ciphertext for another user's ciphertext without the substitution being detected on decryption (binding via AAD; §6).
 4. **Forward independence of password change.** Changing the account password re-wraps the data key only; existing snapshot ciphertexts remain valid and require no re-encryption.
+5. **Portfolio isolation.** An extra portfolio opens only with its own key. Being someone's partner gives no access to either person's personal portfolio, and the server never holds a key that opens a shared portfolio, including while an invitation is pending.
 
 ### 3.2 Non-goals
 
@@ -73,20 +84,24 @@ The system does NOT defend against:
 
 1. An **actively malicious server** that ships modified JavaScript to the user's browser. The server can serve a malicious build that exfiltrates the password during entry. This is a fundamental limitation of web-based E2E (Bitwarden, Standard Notes, ProtonMail share it). Mitigations exist (SRI, signed builds, native clients) but are out of scope for v1. See §16.
 2. A **compromised user device**: malware, keyloggers, malicious browser extensions, or screen-recording software.
-3. **Metadata leakage**: row counts, snapshot sizes, update timestamps, the user's email address, the existence of an account. The server *does* see all of these.
+3. **Metadata leakage**: row counts, snapshot sizes, update timestamps, the user's email address, the existence of an account, and for shared portfolios who shares with whom, the invitee's email address and the invite and membership timestamps. The server *does* see all of these.
 4. **Forgotten password without recovery code.** If the user has not opted into a recovery code and forgets their password, the data is permanently unrecoverable. This is a feature, not a bug, of true E2E.
 5. **Coercion.** A user compelled to disclose their password disclosed everything.
 6. **Supply chain attacks** on transitive npm dependencies (mitigated by lockfile pinning + `npm audit`, but not eliminated).
+7. **Rollback of a shared portfolio across sessions.** The server can withhold a write or serve an older revision. A browser notices a stale revision only when its own compare-and-swap fails (§9.3); nothing detects an older version served to a fresh session.
 
 ### 3.3 Adversary capabilities (assumed)
 
 | Adversary | Capability | What they can / can't do |
 |---|---|---|
-| **Passive database read** (leaked backup, malicious DBA, subpoena of stored data) | Reads any row in any table | Cannot decrypt portfolio data. Sees emails, timestamps, row sizes. |
-| **Active server (transient)** | Modifies stored data without modifying served JS | Detected: AAD-bound integrity check fails on next decrypt. |
+| **Passive database read** (leaked backup, malicious DBA, subpoena of stored data) | Reads any row in any table | Cannot decrypt portfolio data. Sees emails, timestamps, row sizes, who shares with whom, and invitees' emails. An invite row holds the portfolio key wrapped under a secret the server never sees. |
+| **Active server (transient)** | Modifies stored data without modifying served JS | Detected: AAD-bound integrity check fails on next decrypt. Cannot give a partner a key of its choosing: a wrap under the invite secret verifies only for someone who knows the secret. Can withhold writes or serve an older revision (§3.2.7). |
 | **Active server (persistent)** | Modifies stored data AND the served JavaScript | Wins. Out of scope (§3.2.1). |
 | **Network MitM** | Reads / modifies TLS-protected traffic | Stopped by HTTPS + HSTS; we do not add app-level signing on top. |
 | **Other authenticated user** | Has a valid account on the same Supabase project | Stopped by Postgres RLS + AAD binding to user_id. |
+| **Partner** (Family) | Member of a shared portfolio | Reads and writes the shared portfolio, by design. Cannot read either person's personal portfolio (different key, user-bound AAD). Cannot remove the owner, change anyone's wrapped key, rotate the key or invite anyone (§7.3). Can overwrite the shared portfolio with valid but wrong content; the last 20 versions are kept and can be restored (§9.3). |
+| **Removed partner** | Was a member | Loses server access at once (RLS). Keeps what they already saw, and may have kept the portfolio key from memory. After the rotation (§8.9) that key opens nothing written from then on. Versions from before the rotation stay readable with it only if they get the ciphertext some other way, such as a database leak; that is data they already had. |
+| **Anyone holding an invite link** | Has the URL, including its secret | Cannot join without signing in as the invited email address, confirmed. The link works once, expires after 7 days, and stops working when the key rotates. |
 | **Online credential guessing / signup abuse** (bots, credential stuffing) | Automated requests against the auth endpoints | Throttled by GoTrue rate limits and gated by Cloudflare Turnstile CAPTCHA. Perimeter only: it raises the cost of *online* guessing but is not part of the cryptographic guarantee. A leaked database is still gated by Argon2id (§4.2), not by this. |
 
 ### 3.4 Trust boundary
@@ -183,8 +198,36 @@ Argon2id is the OWASP recommendation, the libsodium default for `crypto_pwhash`,
 | DK | once at signup, random | yes, **wrapped** | until logout / tab close |
 | Recovery code | once at signup if opted in | never (user holds) | only when entered for recovery |
 | Recovery KEK | derived from recovery code | never | only during recovery flow |
+| Portfolio key (PK) | when an extra portfolio is created, and at each rotation (§8.9) | yes, **wrapped**: once per member under their DK, and under S while an invite is pending | with the DK: zeroed on lock, logout, user change and tab close |
+| Invite secret (S) | per invitation, in the owner's browser | never | owner's browser until the link is shown; partner's browser from opening the link until they join |
 
 The DK is generated **once at signup** and never rotates by default. This means a single compromised KEK at any point in the user's history exposes all snapshots. For most users this is fine; for paranoid users we may add an explicit "rotate data key" flow later (re-encrypts every snapshot with a new DK).
+
+### 5.2 Portfolio keys (extra portfolios and sharing)
+
+```
+DK (per user) ──wraps──► PK_p (32B, one per extra portfolio p)
+                            │  stored wrapped, once per member (portfolio_members.wrapped_pk)
+                            ▼
+               portfolio blob ciphertext (portfolios.encrypted_data)
+
+S (32B invite secret, URL fragment only) ──wraps──► PK_p   (single use, while an invite is pending)
+```
+
+- **PK_p** is random, generated by the owner's browser when the portfolio is created. It is stored only wrapped: under each member's DK, and under S while an invitation is pending. In memory it has the DK's lifetime (§12).
+- **S** is random, generated per invitation. It exists only in the owner's browser, in the invite link, and in the partner's browser while they accept. It never reaches the server (§8.8).
+- Every wrap uses the §7.1 wire format: `nonce(24) || ciphertext_with_tag`, 72 bytes for a 32-byte key.
+- **No new primitives.** Sharing uses the same XChaCha20-Poly1305 wrap as the rest of this document; there is no public-key cryptography (§5.3).
+
+The personal portfolio does not move to a portfolio key. It keeps its key, AAD and storage (§5, §6.2, §9.1), its ciphertext was never re-encrypted, and it is never shared. Its AAD binds it to the user (§3.1.3), which is a stronger guarantee than binding to a portfolio.
+
+### 5.3 Why an invite link rather than public keys
+
+An earlier plan wrapped PK to each member's public key with libsodium `crypto_box`. It was dropped:
+
+- **Authenticity.** Public keys would be fetched from the server, so a malicious server could hand the owner its own key at invite time. Ruling that out needs both people to compare a fingerprint over another channel. The invite link already travels over another channel, and it carries the key itself.
+- **Surface.** Public keys add a keypair per user, a wrapped private key, and another primitive to audit and maintain.
+- **Cost.** Quantive cannot email the invitation; the owner sends the link themselves. That is accepted as the price of the server never being able to open a shared portfolio.
 
 ---
 
@@ -213,6 +256,30 @@ A server attempting to copy `user_A`'s snapshot ciphertext into `user_B`'s row w
 ```
 AAD = "nwa-rec-v1" || 0x00 || user_uuid_bytes (16B)
 ```
+
+### 6.4 AAD for wrapping a portfolio key under a member's DK
+
+```
+AAD = "nwa-pk-v1" || 0x00 || user_uuid (16B) || portfolio_uuid (16B) || key_epoch_le_u32 (4B)
+```
+
+Bound to both the member and the portfolio: the server cannot move one member's wrapped PK to another member or another portfolio without decryption failing.
+
+### 6.5 AAD for a portfolio blob
+
+```
+AAD = "nwa-pf-v1" || 0x00 || portfolio_uuid (16B) || key_epoch_le_u32 (4B) || enc_version_le_u32 (4B)
+```
+
+Bound to the portfolio rather than a user, because either member may write it.
+
+### 6.6 AAD for wrapping a portfolio key under an invite secret
+
+```
+AAD = "nwa-inv-v1" || 0x00 || invite_uuid (16B) || portfolio_uuid (16B) || key_epoch_le_u32 (4B)
+```
+
+`key_epoch` starts at 1 and increases with every rotation (§8.9). A wrap or blob cannot be presented under another epoch without detection, and an invitation made before a rotation cannot be redeemed after it. The portfolio and invite ids are generated by the client, because they are bound into the AAD before the rows exist.
 
 ---
 
@@ -286,6 +353,29 @@ ALTER TABLE public.portfolio_snapshots
 ```
 
 The legacy plaintext column is retained in the schema for forensic reasons only — every supported row has it `NULL`. See §11 for the migration history.
+
+### 7.3 Extra portfolios and sharing
+
+Migrations [`20260930120000_portfolios.sql`](../../supabase/migrations/20260930120000_portfolios.sql) and [`20261001120000_portfolio_sharing.sql`](../../supabase/migrations/20261001120000_portfolio_sharing.sql).
+
+| Table | Holds | Who can write |
+|---|---|---|
+| `portfolios` | `owner_id`, blob ciphertext and nonce, `enc_version`, `revision`, `key_epoch`, `rotation_due`, `saved_at`/`saved_by` | Only through database functions; clients have no INSERT or UPDATE. The owner may DELETE. `revision` is set by the functions, never by a client. |
+| `portfolio_members` | One row per member: `wrapped_pk`, `key_epoch` | Inserted only by functions; no UPDATE. DELETE lets a partner leave and the owner remove the partner. Nobody can delete the owner's row. |
+| `portfolio_invites` | `invitee_email` (lower-case), PK wrapped under S, `key_epoch`, `expires_at` (7 days), consumption fields | Only through functions, except that the owner may DELETE (revoke) a pending invite. The wrapped PK is cleared when the invite is accepted; expired invites are purged daily. |
+| `family_partners` | One `partner_id` per owner | Only through functions. A trigger rejects any member other than the owner who is not the owner's partner, and frees the seat once the partner is in none of the owner's portfolios. |
+| `portfolio_revisions` | The last 20 ciphertexts a save replaced, with who saved them and when | A trigger. Members can read them to restore a version (§9.3). |
+| `portfolio_key_history` | The owner's wrap of each retired PK | Written by `rotate_portfolio_key`. Readable only by that owner, to open versions from before a rotation. The removed partner already had these keys, so keeping them costs nothing. |
+
+`portfolios.owner_id` is the only record of ownership. Every table has RLS: a portfolio and its rows are visible only to its owner and members; invites only to their creator. The database functions are:
+
+- `create_portfolio`: sets the owner to the caller; at most 5 per owner.
+- `save_portfolio`: a compare-and-swap on `revision` and `key_epoch` that returns `ok`, `conflict` or `forbidden`.
+- `create_portfolio_invite`: the caller must own the portfolio and have the Family plan, no rotation may be due, and the epoch must be current. Once the seat is taken, invites can only go to that partner. A new invite replaces the pending one.
+- `get_portfolio_invite` and `accept_portfolio_invite`: see §8.8. Statuses that describe the invite come only after the caller's email matches, so a stranger holding the id learns only that it isn't theirs.
+- `rotate_portfolio_key`: owner only, and only once the owner is the only member left.
+- `list_portfolio_people`: the members of the caller's portfolios, with their email addresses.
+- `release_owned_portfolios`: service role only; see §8.10.
 
 ---
 
@@ -383,7 +473,7 @@ The Supabase email-based password reset flow rotates the account credential, but
 Outcome (3) is consistent with the threat model (§3.2.4) but is operationally distinct enough to be called out separately: it can happen even to a user who *remembers* their password but resets "just in case", and our UI must surface this before the reset is confirmed. The reset page in the app shows an explicit warning when the account is in the encrypted-no-recovery state, and the user must tick a box accepting the loss.
 
 On submit, the reset page first calls the [`reset-encrypted-data`](../../supabase/functions/reset-encrypted-data/index.ts) edge function, then changes the password:
-- The function deletes the user's `portfolio_snapshots` row, then their `user_keys` row, stopping at the first failure. The next unlock then provisions fresh keys (§8.1) and the account starts empty.
+- The function first passes any extra portfolio the user shares to the partner, who can still open it, and deletes the user's other extra portfolios (§8.10). It then deletes the user's portfolio memberships and retired portfolio keys, their `portfolio_snapshots` row and finally their `user_keys` row, stopping at the first failure. The next unlock provisions fresh keys (§8.1) and the account starts empty.
 - The function only runs for a session opened from an emailed link (amr method `otp`) within the last hour. A session opened with a password, including a stolen one, cannot wipe data.
 - If the wipe fails, the password is not changed.
 
@@ -407,13 +497,15 @@ Action:
       portfolio-custom-milestones
       recovery-offered:<previousUserId>
       onboarding-dismissed:<previousUserId>
-      active-portfolio:<previousUserId>       // last-open extra portfolio (§15.1)
+      active-portfolio:<previousUserId>       // last-open extra portfolio (§9.3)
   - sessionStorage.removeItem:
       welcome-invoked:<previousUserId>
   - clearAttribution()                       // UTM key from analytics
   - QueryCacheGuard separately clears React Query cache
   - KeySessionContext separately zeros KEK/DK
 ```
+
+The invite secret S (§8.8) is never written to storage, so the watcher has nothing to wipe for it; it lives in a module variable and is zeroed once used.
 
 A `beforeunload` handler on authed users wipes the same data + draft keys as defence-in-depth against tab close without explicit sign-out. JS gives no guarantee here, but it raises the bar against another user opening the browser and seeing a previous tab's cache.
 
@@ -422,6 +514,83 @@ The guest-load effect (which rehydrates a guest cache on page load) is gated on 
 What survives the watcher by design: `sb-*` (Supabase auth, cleared by `supabase.auth.signOut()`), `quantive_analytics_consent` (intentional cross-session), and `pref-*` / `preferred-currency` (preferences, not data — server profile rehydrates on next login).
 
 `/settings` and `/admin` are auth-gated via `RequireAuth`; other shell routes stay guest-accessible because they double as demo entry points and now have no cache to leak.
+
+### 8.7 Create an extra portfolio (owner)
+
+```
+1. pid     = uuid v4 (client)
+   PK      = randombytes(32)
+2. wrap    = AEAD_encrypt(key=DK, nonce, PK, aad=AAD_pk(user, pid, epoch=1))      // §6.4
+3. ct      = AEAD_encrypt(key=PK, nonce, JSON(portfolio + name), aad=AAD_pf(pid, 1, enc_version))   // §6.5
+4. create_portfolio(pid, wrap, ct, nonce)
+```
+
+The portfolio's name is inside the ciphertext; the server stores no plaintext name.
+
+### 8.8 Invite and accept
+
+```
+Owner:
+1. S        = randombytes(32)
+   iid      = uuid v4
+2. wrap_inv = AEAD_encrypt(key=S, nonce, PK, aad=AAD_inv(iid, pid, epoch))     // §6.6
+3. create_portfolio_invite(iid, pid, invitee_email, wrap_inv, epoch)
+4. link     = https://<origin>/join/<iid>#k=<base64url(S)>
+   Shown once; the owner sends it through a channel of their choice.
+   Zero(S)
+
+Partner:
+5. Opens the link. Before the app starts, the page reads S from the
+   fragment into memory and removes it from the address bar.
+6. Signs in with the invited email address (confirmed) and unlocks (§8.3).
+7. get_portfolio_invite(iid) → wrap_inv, pid, epoch. Returned only to that account.
+8. PK       = AEAD_decrypt(key=S, nonce, wrap_inv, aad=AAD_inv(iid, pid, epoch))
+   Fails if S, iid, pid or epoch differ; nothing is sent in that case.
+9. wrap_p   = AEAD_encrypt(key=DK_partner, nonce, PK, aad=AAD_pk(partner, pid, epoch))
+10. accept_portfolio_invite(iid, wrap_p)
+    Locks the portfolio row, then in one UPDATE consumes the invite
+    (pending, unexpired, current epoch) and clears wrap_inv; takes the
+    partner seat; inserts the member row.
+11. Zero(S), Zero(PK)
+```
+
+- Browsers do not send URL fragments in requests or in `Referer` headers.
+- [`inviteFragment.ts`](../../src/lib/inviteFragment.ts) is the first import of the app entry, so S is out of the address bar before analytics or the router start. Analytics also strips any fragment from every URL it sends and collapses `/join/<id>` to `/join`.
+- Joining takes both factors: the link (for S) and a signed-in, confirmed account for the invited email address.
+- The row the server keeps is useless without S.
+- A new partner who still has to confirm their email address can come back to the same tab afterwards; after a reload, S is gone and the link has to be opened again.
+
+### 8.9 Removing the partner, or the partner leaving
+
+```
+1. The member row is deleted: by the owner (remove), or by the partner (leave).
+   RLS cuts the partner's access at once. A trigger sets rotation_due and
+   deletes any invite still pending.
+2. The owner's browser rotates the key: straight away after a removal, or
+   on its next load when the partner left.
+     PK'    = randombytes(32)
+     epoch' = epoch + 1
+     ct'    = AEAD_encrypt(key=PK', nonce, plaintext, aad=AAD_pf(pid, epoch', enc_version))
+     wrap'  = AEAD_encrypt(key=DK_owner, nonce, PK', aad=AAD_pk(owner, pid, epoch'))
+     rotate_portfolio_key(pid, expected_revision, epoch, ct', nonce, wrap')
+   The function keeps the owner's previous wrap in portfolio_key_history.
+3. Invitations made before the rotation wrap the old PK under the old
+   epoch, and are rejected.
+```
+
+Rotation re-wraps PK' for the owner only. That is complete because a portfolio has a single partner seat: once the partner is gone, the owner is the only member left, and `rotate_portfolio_key` refuses to run while anyone else is. A design with more seats would have to re-wrap PK' for every remaining member.
+
+### 8.10 Account deletion and resetting encrypted data
+
+Both run [`release_owned_portfolios`](../../supabase/migrations/20261001120000_portfolio_sharing.sql) before the user's own rows are deleted:
+
+- A portfolio the user owns that has a partner passes to the partner, who already holds its key. The user's member row then goes, which sets `rotation_due`, so the new owner re-keys it on their next load.
+- A portfolio without a partner is deleted.
+- `portfolios.owner_id` is `ON DELETE RESTRICT`. If the release fails, the deletion stops instead of cascading a partner's data away.
+
+The same applies to the wipe after a password reset without a recovery code (§8.5): the user can no longer open their portfolio keys, but their partner can.
+
+When a partner deletes their account, their member row goes, `rotation_due` is set and the seat frees.
 
 ---
 
@@ -469,6 +638,29 @@ The `ON CONFLICT (user_id)` upsert depends on the unique constraint added in [#3
 
 3. portfolio = JSON.parse(plaintext)
 ```
+
+### 9.3 Save and load an extra portfolio
+
+Loading lists every portfolio the user is a member of, unwraps each PK with the DK (§6.4) and decrypts each blob (§6.5). A portfolio that fails to open is skipped and counted, so it cannot hide the others.
+
+Two people can write the same blob, so a save is a compare-and-swap, and edits are kept as operations until they are saved ([`portfolioOps.ts`](../../src/lib/portfolioOps.ts), [`portfolioSync.ts`](../../src/lib/portfolioSync.ts)):
+
+```
+1. Each edit (an entry, a source rename, a goal, …) is applied to what is on
+   screen and queued as an op.
+2. One write at a time: encrypt(stored version + queued ops) and call
+   save_portfolio(pid, expected_revision, key_epoch, ct, nonce, enc_version).
+3. ok        → the written content becomes the stored version; those ops are done.
+   conflict  → someone saved first. Fetch and decrypt their version, apply the
+               queued ops to it again, and write again.
+   forbidden → access is gone (removed, or the portfolio was deleted). Stop.
+```
+
+- Applying an op twice changes nothing, because a save can land while its response is lost.
+- An op that no longer applies after a replay is dropped with a message, for example renaming a source to a name the partner just used. Replacing everything (a spreadsheet import, or restoring a version) is dropped rather than replayed, so it cannot silently wipe the other person's edits.
+- Fact dates in an extra portfolio are stored as calendar days (`YYYY-MM-DD`) and read as local midnight, so partners in different time zones see the same day.
+- A partner's saves appear when the window regains focus; there is no realtime channel.
+- Each save keeps the version it replaced (`portfolio_revisions`, last 20). Restoring one saves it as a new version, so the restore can itself be undone.
 
 ---
 
@@ -527,6 +719,8 @@ JavaScript provides no hard memory-zeroing guarantee due to garbage collection. 
 - On `logout()`: zero KEK and DK, drop references.
 - On `beforeunload`, and after an idle timeout (default 15 minutes; configurable in Settings as off, 5, 15, 30 or 60 minutes): zero KEK and DK and force a re-prompt on the next action. Background tabs throttle timers, so the timeout is also checked on `visibilitychange` when the tab becomes visible again.
 - KEK and DK are **never** placed in `localStorage`, `sessionStorage`, IndexedDB, or any persistent store.
+- Portfolio keys follow the DK: held in the same in-memory store and zeroed with it on lock, logout and user change. A key replaced by a rotation is zeroed.
+- The invite secret S is held in memory from the moment the page reads it until the invite is accepted, then zeroed. It is never stored.
 
 A hostile script running in the same origin (XSS) bypasses all of this — see §13.
 
@@ -542,13 +736,15 @@ We will publish exactly this list on the public privacy / security page so users
 
 3. **Cross-site scripting (XSS)** in our own application. A successful XSS in a logged-in tab can read the in-memory KEK and DK. Mitigations: strict CSP, input sanitization, code review, dependency auditing. We do not claim the codebase is XSS-free; we claim we follow standard practices and welcome reports.
 
-4. **Metadata leakage.** The server sees: account existence, email, login timestamps, snapshot sizes (which leak rough portfolio complexity), update frequencies. None of this is encrypted.
+4. **Metadata leakage.** The server sees: account existence, email, login timestamps, snapshot sizes (which leak rough portfolio complexity), update frequencies, and for shared portfolios who shares with whom and the invitee's email address. None of this is encrypted.
 
 5. **Supply chain attacks** on transitive npm dependencies. Lockfile pinning + `npm audit` + Dependabot mitigate but do not eliminate.
 
 6. **Forgotten password without recovery code.** Permanent data loss. By design.
 
 7. **Coercion.** Legal, physical, or social pressure to disclose the password.
+
+8. **A partner keeping what they saw.** A partner can read, export or copy a shared portfolio while they are a member. Removing them and rotating the key stops access to what is written afterwards, not to what they already had.
 
 ---
 
@@ -572,159 +768,11 @@ Out of scope for v1, tracked separately:
 - **Signed bundles** (mitigates active malicious server). Couples to [#37](https://github.com/pedromlsreis/quantive/issues/37) (own domain) where we control the deploy pipeline. Subresource Integrity is *not* in this list — see [`sri-policy.md`](./sri-policy.md) for why pinning hashes on the current third-party origins is counter-productive given the vendor stability guarantees on offer.
 - **Multi-device "remember me"** via a device key wrapped in a hardware-backed CryptoKey (WebAuthn / Passkeys).
 - **Data key rotation** flow for paranoid users (the password wrap and recovery wrap can already rotate independently; the underlying DK does not).
-- **Multiple portfolios and encrypted sharing** between users for [#38](https://github.com/pedromlsreis/quantive/issues/38) (the Family plan). Design in §15.1.
+- **More than one partner per portfolio.** Rotation would have to re-wrap the new key for every remaining member (§8.9), and the partner seat would become a list.
+- **Detecting rollback of a shared portfolio** across sessions (§3.2.7), for example with a revision counter each member signs and remembers.
+- **Realtime updates between partners.** Today a partner's saves appear when the window regains focus (§9.3).
 - **PAKE-based authentication** (OPAQUE / SRP-6a) so the password is never sent to the server even for auth. Eliminates the "Supabase auth sees password" caveat. Requires replacing Supabase auth or layering custom auth.
 - **Third-party security audit** by a recognized firm (Trail of Bits, NCC Group, Cure53). Targeted at the crypto module + auth flow. Funded post-revenue.
-
-### 15.1 Portfolio keys and sharing (Family plan)
-
-**Status: partly implemented.** Extra portfolios for a single user are built: the portfolio key, its wrap under the DK, the portfolio blob, `portfolios` and `portfolio_members`, and `create_portfolio` / `save_portfolio` ([migration](../../supabase/migrations/20260930120000_portfolios.sql), [`portfolioKey.ts`](../../src/lib/crypto/portfolioKey.ts), [`portfolios.ts`](../../src/lib/portfolios.ts)). They are available only to accounts in the Family beta. Sharing (invites, `family_partners`, key rotation, `portfolio_revisions`) is designed and not built; the invite-wrap AAD and functions exist in the crypto module but nothing calls them yet. When sharing ships, this section moves into §3 and §5–§9, and this status line goes.
-
-#### 15.1.1 Goals
-
-1. A user can hold more than one portfolio. The personal portfolio keeps its current key, AAD and storage (§5, §6.2, §9), and existing ciphertext is not re-encrypted.
-2. An extra portfolio can be shared with one partner. The partner has their own account, password, DK and recovery code, and can read and write the shared portfolio.
-3. The server never holds a key that opens a shared portfolio, including while an invitation is pending.
-4. No new primitives. Sharing uses the same XChaCha20-Poly1305 wrap as the rest of this document; there is no public-key cryptography.
-
-The personal portfolio does not move to a portfolio key. Its AAD binds it to the user (§3.1.3), which is a stronger guarantee than binding to a portfolio, and under this design it is never shared.
-
-#### 15.1.2 Key hierarchy
-
-```
-DK (per user, §5) ──wraps──► PK_p (32B, one per extra portfolio p)
-                                │  stored wrapped, once per member
-                                ▼
-                   portfolio blob ciphertext (portfolios.encrypted_data)
-
-S (32B invite secret, URL fragment only) ──wraps──► PK_p   (single-use, while an invite is pending)
-```
-
-- **PK_p** is random, generated by the owner's browser when the portfolio is created. It is stored only wrapped: under each member's DK, and under S while an invitation is pending. In memory it has the same lifetime as the DK and is zeroed with it (§12).
-- **S** is random, generated per invitation. It exists only in the owner's browser, in the invite link, and in the partner's browser while they accept. It never reaches the server.
-- Every wrap uses the §7.1 wire format: `nonce(24) || ciphertext_with_tag`, 72 bytes for a 32-byte key.
-
-#### 15.1.3 AAD (additions to §6)
-
-```
-PK wrapped under a member's DK:
-  "nwa-pk-v1"  || 0x00 || user_uuid (16B) || portfolio_uuid (16B) || key_epoch_le_u32 (4B)
-
-Portfolio blob:
-  "nwa-pf-v1"  || 0x00 || portfolio_uuid (16B) || key_epoch_le_u32 (4B) || enc_version_le_u32 (4B)
-
-PK wrapped under an invite secret:
-  "nwa-inv-v1" || 0x00 || invite_uuid (16B) || portfolio_uuid (16B) || key_epoch_le_u32 (4B)
-```
-
-- The blob is bound to the portfolio rather than a user, because either member may write it.
-- A member's wrap is bound to both the user and the portfolio. The server cannot move one member's wrapped PK to another member or another portfolio without decryption failing.
-- `key_epoch` starts at 1 and increases on every rotation (§15.1.5). A wrap or blob cannot be presented under a different epoch without detection, and an invitation created before a rotation cannot be redeemed after it.
-
-#### 15.1.4 Storage (additions to §7)
-
-| Table | Holds | Who can write |
-|---|---|---|
-| `portfolios` | `owner_id`, blob ciphertext and nonce, `enc_version`, `revision`, `key_epoch`, `rotation_due` | Only through database functions. Clients have no direct INSERT or UPDATE. `revision` is set by a trigger. |
-| `portfolio_members` | One row per member: `wrapped_pk`, `key_epoch` | Rows are inserted only by functions. No UPDATE. DELETE is allowed for a partner leaving, or for the owner removing the partner. Nobody can delete the owner's row. |
-| `portfolio_invites` | `invitee_email` (lower-case), PK wrapped under S, `key_epoch`, `expires_at` (7 days), consumption fields | Only through functions. The wrapped PK is set to NULL when the invite is accepted, and expired invites are purged. |
-| `family_partners` | One `partner_id` per owner | Only through functions. A trigger rejects any non-owner member who is not the owner's partner. |
-| `portfolio_revisions` | The last 20 ciphertexts per portfolio | A trigger. Used to restore a portfolio after a bad write. |
-
-`portfolios.owner_id` is the only record of ownership. All tables have RLS: a portfolio and its rows are visible only to its owner and members.
-
-The database functions are:
-- `create_portfolio`: sets the owner to the caller.
-- `save_portfolio`: a compare-and-swap on `revision` that returns `ok`, `conflict` or `forbidden`.
-- `rotate_portfolio_key`: owner only.
-- `create_portfolio_invite`: the caller must own the portfolio and hold the plan.
-- `accept_portfolio_invite`: consumes the invite in a single statement. The invite must be unconsumed, unexpired, of the current epoch, and addressed to the caller's confirmed email.
-
-#### 15.1.5 Flows (additions to §8)
-
-**Create a portfolio (owner):**
-
-```
-1. pid     = uuid v4 (client)
-   PK      = randombytes(32)
-2. wrap    = AEAD_encrypt(key=DK, nonce, PK, aad=pk(user, pid, epoch=1))
-3. ct      = AEAD_encrypt(key=PK, nonce, JSON(portfolio, incl. its name), aad=pf(pid, 1, enc_version))
-4. create_portfolio(pid, wrap, ct, nonce)
-```
-
-The portfolio's name is inside the ciphertext; the server stores no plaintext name.
-
-**Invite and accept:**
-
-```
-Owner:
-1. S        = randombytes(32)
-   iid      = uuid v4
-2. wrap_inv = AEAD_encrypt(key=S, nonce, PK, aad=inv(iid, pid, epoch))
-3. create_portfolio_invite(iid, pid, invitee_email, wrap_inv, epoch)
-4. link     = https://<origin>/join/<iid>#k=<base64url(S)>
-   The owner sends the link through a channel of their choice.
-
-Partner:
-5. Signs in with the invited email (confirmed) and unlocks (§8.3).
-6. Fetches wrap_inv for iid. It is only returned to that account.
-7. PK       = AEAD_decrypt(key=S, nonce, wrap_inv, aad=inv(iid, pid, epoch))
-   This fails if S, iid, pid or epoch differ.
-8. wrap_p   = AEAD_encrypt(key=DK_partner, nonce, PK, aad=pk(partner, pid, epoch))
-9. accept_portfolio_invite(iid, wrap_p)
-   Single use: it NULLs wrap_inv and inserts the member row.
-10. Zero(S)
-```
-
-- Browsers do not send URL fragments in requests or in `Referer` headers.
-- Before analytics initialises, the app reads `#k=` into memory and removes it from the address bar with `history.replaceState`. Analytics events also have any URL hash stripped.
-- Joining takes both factors: the link (for S) and a signed-in, confirmed account for the invited email.
-- The row the server keeps is useless without S.
-
-**Save (either member):** `save_portfolio(pid, expected_revision, ct, nonce, enc_version)`.
-- On `conflict`, the client fetches and decrypts the current blob, re-applies its unsynced edits, and tries again.
-- On `forbidden`, the client has lost access (for example it was removed) and stops.
-
-**Removing the partner, or the partner leaving:**
-
-```
-1. The member row is deleted. RLS cuts the partner's access immediately,
-   and a trigger sets rotation_due.
-2. The owner's browser rotates the key: immediately on removal, or on its
-   next load if the partner left.
-     PK'     = randombytes(32)
-     epoch'  = epoch + 1
-     ct'     = AEAD_encrypt(key=PK', nonce, plaintext, aad=pf(pid, epoch', enc_version))
-     wrap'   = AEAD_encrypt(key=DK_owner, nonce, PK', aad=pk(owner, pid, epoch'))
-     rotate_portfolio_key(pid, expected_revision, epoch, ct', nonce, wrap')
-3. Pending invitations still wrap the old PK under the old epoch, so they
-   are rejected at accept.
-```
-
-Rotation re-wraps PK' for the owner only. That is complete because the plan has a single partner seat: after the partner is gone, the owner is the only member left. A design with more seats would have to re-wrap PK' for every remaining member.
-
-**Account deletion:**
-- When an owner deletes their account, each portfolio with a partner transfers to that partner, who already holds PK. Portfolios without a partner are deleted. The transfer runs before the account is removed, and a failed transfer stops the deletion.
-- When a partner deletes their account, their member row goes and `rotation_due` is set.
-
-#### 15.1.6 Threat model (additions to §3)
-
-| Adversary | What they can and can't do |
-|---|---|
-| **Partner** | Reads and writes the shared portfolio, by design. Cannot read either person's personal portfolio, which uses a different key and a user-bound AAD. Cannot remove the owner or change anyone's wrapped key. Can overwrite the shared blob with valid but wrong content; `portfolio_revisions` keeps the last 20 versions. |
-| **Removed partner** | Loses server access at once (RLS). Keeps what they already saw, and may have copied PK from memory. After rotation, PK no longer opens anything written from then on. Ciphertext from before the rotation remains readable with the old PK if they obtain it some other way, for example from a database leak; that is data they already had access to. |
-| **Anyone holding the invite link** | Cannot join without signing in as the invited email with a confirmed address. The link is single-use, expires after 7 days and is invalidated by a rotation. |
-| **Passive database read** | Additionally sees who shares with whom, the invitee's email, invite and membership timestamps, and per-portfolio blob sizes. |
-| **Active server (transient)** | Cannot give the partner a key of its choosing: a wrap under S verifies only for someone who knows S, and the server never sees S. Can withhold writes or serve an older revision; rollback across sessions is not detected and is a non-goal. |
-| **Active server (persistent)** | Wins, as in §3.3 and §16. A malicious build can read S from the URL as easily as it reads the password. |
-
-#### 15.1.7 Why an invite link rather than public keys
-
-The earlier plan for this feature wrapped PK to each member's public key with libsodium `crypto_box`. It was dropped for these reasons:
-
-- **Authenticity.** Public keys would be fetched from the server, so a malicious server could hand the owner its own key at invite time. Ruling that out needs both people to compare a fingerprint over another channel. The invite link already travels over another channel, and it carries the key itself.
-- **Surface.** Public keys add a keypair per user, a wrapped private key, and another primitive to audit and maintain.
-- **Cost.** Quantive cannot email the invitation; the owner sends the link themselves. That is accepted as the price of the server never being able to open a shared portfolio.
 
 ---
 
@@ -765,6 +813,9 @@ We will state this explicitly on the public security page. Users who need protec
 | **Argon2id** | Memory-hard password-hashing function. Hybrid of Argon2d and Argon2i. RFC 9106. |
 | **DK** | Data Key. Random 32-byte symmetric key used to encrypt portfolio data. Generated once per user. |
 | **KEK** | Key-Encryption Key. Derived from the user's password; used only to wrap/unwrap the DK. |
+| **PK** | Portfolio Key. Random 32-byte key for one extra portfolio, wrapped under each member's DK (§5.2). |
+| **S** | Invite secret. Random 32 bytes carried only in an invite link's fragment; wraps the PK while the invite is pending (§8.8). |
+| **Key epoch** | Counter bound into every PK wrap and blob; increases with each rotation (§6.6, §8.9). |
 | **KDF** | Key Derivation Function. Here, Argon2id. |
 | **TOFU** | Trust On First Use. The assumption that the JS delivered on the first interaction is legitimate. |
 | **XChaCha20-Poly1305** | Extended-nonce variant of ChaCha20-Poly1305 AEAD. 256-bit key, 192-bit nonce, 128-bit auth tag. |

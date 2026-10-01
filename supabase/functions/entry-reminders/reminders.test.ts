@@ -3,6 +3,7 @@ import {
   cadenceLabel,
   isReminderDue,
   isReminderFrequency,
+  latestActivity,
   REMINDER_INTERVAL_DAYS,
 } from "./reminders";
 
@@ -86,5 +87,20 @@ describe("isReminderDue", () => {
 
   it("interval table matches the documented cadences", () => {
     expect(REMINDER_INTERVAL_DAYS).toEqual({ monthly: 30, quarterly: 91, biannual: 182 });
+  });
+});
+
+describe("latestActivity", () => {
+  it("picks the most recent save across the personal and shared portfolios", () => {
+    expect(latestActivity(["2026-09-01T10:00:00Z", "2026-09-20T08:00:00Z", "2026-09-05T00:00:00Z"])).toBe("2026-09-20T08:00:00Z");
+  });
+
+  it("ignores missing and unparseable values", () => {
+    expect(latestActivity([null, undefined, "not a date", "2026-09-01T10:00:00Z"])).toBe("2026-09-01T10:00:00Z");
+  });
+
+  it("is null when there is no save at all", () => {
+    expect(latestActivity([])).toBeNull();
+    expect(latestActivity([null, "garbage"])).toBeNull();
   });
 });

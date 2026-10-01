@@ -4,6 +4,8 @@ import { defineConfig, devices } from '@playwright/test';
 // would otherwise see nothing.
 import 'dotenv/config';
 
+const FAMILY_SPECS = /(rls-portfolios|family-sharing)\.spec\.ts/;
+
 export default defineConfig({
   testDir: './e2e',
   // Mints test-user sessions once (the project enforces CAPTCHA, so specs sign
@@ -23,6 +25,22 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: FAMILY_SPECS,
+    },
+    // The Family specs make test user 1 a partner in test user 2's
+    // portfolio. Most specs sign in as user 1, so these run after all of
+    // them, and one after the other: they share the two users' seat.
+    {
+      name: 'family-rls',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /rls-portfolios\.spec\.ts/,
+      dependencies: ['chromium'],
+    },
+    {
+      name: 'family-ui',
+      use: { ...devices['Desktop Chrome'] },
+      testMatch: /family-sharing\.spec\.ts/,
+      dependencies: ['family-rls'],
     },
   ],
   webServer: {

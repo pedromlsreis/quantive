@@ -128,4 +128,28 @@ describe('analytics event capture', () => {
     expect(call?.[1]).toMatchObject({ step: 'recovery' });
     expect(Object.keys(call?.[1] ?? {})).toEqual(['step']);
   });
+
+  it('never sends an invite id or secret', async () => {
+    const analytics = await loadAnalytics();
+    const posthog = (await import('posthog-js')).default as unknown as { init: ReturnType<typeof vi.fn> };
+    analytics.pageViewed('/join/7d9f3c2e-1b4a-4c1e-9a55-0f6b2a1d8e40');
+    expect(captureSpy).toHaveBeenCalledWith('page_viewed', expect.objectContaining({ path: '/join' }));
+
+    const beforeSend = posthog.init.mock.calls[0][1].before_send as (e: unknown) => { properties: Record<string, unknown>; $set: Record<string, unknown> };
+    const event = beforeSend({
+      event: 'page_viewed',
+      properties: {
+        $current_url: 'https://usequantive.app/join/7d9f3c2e-1b4a-4c1e-9a55-0f6b2a1d8e40#k=AAAA',
+        $pathname: '/join/7d9f3c2e-1b4a-4c1e-9a55-0f6b2a1d8e40',
+        feature: 'benchmarks',
+      },
+      $set: { $initial_current_url: 'https://usequantive.app/join/x#k=BBBB' },
+    });
+    expect(event.properties).toEqual({
+      $current_url: 'https://usequantive.app/join',
+      $pathname: '/join',
+      feature: 'benchmarks',
+    });
+    expect(event.$set).toEqual({ $initial_current_url: 'https://usequantive.app/join' });
+  });
 });

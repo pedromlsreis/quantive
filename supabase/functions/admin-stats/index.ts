@@ -90,6 +90,27 @@ serve(async (req) => {
       .select("id", { count: "exact", head: true })
       .eq("enc_version", 1);
 
+    // --- Family: counts only; portfolio names and contents are encrypted ---
+    // Every extra portfolio has its owner as a member, so the member rows
+    // beyond one per portfolio are partners.
+    const [
+      { count: extraPortfolios },
+      { count: memberships },
+      { count: partnerSeats },
+      { count: pendingInvites },
+      { count: familyBeta },
+    ] = await Promise.all([
+      service.from("portfolios").select("id", { count: "exact", head: true }),
+      service.from("portfolio_members").select("user_id", { count: "exact", head: true }),
+      service.from("family_partners").select("owner_id", { count: "exact", head: true }),
+      service
+        .from("portfolio_invites")
+        .select("id", { count: "exact", head: true })
+        .is("consumed_at", null)
+        .gt("expires_at", now.toISOString()),
+      service.from("family_beta").select("user_id", { count: "exact", head: true }),
+    ]);
+
     // --- Feedback ----------------------------------------------------------
     const { count: feedbackTotal } = await service
       .from("feedback")
@@ -234,6 +255,13 @@ serve(async (req) => {
       keys: {
         total: keysTotal ?? 0,
         withRecovery: keysWithRecovery ?? 0,
+      },
+      family: {
+        betaUsers: familyBeta ?? 0,
+        portfolios: extraPortfolios ?? 0,
+        sharedPortfolios: Math.max(0, (memberships ?? 0) - (extraPortfolios ?? 0)),
+        partners: partnerSeats ?? 0,
+        pendingInvites: pendingInvites ?? 0,
       },
       currencies: currencyBuckets,
       reminders: reminderBuckets,

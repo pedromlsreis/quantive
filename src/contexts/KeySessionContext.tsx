@@ -77,7 +77,7 @@ interface KeySessionContextType {
     newPassword: string,
   ) => Promise<{ error: string | null }>;
   /**
-   * Portfolio keys for extra portfolios (encryption.md §15.1). Held in
+   * Portfolio keys for extra portfolios (encryption.md §5.2). Held in
    * memory only, and zeroed together with the DK on lock or user change.
    */
   getPortfolioKey: (portfolioId: string) => Uint8Array | null;
