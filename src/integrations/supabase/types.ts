@@ -84,6 +84,24 @@ export type Database = {
         }
         Relationships: []
       }
+      family_partners: {
+        Row: {
+          created_at: string
+          owner_id: string
+          partner_id: string
+        }
+        Insert: {
+          created_at?: string
+          owner_id: string
+          partner_id: string
+        }
+        Update: {
+          created_at?: string
+          owner_id?: string
+          partner_id?: string
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
           created_at: string
@@ -129,6 +147,82 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_invites: {
+        Row: {
+          consumed_at: string | null
+          consumed_by: string | null
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          invitee_email: string
+          key_epoch: number
+          portfolio_id: string
+          wrapped_pk_invite: string | null
+        }
+        Insert: {
+          consumed_at?: string | null
+          consumed_by?: string | null
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id: string
+          invitee_email: string
+          key_epoch: number
+          portfolio_id: string
+          wrapped_pk_invite?: string | null
+        }
+        Update: {
+          consumed_at?: string | null
+          consumed_by?: string | null
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          invitee_email?: string
+          key_epoch?: number
+          portfolio_id?: string
+          wrapped_pk_invite?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_invites_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_key_history: {
+        Row: {
+          key_epoch: number
+          portfolio_id: string
+          user_id: string
+          wrapped_pk: string
+        }
+        Insert: {
+          key_epoch: number
+          portfolio_id: string
+          user_id: string
+          wrapped_pk: string
+        }
+        Update: {
+          key_epoch?: number
+          portfolio_id?: string
+          user_id?: string
+          wrapped_pk?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_key_history_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portfolio_members: {
         Row: {
           created_at: string
@@ -154,6 +248,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "portfolio_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "portfolios"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_revisions: {
+        Row: {
+          enc_version: number
+          encrypted_data: string
+          key_epoch: number
+          nonce: string
+          portfolio_id: string
+          revision: number
+          saved_at: string
+          saved_by: string | null
+        }
+        Insert: {
+          enc_version: number
+          encrypted_data: string
+          key_epoch: number
+          nonce: string
+          portfolio_id: string
+          revision: number
+          saved_at: string
+          saved_by?: string | null
+        }
+        Update: {
+          enc_version?: number
+          encrypted_data?: string
+          key_epoch?: number
+          nonce?: string
+          portfolio_id?: string
+          revision?: number
+          saved_at?: string
+          saved_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_revisions_portfolio_id_fkey"
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "portfolios"
@@ -205,6 +340,8 @@ export type Database = {
           owner_id: string
           revision: number
           rotation_due: boolean
+          saved_at: string
+          saved_by: string | null
           updated_at: string
         }
         Insert: {
@@ -217,6 +354,8 @@ export type Database = {
           owner_id: string
           revision?: number
           rotation_due?: boolean
+          saved_at?: string
+          saved_by?: string | null
           updated_at?: string
         }
         Update: {
@@ -229,6 +368,8 @@ export type Database = {
           owner_id?: string
           revision?: number
           rotation_due?: boolean
+          saved_at?: string
+          saved_by?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -349,6 +490,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_portfolio_invite: {
+        Args: { p_invite_id: string; p_wrapped_pk: string }
+        Returns: string
+      }
       create_portfolio: {
         Args: {
           p_enc_version: number
@@ -359,9 +504,67 @@ export type Database = {
         }
         Returns: undefined
       }
+      create_portfolio_invite: {
+        Args: {
+          p_invite_id: string
+          p_invitee_email: string
+          p_key_epoch: number
+          p_portfolio_id: string
+          p_wrapped_pk: string
+        }
+        Returns: undefined
+      }
+      get_portfolio_invite: {
+        Args: { p_invite_id: string }
+        Returns: {
+          expires_at: string | null
+          invited_by: string | null
+          key_epoch: number | null
+          portfolio_id: string | null
+          status: string
+          wrapped_pk: string | null
+        }[]
+      }
       is_portfolio_member: {
         Args: { _portfolio_id: string }
         Returns: boolean
+      }
+      is_portfolio_owner: {
+        Args: { _portfolio_id: string }
+        Returns: boolean
+      }
+      list_portfolio_people: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          email: string
+          is_owner: boolean
+          joined_at: string
+          portfolio_id: string
+          user_id: string
+        }[]
+      }
+      release_owned_portfolios: {
+        Args: { p_user_id: string }
+        Returns: {
+          deleted: number
+          transferred: number
+        }[]
+      }
+      rotate_portfolio_key: {
+        Args: {
+          p_enc_version: number
+          p_encrypted_data: string
+          p_expected_epoch: number
+          p_expected_revision: number
+          p_id: string
+          p_nonce: string
+          p_owner_wrapped_pk: string
+        }
+        Returns: {
+          current_epoch: number | null
+          current_revision: number | null
+          status: string
+        }[]
       }
       save_portfolio: {
         Args: {
