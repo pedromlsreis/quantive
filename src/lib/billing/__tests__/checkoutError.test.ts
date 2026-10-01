@@ -49,6 +49,9 @@ describe('messageForCheckoutError', () => {
     expect(messageForCheckoutError('invalid_request')).toMatch(/refresh the page/i);
     expect(messageForCheckoutError('rate_limited')).toMatch(/too many attempts/i);
     expect(messageForCheckoutError('checkout_unavailable')).toMatch(/try again/i);
+    // A Family subscriber gets this too, so it can't name Pro.
+    expect(messageForCheckoutError('already_subscribed')).toMatch(/already have a subscription/i);
+    expect(messageForCheckoutError('already_subscribed')).not.toMatch(/\bPro\b/);
   });
 
   it('falls back to the generic message for unknown codes', () => {
@@ -69,6 +72,8 @@ describe('messageForPortalError', () => {
     expect(messageForPortalError('not_found')).toMatch(/nothing to manage/i);
     expect(messageForPortalError('rate_limited')).toMatch(/too many attempts/i);
     expect(messageForPortalError('portal_unavailable')).toMatch(/try again/i);
+    expect(messageForPortalError('not_subscribed')).toMatch(/no active subscription/i);
+    expect(messageForPortalError('already_family')).toMatch(/already on Family/i);
   });
 
   it('falls back to the generic message for unknown codes', () => {

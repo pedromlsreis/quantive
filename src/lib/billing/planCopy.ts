@@ -1,6 +1,6 @@
-// Shared marketing copy for the Free and Pro plan cards — the single source
-// of truth for the two surfaces that render them: the landing pricing section
-// (static teaser) and PricingPage (live checkout). Phrasing changes happen
+// Shared marketing copy for the Free, Pro and Family plan cards — the single
+// source of truth for the two surfaces that render them: the landing pricing
+// section (static teaser) and PricingPage (live checkout). Phrasing changes happen
 // here so the two surfaces cannot drift; layout and checkout chrome stay in
 // the components. Billing data (Stripe IDs, prices, entitlements) lives in
 // plans.ts, not here.
@@ -23,6 +23,9 @@ export const PRICING_SUB = 'The free plan has no time limit.';
 /** Short price line for in-app Pro gates. */
 export const PRO_PRICE_LINE = '€9 a month or €90 a year';
 
+/** Short price line for in-app Family prompts. */
+export const FAMILY_PRICE_LINE = '€14 a month or €120 a year';
+
 export const VAT_NOTE =
   'All prices final. No VAT charged under German legislation (§ 19 UStG).';
 
@@ -41,6 +44,8 @@ export const FREE_SECTIONS: PlanCopySection[] = [
   {
     head: 'Privacy and control',
     items: [
+      // True on Free: sharing a portfolio needs Family, whose card says who
+      // else can read a shared one.
       'End-to-end encrypted: only you can read your data',
       'Privacy mode to blur sensitive numbers',
       'CSV export of all your entries, at any time',
@@ -66,6 +71,25 @@ export const PRO_SECTIONS: PlanCopySection[] = [
       'Excel workbook export',
       'One-page PDF report for you or your adviser',
       'Priority support (24h response)',
+    ],
+  },
+];
+
+export const FAMILY_SECTIONS: PlanCopySection[] = [
+  {
+    head: 'Pro for two',
+    items: [
+      'Everything in Pro, for you and one partner',
+      'Separate accounts: each personal portfolio stays private',
+    ],
+  },
+  {
+    head: 'Shared portfolios',
+    items: [
+      'Up to five portfolios besides your personal one',
+      'Share any of them with your partner; you both add entries and goals',
+      'End-to-end encrypted: only the two of you can read a shared portfolio',
+      'Restore any of the last 20 saved versions',
     ],
   },
 ];

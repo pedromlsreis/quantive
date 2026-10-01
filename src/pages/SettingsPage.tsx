@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,14 +29,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { extractCheckoutErrorCode, messageForPortalError } from '@/lib/billing/checkoutError';
-import { resolvePlanForStatus } from '@/lib/billing/plans';
-import { PRO_PRICE_LINE } from '@/lib/billing/planCopy';
+import { resolvePlan, resolvePlanForStatus } from '@/lib/billing/plans';
+import { planDescription } from '@/lib/billing/planStatus';
+import { FAMILY_PRICE_LINE } from '@/lib/billing/planCopy';
 import { analytics } from '@/lib/analytics';
 import { REMINDER_OPTIONS, normaliseReminderFrequency, type ReminderFrequency } from '@/lib/reminders';
 import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/lib/consent';
 import { mapAuthError } from '@/lib/authError';
 import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
-import { formatDate } from '@/lib/formatters';
 import { NUMBER_FORMAT_LOCALES } from '@/lib/numberLocale';
 import { LEGAL_LINKS } from '@/lib/nav-config';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,16 +56,21 @@ export default function SettingsPage() {
   const canExportExcel = has('export.excel');
   const canExportCsv = has('export.csv');
   const currentPlan = resolvePlanForStatus(subscription);
-  const [managingBilling, setManagingBilling] = useState(false);
+  // The plan this account pays for, which can differ from currentPlan (the
+  // Family beta, or Pro through a partner's Family plan).
+  const paidPlan = subscription.subscribed ? resolvePlan(subscription.productId) : null;
+  const [managingBilling, setManagingBilling] = useState<false | 'portal' | 'switch'>(false);
 
-  const handleManageBilling = async () => {
+  // `switch_to_family` opens Stripe's page for confirming the move from Pro.
+  const handleManageBilling = async (flow?: 'switch_to_family') => {
     // Open a blank tab synchronously on click so popup blockers don't intervene
     // when we navigate it after the async function call resolves.
     const portalTab = window.open('', '_blank');
-    setManagingBilling(true);
-    analytics.billingPortalOpened();
+    setManagingBilling(flow ? 'switch' : 'portal');
+    if (flow) analytics.planSwitchStarted({ to: 'family' });
+    else analytics.billingPortalOpened();
     try {
-      const { data: portal, error } = await supabase.functions.invoke('customer-portal');
+      const { data: portal, error } = await supabase.functions.invoke('customer-portal', flow ? { body: { flow } } : undefined);
       if (error || !portal?.url) {
         portalTab?.close();
         const code = await extractCheckoutErrorCode(error);
@@ -89,6 +94,25 @@ export default function SettingsPage() {
   const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode, blurOnUnfocus, setBlurOnUnfocus, autoLockMinutes, setAutoLockMinutes } = usePreferences();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Back from Stripe after switching to Family: the webhook updates the plan
+  // within seconds, so poll briefly instead of waiting for the 60s refresh.
+  const switchPolledRef = useRef(false);
+  useEffect(() => {
+    if (searchParams.get('switched') !== 'family' || switchPolledRef.current) return;
+    switchPolledRef.current = true;
+    toast.success('Your plan is now Family. It turns on within a few seconds.', { duration: 6000 });
+    const next = new URLSearchParams(searchParams);
+    next.delete('switched');
+    setSearchParams(next, { replace: true });
+    void (async () => {
+      for (const delay of [1500, 3000, 6000, 12000]) {
+        await new Promise((r) => setTimeout(r, delay));
+        await checkSubscription();
+      }
+    })();
+  }, [searchParams, setSearchParams, checkSubscription]);
 
   // `/settings#recovery` (the account menu) and `#export` scroll to their row once mounted.
   useEffect(() => {
@@ -358,38 +382,46 @@ export default function SettingsPage() {
             <Notice variant="warning" role="status" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--s-1)', marginBottom: 'var(--s-4)' }}>
               <p style={{ fontWeight: 600, margin: 0 }}>{"Your last payment didn't go through"}</p>
               <p style={{ margin: 0 }}>
-                {"We're retrying the card and Pro stays on for now. Update your card in Manage billing before the retries run out."}
+                {`We're retrying the card and ${paidPlan?.name ?? 'your plan'} stays on for now. Update your card in Manage billing before the retries run out.`}
               </p>
             </Notice>
           )}
-          <Row
-            label={currentPlan.name}
-            description={
-              subscription.subscribed && subscription.subscriptionEnd
-                ? subscription.cancelAtPeriodEnd
-                  ? `Cancels on ${formatDate(new Date(subscription.subscriptionEnd))}. Pro stays on until then.`
-                  : `Renews on ${formatDate(new Date(subscription.subscriptionEnd))}.`
-                : subscription.subscribed
-                  ? undefined
-                  : subscription.familyMember
-                    ? 'Included with the Family plan you share.'
-                    : `Pro adds your full history, forecasts, goals, and Excel and PDF export. ${PRO_PRICE_LINE}.`
-            }
-          >
+          <Row label={currentPlan.name} description={planDescription(subscription, paidPlan?.name ?? null)}>
             <div className="q-set-inline">
               {/* Anyone with Stripe history keeps the portal, cancelled users included, for invoices and reactivation. */}
               {(subscription.subscribed || subscription.hasStripeHistory) && (
-                <button type="button" onClick={handleManageBilling} disabled={managingBilling} className="q-btn q-btn--secondary q-btn--md">
-                  {managingBilling ? 'Opening…' : 'Manage billing'}
+                <button type="button" onClick={() => void handleManageBilling()} disabled={!!managingBilling} className="q-btn q-btn--secondary q-btn--md">
+                  {managingBilling === 'portal' ? 'Opening…' : 'Manage billing'}
                 </button>
               )}
-              {!subscription.subscribed && !subscription.familyMember && (
+              {!subscription.subscribed && !subscription.familyMember && !subscription.familyBeta && (
                 <Link to="/pricing" className="q-btn q-btn--secondary q-btn--md">
                   Upgrade to Pro
                 </Link>
               )}
             </div>
           </Row>
+          {paidPlan?.id === 'pro' && (
+            <Row
+              label="Family"
+              description={
+                subscription.familyMember
+                  ? `${subscription.familyOwnerEmail ? `${subscription.familyOwnerEmail}'s` : 'A'} Family plan already gives you Pro, so you're paying for it twice. Cancel Pro in Manage billing; Pro stays on through their plan.`
+                  : `Pro for you and one partner, plus extra portfolios you can share with them. ${FAMILY_PRICE_LINE}. Stripe credits the unused part of Pro.`
+              }
+            >
+              {!subscription.familyMember && (
+                <button
+                  type="button"
+                  onClick={() => void handleManageBilling('switch_to_family')}
+                  disabled={!!managingBilling}
+                  className="q-btn q-btn--secondary q-btn--md"
+                >
+                  {managingBilling === 'switch' ? 'Opening…' : 'Switch to Family'}
+                </button>
+              )}
+            </Row>
+          )}
         </Section>
       )}
 

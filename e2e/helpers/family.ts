@@ -77,5 +77,18 @@ export async function grantOwnerFamily(): Promise<void> {
   check('granting the beta', error);
 }
 
+/**
+ * Takes back the beta grantOwnerFamily added. Resolves false when the owner
+ * keeps Family anyway, through a real beta grant.
+ */
+export async function revokeOwnerFamily(): Promise<boolean> {
+  const service = serviceClient();
+  const owner = testUser(OWNER_SLOT).id;
+  check('removing the beta row', (await service.from('family_beta').delete().eq('user_id', owner).eq('note', 'e2e')).error);
+  const { data, error } = await service.from('family_beta').select('user_id').eq('user_id', owner);
+  check('reading the beta row', error);
+  return (data ?? []).length === 0;
+}
+
 /** A syntactically valid bytea for fields whose contents only the client checks. */
 export const fakeBytea = (bytes: number, fill = 1): string => '\\x' + Buffer.alloc(bytes, fill).toString('hex');

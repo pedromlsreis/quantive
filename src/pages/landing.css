@@ -304,8 +304,8 @@
 
 /* ─── PRICING: rate card ───────────────────────────────────── */
 .lp-rate {
-  margin-top: 48px; max-width: 980px;
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  margin-top: 48px; max-width: 1180px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
   border: 1px solid var(--border-raw); border-radius: var(--r-4);
 }
 .lp-rate-col { display: flex; flex-direction: column; padding: clamp(24px, 3vw, 40px); }

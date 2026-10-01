@@ -3,8 +3,9 @@
 //      delivery sees the conflict and we return 200 without re-running.
 //   2. Cache the subscription state on profiles so check-subscription does
 //      not need a live Stripe call on every dashboard load.
-//   3. Send transactional emails: admin notifications (always) plus the
-//      Pro receipt + onboarding email to the customer on first activation.
+//   3. Send transactional emails: admin notifications (always) plus a
+//      welcome email per plan (Pro or Family) the first time a customer
+//      gets that plan, by checkout or by switching.
 //
 // Stripe webhook signing secret must be set as STRIPE_WEBHOOK_SECRET.
 
@@ -15,6 +16,8 @@ import { brandedEmailHtml, escapeHtml, sendEmail } from "../_shared/email.ts";
 import { buildCacheRow } from "../_shared/subscriptionCache.ts";
 import { formatCancellationReason } from "./cancellationReason.ts";
 import { decideIdempotencyOutcome } from "./idempotency.ts";
+import { PLAN_NAMES, planChange, planLabel, subscriptionPlan } from "./plans.ts";
+import type { PaidPlanId } from "../_shared/billingPlans.ts";
 import { cancellationTransition } from "./transitions.ts";
 
 const HANDLED_EVENTS = new Set([
@@ -152,6 +155,7 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
       const amount = (item?.price?.unit_amount ?? 0) / 100;
       const currency = (item?.price?.currency ?? "eur").toUpperCase();
       const interval = item?.price?.recurring?.interval ?? "?";
+      const plan = subscriptionPlan(sub);
 
       // Cache FIRST. If the cache write throws (DB hiccup), the outer
       // handler rolls back stripe_events and Stripe retries — and we will
@@ -162,10 +166,11 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
 
       // Atomic claim drives BOTH the admin email subject AND whether to
       // send the customer welcome. claimedFresh=true means we won the
-      // claim (first ever Pro event for this user); false means returning
-      // customer OR a parallel/duplicate event lost the race. Either way
-      // the customer welcome must not re-fire.
-      const claimedFresh = userId ? await claimProWelcome(admin, userId) : false;
+      // claim (first ever event for this plan and user); false means
+      // returning customer OR a parallel/duplicate event lost the race.
+      // Either way the customer welcome must not re-fire.
+      const welcomePlan: PaidPlanId = plan ?? "pro";
+      const claimedFresh = userId ? await claimWelcome(admin, userId, welcomePlan) : false;
       const isReturning = !claimedFresh;
 
       // Admin notification: a new paid customer is high-signal. Returning
@@ -174,54 +179,79 @@ async function handleEvent(stripe: Stripe, admin: AdminClient, event: Stripe.Eve
       // rare race could mislabel a true first-time signup as "returning"
       // if a peer event won the claim, but the customer experience is
       // unchanged and admin signal stays usable.
-      const adminLabel = isReturning ? "Returning subscription" : "New subscription";
+      const adminLabel = [isReturning ? "Returning" : "New", plan ? PLAN_NAMES[plan] : null, "subscription"]
+        .filter(Boolean)
+        .join(" ");
+      const adminRows: Array<[string, string]> = [
+        ["Customer", email ?? "(unknown)"],
+        ...(name ? [["Name", name] as [string, string]] : []),
+        ["Plan", planLabel(plan, amount, currency, interval)],
+        ["Subscription ID", sub.id],
+        ["Customer ID", String(sub.customer)],
+      ];
       await sendEmail({
         to: adminTo,
-        subject: `Quantive ${isReturning ? "returning" : "new"} subscription: ${email ?? sub.customer}`,
-        html: notificationHtml(adminLabel, [
-          ["Customer", email ?? "(unknown)"],
-          ...(name ? [["Name", name] as [string, string]] : []),
-          ["Plan", `${amount} ${currency} / ${interval}`],
-          ["Subscription ID", sub.id],
-          ["Customer ID", String(sub.customer)],
-        ]),
-        text: notificationText(adminLabel, [
-          ["Customer", email ?? "(unknown)"],
-          ...(name ? [["Name", name] as [string, string]] : []),
-          ["Plan", `${amount} ${currency} / ${interval}`],
-          ["Subscription ID", sub.id],
-          ["Customer ID", String(sub.customer)],
-        ]),
+        subject: `Quantive ${adminLabel.toLowerCase()}: ${email ?? sub.customer}`,
+        html: notificationHtml(adminLabel, adminRows),
+        text: notificationText(adminLabel, adminRows),
       });
 
-      // Pro onboarding email — only fired by the caller that won the
-      // atomic claim above. If the send fails (Resend outage, malformed
-      // recipient), release the claim so the next event (Stripe retry or
-      // peer delivery) can retry. sendEmail returns a result rather than
-      // throwing, so check ok explicitly.
+      // Onboarding email, only from the caller that won the claim above.
       if (email && userId && claimedFresh) {
-        const result = await sendProWelcomeEmail({ email, name, amount, currency, interval });
-        if (!result.ok) {
-          console.error(`[stripe-webhook] sendProWelcomeEmail failed for ${userId}:`, result.reason);
-          await releaseProWelcomeClaim(admin, userId);
-        }
+        await sendWelcome(admin, { userId, plan: welcomePlan, email, name, amount, currency, interval, switchedFromPro: false });
       }
       break;
     }
 
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
-      const { email, userId } = await resolveCustomer(stripe, sub.customer);
+      const { email, name, userId } = await resolveCustomer(stripe, sub.customer);
 
       // Always refresh the cache — past_due transitions, plan changes, and
       // cancel_at_period_end flips all matter to the UI.
       await cacheSubscription(admin, userId, sub.customer, sub);
 
+      const prev = event.data.previous_attributes as
+        | ({ cancel_at_period_end?: boolean } & Parameters<typeof planChange>[0])
+        | undefined;
+
+      // A switch between plans, e.g. Pro to Family from the portal.
+      const change = planChange(prev, sub);
+      if (change) {
+        const item = sub.items.data[0];
+        const amount = (item?.price?.unit_amount ?? 0) / 100;
+        const currency = (item?.price?.currency ?? "eur").toUpperCase();
+        const interval = item?.price?.recurring?.interval ?? "?";
+        const rows: Array<[string, string]> = [
+          ["Customer", email ?? "(unknown)"],
+          ["From", change.from ? PLAN_NAMES[change.from] : "Unknown plan"],
+          ["To", planLabel(change.to, amount, currency, interval)],
+          ["Subscription ID", sub.id],
+          ["Customer ID", String(sub.customer)],
+        ];
+        await sendEmail({
+          to: adminTo,
+          subject: `Quantive plan changed to ${change.to ? PLAN_NAMES[change.to] : "an unknown plan"}: ${email ?? sub.customer}`,
+          html: notificationHtml("Plan changed", rows),
+          text: notificationText("Plan changed", rows),
+        });
+        // Only an upgrade earns a welcome; moving down to Pro isn't one.
+        if (change.to === "family" && email && userId && await claimWelcome(admin, userId, "family")) {
+          await sendWelcome(admin, {
+            userId,
+            plan: "family",
+            email,
+            name,
+            amount,
+            currency,
+            interval,
+            switchedFromPro: change.from === "pro",
+          });
+        }
+      }
+
       // Admin emails only on the two cancellation-state transitions; other
       // updates (status, quantity, etc.) are cache-only and not high-signal.
-      const prev = event.data.previous_attributes as
-        | { cancel_at_period_end?: boolean }
-        | undefined;
       const transition = cancellationTransition(prev, sub);
       if (transition.kind === "none") break;
 
@@ -377,6 +407,7 @@ async function clearSubscriptionCache(
     .update({
       subscription_status: "canceled",
       subscription_product_id: null,
+      subscription_plan: null,
       subscription_end: null,
       subscription_cancel_at_period_end: false,
       subscription_synced_at: new Date().toISOString(),
@@ -416,30 +447,37 @@ async function resolveCustomer(
   }
 }
 
+const WELCOME_COLUMNS: Record<PaidPlanId, "pro_welcome_sent_at" | "family_welcome_sent_at"> = {
+  pro: "pro_welcome_sent_at",
+  family: "family_welcome_sent_at",
+};
+
 /**
- * Atomically claim the Pro welcome-send slot. Returns true if this caller
- * won the claim (i.e. it's the first event ever for this user); false if
- * the slot is already taken (returning customer or duplicate event).
+ * Atomically claim a plan's welcome-send slot. Returns true if this caller
+ * won the claim (i.e. it's the first event ever for this plan and user);
+ * false if the slot is already taken (returning customer or duplicate
+ * event).
  *
- * Conditional UPDATE with `.is("pro_welcome_sent_at", null)` flips the
- * flag if it's still null; the `.select()` returns rows only on the
- * winning claim. Mirrors the send-welcome-email pattern — same reason:
- * eliminates the read-then-write race that fired duplicate emails when
- * two flows raced through the dedupe gate.
+ * Conditional UPDATE with `.is(column, null)` flips the flag if it's still
+ * null; the `.select()` returns rows only on the winning claim. Mirrors the
+ * send-welcome-email pattern — same reason: eliminates the read-then-write
+ * race that fired duplicate emails when two flows raced through the dedupe
+ * gate.
  *
  * Fail-closed on DB error: if we can't decide, assume returning and skip
- * the welcome. The user already got the Stripe receipt and can see Pro
+ * the welcome. The user already got the Stripe receipt and can see the plan
  * in the app; missing our welcome is mild.
  */
-async function claimProWelcome(admin: AdminClient, userId: string): Promise<boolean> {
+async function claimWelcome(admin: AdminClient, userId: string, plan: PaidPlanId): Promise<boolean> {
+  const column = WELCOME_COLUMNS[plan];
   const { data, error } = await admin
     .from("profiles")
-    .update({ pro_welcome_sent_at: new Date().toISOString() })
+    .update({ [column]: new Date().toISOString() })
     .eq("user_id", userId)
-    .is("pro_welcome_sent_at", null)
+    .is(column, null)
     .select("user_id");
   if (error) {
-    console.error(`[stripe-webhook] claimProWelcome failed for ${userId}:`, error.message);
+    console.error(`[stripe-webhook] claimWelcome(${plan}) failed for ${userId}:`, error.message);
     return false;
   }
   return Array.isArray(data) && data.length > 0;
@@ -451,13 +489,37 @@ async function claimProWelcome(admin: AdminClient, userId: string): Promise<bool
  * handler's stripe_events row is already committed and rolling back to
  * re-deliver is the wrong remedy.
  */
-async function releaseProWelcomeClaim(admin: AdminClient, userId: string): Promise<void> {
+async function releaseWelcomeClaim(admin: AdminClient, userId: string, plan: PaidPlanId): Promise<void> {
   const { error } = await admin
     .from("profiles")
-    .update({ pro_welcome_sent_at: null })
+    .update({ [WELCOME_COLUMNS[plan]]: null })
     .eq("user_id", userId);
   if (error) {
-    console.error(`[stripe-webhook] releaseProWelcomeClaim failed for ${userId}:`, error.message);
+    console.error(`[stripe-webhook] releaseWelcomeClaim(${plan}) failed for ${userId}:`, error.message);
+  }
+}
+
+/**
+ * Sends the plan's welcome after a won claim. If the send fails (Resend
+ * outage, malformed recipient), releases the claim so the next event
+ * (Stripe retry or peer delivery) can retry. sendEmail returns a result
+ * rather than throwing, so check ok explicitly.
+ */
+async function sendWelcome(admin: AdminClient, params: {
+  userId: string;
+  plan: PaidPlanId;
+  email: string;
+  name: string | null;
+  amount: number;
+  currency: string;
+  interval: string;
+  switchedFromPro: boolean;
+}): Promise<void> {
+  const { userId, plan, ...mail } = params;
+  const result = plan === "family" ? await sendFamilyWelcomeEmail(mail) : await sendProWelcomeEmail(mail);
+  if (!result.ok) {
+    console.error(`[stripe-webhook] welcome email (${plan}) failed for ${userId}:`, result.reason);
+    await releaseWelcomeClaim(admin, userId, plan);
   }
 }
 
@@ -506,6 +568,63 @@ async function sendProWelcomeEmail(params: {
   return sendEmail({
     to: email,
     subject: "Welcome to Quantive Pro",
+    html,
+    text,
+    replyTo: Deno.env.get("FOUNDER_REPLY_TO_EMAIL") || "hello@usequantive.app",
+  });
+}
+
+async function sendFamilyWelcomeEmail(params: {
+  email: string;
+  name: string | null;
+  amount: number;
+  currency: string;
+  interval: string;
+  switchedFromPro: boolean;
+}): Promise<import("../_shared/email.ts").SendEmailResult> {
+  const { email, name, amount, currency, interval, switchedFromPro } = params;
+  const firstName = name ? name.split(" ")[0] : null;
+  const planLine = `${amount} ${currency} / ${interval}`;
+  const opening = switchedFromPro
+    ? `Your Pro subscription is now Family (${planLine}). Stripe will email a receipt showing how the change was billed.`
+    : `Thanks for subscribing. Your Family plan is active (${planLine}). Stripe will email a separate receipt with the formal invoice for your records.`;
+  const unlocked = [
+    "Everything in Pro",
+    "Up to five portfolios besides your personal one, for a joint account, a company or anything else you track separately",
+    "Sharing one of them with your partner, who also gets Pro for their own portfolio",
+  ];
+  const howTo =
+    "To share, open Settings, then Portfolios. Create a portfolio, choose Share and enter your partner's email address. " +
+    "Quantive gives you a link to send them yourself. The link holds the key to that portfolio, so send it privately. It works once, within 7 days.";
+  const privacy = "Your personal portfolios stay private: your partner can't see yours, and you can't see theirs.";
+
+  const bodyHtml = `
+    <p style="margin: 0 0 16px;">${firstName ? `Hi ${escapeHtml(firstName)},` : "Hi,"}</p>
+    <p style="margin: 0 0 16px;">${escapeHtml(opening)}</p>
+    <p style="margin: 0 0 12px;">What's now unlocked:</p>
+    <ul style="margin: 0 0 16px; padding-left: 20px;">
+      ${unlocked.map((line) => `<li style="margin-bottom: 4px;">${escapeHtml(line)}</li>`).join("")}
+    </ul>
+    <p style="margin: 0 0 16px;">${escapeHtml(howTo)}</p>
+    <p style="margin: 0 0 16px;">${escapeHtml(privacy)}</p>
+    <p style="margin: 0 0 16px;">You can manage your subscription, update your card, or cancel at any time from <a href="https://usequantive.app/settings" style="color: #111;">Settings</a>. If anything breaks or surprises you, reply to this email. It goes straight to me.</p>
+    <p style="margin: 0 0 4px;">Thanks,</p>
+    <p style="margin: 0;">Pedro · Quantive</p>
+  `;
+  const html = brandedEmailHtml({ heading: "Welcome to Quantive Family", bodyHtml });
+  const text =
+    `Welcome to Quantive Family\n\n` +
+    `${firstName ? `Hi ${firstName},` : "Hi,"}\n\n` +
+    `${opening}\n\n` +
+    `What's now unlocked:\n` +
+    unlocked.map((line) => `- ${line}\n`).join("") +
+    `\n${howTo}\n\n${privacy}\n\n` +
+    `Manage your subscription at https://usequantive.app/settings. If anything breaks or surprises you, reply to this email. It goes straight to me.\n\n` +
+    `Thanks,\nPedro · Quantive`;
+
+  return sendEmail({
+    to: email,
+    subject: "Welcome to Quantive Family",
     html,
     text,
     replyTo: Deno.env.get("FOUNDER_REPLY_TO_EMAIL") || "hello@usequantive.app",

@@ -12,6 +12,7 @@ const CRYPTO_MODULE_URL = `${REPO_URL}/tree/main/src/lib/crypto`;
 
 const SECTIONS = [
   { id: 'key-hierarchy', label: 'How your keys fit together' },
+  { id: 'sharing', label: 'Sharing a portfolio' },
   { id: 'defends', label: 'What we defend against' },
   { id: 'does-not-defend', label: 'What we do not protect against' },
   { id: 'recovery', label: 'Recovery codes' },
@@ -86,6 +87,43 @@ export default function SecurityPage() {
               </ol>
             </section>
 
+            <section id="sharing" aria-labelledby="h-sharing">
+              <h2 id="h-sharing" className="doc-h2">Sharing a portfolio</h2>
+              <p>
+                On the Family plan you can share a portfolio with one partner. Your personal portfolio is never shared:
+                it stays under your own data key. Each portfolio you create besides it has its own random 256-bit key,
+                stored only wrapped under the data key of each person in it.
+              </p>
+              <ol className="sec-steps">
+                <li>
+                  <strong>You create an invite.</strong> Your browser makes a random secret, wraps the portfolio key
+                  with it, and stores only the wrapped copy. The secret goes into the invite link after the # sign, the
+                  part of a link that browsers don't send to servers.
+                </li>
+                <li>
+                  <strong>You send the link to your partner yourself,</strong> by message or email. Quantive never
+                  sends it and never sees the secret.
+                </li>
+                <li>
+                  <strong>Your partner opens it while signed in</strong> with the email address you entered. Their
+                  browser unwraps the portfolio key with the secret and wraps it again under their own data key; the
+                  invite's copy is then deleted. An invite works once, within 7 days.
+                </li>
+                <li>
+                  <strong>If you remove your partner, or they leave,</strong> your browser encrypts the portfolio under a
+                  new key, so nothing saved afterwards can be read with the old one.
+                </li>
+              </ol>
+              <p>
+                The full design, including why the key travels in a link rather than through public-key encryption,
+                is in sections 5 to 9 of the{' '}
+                <a href={DESIGN_DOC_URL} target="_blank" rel="noopener noreferrer" className="pub-link">
+                  encryption design document
+                </a>
+                .
+              </p>
+            </section>
+
             <section id="defends" aria-labelledby="h-defends">
               <h2 id="h-defends" className="doc-h2">What we defend against</h2>
               <ul className="sec-ledger" role="list">
@@ -145,7 +183,14 @@ export default function SecurityPage() {
                 </li>
                 <li>
                   <strong>Metadata.</strong> We can see that you have an account, your email, when you saved data, and
-                  roughly how big your portfolio is. We can't see what's in it.
+                  roughly how big your portfolio is. If you share a portfolio, we also see who shares it with whom and
+                  the email address an invite was sent to. We can't see what's in any of them.
+                </li>
+                <li>
+                  <strong>The partner you share with.</strong> They can read, edit and export a shared portfolio, and
+                  keep copies of what they've seen. Removing them stops them reading later changes, not what they've
+                  already seen. Until it's used, an invite link is a key: send it privately. A leaked link alone doesn't
+                  let someone join, because it works only for the account it was addressed to.
                 </li>
                 <li>
                   <strong>A forgotten password without a recovery code.</strong> If you forget your password and skipped

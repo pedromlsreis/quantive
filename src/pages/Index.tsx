@@ -12,6 +12,7 @@ import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { DashboardEmpty } from '@/components/dashboard/EmptyState';
 import { openComposer } from '@/lib/appEvents';
 import { SubscribeIntentNotice } from '@/components/dashboard/SubscribeIntentNotice';
+import { parsePlanParam, parseSuccessPlan, planParam } from '@/lib/billing/checkoutIntent';
 import { ago, daysBetween, formatDate } from '@/lib/formatters';
 import { analytics } from '@/lib/analytics';
 
@@ -109,12 +110,14 @@ const Index = () => {
     if (checkoutPolledRef.current) return;
     checkoutPolledRef.current = true;
 
-    analytics.subscriptionStarted();
-    toast.success('Payment received. Pro turns on within a few seconds.', { duration: 6000 });
+    const plan = parseSuccessPlan(searchParams.get('plan'));
+    analytics.subscriptionStarted({ plan });
+    toast.success(`Payment received. ${plan === 'family' ? 'Family' : 'Pro'} turns on within a few seconds.`, { duration: 6000 });
 
-    // Strip the param immediately so a refresh doesn't re-trigger.
+    // Strip the params immediately so a refresh doesn't re-trigger.
     const next = new URLSearchParams(searchParams);
     next.delete('checkout');
+    next.delete('plan');
     setSearchParams(next, { replace: true });
 
     // Poll with backoff. The webhook usually lands in <1s, but Stripe's
@@ -136,14 +139,14 @@ const Index = () => {
   useEffect(() => {
     if (!user) return;
     if (searchParams.get('intent') !== 'subscribe') return;
-    const plan = searchParams.get('plan') === 'monthly' ? 'monthly' : 'yearly';
+    const plan = planParam(parsePlanParam(searchParams.get('plan')));
     navigate(`/pricing?intent=subscribe&plan=${plan}`, { replace: true });
   }, [user, searchParams, navigate]);
 
   // Logged-out users with the intent param see the SubscribeIntentNotice.
   // Cancel strips the params and returns them to a normal dashboard.
   const showSubscribeIntent = !user && searchParams.get('intent') === 'subscribe';
-  const subscribeIntentPlan = searchParams.get('plan') === 'monthly' ? 'monthly' : 'yearly';
+  const subscribeIntentPlan = parsePlanParam(searchParams.get('plan'));
   const handleCancelSubscribeIntent = useCallback(() => {
     const next = new URLSearchParams(searchParams);
     next.delete('intent');

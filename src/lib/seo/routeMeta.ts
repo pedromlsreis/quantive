@@ -1,4 +1,4 @@
-﻿// Single source of truth for per-route SEO metadata.
+// Single source of truth for per-route SEO metadata.
 //
 // Consumed in two places that must always agree:
 //   1. usePageMeta (runtime): updates the document head client-side once the
@@ -38,7 +38,7 @@ export const PUBLIC_ROUTES: RouteMeta[] = [
     path: '/pricing',
     title: 'Pricing - Quantive',
     description:
-      'Quantive is free forever, with optional Pro for full history, forecasting, and exports. €9/month or €90/year.',
+      'Quantive is free forever. Pro adds full history, forecasts and exports: €9/month or €90/year. Family is Pro for two with shared portfolios: €120/year.',
   },
   {
     path: '/security',

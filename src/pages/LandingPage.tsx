@@ -8,6 +8,7 @@ import { StickyNav } from '@/components/landing/StickyNav';
 import { PublicFooter } from '@/components/landing/PublicFooter';
 import { CURRENCY_CODES } from '@/lib/currencies';
 import {
+  FAMILY_SECTIONS,
   FREE_SECTIONS,
   PRO_SECTIONS,
   PRICING_HEADLINE,
@@ -291,12 +292,29 @@ export default function LandingPage() {
               See Pro plans
             </Link>
           </div>
+          <div className="lp-rate-col">
+            <h3 className="pub-h3">Family</h3>
+            <p className="lp-rate-price">
+              <span className="pub-fig">€120</span>
+              <span className="lp-rate-period">a year</span>
+            </p>
+            <div className="pub-double-rule" aria-hidden="true" />
+            <p className="lp-rate-note">For two people. About €10 a month, or €14 billed monthly.</p>
+            <PlanList sections={FAMILY_SECTIONS} />
+            <Link
+              to="/pricing#family"
+              className="pub-btn pub-btn--secondary lp-rate-cta"
+              onClick={() => analytics.landingCtaClicked({ cta: 'family_signup', location: 'pricing_card' })}
+            >
+              See Family plans
+            </Link>
+          </div>
         </div>
         <p className="lp-rate-hinge">
           Free shows your last 12 months. Pro opens every month since your first entry, plus the full forecast and the
           PDF report. Older entries are kept on Free either way.
         </p>
-        <p className="pub-fine lp-rate-fine">{VAT_NOTE} A Family plan (shared portfolios for two people) is planned but not yet available.</p>
+        <p className="pub-fine lp-rate-fine">{VAT_NOTE}</p>
       </section>
 
       {/* ───── FAQ ───── */}

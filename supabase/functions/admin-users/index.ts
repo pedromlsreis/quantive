@@ -66,13 +66,14 @@ serve(async (req) => {
       const { data: profileRows, error: profErr } = await service
         .from("profiles")
         .select(
-          "user_id, subscription_status, subscription_end, subscription_cancel_at_period_end, preferred_currency",
+          "user_id, subscription_status, subscription_plan, subscription_end, subscription_cancel_at_period_end, preferred_currency",
         );
       if (profErr) throw profErr;
       const profileByUser = new Map<
         string,
         {
           subscription_status: string | null;
+          subscription_plan: string | null;
           subscription_end: string | null;
           subscription_cancel_at_period_end: boolean;
           preferred_currency: string | null;
@@ -81,6 +82,7 @@ serve(async (req) => {
       for (const p of profileRows ?? []) {
         profileByUser.set(p.user_id, {
           subscription_status: p.subscription_status ?? null,
+          subscription_plan: p.subscription_plan ?? null,
           subscription_end: p.subscription_end ?? null,
           subscription_cancel_at_period_end: !!p.subscription_cancel_at_period_end,
           preferred_currency: p.preferred_currency ?? null,
@@ -116,6 +118,7 @@ serve(async (req) => {
         confirmed: boolean;
         roles: { role: string; granted_at: string }[];
         subscriptionStatus: string | null;
+        subscriptionPlan: string | null;
         subscriptionEnd: string | null;
         cancelAtPeriodEnd: boolean;
         preferredCurrency: string | null;
@@ -142,6 +145,7 @@ serve(async (req) => {
             confirmed: !!u.email_confirmed_at,
             roles: rolesByUser.get(u.id) ?? [],
             subscriptionStatus: prof?.subscription_status ?? null,
+            subscriptionPlan: prof?.subscription_plan ?? null,
             subscriptionEnd: prof?.subscription_end ?? null,
             cancelAtPeriodEnd: prof?.subscription_cancel_at_period_end ?? false,
             preferredCurrency: prof?.preferred_currency ?? null,

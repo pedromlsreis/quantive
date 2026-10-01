@@ -73,6 +73,29 @@ function writeActivePortfolioId(userId: string, portfolioId: string): void {
 // How often returning to the tab may refetch an extra portfolio.
 const FOCUS_REFRESH_INTERVAL_MS = 15_000;
 
+/**
+ * Why an extra portfolio takes no edits. Without Family it stays readable
+ * and exportable as CSV: an owned one needs the owner's own plan
+ * ('needs_family'), a joined one needs the owner's plan to still cover this
+ * partner ('owner_needs_family'). Client-side, like every plan gate; the
+ * server blocks new invites (has_family).
+ */
+export type ReadOnlyReason = 'needs_family' | 'owner_needs_family';
+
+/** What the signed-in user's plan allows, or null until check-subscription answers. */
+type FamilyAccess = { userId: string; ownsFamily: boolean; coveredAsPartner: boolean } | null;
+
+function readOnlyReason(meta: ExtraPortfolioMeta | undefined, access: FamilyAccess): ReadOnlyReason | null {
+  if (!meta || !access) return null;
+  if (meta.ownerId === access.userId) return access.ownsFamily ? null : 'needs_family';
+  return access.coveredAsPartner ? null : 'owner_needs_family';
+}
+
+export const READ_ONLY_MESSAGES: Record<ReadOnlyReason, string> = {
+  needs_family: 'Editing this portfolio needs the Family plan. You can still view it and export it as CSV.',
+  owner_needs_family: "The Family plan that shares this portfolio has ended, so it's read-only. You can still view it and export it as CSV.",
+};
+
 /** An extra-portfolio write needs keys that a lock has zeroed. */
 class PortfolioLockedError extends Error {
   constructor() {
@@ -265,6 +288,8 @@ interface PortfolioContextType {
   removePartner: (portfolioId: string, partnerId: string) => Promise<boolean>;
   /** Saves an earlier version (portfolio_revisions) as the current one. */
   restorePortfolioVersion: (portfolioId: string, revision: number) => Promise<boolean>;
+  /** Why the portfolio on screen takes no edits, or null when it does. Edits are refused with a toast. */
+  readOnlyReason: ReadOnlyReason | null;
 }
 
 const defaultFilters: FilterState = {
@@ -312,7 +337,7 @@ function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: 
 }
 
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading, subscription } = useAuth();
+  const { user, loading: authLoading, subscription, subscriptionChecked } = useAuth();
   const [data, setData] = useState<PortfolioData | null>(null);
   // The same value, readable synchronously: each edit applies to the latest
   // data even when several land before a render.
@@ -411,6 +436,22 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (isMockData && !user) return true;
     return planHas(plan, 'history.full');
   }, [isMockData, user, subscription]);
+
+  // Until check-subscription answers for this user, nothing is read-only,
+  // so a Family portfolio never flashes read-only while it loads.
+  const familyAccess = useMemo<FamilyAccess>(() => {
+    if (!user || !subscriptionChecked) return null;
+    const plan = devPlanOverride() ?? resolvePlanForStatus(subscription);
+    return { userId: user.id, ownsFamily: planHas(plan, 'portfolios.multiple'), coveredAsPartner: subscription.familyMember };
+  }, [user, subscriptionChecked, subscription]);
+  const familyAccessRef = useRef(familyAccess);
+  useEffect(() => { familyAccessRef.current = familyAccess; }, [familyAccess]);
+  // Refuses an edit to a read-only portfolio, with a toast. True when refused.
+  const refuseReadOnly = useCallback((portfolioId: string): boolean => {
+    const reason = readOnlyReason(extraMetaRef.current.get(portfolioId), familyAccessRef.current);
+    if (reason) toast.error(READ_ONLY_MESSAGES[reason]);
+    return reason !== null;
+  }, []);
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
     const dates = parsed.facts.map(f => f.date.getTime());
     if (dates.length === 0) return;
@@ -836,7 +877,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // portfolio's sync like any other.
   const renamePortfolio = useCallback(async (portfolioId: string, rawName: string): Promise<boolean> => {
     const sync = syncsRef.current.get(portfolioId);
-    if (!user || !sync) return false;
+    if (!user || !sync || refuseReadOnly(portfolioId)) return false;
     const { value: name, error } = sanitizePortfolioName(rawName);
     if (error) {
       toast.error(error);
@@ -851,7 +892,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if ((await sync.flush()) === 'synced') return true;
     toast.error("Couldn't rename the portfolio. Try again.");
     return false;
-  }, [user, putExtraMeta]);
+  }, [user, putExtraMeta, refuseReadOnly]);
 
   const deletePortfolio = useCallback(async (portfolioId: string): Promise<boolean> => {
     if (!user || !extraMetaRef.current.has(portfolioId)) return false;
@@ -921,7 +962,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const sync = syncsRef.current.get(portfolioId);
     const dk = getDataKey();
     const currentKey = getPortfolioKey(portfolioId);
-    if (!user || !sync || !dk || !currentKey) return false;
+    if (!user || !sync || !dk || !currentKey || refuseReadOnly(portfolioId)) return false;
     try {
       const content = await openRevision(supabase, { userId: user.id, dataKey: dk, meta: sync.doc.meta, currentKey, revision });
       // An empty version (as created) shows the first-entry state, as on load.
@@ -939,7 +980,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       toast.error("Couldn't restore that version. Try again.");
       return false;
     }
-  }, [user, getDataKey, getPortfolioKey, commitData, setDefaultDateRange]);
+  }, [user, getDataKey, getPortfolioKey, commitData, setDefaultDateRange, refuseReadOnly]);
 
   // Save the personal portfolio when the user is authenticated AND their
   // email is confirmed. Extra portfolios save through their sync.
@@ -1175,6 +1216,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const mutate = useCallback((op: PortfolioOp, opts: { replacingDemo?: boolean } = {}): OpResult => {
     const portfolioId = activePortfolioIdRef.current;
     if (user && portfolioId !== PERSONAL_PORTFOLIO_ID) {
+      if (refuseReadOnly(portfolioId)) return { data: dataRef.current, changed: false };
       const sync = syncsRef.current.get(portfolioId);
       if (!sync) {
         toast.error("Couldn't save this change. Open the portfolio again and retry.");
@@ -1197,7 +1239,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
     saveToCloud(result.data);
     return result;
-  }, [user, commitData, saveToCloud]);
+  }, [user, commitData, saveToCloud, refuseReadOnly]);
 
   const loadFile = useCallback(async (file: File) => {
     setIsLoading(true);
@@ -1634,6 +1676,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     leavePortfolio,
     removePartner,
     restorePortfolioVersion,
+    readOnlyReason: readOnlyReason(extraPortfolios.find((p) => p.id === activePortfolioId), familyAccess),
   };
 
   return (

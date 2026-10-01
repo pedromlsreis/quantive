@@ -78,7 +78,15 @@ beforeEach(() => {
 });
 
 describe('PortfolioSettings', () => {
-  it('renders nothing without Family or extra portfolios', () => {
+  it('shows only the Family prompt without Family or extra portfolios', () => {
+    renderSettings();
+    expect(screen.getByRole('heading', { name: /more portfolios/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'See the Family plan' })).toHaveAttribute('href', '/pricing#family');
+    expect(screen.queryByLabelText('New portfolio')).toBeNull();
+  });
+
+  it('renders nothing signed out', () => {
+    state.user = null;
     const { container } = renderSettings();
     expect(container).toBeEmptyDOMElement();
   });

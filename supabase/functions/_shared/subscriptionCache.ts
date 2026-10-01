@@ -2,9 +2,13 @@
 // on public.profiles. Lives in _shared so both the stripe-webhook writer
 // and the check-subscription reader stay consistent.
 
+import { planForProduct, type PaidPlanId } from "./billingPlans.ts";
+
 export interface CacheRow {
   subscription_status: string;
   subscription_product_id: string | null;
+  // Read by the has_family() SQL helper, so SQL needs no Stripe ids.
+  subscription_plan: PaidPlanId | null;
   subscription_end: string | null;
   subscription_cancel_at_period_end: boolean;
   subscription_synced_at: string;
@@ -33,9 +37,11 @@ export function buildCacheRow(
   // In Stripe API 2025-08-27+ current_period_end moved from the subscription
   // to the item; the top-level field is now often null on new subscriptions.
   const endSeconds = item?.current_period_end ?? sub.current_period_end ?? null;
+  const productId = (item?.price?.product as string | null) ?? null;
   return {
     subscription_status: sub.status,
-    subscription_product_id: (item?.price?.product as string | null) ?? null,
+    subscription_product_id: productId,
+    subscription_plan: planForProduct(productId),
     subscription_end: endSeconds ? new Date(endSeconds * 1000).toISOString() : null,
     subscription_cancel_at_period_end: sub.cancel_at_period_end ?? false,
     subscription_synced_at: now.toISOString(),

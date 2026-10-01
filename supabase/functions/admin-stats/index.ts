@@ -9,6 +9,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 import { requireAdmin } from "../_shared/requireAdmin.ts";
+import { planForProduct, type PaidPlanId } from "../_shared/billingPlans.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
@@ -99,6 +100,7 @@ serve(async (req) => {
       { count: partnerSeats },
       { count: pendingInvites },
       { count: familyBeta },
+      { count: familySubscribers },
     ] = await Promise.all([
       service.from("portfolios").select("id", { count: "exact", head: true }),
       service.from("portfolio_members").select("user_id", { count: "exact", head: true }),
@@ -109,6 +111,11 @@ serve(async (req) => {
         .is("consumed_at", null)
         .gt("expires_at", now.toISOString()),
       service.from("family_beta").select("user_id", { count: "exact", head: true }),
+      service
+        .from("profiles")
+        .select("user_id", { count: "exact", head: true })
+        .eq("subscription_plan", "family")
+        .in("subscription_status", ["active", "trialing", "past_due"]),
     ]);
 
     // --- Feedback ----------------------------------------------------------
@@ -172,6 +179,7 @@ serve(async (req) => {
       arrEur: number | null;
       annualSubs: number | null;
       monthlySubs: number | null;
+      byPlan: Record<PaidPlanId, { subs: number; mrrEur: number }> | null;
       error?: string;
     } = {
       enabled: false,
@@ -180,6 +188,7 @@ serve(async (req) => {
       arrEur: null,
       annualSubs: null,
       monthlySubs: null,
+      byPlan: null,
     };
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -190,15 +199,23 @@ serve(async (req) => {
         let mrrCents = 0;
         let annualSubs = 0;
         let monthlySubs = 0;
+        const planCents: Record<PaidPlanId, { subs: number; cents: number }> = {
+          pro: { subs: 0, cents: 0 },
+          family: { subs: 0, cents: 0 },
+        };
         for await (const sub of stripe.subscriptions.list({
           status: "active",
           limit: 100,
         })) {
           activeSubs++;
-          // Pro is single-item, so the first item's interval classifies the sub.
+          // Our subscriptions are single-item, so the first item's interval
+          // and product classify the sub.
           const subInterval = sub.items.data[0]?.price.recurring?.interval;
           if (subInterval === "year") annualSubs++;
           else if (subInterval === "month") monthlySubs++;
+          const product = sub.items.data[0]?.price.product;
+          const plan = planForProduct(typeof product === "string" ? product : product?.id);
+          if (plan) planCents[plan].subs++;
           for (const item of sub.items.data) {
             const price = item.price;
             const unit = price.unit_amount ?? 0;
@@ -212,6 +229,7 @@ serve(async (req) => {
                   ? unit * qty
                   : 0;
             mrrCents += monthly;
+            if (plan) planCents[plan].cents += monthly;
           }
         }
         const mrrEur = Math.round(mrrCents) / 100;
@@ -222,6 +240,10 @@ serve(async (req) => {
           arrEur: Math.round(mrrCents * 12) / 100,
           annualSubs,
           monthlySubs,
+          byPlan: {
+            pro: { subs: planCents.pro.subs, mrrEur: Math.round(planCents.pro.cents) / 100 },
+            family: { subs: planCents.family.subs, mrrEur: Math.round(planCents.family.cents) / 100 },
+          },
         };
       } catch (e) {
         stripeStats = {
@@ -231,6 +253,7 @@ serve(async (req) => {
           arrEur: null,
           annualSubs: null,
           monthlySubs: null,
+          byPlan: null,
           error: e instanceof Error ? e.message : String(e),
         };
       }
@@ -258,6 +281,7 @@ serve(async (req) => {
       },
       family: {
         betaUsers: familyBeta ?? 0,
+        subscribers: familySubscribers ?? 0,
         portfolios: extraPortfolios ?? 0,
         sharedPortfolios: Math.max(0, (memberships ?? 0) - (extraPortfolios ?? 0)),
         partners: partnerSeats ?? 0,

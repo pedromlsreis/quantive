@@ -212,6 +212,32 @@ describe('checkSubscription', () => {
     expect(result.current.subscription.subscribed).toBe(false);
   });
 
+  it('applies only the latest check when an older one answers last', async () => {
+    sb.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: 'tok', user: { id: 'u1' } } },
+    });
+    const { result } = await renderSettled();
+    await waitFor(() => expect(result.current.subscriptionChecked).toBe(true));
+
+    // The older check is still waiting when a newer one starts and answers.
+    let answerOld: (v: unknown) => void = () => {};
+    sb.functions.invoke
+      .mockImplementationOnce(() => new Promise((r) => { answerOld = r; }))
+      .mockResolvedValueOnce({ data: { family_member: true }, error: null });
+    let older: Promise<void> = Promise.resolve();
+    await act(async () => {
+      older = result.current.checkSubscription();
+      await result.current.checkSubscription();
+    });
+    expect(result.current.subscription.familyMember).toBe(true);
+
+    await act(async () => {
+      answerOld({ data: { family_member: false }, error: null });
+      await older;
+    });
+    expect(result.current.subscription.familyMember).toBe(true);
+  });
+
   it('does not call the edge function when there is no access token', async () => {
     const { result } = await renderSettled(); // default getSession → null
     sb.functions.invoke.mockClear();

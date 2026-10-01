@@ -15,7 +15,7 @@ export const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "Is Quantive free to use?",
-    a: "Yes. Core features, including CSV export of all your data, are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF report, and Excel export.",
+    a: "Yes. Core features, including CSV export of all your data, are free forever with no credit card required. Pro is €9/month or €90/year and adds full history, CAGR forecasting, goals, benchmarks, a PDF report, and Excel export. Family is €14/month or €120/year: Pro for two people, plus portfolios you can share.",
   },
   {
     q: "How is Quantive different from a budgeting app?",
@@ -35,7 +35,7 @@ export const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "How does Quantive protect my financial data?",
-    a: "All data is encrypted on your device before it reaches Quantive's servers; the servers store only ciphertext, and only you hold the decryption key. The remaining trust is in the code we serve, as with any encrypted web app; the security page documents the full threat model.",
+    a: "All data is encrypted on your device before it reaches Quantive's servers; the servers store only ciphertext, and only you hold the decryption key. A portfolio you share on the Family plan can also be read by your partner, and no one else. The remaining trust is in the code we serve, as with any encrypted web app; the security page documents the full threat model.",
   },
   {
     q: "Can I self-host Quantive, or is it open source?",
@@ -48,6 +48,10 @@ export const FAQS: Array<{ q: string; a: string }> = [
   {
     q: "What's included in Quantive Pro?",
     a: "Pro adds your full history, forecasts at your own growth rate with a range drawn from how your history has varied, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation; MSCI World is on the roadmap), a month-by-month summary table, a PDF report, and Excel export. Priority support is included.",
+  },
+  {
+    q: "Can I share Quantive with my partner?",
+    a: "Yes, on the Family plan. You each keep your own account and a private personal portfolio, and you can create up to five more portfolios and share any of them with your partner. A shared portfolio is end-to-end encrypted too: its key travels in an invite link you send your partner yourself, so Quantive can't read it. Your partner gets Pro for as long as the plan runs.",
   },
   {
     q: "What if I lose access to my account?",

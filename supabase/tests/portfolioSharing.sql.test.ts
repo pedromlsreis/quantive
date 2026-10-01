@@ -1,12 +1,12 @@
 /**
- * The extra-portfolio migrations on an in-memory Postgres (PGlite): RLS,
- * triggers and the SECURITY DEFINER functions, as the roles PostgREST uses.
- * Spec: docs/security/encryption.md §7.3, §8.7–§8.10.
+ * The extra-portfolio and Family billing migrations on an in-memory Postgres
+ * (PGlite): RLS, triggers and the SECURITY DEFINER functions, as the roles
+ * PostgREST uses. Spec: docs/security/encryption.md §7.3, §8.7–§8.10.
  *
  * Supabase's own pieces are stubbed: the anon/authenticated/service_role
  * roles, auth.users, auth.uid() (read from the request.jwt.claim.sub
- * setting, as Supabase does), pg_cron, and update_updated_at_column from an
- * earlier migration. Key material is fake bytes: only the client checks it.
+ * setting, as Supabase does), pg_cron, and update_updated_at_column and the
+ * subscription columns of profiles from earlier migrations. Key material is fake bytes: only the client checks it.
  * e2e/rls-portfolios.spec.ts runs the same kind of checks against the live
  * project.
  */
@@ -33,6 +33,16 @@ create schema cron;
 create function cron.schedule(text, text, text) returns bigint language sql as $$ select 1::bigint $$;
 create function public.update_updated_at_column() returns trigger language plpgsql set search_path = public as $$
 begin new.updated_at = now(); return new; end $$;
+create table public.profiles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique,
+  display_name text,
+  subscription_status text,
+  subscription_product_id text
+);
+grant select, insert on public.profiles to authenticated;
+grant all on public.profiles to service_role;
+grant update (display_name) on public.profiles to authenticated;
 `;
 
 const migration = (name: string) =>
@@ -47,6 +57,7 @@ const P = 'aaaaaaaa-0000-4000-8000-000000000001';
 const P2 = 'aaaaaaaa-0000-4000-8000-000000000002';
 const P3 = 'aaaaaaaa-0000-4000-8000-000000000003';
 const P4 = 'aaaaaaaa-0000-4000-8000-000000000004';
+const P5 = 'aaaaaaaa-0000-4000-8000-000000000005';
 const Q = 'aaaaaaaa-0000-4000-8000-0000000000ff';
 
 let db: PGlite;
@@ -90,6 +101,10 @@ beforeAll(async () => {
   await db.exec(STUB);
   await db.exec(migration('20260930120000_portfolios.sql'));
   await db.exec(migration('20261001120000_portfolio_sharing.sql'));
+  // A Pro subscriber from before the Family plan, for the backfill.
+  await db.exec(`insert into public.profiles (user_id, subscription_status, subscription_product_id)
+    values ('${OTHER_OWNER}', 'active', 'prod_pro')`);
+  await db.exec(migration('20261002120000_family_billing.sql'));
   await db.exec(`
     insert into auth.users values
       ('${OWNER}', 'owner@example.com', now()),
@@ -288,6 +303,36 @@ describe.sequential('portfolio sharing migration', () => {
     expect(await as(PARTNER, 'select id, owner_id from public.portfolios')).toEqual([{ id: P3, owner_id: PARTNER }]);
     const { revision, key_epoch } = await stored(P3);
     expect((await rotate(PARTNER, P3, revision, Number(key_epoch))).status).toBe('ok');
+  });
+
+  it('marks existing subscriptions as Pro', async () => {
+    expect((await one(null, 'select subscription_plan from public.profiles where user_id = $1', [OTHER_OWNER])).subscription_plan).toBe('pro');
+  });
+
+  it('grants Family through an entitled Family subscription, as it does the beta', async () => {
+    const hasFamily = async () => (await one(null, 'select public.has_family($1) as ok', [STRANGER])).ok;
+    await createPortfolio(STRANGER, P5);
+    await expect(invite(STRANGER, P5, 'partner@example.com')).rejects.toThrow(/family_required/);
+
+    await as(null, "insert into public.profiles (user_id, subscription_status, subscription_plan) values ($1, 'active', 'family')", [STRANGER]);
+    expect(await hasFamily()).toBe(true);
+    // Stripe retrying a failed renewal keeps access, as it does for Pro.
+    await as(null, "update public.profiles set subscription_status = 'past_due' where user_id = $1", [STRANGER]);
+    expect(await hasFamily()).toBe(true);
+    await invite(STRANGER, P5, 'partner@example.com');
+
+    await as(null, "update public.profiles set subscription_status = 'canceled' where user_id = $1", [STRANGER]);
+    expect(await hasFamily()).toBe(false);
+    await as(null, "update public.profiles set subscription_status = 'active', subscription_plan = 'pro' where user_id = $1", [STRANGER]);
+    expect(await hasFamily()).toBe(false);
+  });
+
+  it("doesn't let a user write their own plan", async () => {
+    await expect(as(STRANGER, "update public.profiles set subscription_plan = 'family' where user_id = $1", [STRANGER]))
+      .rejects.toThrow(/permission denied/);
+    await expect(as(STRANGER, "insert into public.profiles (user_id, subscription_status, subscription_plan) values ($1, 'active', 'family')", [STRANGER]))
+      .rejects.toThrow(/permission denied/);
+    await expect(as(STRANGER, "update public.profiles set display_name = 'Sam' where user_id = $1", [STRANGER])).resolves.toBeDefined();
   });
 
   it('gives anon nothing', async () => {

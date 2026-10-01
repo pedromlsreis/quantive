@@ -1,5 +1,6 @@
-// Pure selection logic for the check-subscription edge function. Kept in a
-// separate module so it can be unit-tested without the Deno serve runtime.
+// Picks the subscription that grants access, for check-subscription and the
+// customer portal's plan switch. Kept apart so it can be unit-tested without
+// the Deno serve runtime.
 //
 // `active` and `trialing` are full entitlement. `past_due` is mid-dunning:
 // Stripe is still retrying the card and the user should keep Pro access

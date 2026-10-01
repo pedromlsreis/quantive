@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { findOrCreateStripeCustomer } from "../_shared/stripeCustomer.ts";
-import { isCheckoutPrice } from "../_shared/billingPlans.ts";
+import { isCheckoutPrice, planForPrice } from "../_shared/billingPlans.ts";
 
 import { buildCorsHeaders, corsPreflightResponse, safeRedirectOrigin } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
@@ -96,7 +96,8 @@ serve(async (req) => {
     // The cache row is the source of truth here — the webhook writes it on
     // every subscription event, so it cannot meaningfully race with the
     // user's own click. Cancelled users (`canceled` / null) still proceed:
-    // re-subscribing is a legitimate flow.
+    // re-subscribing is a legitimate flow. A Pro subscriber moves to Family
+    // through customer-portal's switch_to_family flow instead.
     const { data: existing } = await admin
       .from("profiles")
       .select("subscription_status")
@@ -123,7 +124,8 @@ serve(async (req) => {
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
       allow_promotion_codes: true,
-      success_url: `${origin}/dashboard?checkout=success`,
+      // The plan names the success toast; isCheckoutPrice above means it's ours.
+      success_url: `${origin}/dashboard?checkout=success&plan=${planForPrice(priceId)?.plan ?? "pro"}`,
       cancel_url: `${origin}/pricing`,
     });
 

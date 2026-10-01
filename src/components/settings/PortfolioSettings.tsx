@@ -27,6 +27,7 @@ import {
   type PortfolioRevision,
 } from '@/lib/portfolios';
 import { SettingsRow, SettingsSection } from './SettingsRows';
+import { FamilyGate } from '@/components/billing/UpsellCard';
 
 const INVITE_ERRORS: Record<InviteErrorCode, string> = {
   seat_taken: 'You already share with someone else. A Family plan is shared by two people.',
@@ -42,9 +43,9 @@ const INVITE_ERRORS: Record<InviteErrorCode, string> = {
 
 /**
  * Settings → Portfolios (Family): the personal portfolio plus up to five
- * others, each opened, renamed, shared or deleted here. Renders only with
- * the Family plan or with extra portfolios already, which is how a partner
- * sees the portfolios shared with them.
+ * others, each opened, renamed, shared or deleted here. Lists them with the
+ * Family plan or with extra portfolios already, which is how a partner sees
+ * the portfolios shared with them; otherwise it holds the Family prompt.
  */
 export function PortfolioSettings() {
   const { user } = useAuth();
@@ -56,7 +57,14 @@ export function PortfolioSettings() {
   const canCreate = has('portfolios.multiple');
   const visible = !!user && (canCreate || extraPortfolios.length > 0);
   const sharing = usePortfolioSharing(visible, extraPortfolios.map((p) => p.id));
-  if (!user || !visible) return null;
+  if (!user) return null;
+  if (!visible) {
+    return (
+      <SettingsSection id="portfolios" title="Portfolios">
+        <FamilyGate location="settings_portfolios" />
+      </SettingsSection>
+    );
+  }
   const atLimit = extraPortfolios.filter((p) => p.ownerId === user.id).length >= MAX_EXTRA_PORTFOLIOS;
 
   const handleCreate = async () => {

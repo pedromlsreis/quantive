@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 14 June 2026_
+_Last updated: 1 October 2026_
 
 ## 1. Introduction
 
@@ -22,6 +22,8 @@ We do not have a Data Protection Officer (DPO). As a solo controller below the h
 
 **Portfolio data.** Any portfolio data you enter or import is end-to-end encrypted in your browser before it reaches our servers (see §5 and the [security and encryption](https://usequantive.app/security) page). We see ciphertext only and cannot decrypt it. We do not share, sell, or analyse your financial data.
 
+**Shared portfolios (Family plan).** If you share a portfolio, we store which accounts are members of it and when each joined, which account saved each version, and, for each invite, the email address of the person invited (provided by the person who invites them) and when the invite was created, expires and was used. The portfolio itself stays end-to-end encrypted. Its key travels in the invite link, which the person inviting sends themselves; the part of the link that holds the key never reaches our servers. Members of a shared portfolio can read and edit it and see each other's email address. Neither can see the other's personal portfolio.
+
 **Feedback.** If you submit feedback through the in-app feedback button, we store the message text, the type you selected (bug, improvement, or feature request), and your account ID so we can follow up. Feedback is not encrypted at rest. Do not include sensitive financial details in feedback messages.
 
 **Usage data.** Only if you grant analytics consent (see §9): anonymous product analytics (page views, feature usage) and anonymous web-performance metrics (Largest Contentful Paint, Interaction to Next Paint, Cumulative Layout Shift) via PostHog. No personally identifiable information, financial figures, or account details are included in these events.
@@ -37,6 +39,7 @@ We process your personal data for the following purposes, on the following legal
 | Purpose | Data | Legal basis |
 |---|---|---|
 | Provide and maintain the service | Account email, portfolio ciphertext | Art. 6(1)(b): performance of contract |
+| Share portfolios between two accounts (Family plan) | Membership, the invitee's email address, invite and version timestamps | Art. 6(1)(b): performance of contract; for the invitee, Art. 6(1)(f): our legitimate interest in delivering the invite they were sent |
 | Authenticate your identity and protect your account | Password hash, session data | Art. 6(1)(b): performance of contract |
 | Process subscription payments | Stripe customer/subscription identifiers, billing data held by Stripe | Art. 6(1)(b): performance of contract; Art. 6(1)(c): compliance with German tax law (§ 147 AO) for invoice records |
 | Send transactional emails (password reset, account-deletion confirmation, billing receipts) | Email address | Art. 6(1)(b): performance of contract |
@@ -46,7 +49,7 @@ We process your personal data for the following purposes, on the following legal
 
 ## 5. Data storage and security
 
-Your portfolio data is **end-to-end encrypted** in your browser before it reaches our servers. We see ciphertext only and cannot decrypt your data, even if we wanted to. Database access is additionally protected by Postgres row-level security. We do not connect to your bank accounts or any third-party financial institutions.
+Your portfolio data is **end-to-end encrypted** in your browser before it reaches our servers. We see ciphertext only and cannot decrypt your data, even if we wanted to. A portfolio you share on the Family plan has its own key, held by you and your partner only; we cannot decrypt it either. Database access is additionally protected by Postgres row-level security. We do not connect to your bank accounts or any third-party financial institutions.
 
 For details on the cryptographic primitives, threat model, and what we explicitly do _not_ protect against, see the security and encryption page at usequantive.app/security.
 
@@ -68,6 +71,9 @@ We do not sell or share your data with advertisers, data brokers, or any other t
 |---|---|---|
 | Account email and authentication data | Until you delete your account | Deleted from our database and from Supabase Auth |
 | Portfolio data (ciphertext) | Until you delete your account | Deleted from our database |
+| Shared portfolios (Family plan) | Until the subscriber deletes the portfolio. If the subscriber deletes their account, a portfolio shared with a partner passes to the partner. The last 20 encrypted versions are kept for restoring | Deleted from our database |
+| Membership of a shared portfolio | Until you leave, are removed, or delete your account | Deleted |
+| Invites (invitee email and timestamps) | Until used, cancelled or expired (after 7 days); a used invite is kept for 30 days after use | Deleted by a daily job |
 | In-app preferences (currency, number format, privacy mode) | Until you delete your account or clear local storage | Deleted |
 | Feedback messages (database) | Kept while useful for product work, reviewed at least once a year. Deleted in full when you delete your account, together with the rest of your data. | Deleted on account deletion |
 | Feedback messages (support inbox copy) | A notification copy of each feedback message is delivered to our support inbox and kept under normal email retention, pruned at least once a year. Deleting your account removes the message from our database but does not reach copies already delivered by email. | Pruned periodically |

@@ -55,13 +55,17 @@ const PRO_ENTITLEMENTS: readonly Entitlement[] = [
   'support.priority',
 ];
 
-// Pro plus extra portfolios and sharing. There is no Stripe product yet, so
-// resolvePlan never returns it: until there is, it is granted only through
-// the family_beta table (SubscriptionStatus.familyBeta).
+// Pro plus extra portfolios and sharing them with one partner, who gets Pro
+// (SubscriptionStatus.familyMember). Also granted without Stripe through the
+// family_beta table (SubscriptionStatus.familyBeta).
 export const FAMILY_PLAN: Plan = {
   id: 'family',
   name: 'Family',
-  productIds: [],
+  productIds: ['prod_VMPNVxnBJWMbsR'],
+  prices: {
+    monthly: { priceId: 'price_1ULgYf6exGYK5NssPboygCI8', amount: 14, currency: 'EUR' },
+    yearly: { priceId: 'price_1ULgYf6exGYK5NssfltE7uZe', amount: 120, currency: 'EUR' },
+  },
   entitlements: [...PRO_ENTITLEMENTS, 'portfolios.multiple', 'portfolios.share'],
 };
 
@@ -119,4 +123,6 @@ export type SubscriptionStatus = {
   familyBeta: boolean;
   // The partner on someone else's Family plan, which grants them Pro.
   familyMember: boolean;
+  // Whose Family plan covers a partner (familyMember), for Settings.
+  familyOwnerEmail: string | null;
 };
