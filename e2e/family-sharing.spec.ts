@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { test, expect, type Browser, type Locator, type Page } from '@playwright/test';
-import { getTestCreds, hasE2EAuth, signIn } from './helpers/auth';
+import { getTestCreds, hasE2EAuth, prepareSessions, signIn } from './helpers/auth';
 import { seedClean } from './helpers/seedClean';
 import { openNewSourceForm } from './helpers/composer';
 import { OWNER_SLOT, PARTNER_SLOT, grantOwnerFamily, resetFamily, revokeOwnerFamily, sharingTablesExist, testUser } from './helpers/family';
@@ -93,6 +93,11 @@ test.describe('Sharing a portfolio', () => {
   test.beforeAll(async ({ browser }) => {
     test.skip(!hasE2EAuth(OWNER_SLOT) || !hasE2EAuth(PARTNER_SLOT), 'E2E auth secrets for both test users not set.');
     test.skip(!(await sharingTablesExist()), 'Sharing migration not applied.');
+    // The logout specs end every session test user 1 has, including the one
+    // global-setup minted. The database still accepts its token, but Auth
+    // doesn't, so check-subscription would answer "not covered" and the
+    // shared portfolio would open read-only. Fresh sessions for this run.
+    await prepareSessions();
     await resetFamily();
     await grantOwnerFamily();
     owner = await openSession(browser, OWNER_SLOT, 'family');

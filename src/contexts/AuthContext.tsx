@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 import type { SubscriptionStatus } from '@/lib/billing/plans';
@@ -50,15 +50,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState<SubscriptionStatus>(defaultSubscription);
   const [subscriptionUserId, setSubscriptionUserId] = useState<string | null>(null);
+  // Checks overlap: a page load starts several, and a caller that just
+  // changed the plan (accepting an invite) starts another. Only the latest
+  // one's answer is applied, so an older, slower answer can't overwrite it.
+  // Sign-out bumps it too, dropping answers for the previous session.
+  const checkSeqRef = useRef(0);
 
   // useCallback so consumers can put `checkSubscription` in effect dep arrays
   // without re-firing on every parent render. The fn captures no React state,
   // so an empty dep array is correct.
   const checkSubscription = useCallback(async () => {
+    const seq = ++checkSeqRef.current;
     try {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       if (!currentSession?.access_token) return;
       const { data, error } = await supabase.functions.invoke('check-subscription');
+      if (seq !== checkSeqRef.current) return;
       if (error) {
         console.error('Error checking subscription:', error);
         return;
@@ -88,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (session?.user) {
         setTimeout(() => checkSubscription(), 0);
       } else {
+        checkSeqRef.current++;
         setSubscription(defaultSubscription);
         setSubscriptionUserId(null);
       }
