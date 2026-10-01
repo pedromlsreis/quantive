@@ -11,6 +11,19 @@ import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 import { requireAdmin } from "../_shared/requireAdmin.ts";
 import { planForProduct, type PaidPlanId } from "../_shared/billingPlans.ts";
 
+// What a subscription's next invoice charges, after its discounts. List prices
+// overstate MRR: a comped subscription (100% off) would count in full. Null
+// when Stripe can't preview one, e.g. a subscription cancelling at period end;
+// the caller falls back to the list price.
+async function nextInvoiceTotal(stripe: Stripe, subscriptionId: string): Promise<number | null> {
+  try {
+    const preview = await stripe.invoices.createPreview({ subscription: subscriptionId });
+    return preview.total;
+  } catch {
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
   const corsHeaders = buildCorsHeaders(req);
@@ -216,21 +229,16 @@ serve(async (req) => {
           const product = sub.items.data[0]?.price.product;
           const plan = planForProduct(typeof product === "string" ? product : product?.id);
           if (plan) planCents[plan].subs++;
-          for (const item of sub.items.data) {
-            const price = item.price;
-            const unit = price.unit_amount ?? 0;
-            const qty = item.quantity ?? 1;
-            const interval = price.recurring?.interval;
-            // Normalize to monthly EUR cents.
-            const monthly =
-              interval === "year"
-                ? Math.round((unit * qty) / 12)
-                : interval === "month"
-                  ? unit * qty
-                  : 0;
-            mrrCents += monthly;
-            if (plan) planCents[plan].cents += monthly;
-          }
+          const listCents = sub.items.data.reduce(
+            (sum, item) => sum + (item.price.unit_amount ?? 0) * (item.quantity ?? 1),
+            0,
+          );
+          const cents = (await nextInvoiceTotal(stripe, sub.id)) ?? listCents;
+          // Normalize to monthly EUR cents.
+          const monthly =
+            subInterval === "year" ? Math.round(cents / 12) : subInterval === "month" ? cents : 0;
+          mrrCents += monthly;
+          if (plan) planCents[plan].cents += monthly;
         }
         const mrrEur = Math.round(mrrCents) / 100;
         stripeStats = {
