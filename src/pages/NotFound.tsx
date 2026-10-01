@@ -7,7 +7,7 @@ import "@/styles/doc.css";
 
 const EXITS = [
   { to: "/demo", label: "Demo", desc: "The app with illustrative data" },
-  { to: "/pricing", label: "Pricing", desc: "Free forever, or €90 a year" },
+  { to: "/pricing", label: "Pricing", desc: "Free forever, or from €90 a year" },
   { to: "/security", label: "Security", desc: "How your data is encrypted, and what we can't protect" },
 ];
 
