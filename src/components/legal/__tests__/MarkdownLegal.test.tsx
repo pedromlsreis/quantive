@@ -22,7 +22,7 @@ import impressum from '../../../../docs/legal/impressum.md?raw';
 
 function renderLegal(source: string, title = 'Doc') {
   return render(
-    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <MemoryRouter>
       <MarkdownLegal source={source} pageTitle={title} pageDescription="" path="/x" />
     </MemoryRouter>,
   );

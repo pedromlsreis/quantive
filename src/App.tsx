@@ -222,7 +222,7 @@ const App = () => (
             <CurrencyProvider>
               <PreferencesProvider>
               <PortfolioProvider>
-                <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <BrowserRouter>
                   <PageViewTracker />
                   <ScrollToTop />
                   <ScrollToHash />
