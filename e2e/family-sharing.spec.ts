@@ -9,9 +9,11 @@ import { OWNER_SLOT, PARTNER_SLOT, grantOwnerFamily, resetFamily, sharingTablesE
  * Sharing a portfolio end to end, in two browsers: the owner (test user 2)
  * shares, the partner (test user 1) joins through the link, both edit at
  * once and the later save is replayed, then the owner removes the partner.
- * Runs after the other specs (project "family-ui" in playwright.config.ts).
- * On its own: `npx playwright test e2e/family-sharing.spec.ts --no-deps` (without
- * --no-deps, Playwright runs the whole chromium project first).
+ * Runs in the "family" project (playwright.config.ts): after the other
+ * specs, and never at the same time as rls-portfolios.spec.ts, since both
+ * reset the same users.
+ * Both Family specs: `npx playwright test --project=family --no-deps`.
+ * Without --no-deps, Playwright runs the whole chromium project first.
  *
  * A full page load locks the keys, so each side moves around with in-app
  * links, and unlocks again after every deliberate navigation.

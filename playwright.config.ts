@@ -29,18 +29,15 @@ export default defineConfig({
     },
     // The Family specs make test user 1 a partner in test user 2's
     // portfolio. Most specs sign in as user 1, so these run after all of
-    // them, and one after the other: they share the two users' seat.
+    // them. They also reset the same two users, so one worker runs them one
+    // after the other; that holds with --no-deps too, which skips only the
+    // wait for chromium.
     {
-      name: 'family-rls',
+      name: 'family',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: /rls-portfolios\.spec\.ts/,
+      testMatch: FAMILY_SPECS,
       dependencies: ['chromium'],
-    },
-    {
-      name: 'family-ui',
-      use: { ...devices['Desktop Chrome'] },
-      testMatch: /family-sharing\.spec\.ts/,
-      dependencies: ['family-rls'],
+      workers: 1,
     },
   ],
   webServer: {

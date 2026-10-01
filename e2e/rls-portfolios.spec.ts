@@ -19,10 +19,11 @@ import {
  * PostgREST, the way a modified client could call it. No browser: the key
  * material is fake bytes, since only the client can check it.
  *
- * Test user 2 owns, test user 1 is the partner. Runs after the other specs
- * (project "family-rls" in playwright.config.ts).
- * On its own: `npx playwright test e2e/rls-portfolios.spec.ts --no-deps` (without
- * --no-deps, Playwright runs the whole chromium project first).
+ * Test user 2 owns, test user 1 is the partner. Runs in the "family"
+ * project (playwright.config.ts): after the other specs, and never at the
+ * same time as family-sharing.spec.ts, since both reset the same users.
+ * Both Family specs: `npx playwright test --project=family --no-deps`.
+ * Without --no-deps, Playwright runs the whole chromium project first.
  */
 
 test.describe.configure({ mode: 'serial' });

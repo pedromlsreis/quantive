@@ -27,7 +27,7 @@ npm run size:check     # size-limit bundle budget (enforced; see package.json `s
 ```
 
 Run a single unit test: `npx vitest run src/lib/forecast.test.ts` (or `-t "name"` to filter by title).
-Run a single E2E spec: `npx playwright test e2e/auth.spec.ts`. The two Family specs (`rls-portfolios`, `family-sharing`) run in their own projects after every other spec, because they make test user 1 a partner in test user 2's portfolio; run one alone with `--no-deps`, or Playwright runs the whole suite first.
+Run a single E2E spec: `npx playwright test e2e/auth.spec.ts`. The two Family specs (`rls-portfolios`, `family-sharing`) run in their own `family` project, after every other spec and on one worker: they make test user 1 a partner in test user 2's portfolio, and each resets both users. Run them with `npx playwright test --project=family --no-deps`; without `--no-deps` Playwright runs the whole suite first.
 
 **E2E auth:** Supabase enforces Turnstile CAPTCHA on password sign-in with the real production secret, so headless tests can't submit the `AuthModal` form. Instead [e2e/global-setup.ts](e2e/global-setup.ts) mints one session per test user via the service-role `admin.generateLink` + `verifyOtp` path (see `prepareSessions` in [e2e/helpers/auth.ts](e2e/helpers/auth.ts)), and specs inject it before driving the real unlock UI. Needs `SUPABASE_SERVICE_ROLE_KEY` and `TEST_USER_*` in `.env` (see `.env.example`); without them the auth specs skip. Don't set `VITE_TURNSTILE_SITE_KEY` to Cloudflare's always-pass test key: the real secret rejects its token.
 

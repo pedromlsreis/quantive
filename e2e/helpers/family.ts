@@ -4,10 +4,16 @@ import { join } from 'node:path';
 
 /**
  * Shared setup for the Family specs (rls-portfolios, family-sharing). Test
- * user 2 owns, test user 1 is the partner. Both specs run after every other
- * spec (the "family-*" projects in playwright.config.ts): most specs sign
- * in as user 1, whose portfolio list would otherwise change under them.
+ * user 2 owns, test user 1 is the partner. Both specs run in the "family"
+ * project (playwright.config.ts): after every other spec, because most
+ * specs sign in as user 1, whose portfolio list would otherwise change under
+ * them; and on one worker, because each spec's reset would delete the
+ * other's portfolios and beta row mid-run.
  */
+
+function check(step: string, error: { message: string } | null): void {
+  if (error) throw new Error(`Family E2E setup: ${step} failed: ${error.message}`);
+}
 
 export const OWNER_SLOT = 2 as const;
 export const PARTNER_SLOT = 1 as const;
@@ -53,19 +59,22 @@ export async function resetFamily(opts: { keepBeta?: boolean } = {}): Promise<vo
   const owner = testUser(OWNER_SLOT).id;
   const partner = testUser(PARTNER_SLOT).id;
   for (const id of [owner, partner]) {
-    await service.from('portfolios').delete().eq('owner_id', id);
-    await service.from('family_partners').delete().eq('owner_id', id);
-    await service.from('family_partners').delete().eq('partner_id', id);
+    check('deleting portfolios', (await service.from('portfolios').delete().eq('owner_id', id)).error);
+    check('freeing the seat', (await service.from('family_partners').delete().eq('owner_id', id)).error);
+    check('freeing the seat', (await service.from('family_partners').delete().eq('partner_id', id)).error);
   }
   // Only the row grantOwnerFamily added; a real beta grant stays.
-  if (!opts.keepBeta) await service.from('family_beta').delete().eq('user_id', owner).eq('note', 'e2e');
+  if (!opts.keepBeta) {
+    check('removing the beta row', (await service.from('family_beta').delete().eq('user_id', owner).eq('note', 'e2e')).error);
+  }
 }
 
 /** The server checks the Family plan itself, so the owner joins the beta for the run. */
 export async function grantOwnerFamily(): Promise<void> {
-  await serviceClient()
+  const { error } = await serviceClient()
     .from('family_beta')
     .upsert({ user_id: testUser(OWNER_SLOT).id, note: 'e2e' }, { onConflict: 'user_id', ignoreDuplicates: true });
+  check('granting the beta', error);
 }
 
 /** A syntactically valid bytea for fields whose contents only the client checks. */
