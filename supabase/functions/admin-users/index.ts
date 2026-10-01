@@ -12,7 +12,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { cancelActiveSubscriptions, isFullyCancelled } from "../_shared/cancelStripeSubscriptions.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 import { requireAdmin } from "../_shared/requireAdmin.ts";
-import { deleteUserData } from "../_shared/userDataDelete.ts";
+import { deleteAccountData } from "../_shared/userDataDelete.ts";
 
 const ALLOWED_ROLES = new Set(["admin", "moderator"]);
 
@@ -220,7 +220,7 @@ serve(async (req) => {
         // Abort the admin-delete if any user-scoped table fails to clear;
         // we must not drop auth.users while orphan rows remain (especially
         // feedback, which is ON DELETE SET NULL).
-        const cleanup = await deleteUserData(service, userId);
+        const cleanup = await deleteAccountData(service, userId);
         if (cleanup.errors.length > 0) {
           console.error(
             `[admin-users] data cleanup partial-failure for ${userId}:`,

@@ -36,7 +36,7 @@ export function cadenceLabel(freq: ReminderFrequency): string {
 export interface DueInput {
   /** profiles.reminder_frequency — may be null/'off'/garbage; validated here. */
   frequency: string | null;
-  /** ISO timestamp of the user's last snapshot sync (portfolio_snapshots.updated_at). */
+  /** ISO timestamp of the user's last save (see latestActivity). */
   lastActivityAt: string | null;
   /** ISO timestamp of the last reminder we sent, or null if never. */
   lastSentAt: string | null;
@@ -75,4 +75,23 @@ export function isReminderDue(input: DueInput): boolean {
   }
 
   return true;
+}
+
+/**
+ * The most recent of several save times: the personal snapshot and every
+ * extra portfolio the user is a member of, whoever saved it. Unparseable
+ * values are ignored; null when there is none.
+ */
+export function latestActivity(times: ReadonlyArray<string | null | undefined>): string | null {
+  let best: string | null = null;
+  let bestMs = -Infinity;
+  for (const t of times) {
+    if (!t) continue;
+    const ms = Date.parse(t);
+    if (Number.isFinite(ms) && ms > bestMs) {
+      best = t;
+      bestMs = ms;
+    }
+  }
+  return best;
 }

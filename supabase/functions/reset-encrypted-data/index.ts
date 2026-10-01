@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 import { hasRecentEmailLinkAuth } from "../_shared/emailLinkAuth.ts";
-import { deleteUserData, ENCRYPTED_DATA_TABLES } from "../_shared/userDataDelete.ts";
+import { deleteUserData, ENCRYPTED_DATA_TABLES, releaseOwnedPortfolios } from "../_shared/userDataDelete.ts";
 
 // Deletes the caller's encrypted portfolio and key rows so they can start
 // again after a password reset without a recovery code (encryption.md §8.5).
@@ -46,6 +46,13 @@ serve(async (req) => {
     // opened with a password (possibly a stolen one) can't wipe data.
     if (!hasRecentEmailLinkAuth(token, Math.floor(Date.now() / 1000))) {
       return errorResponse("email_link_required", 403);
+    }
+
+    // A shared portfolio passes to the partner, who can still open it.
+    const release = await releaseOwnedPortfolios(serviceClient, user.id);
+    if (release.error) {
+      console.error(`[reset-encrypted-data] release failed for ${user.id}:`, release.error);
+      return errorResponse("cleanup_failed", 500);
     }
 
     // One table at a time, stopping at the first failure (see ENCRYPTED_DATA_TABLES).

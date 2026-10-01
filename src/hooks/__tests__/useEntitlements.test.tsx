@@ -12,6 +12,7 @@ const authState: { user: { id: string } | null; subscription: SubscriptionStatus
     paymentPastDue: false,
     hasStripeHistory: false,
     familyBeta: false,
+    familyMember: false,
   },
 };
 
@@ -36,6 +37,7 @@ const FREE_SUB: SubscriptionStatus = {
   paymentPastDue: false,
   hasStripeHistory: false,
   familyBeta: false,
+    familyMember: false,
 };
 
 const PRO_SUB: SubscriptionStatus = {
@@ -46,6 +48,7 @@ const PRO_SUB: SubscriptionStatus = {
   paymentPastDue: false,
   hasStripeHistory: true,
   familyBeta: false,
+    familyMember: false,
 };
 
 beforeEach(() => {
@@ -67,13 +70,13 @@ describe('useEntitlements', () => {
   });
 
   it('unknown productId falls back to free plan', () => {
-    authState.subscription = { subscribed: true, productId: 'prod_UNKNOWN', subscriptionEnd: null, cancelAtPeriodEnd: false, paymentPastDue: false, hasStripeHistory: true, familyBeta: false };
+    authState.subscription = { subscribed: true, productId: 'prod_UNKNOWN', subscriptionEnd: null, cancelAtPeriodEnd: false, paymentPastDue: false, hasStripeHistory: true, familyBeta: false, familyMember: false };
     const { result } = renderHook(() => useEntitlements());
     expect(result.current.plan.id).toBe('free');
   });
 
   it('uses free plan when subscribed=false even if productId is non-null (stale state guard)', () => {
-    authState.subscription = { subscribed: false, productId: PRO_PRODUCT_ID, subscriptionEnd: null, cancelAtPeriodEnd: false, paymentPastDue: false, hasStripeHistory: false, familyBeta: false };
+    authState.subscription = { subscribed: false, productId: PRO_PRODUCT_ID, subscriptionEnd: null, cancelAtPeriodEnd: false, paymentPastDue: false, hasStripeHistory: false, familyBeta: false, familyMember: false };
     const { result } = renderHook(() => useEntitlements());
     expect(result.current.plan.id).toBe('free');
     expect(result.current.has('history.full')).toBe(false);

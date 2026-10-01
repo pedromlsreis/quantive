@@ -13,6 +13,10 @@ export interface UserDataTablesClient {
   };
 }
 
+export interface ReleasePortfoliosClient {
+  rpc(fn: "release_owned_portfolios", args: { p_user_id: string }): PromiseLike<{ error: { message: string } | null }>;
+}
+
 // A table whose rows are keyed by user_id, or a table plus the column that
 // holds the user's id (portfolios are keyed by owner_id).
 export type UserDataTable = string | { table: string; column: string };
@@ -36,11 +40,13 @@ export interface DeleteUserDataResult {
 //      for product insight), but a user-requested deletion must remove
 //      the message itself for GDPR — the explicit delete enforces that.
 //
-// `portfolios` is ON DELETE RESTRICT on owner_id, so it must go first or the
-// final auth.admin.deleteUser fails. Its member rows cascade with it.
+// Owned portfolios are not in this list: releaseOwnedPortfolios hands each
+// shared one to the partner and deletes the rest, and must run first.
+// portfolios.owner_id is ON DELETE RESTRICT, so skipping that step fails the
+// final auth.admin.deleteUser instead of cascading a partner's data away.
 export const USER_DATA_TABLES: readonly UserDataTable[] = [
-  { table: "portfolios", column: "owner_id" },
   "portfolio_members",
+  "portfolio_key_history",
   "family_beta",
   "portfolio_snapshots",
   "feedback",
@@ -49,17 +55,42 @@ export const USER_DATA_TABLES: readonly UserDataTable[] = [
   "profiles",
 ];
 
-// A user's encrypted portfolios and the key rows that open them. Cleared on
-// their own by reset-encrypted-data when a password reset without a
-// recovery code leaves the data undecryptable (encryption.md §8.5): the
-// portfolio keys are wrapped under the lost DK too. The key row goes last
-// so a failure part-way never leaves data behind without its key row.
+// A user's encrypted rows and the key rows that open them. Cleared on their
+// own by reset-encrypted-data when a password reset without a recovery code
+// leaves the data undecryptable (encryption.md §8.5): the portfolio keys are
+// wrapped under the lost DK too. releaseOwnedPortfolios runs first, as for
+// account deletion. The key row goes last so a failure part-way never
+// leaves data behind without its key row.
 export const ENCRYPTED_DATA_TABLES: readonly UserDataTable[] = [
-  { table: "portfolios", column: "owner_id" },
   "portfolio_members",
+  "portfolio_key_history",
   "portfolio_snapshots",
   "user_keys",
 ];
+
+// Each portfolio the user owns passes to its partner, who already holds its
+// key, or is deleted if it has none (release_owned_portfolios, migration
+// 20261001120000). The caller stops if this fails.
+export async function releaseOwnedPortfolios(
+  client: ReleasePortfoliosClient,
+  userId: string,
+): Promise<{ error: string | null }> {
+  const { error } = await client.rpc("release_owned_portfolios", { p_user_id: userId });
+  return { error: error ? error.message : null };
+}
+
+// Account deletion's data step: release owned portfolios, then clear every
+// user-scoped table. A failed release stops before any table is touched.
+export async function deleteAccountData(
+  client: UserDataTablesClient & ReleasePortfoliosClient,
+  userId: string,
+): Promise<DeleteUserDataResult> {
+  const release = await releaseOwnedPortfolios(client, userId);
+  if (release.error) {
+    return { deletedTables: [], errors: [{ table: "portfolios", message: release.error }] };
+  }
+  return deleteUserData(client, userId);
+}
 
 export async function deleteUserData(
   client: UserDataTablesClient,

@@ -1393,6 +1393,10 @@ html[data-app-motion='on'] .q-alert { animation: q-fade-in var(--d-overlay) var(
 .q-set-select { width: 240px; }
 .q-set-form { display: grid; gap: var(--s-4); max-width: 320px; padding-block: var(--s-4); }
 .q-set-links { display: flex; gap: var(--s-4); flex-wrap: wrap; font-size: 14px; }
+/* Settings → Portfolios → Earlier versions. */
+.q-portfolio-versions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
+.q-portfolio-versions li { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; min-height: 32px; }
+.q-portfolio-versions-by { font-size: 13px; color: var(--fg-subtle); overflow-wrap: anywhere; }
 @media (max-width: 768px) {
   .q-set-sec { grid-template-columns: minmax(0, 1fr); row-gap: var(--s-4); }
   .q-set-row { grid-template-columns: minmax(0, 1fr); gap: var(--s-3); }

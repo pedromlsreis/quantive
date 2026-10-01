@@ -1,6 +1,6 @@
 /**
  * Extra portfolios (Family plan): list, open, create, save, delete.
- * Spec: docs/security/encryption.md §15.1. The personal portfolio keeps its
+ * Spec: docs/security/encryption.md §5.2, §9.3. The personal portfolio keeps its
  * own path in cloudSync.ts.
  *
  * An extra portfolio's blob is the PortfolioData JSON plus the portfolio's
@@ -18,7 +18,9 @@ import {
   unwrapPortfolioKey,
   wrapPortfolioKey,
 } from '@/lib/crypto';
+import { toIsoDate } from '@/lib/fxConvert';
 import { byteaToBytes, bytesToBytea } from '@/lib/keySession/bytea';
+import type { RotateOutcome } from '@/lib/portfolioSync';
 import type { PortfolioData } from '@/lib/types';
 import { CONTROL_CHAR_RE } from '@/lib/utils';
 
@@ -36,6 +38,8 @@ export interface ExtraPortfolioMeta {
   ownerId: string;
   revision: number;
   keyEpoch: number;
+  /** A partner left or was removed. The owner's browser rotates the key on its next load. */
+  rotationDue: boolean;
 }
 
 export interface LoadedPortfolio {
@@ -88,10 +92,15 @@ export function portfolioNameTaken(name: string, existing: readonly ExtraPortfol
   return existing.some((p) => p.id !== exceptId && p.name.toLowerCase() === lower);
 }
 
-const EMPTY_CONTENT = { facts: [], refSources: [], goals: [] };
+const EMPTY_CONTENT: PortfolioData = { facts: [], refSources: [], goals: [] };
 
 function encodeContent(name: string, data: PortfolioData | null): Uint8Array {
-  return new TextEncoder().encode(JSON.stringify({ ...(data ?? EMPTY_CONTENT), name }));
+  const content = data ?? EMPTY_CONTENT;
+  // Calendar days, not timestamps: a partner in another time zone would read
+  // a local-midnight timestamp as the day before or after. The reader parses
+  // YYYY-MM-DD as local midnight (PortfolioContext's safeDate).
+  const facts = content.facts.map((f) => ({ ...f, date: toIsoDate(f.date) }));
+  return new TextEncoder().encode(JSON.stringify({ ...content, facts, name }));
 }
 
 function decodeContent(bytes: Uint8Array): { name: string; content: Record<string, unknown> } {
@@ -111,6 +120,7 @@ interface PortfolioRow {
   enc_version: number;
   revision: number;
   key_epoch: number;
+  rotation_due: boolean;
   created_at: string;
 }
 
@@ -121,7 +131,7 @@ interface MemberRow {
 }
 
 const MEMBER_SELECT =
-  'wrapped_pk, key_epoch, portfolios(id, owner_id, encrypted_data, nonce, enc_version, revision, key_epoch, created_at)';
+  'wrapped_pk, key_epoch, portfolios(id, owner_id, encrypted_data, nonce, enc_version, revision, key_epoch, rotation_due, created_at)';
 
 async function openPortfolio(member: MemberRow & { portfolios: PortfolioRow }, userId: string, dataKey: Uint8Array): Promise<LoadedPortfolio> {
   const row = member.portfolios;
@@ -146,7 +156,14 @@ async function openPortfolio(member: MemberRow & { portfolios: PortfolioRow }, u
   });
   const { name, content } = decodeContent(plaintext);
   return {
-    meta: { id: row.id, name, ownerId: row.owner_id, revision: row.revision, keyEpoch: row.key_epoch },
+    meta: {
+      id: row.id,
+      name,
+      ownerId: row.owner_id,
+      revision: row.revision,
+      keyEpoch: row.key_epoch,
+      rotationDue: row.rotation_due,
+    },
     portfolioKey,
     content,
   };
@@ -222,7 +239,7 @@ export async function createPortfolio(
     throw error;
   }
   return {
-    meta: { id, name, ownerId: userId, revision: 1, keyEpoch: 1 },
+    meta: { id, name, ownerId: userId, revision: 1, keyEpoch: 1, rotationDue: false },
     portfolioKey,
     content: { ...EMPTY_CONTENT },
   };
@@ -265,35 +282,108 @@ export async function deletePortfolio(client: Client, portfolioId: string): Prom
 }
 
 /**
- * Runs saves one at a time. A save requested while one is running replaces
- * any save already waiting, so the newest payload goes next. Each payload
- * is the whole blob, and each compare-and-swap needs the revision the
- * previous save returned, so running two at once would conflict with itself.
+ * Re-encrypts the portfolio under a fresh key at the next epoch and replaces
+ * the owner's wrap (encryption.md §8.9). Resolves with the new key on
+ * success; on any other outcome the new key is zeroed and null.
  */
-export function createSerialSaver<T>(run: (payload: T) => Promise<void>): (payload: T) => Promise<void> {
-  let running: Promise<void> | null = null;
-  let waiting: { payload: T } | null = null;
-  return (payload: T) => {
-    if (running) {
-      waiting = { payload };
-      return running;
+export async function rotatePortfolioKey(
+  client: Client,
+  args: { meta: ExtraPortfolioMeta; userId: string; dataKey: Uint8Array; data: PortfolioData | null },
+): Promise<{ outcome: RotateOutcome; portfolioKey: Uint8Array | null }> {
+  const { meta, userId, dataKey, data } = args;
+  const keyEpoch = meta.keyEpoch + 1;
+  const portfolioKey = await generatePortfolioKey();
+  let keep = false;
+  try {
+    const wrappedPk = await wrapPortfolioKey({ portfolioKey, dataKey, userId, portfolioId: meta.id, keyEpoch });
+    const encrypted = await encryptPortfolio({ plaintext: encodeContent(meta.name, data), portfolioKey, portfolioId: meta.id, keyEpoch });
+    const { data: rows, error } = await client.rpc('rotate_portfolio_key', {
+      p_id: meta.id,
+      p_expected_revision: meta.revision,
+      p_expected_epoch: meta.keyEpoch,
+      p_encrypted_data: bytesToBytea(encrypted.ciphertext),
+      p_nonce: bytesToBytea(encrypted.nonce),
+      p_enc_version: encrypted.encVersion,
+      p_owner_wrapped_pk: bytesToBytea(wrappedPk),
+    });
+    if (error) throw error;
+    const row = rows?.[0];
+    if (row?.status === 'ok' && row.current_revision !== null && row.current_epoch !== null) {
+      keep = true;
+      return { outcome: { status: 'ok', revision: row.current_revision, keyEpoch: row.current_epoch }, portfolioKey };
     }
-    running = (async () => {
-      let current: { payload: T } | null = { payload };
-      try {
-        while (current) {
-          try {
-            await run(current.payload);
-          } catch (e) {
-            console.error('[portfolios] save failed:', e);
-          }
-          current = waiting;
-          waiting = null;
-        }
-      } finally {
-        running = null;
-      }
-    })();
-    return running;
-  };
+    if (row?.status === 'conflict' || row?.status === 'members_remain' || row?.status === 'forbidden') {
+      return { outcome: { status: row.status }, portfolioKey: null };
+    }
+    throw new Error(`unexpected rotate_portfolio_key status: ${row?.status}`);
+  } finally {
+    if (!keep) portfolioKey.fill(0);
+  }
+}
+
+export interface PortfolioRevision {
+  revision: number;
+  keyEpoch: number;
+  savedBy: string | null;
+  savedAt: string;
+}
+
+/** Earlier versions a save replaced, newest first. At most 20 are kept. */
+export async function listRevisions(client: Client, portfolioId: string): Promise<PortfolioRevision[]> {
+  const { data, error } = await client
+    .from('portfolio_revisions')
+    .select('revision, key_epoch, saved_by, saved_at')
+    .eq('portfolio_id', portfolioId)
+    .order('revision', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({ revision: r.revision, keyEpoch: r.key_epoch, savedBy: r.saved_by, savedAt: r.saved_at }));
+}
+
+/**
+ * Decrypts one earlier version. A version from before a key rotation needs
+ * the retired key, which only the owner keeps (portfolio_key_history).
+ * Resolves with the content without its name, like LoadedPortfolio.content.
+ */
+export async function openRevision(
+  client: Client,
+  args: { userId: string; dataKey: Uint8Array; meta: ExtraPortfolioMeta; currentKey: Uint8Array; revision: number },
+): Promise<Record<string, unknown>> {
+  const { userId, dataKey, meta, currentKey, revision } = args;
+  const { data: row, error } = await client
+    .from('portfolio_revisions')
+    .select('key_epoch, encrypted_data, nonce, enc_version')
+    .eq('portfolio_id', meta.id)
+    .eq('revision', revision)
+    .single();
+  if (error) throw error;
+
+  let retired: Uint8Array | null = null;
+  if (row.key_epoch !== meta.keyEpoch) {
+    const { data: wrap, error: wrapError } = await client
+      .from('portfolio_key_history')
+      .select('wrapped_pk')
+      .eq('portfolio_id', meta.id)
+      .eq('key_epoch', row.key_epoch)
+      .eq('user_id', userId)
+      .single();
+    if (wrapError) throw wrapError;
+    retired = await unwrapPortfolioKey({
+      wrappedPk: byteaToBytes(wrap.wrapped_pk),
+      dataKey,
+      userId,
+      portfolioId: meta.id,
+      keyEpoch: row.key_epoch,
+    });
+  }
+  try {
+    const plaintext = await decryptPortfolio({
+      encrypted: { ciphertext: byteaToBytes(row.encrypted_data), nonce: byteaToBytes(row.nonce), encVersion: row.enc_version },
+      portfolioKey: retired ?? currentKey,
+      portfolioId: meta.id,
+      keyEpoch: row.key_epoch,
+    });
+    return decodeContent(plaintext).content;
+  } finally {
+    retired?.fill(0);
+  }
 }

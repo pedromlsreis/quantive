@@ -1,5 +1,5 @@
 /**
- * AAD construction. Spec: docs/security/encryption.md §6, §15.1.3.
+ * AAD construction. Spec: docs/security/encryption.md §6.
  *
  * AAD binds ciphertext to context (user, version, kind). The server cannot
  * substitute one user's ciphertext for another's without decryption failing.

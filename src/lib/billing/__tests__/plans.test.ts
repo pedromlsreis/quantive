@@ -59,7 +59,7 @@ describe('Family plan', () => {
 });
 
 describe('resolvePlanForStatus', () => {
-  const base = { subscribed: false, productId: null, familyBeta: false };
+  const base = { subscribed: false, productId: null, familyBeta: false, familyMember: false };
   const proProduct = PLANS.find((p) => p.id === 'pro')!.productIds[0];
 
   it('follows the Stripe product when not in the Family beta', () => {
@@ -71,6 +71,15 @@ describe('resolvePlanForStatus', () => {
   it('returns Family for the beta, whatever the Stripe state', () => {
     expect(resolvePlanForStatus({ ...base, familyBeta: true }).id).toBe('family');
     expect(resolvePlanForStatus({ subscribed: true, productId: proProduct, familyBeta: true }).id).toBe('family');
+  });
+
+  it("gives a partner on someone's Family plan Pro, never Family itself", () => {
+    const partner = resolvePlanForStatus({ ...base, familyMember: true });
+    expect(partner.id).toBe('pro');
+    expect(planHas(partner, 'portfolios.share')).toBe(false);
+    expect(planHas(partner, 'portfolios.multiple')).toBe(false);
+    expect(resolvePlanForStatus({ ...base, subscribed: true, productId: proProduct, familyMember: true }).id).toBe('pro');
+    expect(resolvePlanForStatus({ ...base, familyBeta: true, familyMember: true }).id).toBe('family');
   });
 });
 
@@ -102,6 +111,7 @@ describe('SubscriptionStatus type', () => {
       paymentPastDue: false,
       hasStripeHistory: false,
       familyBeta: false,
+    familyMember: false,
     };
     expect(s.subscribed).toBe(false);
   });
@@ -115,6 +125,7 @@ describe('SubscriptionStatus type', () => {
       paymentPastDue: false,
       hasStripeHistory: true,
       familyBeta: false,
+    familyMember: false,
     };
     expect(s.subscribed).toBe(true);
     expect(s.productId).toBe('prod_abc123');
@@ -129,6 +140,7 @@ describe('SubscriptionStatus type', () => {
       paymentPastDue: true,
       hasStripeHistory: true,
       familyBeta: false,
+    familyMember: false,
     };
     expect(s.subscribed).toBe(true);
     expect(s.paymentPastDue).toBe(true);
@@ -143,6 +155,7 @@ describe('SubscriptionStatus type', () => {
       paymentPastDue: false,
       hasStripeHistory: true,
       familyBeta: false,
+    familyMember: false,
     };
     expect(s.subscribed).toBe(false);
     expect(s.hasStripeHistory).toBe(true);

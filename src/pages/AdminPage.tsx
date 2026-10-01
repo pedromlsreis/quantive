@@ -39,6 +39,14 @@ interface AdminStats {
     total: number;
     withRecovery: number;
   };
+  /** Absent until admin-stats is redeployed with the Family counts. */
+  family?: {
+    betaUsers: number;
+    portfolios: number;
+    sharedPortfolios: number;
+    partners: number;
+    pendingInvites: number;
+  };
   currencies: Record<string, number>;
   reminders: Record<string, number>;
   feedback: {
@@ -277,6 +285,13 @@ export default function AdminPage() {
                 value={stats.feedback.total}
                 detail={Object.entries(stats.feedback.byType).map(([k, v]) => `${v} ${k}`).join(', ') || 'None yet.'}
               />
+              {stats.family && (
+                <Stat
+                  label="Family"
+                  value={stats.family.betaUsers}
+                  detail={`Users in the Family beta. ${stats.family.portfolios} extra ${stats.family.portfolios === 1 ? 'portfolio' : 'portfolios'}, ${stats.family.sharedPortfolios} shared, ${stats.family.partners} ${stats.family.partners === 1 ? 'partner' : 'partners'}, ${stats.family.pendingInvites} pending ${stats.family.pendingInvites === 1 ? 'invite' : 'invites'}.`}
+                />
+              )}
             </dl>
           </section>
 

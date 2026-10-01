@@ -89,10 +89,17 @@ export function planHas(plan: Plan, entitlement: Entitlement): boolean {
   return plan.entitlements.includes(entitlement);
 }
 
-/** The plan a subscription status grants. The Family beta outranks a paid Pro plan. */
-export function resolvePlanForStatus(status: Pick<SubscriptionStatus, 'subscribed' | 'productId' | 'familyBeta'>): Plan {
+/**
+ * The plan a subscription status grants. The Family beta outranks a paid
+ * plan; a partner on someone else's Family plan gets Pro, not Family.
+ */
+export function resolvePlanForStatus(
+  status: Pick<SubscriptionStatus, 'subscribed' | 'productId' | 'familyBeta'> & Partial<Pick<SubscriptionStatus, 'familyMember'>>,
+): Plan {
   if (status.familyBeta) return FAMILY_PLAN;
-  return resolvePlan(status.subscribed ? status.productId : null);
+  const own = resolvePlan(status.subscribed ? status.productId : null);
+  if (own.id === FREE_PLAN.id && status.familyMember) return PLANS.find((p) => p.id === 'pro') ?? own;
+  return own;
 }
 
 export type SubscriptionStatus = {
@@ -110,4 +117,6 @@ export type SubscriptionStatus = {
   hasStripeHistory: boolean;
   // Granted Family through the family_beta table rather than Stripe.
   familyBeta: boolean;
+  // The partner on someone else's Family plan, which grants them Pro.
+  familyMember: boolean;
 };

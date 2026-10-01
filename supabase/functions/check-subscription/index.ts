@@ -68,10 +68,12 @@ serve(async (req) => {
   );
 
   // Family features before the Stripe plan exists: a row in family_beta.
-  // Attached to every response once the user is known.
+  // A partner on someone's Family plan (family_partners) gets Pro. Both are
+  // attached to every response once the user is known.
   let familyBeta = false;
+  let familyMember = false;
   const respond = (view: SubscriptionView) =>
-    new Response(JSON.stringify({ ...view, family_beta: familyBeta }), {
+    new Response(JSON.stringify({ ...view, family_beta: familyBeta, family_member: familyMember }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
@@ -102,6 +104,22 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .maybeSingle();
     familyBeta = betaRow != null;
+
+    // The partner gets Pro, never Family itself: sharing and extra
+    // portfolios stay with the owner. Only while the owner has Family.
+    const { data: seat } = await admin
+      .from("family_partners")
+      .select("owner_id")
+      .eq("partner_id", user.id)
+      .maybeSingle();
+    if (seat) {
+      const { data: ownerBeta } = await admin
+        .from("family_beta")
+        .select("user_id")
+        .eq("user_id", seat.owner_id)
+        .maybeSingle();
+      familyMember = ownerBeta != null;
+    }
 
     // 1) Read the cache. The webhook is the source of truth — if it has
     //    populated subscription_synced_at at least once, we trust it and

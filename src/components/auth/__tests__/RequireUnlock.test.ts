@@ -24,6 +24,7 @@ describe('isProtectedPath — data routes', () => {
     '/allocations/123',
     '/settings/security',
     '/admin/users',
+    '/join/7d9f3c2e-1b4a-4c1e-9a55-0f6b2a1d8e40',
   ])('protects sub-path %s', (path) => {
     expect(isProtectedPath(path)).toBe(true);
   });

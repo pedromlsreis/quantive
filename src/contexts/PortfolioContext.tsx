@@ -26,17 +26,28 @@ import {
   PERSONAL_PORTFOLIO_NAME,
   PortfolioLimitError,
   createPortfolio as createPortfolioRemote,
-  createSerialSaver,
   deletePortfolio as deletePortfolioRemote,
   fetchPortfolio,
   listPortfolios,
+  openRevision,
   portfolioNameTaken,
+  rotatePortfolioKey,
   sanitizePortfolioName,
   savePortfolio,
   type ExtraPortfolioMeta,
   type LoadedPortfolio,
   type SaveOutcome,
 } from '@/lib/portfolios';
+import {
+  applyOp,
+  type GoalPatch,
+  type NewEntry,
+  type OpResult,
+  type PortfolioOp,
+  type SourcePatch,
+} from '@/lib/portfolioOps';
+import { PortfolioSync, type RotateOutcome, type SyncDoc, type SyncState } from '@/lib/portfolioSync';
+import { removeMember } from '@/lib/portfolioSharing';
 
 const STORAGE_KEY = 'portfolio-data';
 const MOCK_FLAG_KEY = 'portfolio-data-is-mock'; // Track ephemeral mock data
@@ -59,12 +70,28 @@ function writeActivePortfolioId(userId: string, portfolioId: string): void {
   try { localStorage.setItem(`${ACTIVE_PORTFOLIO_PREFIX}${userId}`, portfolioId); } catch { /* storage unavailable */ }
 }
 
+// How often returning to the tab may refetch an extra portfolio.
+const FOCUS_REFRESH_INTERVAL_MS = 15_000;
+
+/** An extra-portfolio write needs keys that a lock has zeroed. */
+class PortfolioLockedError extends Error {
+  constructor() {
+    super('portfolio keys are locked');
+    this.name = 'PortfolioLockedError';
+  }
+}
+
 /**
  * Safely parse a date value, returning null for invalid dates.
  * Prevents silent NaN dates from cloud/localStorage.
  */
 function safeDate(val: unknown): Date | null {
-  const d = val instanceof Date ? val : new Date(val as string | number);
+  // Extra portfolios store calendar days (portfolios.ts encodeContent), which
+  // `new Date` would read as UTC midnight.
+  const day = typeof val === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(val) : null;
+  const d = day
+    ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3]))
+    : val instanceof Date ? val : new Date(val as string | number);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
@@ -162,10 +189,7 @@ interface PortfolioContextType {
   loadFile: (file: File) => Promise<void>;
   loadMockData: () => void;
   clearData: () => void;
-  addMeasurement: (
-    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string; category?: string }[],
-    opts?: { date?: Date },
-  ) => void;
+  addMeasurement: (entries: NewEntry[], opts?: { date?: Date }) => void;
   /**
    * Patch the value and/or currency of a single measurement, identified by
    * its (date, idSource) composite key. Idempotent: if no matching fact
@@ -187,10 +211,7 @@ interface PortfolioContextType {
    * sources" wishlist item).
    */
   deleteMeasurement: (date: Date, idSource: string) => void;
-  updateRefSource: (
-    idSource: string,
-    patch: { volatType?: string; isLiquid?: boolean; category?: string; isPaused?: boolean },
-  ) => void;
+  updateRefSource: (idSource: string, patch: SourcePatch) => void;
   /**
    * Rename a source across the portfolio. Rewrites the `refSource` entry and
    * every `fact` whose `idSource` matches, then re-encrypts and syncs. The
@@ -219,7 +240,7 @@ interface PortfolioContextType {
   /** Persist a new goal. Generates the id and createdAt. */
   addGoal: (input: { name: string; targetAmount: number; targetCurrency: CurrencyCode; targetDate: string }) => Goal;
   /** Patch an existing goal in place (e.g. rename, retarget). Silently no-ops if the id is unknown. */
-  updateGoal: (id: string, patch: Partial<Pick<Goal, 'name' | 'targetAmount' | 'targetCurrency' | 'targetDate'>>) => void;
+  updateGoal: (id: string, patch: GoalPatch) => void;
   /** Soft-delete: stamps `archivedAt`. Archived goals don't surface on the goals page but stay in the blob. */
   archiveGoal: (id: string) => void;
   /**
@@ -236,6 +257,14 @@ interface PortfolioContextType {
   renamePortfolio: (portfolioId: string, name: string) => Promise<boolean>;
   /** Owner only. Deletes the portfolio and every entry in it. */
   deletePortfolio: (portfolioId: string) => Promise<boolean>;
+  /** After accepting an invite: loads the joined portfolio and opens it. */
+  openJoinedPortfolio: (portfolioId: string) => Promise<boolean>;
+  /** Partner only. Leaves a portfolio shared with them. */
+  leavePortfolio: (portfolioId: string) => Promise<boolean>;
+  /** Owner only. Removes the partner and re-encrypts under a new key. */
+  removePartner: (portfolioId: string, partnerId: string) => Promise<boolean>;
+  /** Saves an earlier version (portfolio_revisions) as the current one. */
+  restorePortfolioVersion: (portfolioId: string, revision: number) => Promise<boolean>;
 }
 
 const defaultFilters: FilterState = {
@@ -285,6 +314,13 @@ function findClosestSnapshot(snapshots: Snapshot[], targetDate: Date, exclude?: 
 export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading, subscription } = useAuth();
   const [data, setData] = useState<PortfolioData | null>(null);
+  // The same value, readable synchronously: each edit applies to the latest
+  // data even when several land before a render.
+  const dataRef = useRef<PortfolioData | null>(null);
+  const commitData = useCallback((next: PortfolioData | null) => {
+    dataRef.current = next;
+    setData(next);
+  }, []);
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [isLoading, setIsLoading] = useState(false);
   // True while we're awaiting the first cloud snapshot for the current user.
@@ -303,7 +339,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // so they read the current portfolio rather than the one they closed over.
   const activePortfolioIdRef = useRef<string>(PERSONAL_PORTFOLIO_ID);
   const extraMetaRef = useRef(new Map<string, ExtraPortfolioMeta>());
-  const saversRef = useRef(new Map<string, (data: PortfolioData) => Promise<void>>());
+  const syncsRef = useRef(new Map<string, PortfolioSync>());
+  const switchPortfolioRef = useRef<(portfolioId: string) => Promise<void>>(async () => {});
   // Bumped by every load and switch; a load that finishes after a newer one started is dropped.
   const loadSeqRef = useRef(0);
   const goalCrossedRef = useRef<Set<string>>(new Set());
@@ -326,6 +363,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const [lastSeenUserId, setLastSeenUserId] = useState<string | null>(user?.id ?? null);
   if (lastSeenUserId !== (user?.id ?? null)) {
     setLastSeenUserId(user?.id ?? null);
+    dataRef.current = null;
     setData(null);
     setIsMockData(false);
     setFilters(defaultFilters);
@@ -414,6 +452,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const currentUserId = user?.id ?? null;
     const previousUserId = previousUserIdRef.current;
     if (previousUserId !== null && previousUserId !== currentUserId) {
+      dataRef.current = null;
       setData(null);
       setIsMockData(false);
       setFilters(defaultFilters);
@@ -426,7 +465,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       loadSeqRef.current += 1;
       activePortfolioIdRef.current = PERSONAL_PORTFOLIO_ID;
       extraMetaRef.current.clear();
-      saversRef.current.clear();
+      syncsRef.current.forEach((sync) => sync.dispose());
+      syncsRef.current.clear();
       goalCrossedRef.current = new Set();
       setActivePortfolioId(PERSONAL_PORTFOLIO_ID);
       setExtraPortfolios([]);
@@ -452,6 +492,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       // localStorage cache loaded before login) so the dashboard can't render
       // it while we fetch the real cloud snapshot. Without this the user sees
       // stale numbers on every login until they F5.
+      dataRef.current = null;
       setData(null);
       setIsMockData(false);
       setFilters(defaultFilters);
@@ -493,9 +534,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // ── Extra portfolios (Family) ───────────────────────────────────────────
   //
   // The personal portfolio keeps the portfolio_snapshots path. Extra ones are
-  // listed at unlock (their names are inside the ciphertext), opened one at a
-  // time, and saved through a per-portfolio serial saver. See
-  // docs/security/encryption.md §15.1 and src/lib/portfolios.ts.
+  // listed at unlock (their names are inside the ciphertext) and each gets a
+  // PortfolioSync, which queues edits as ops, saves them one write at a time
+  // and replays them when a partner or another device saved first. See
+  // docs/security/encryption.md §9.3, src/lib/portfolios.ts and
+  // src/lib/portfolioSync.ts.
 
   const putExtraMeta = useCallback((meta: ExtraPortfolioMeta) => {
     extraMetaRef.current.set(meta.id, meta);
@@ -504,7 +547,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   const removeExtra = useCallback((portfolioId: string) => {
     extraMetaRef.current.delete(portfolioId);
-    saversRef.current.delete(portfolioId);
+    syncsRef.current.get(portfolioId)?.dispose();
+    syncsRef.current.delete(portfolioId);
     forgetPortfolioKey(portfolioId);
     setExtraPortfolios(Array.from(extraMetaRef.current.values()));
   }, [forgetPortfolioKey]);
@@ -527,10 +571,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   const applyLoadedData = useCallback((next: PortfolioData) => {
-    setData(next);
+    commitData(next);
     setIsMockData(false);
     setDefaultDateRange(next);
-  }, [setDefaultDateRange]);
+  }, [commitData, setDefaultDateRange]);
 
   // Fetch and decode the personal snapshot. null when there is none, when it
   // can't be decrypted (a toast says so), or when it holds no valid facts.
@@ -570,8 +614,102 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return validData;
   }, [getDataKey]);
 
-  // Every extra portfolio the user can open, with keys adopted and the list
-  // replaced. Empty without Family, and before the portfolios migration exists.
+  // Callbacks a sync makes after renders; each reaches the current state
+  // through syncHandlersRef, like the savers did before.
+  const syncHandlers = useMemo(() => {
+    const requireKeys = () => {
+      const dk = getDataKey();
+      if (!user || !dk) throw new PortfolioLockedError();
+      return { userId: user.id, dk };
+    };
+    return {
+      save: async (portfolioId: string, meta: ExtraPortfolioMeta, next: PortfolioData | null): Promise<SaveOutcome> => {
+        const portfolioKey = getPortfolioKey(portfolioId);
+        if (!portfolioKey) throw new PortfolioLockedError();
+        return savePortfolio(supabase, { meta, portfolioKey, data: next });
+      },
+      rotate: async (portfolioId: string, meta: ExtraPortfolioMeta, next: PortfolioData | null): Promise<RotateOutcome> => {
+        const { userId, dk } = requireKeys();
+        const { outcome, portfolioKey } = await rotatePortfolioKey(supabase, { meta, userId, dataKey: dk, data: next });
+        if (outcome.status === 'ok' && portfolioKey) setPortfolioKey(portfolioId, portfolioKey);
+        return outcome;
+      },
+      fetch: async (portfolioId: string): Promise<SyncDoc | null> => {
+        const { userId, dk } = requireKeys();
+        const loaded = await fetchPortfolio(supabase, userId, dk, portfolioId);
+        if (!loaded) return null;
+        adoptPortfolioKey(loaded);
+        return { meta: loaded.meta, data: extraPortfolioData(loaded.content) };
+      },
+      onView: (portfolioId: string, doc: SyncDoc) => {
+        putExtraMeta(doc.meta);
+        if (activePortfolioIdRef.current !== portfolioId) return;
+        commitData(doc.data);
+        if (doc.data) setDefaultDateRange(doc.data);
+      },
+      onSaved: (_portfolioId: string, meta: ExtraPortfolioMeta) => putExtraMeta(meta),
+      onState: (portfolioId: string, state: SyncState) => {
+        if (activePortfolioIdRef.current !== portfolioId) return;
+        setSyncStatus(state);
+        if (state === 'synced') setTimeout(() => setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev)), 2000);
+      },
+      onDropped: (_portfolioId: string, messages: string[]) => {
+        for (const message of new Set(messages)) toast.warning(message);
+      },
+      onForbidden: (portfolioId: string) => {
+        toast.error('You no longer have access to this portfolio.', { id: 'portfolio-forbidden' });
+        if (activePortfolioIdRef.current === portfolioId) void switchPortfolioRef.current(PERSONAL_PORTFOLIO_ID);
+        removeExtra(portfolioId);
+      },
+      onError: (portfolioId: string, error: unknown, transient: boolean) => {
+        if (error instanceof PortfolioLockedError) {
+          toast.info('Unlock your data to sync this change.', { id: 'sync-locked' });
+          return;
+        }
+        console.error(`[portfolios] sync failed for ${portfolioId}:`, error);
+        analytics.cloudSyncFailed({ reason: transient ? 'transient' : 'terminal' });
+        if (activePortfolioIdRef.current !== portfolioId) return;
+        toast.error("Couldn't sync. Your changes stay in this tab; use Retry at the top of the page.", {
+          id: 'cloud-sync-error',
+        });
+      },
+    };
+  }, [user, getDataKey, getPortfolioKey, setPortfolioKey, adoptPortfolioKey, putExtraMeta, commitData, setDefaultDateRange, removeExtra]);
+
+  const syncHandlersRef = useRef(syncHandlers);
+  useEffect(() => { syncHandlersRef.current = syncHandlers; }, [syncHandlers]);
+
+  // The sync for a loaded portfolio: created on first sight, otherwise given
+  // the fresher stored version (ignored while it's mid-write).
+  const ensureSync = useCallback((loaded: LoadedPortfolio): PortfolioSync => {
+    const portfolioId = loaded.meta.id;
+    const doc: SyncDoc = { meta: loaded.meta, data: extraPortfolioData(loaded.content) };
+    const existing = syncsRef.current.get(portfolioId);
+    if (existing) {
+      existing.adopt(doc);
+      return existing;
+    }
+    const h = () => syncHandlersRef.current;
+    const sync = new PortfolioSync(doc, {
+      save: (meta, next) => h().save(portfolioId, meta, next),
+      rotate: (meta, next) => h().rotate(portfolioId, meta, next),
+      fetch: () => h().fetch(portfolioId),
+      onView: (view) => h().onView(portfolioId, view),
+      onSaved: (meta) => h().onSaved(portfolioId, meta),
+      onState: (state) => h().onState(portfolioId, state),
+      onDropped: (messages) => h().onDropped(portfolioId, messages),
+      onForbidden: () => h().onForbidden(portfolioId),
+      onError: (error, transient) => h().onError(portfolioId, error, transient),
+      delay: (ms) => new Promise(r => setTimeout(r, ms)),
+    });
+    syncsRef.current.set(portfolioId, sync);
+    return sync;
+  }, []);
+
+  // Every extra portfolio the user can open, with keys adopted, syncs
+  // attached and the list replaced. Empty without Family, and before the
+  // portfolios migration exists. Owned portfolios a partner has left are
+  // re-keyed here (encryption.md §8.9).
   const loadExtraPortfolios = useCallback(async (userId: string): Promise<LoadedPortfolio[]> => {
     const dk = getDataKey();
     if (!dk) return [];
@@ -590,13 +728,23 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
     const listed = new Set(loaded.map((p) => p.meta.id));
     for (const id of extraMetaRef.current.keys()) {
-      if (!listed.has(id)) forgetPortfolioKey(id);
+      if (!listed.has(id)) {
+        forgetPortfolioKey(id);
+        syncsRef.current.get(id)?.dispose();
+        syncsRef.current.delete(id);
+      }
     }
     loaded.forEach(adoptPortfolioKey);
-    extraMetaRef.current = new Map(loaded.map((p) => [p.meta.id, p.meta]));
-    setExtraPortfolios(loaded.map((p) => p.meta));
+    const syncs = loaded.map(ensureSync);
+    extraMetaRef.current = new Map(syncs.map((s) => [s.doc.meta.id, s.doc.meta]));
+    setExtraPortfolios(syncs.map((s) => s.doc.meta));
+    for (const sync of syncs) {
+      const { meta } = sync.doc;
+      if (meta.rotationDue && meta.ownerId === userId) void sync.requestRotation();
+      else void sync.flush();
+    }
     return loaded;
-  }, [getDataKey, forgetPortfolioKey, adoptPortfolioKey]);
+  }, [getDataKey, forgetPortfolioKey, adoptPortfolioKey, ensureSync]);
 
   const switchPortfolio = useCallback(async (portfolioId: string) => {
     if (!user || portfolioId === activePortfolioIdRef.current) return;
@@ -611,7 +759,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     // Reset in the same batch as the id change, so no render pairs the new
     // portfolio's name with the previous one's numbers.
     activate(portfolioId);
-    setData(null);
+    commitData(null);
     setIsMockData(false);
     setFilters(defaultFilters);
     setSyncStatus('idle');
@@ -628,8 +776,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const loaded = await fetchPortfolio(supabase, user.id, dk, portfolioId);
         if (loaded) {
           adoptPortfolioKey(loaded);
-          putExtraMeta(loaded.meta);
-          next = extraPortfolioData(loaded.content);
+          const sync = ensureSync(loaded);
+          putExtraMeta(sync.doc.meta);
+          next = sync.doc.data;
         } else {
           toast.error('You no longer have access to this portfolio.', { id: 'portfolio-forbidden' });
           removeExtra(portfolioId);
@@ -644,86 +793,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     } finally {
       if (seq === loadSeqRef.current) setIsCloudLoading(false);
     }
-  }, [user, getDataKey, activate, loadPersonalData, adoptPortfolioKey, putExtraMeta, removeExtra, applyLoadedData]);
+  }, [user, getDataKey, activate, commitData, loadPersonalData, adoptPortfolioKey, ensureSync, putExtraMeta, removeExtra, applyLoadedData]);
 
-  // After a conflict: the stored version becomes this tab's baseline.
-  const reloadExtra = useCallback(async (portfolioId: string) => {
-    const dk = getDataKey();
-    if (!user || !dk) return;
-    const loaded = await fetchPortfolio(supabase, user.id, dk, portfolioId);
-    if (!loaded) return;
-    adoptPortfolioKey(loaded);
-    putExtraMeta(loaded.meta);
-    if (activePortfolioIdRef.current !== portfolioId) return;
-    const next = extraPortfolioData(loaded.content);
-    if (next) applyLoadedData(next);
-    else setData(null);
-  }, [user, getDataKey, adoptPortfolioKey, putExtraMeta, applyLoadedData]);
-
-  const runExtraSave = useCallback(async (portfolioId: string, portfolioData: PortfolioData) => {
-    const isActive = () => activePortfolioIdRef.current === portfolioId;
-    const meta = extraMetaRef.current.get(portfolioId);
-    const portfolioKey = getPortfolioKey(portfolioId);
-    if (!meta || !portfolioKey) {
-      if (isActive()) toast.error("Couldn't sync this change. Unlock your data again to retry.");
-      return;
-    }
-
-    // Transient failures retry once through attemptCloudSync; conflict and
-    // forbidden come back as outcomes, not errors.
-    const result: { outcome?: SaveOutcome } = {};
-    const synced = await attemptCloudSync(portfolioData, {
-      upsert: async (p) => { result.outcome = await savePortfolio(supabase, { meta, portfolioKey, data: p }); },
-      // Saves for one portfolio run one at a time (createSerialSaver), so none is superseded.
-      isLatest: () => true,
-      delay: (ms) => new Promise(r => setTimeout(r, ms)),
-      onStatus: (status) => { if (status !== 'synced' && isActive()) setSyncStatus(status); },
-      onError: (reason) => analytics.cloudSyncFailed({ reason }),
-    });
-    const outcome = result.outcome;
-    if (synced !== 'synced' || !outcome) {
-      if (isActive()) {
-        toast.error("Couldn't sync. Your changes stay in this tab; use Retry at the top of the page.", {
-          id: 'cloud-sync-error',
-        });
-      }
-      return;
-    }
-
-    if (outcome.status === 'ok') {
-      const latest = extraMetaRef.current.get(portfolioId);
-      if (latest) putExtraMeta({ ...latest, revision: outcome.revision });
-      if (isActive()) {
-        setSyncStatus('synced');
-        setTimeout(() => setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev)), 2000);
-      }
-      return;
-    }
-    if (outcome.status === 'conflict') {
-      if (isActive()) setSyncStatus('idle');
-      toast.warning("This portfolio changed on another device, so your last change wasn't saved. It now shows the latest version.", {
-        id: 'portfolio-conflict',
-      });
-      await reloadExtra(portfolioId);
-      return;
-    }
-    toast.error('You no longer have access to this portfolio.', { id: 'portfolio-forbidden' });
-    if (isActive()) await switchPortfolio(PERSONAL_PORTFOLIO_ID);
-    removeExtra(portfolioId);
-  }, [getPortfolioKey, putExtraMeta, reloadExtra, switchPortfolio, removeExtra]);
-
-  // Savers outlive renders, so they call the current runExtraSave through a ref.
-  const runExtraSaveRef = useRef(runExtraSave);
-  useEffect(() => { runExtraSaveRef.current = runExtraSave; }, [runExtraSave]);
-
-  const saverFor = useCallback((portfolioId: string) => {
-    let saver = saversRef.current.get(portfolioId);
-    if (!saver) {
-      saver = createSerialSaver((next: PortfolioData) => runExtraSaveRef.current(portfolioId, next));
-      saversRef.current.set(portfolioId, saver);
-    }
-    return saver;
-  }, []);
+  // Sync callbacks can outlive the render they were made in.
+  useEffect(() => { switchPortfolioRef.current = switchPortfolio; }, [switchPortfolio]);
 
   const createPortfolio = useCallback(async (rawName: string): Promise<boolean> => {
     const dk = getDataKey();
@@ -743,6 +816,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     try {
       const created = await createPortfolioRemote(supabase, user.id, dk, name);
       adoptPortfolioKey(created);
+      ensureSync(created);
       putExtraMeta(created.meta);
       analytics.portfolioCreated();
       await switchPortfolio(created.meta.id);
@@ -756,11 +830,13 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       }
       return false;
     }
-  }, [user, getDataKey, adoptPortfolioKey, putExtraMeta, switchPortfolio]);
+  }, [user, getDataKey, adoptPortfolioKey, ensureSync, putExtraMeta, switchPortfolio]);
 
+  // The name is inside the ciphertext, so a rename is an edit queued on the
+  // portfolio's sync like any other.
   const renamePortfolio = useCallback(async (portfolioId: string, rawName: string): Promise<boolean> => {
-    const dk = getDataKey();
-    if (!user || !dk || !extraMetaRef.current.has(portfolioId)) return false;
+    const sync = syncsRef.current.get(portfolioId);
+    if (!user || !sync) return false;
     const { value: name, error } = sanitizePortfolioName(rawName);
     if (error) {
       toast.error(error);
@@ -770,29 +846,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       toast.error(`A portfolio called "${name}" already exists. Pick another name.`);
       return false;
     }
-    try {
-      // The name is inside the ciphertext, so renaming rewrites the blob.
-      // Start from the stored copy, not this tab's, and retry once on a conflict.
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const loaded = await fetchPortfolio(supabase, user.id, dk, portfolioId);
-        if (!loaded) break;
-        adoptPortfolioKey(loaded);
-        const portfolioKey = getPortfolioKey(portfolioId);
-        if (!portfolioKey) break;
-        const meta = { ...loaded.meta, name };
-        const outcome = await savePortfolio(supabase, { meta, portfolioKey, data: extraPortfolioData(loaded.content) });
-        if (outcome.status === 'ok') {
-          putExtraMeta({ ...meta, revision: outcome.revision });
-          return true;
-        }
-        if (outcome.status === 'forbidden') break;
-      }
-    } catch (e) {
-      console.error('[portfolios] rename failed:', e);
-    }
+    if (!sync.rename(name)) return true;
+    putExtraMeta(sync.doc.meta);
+    if ((await sync.flush()) === 'synced') return true;
     toast.error("Couldn't rename the portfolio. Try again.");
     return false;
-  }, [user, getDataKey, getPortfolioKey, adoptPortfolioKey, putExtraMeta]);
+  }, [user, putExtraMeta]);
 
   const deletePortfolio = useCallback(async (portfolioId: string): Promise<boolean> => {
     if (!user || !extraMetaRef.current.has(portfolioId)) return false;
@@ -808,7 +867,82 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [user, switchPortfolio, removeExtra]);
 
-  // Save data to cloud when user is authenticated AND email confirmed
+  // After accepting an invite: list again so the joined portfolio has its
+  // key and sync, then open it.
+  const openJoinedPortfolio = useCallback(async (portfolioId: string): Promise<boolean> => {
+    if (!user) return false;
+    await loadExtraPortfolios(user.id);
+    if (!extraMetaRef.current.has(portfolioId)) return false;
+    await switchPortfolio(portfolioId);
+    return true;
+  }, [user, loadExtraPortfolios, switchPortfolio]);
+
+  // The partner leaves a portfolio they were invited to. The owner's browser
+  // re-keys it on its next load.
+  const leavePortfolio = useCallback(async (portfolioId: string): Promise<boolean> => {
+    if (!user || !extraMetaRef.current.has(portfolioId)) return false;
+    try {
+      await removeMember(supabase, portfolioId, user.id);
+    } catch (e) {
+      console.error('[portfolios] leave failed:', e);
+      toast.error("Couldn't leave the portfolio. Try again.");
+      return false;
+    }
+    analytics.portfolioLeft();
+    if (activePortfolioIdRef.current === portfolioId) await switchPortfolio(PERSONAL_PORTFOLIO_ID);
+    removeExtra(portfolioId);
+    return true;
+  }, [user, switchPortfolio, removeExtra]);
+
+  // The owner removes the partner, then re-keys straight away so the key the
+  // partner held opens nothing written from now on (encryption.md §8.9).
+  const removePartner = useCallback(async (portfolioId: string, partnerId: string): Promise<boolean> => {
+    const sync = syncsRef.current.get(portfolioId);
+    if (!user || !sync) return false;
+    try {
+      await removeMember(supabase, portfolioId, partnerId);
+    } catch (e) {
+      console.error('[portfolios] remove partner failed:', e);
+      toast.error("Couldn't remove your partner. Try again.");
+      return false;
+    }
+    analytics.partnerRemoved();
+    putExtraMeta({ ...sync.doc.meta, rotationDue: true });
+    if ((await sync.requestRotation()) !== 'synced') {
+      // rotation_due stays set on the server, so the next load tries again.
+      toast.warning("Your partner no longer has access. Re-encrypting the portfolio didn't finish; it will retry next time you open Quantive.");
+    }
+    return true;
+  }, [user, putExtraMeta]);
+
+  // Puts back an earlier version as a new save, so the restore can itself be
+  // undone from the same list.
+  const restorePortfolioVersion = useCallback(async (portfolioId: string, revision: number): Promise<boolean> => {
+    const sync = syncsRef.current.get(portfolioId);
+    const dk = getDataKey();
+    const currentKey = getPortfolioKey(portfolioId);
+    if (!user || !sync || !dk || !currentKey) return false;
+    try {
+      const content = await openRevision(supabase, { userId: user.id, dataKey: dk, meta: sync.doc.meta, currentKey, revision });
+      // An empty version (as created) shows the first-entry state, as on load.
+      const restored = extraPortfolioData(content);
+      sync.apply({ type: 'replaceAll', data: restored ?? { facts: [], refSources: [], goals: [] } });
+      if (activePortfolioIdRef.current === portfolioId) {
+        commitData(restored ? sync.doc.data : null);
+        if (restored) setDefaultDateRange(restored);
+      }
+      if ((await sync.flush()) !== 'synced') return false;
+      analytics.portfolioVersionRestored();
+      return true;
+    } catch (e) {
+      console.error('[portfolios] restore failed:', e);
+      toast.error("Couldn't restore that version. Try again.");
+      return false;
+    }
+  }, [user, getDataKey, getPortfolioKey, commitData, setDefaultDateRange]);
+
+  // Save the personal portfolio when the user is authenticated AND their
+  // email is confirmed. Extra portfolios save through their sync.
   const saveToCloud = useCallback(async (portfolioData: PortfolioData) => {
     if (!user) return;
     if (!user.email_confirmed_at) {
@@ -844,12 +978,6 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const portfolioId = activePortfolioIdRef.current;
-    if (portfolioId !== PERSONAL_PORTFOLIO_ID) {
-      void saverFor(portfolioId)(portfolioData);
-      return;
-    }
-
     const outcome = await attemptCloudSync(portfolioData, {
       upsert: (p) => upsertEncryptedSnapshot(supabase, user.id, p, dk),
       isLatest,
@@ -870,12 +998,17 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       });
     }
     // outcome === null: superseded by a newer call; do nothing.
-  }, [user, keySession, saverFor]);
+  }, [user, keySession]);
 
   const retrySync = useCallback(() => {
+    const portfolioId = activePortfolioIdRef.current;
+    if (user && portfolioId !== PERSONAL_PORTFOLIO_ID) {
+      void syncsRef.current.get(portfolioId)?.flush();
+      return;
+    }
     if (!lastAttemptRef.current) return;
     saveToCloud(lastAttemptRef.current);
-  }, [saveToCloud]);
+  }, [user, saveToCloud]);
 
   // Retry pending cloud save once the user confirms their email
   useEffect(() => {
@@ -907,11 +1040,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         const extras = await loadExtraPortfolios(user.id);
         if (seq !== loadSeqRef.current) return;
         // Reopen the portfolio the user last had open, if it's still theirs.
+        // Its sync's view keeps any edits not saved before a lock.
         const remembered = readActivePortfolioId(user.id);
         const target = extras.find((p) => p.meta.id === remembered);
         if (target) {
           activate(target.meta.id);
-          const next = extraPortfolioData(target.content);
+          const next = syncsRef.current.get(target.meta.id)?.doc.data ?? null;
           if (next) applyLoadedData(next);
           return;
         }
@@ -936,6 +1070,40 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     // identity we actually care about.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, keySession.status, setDefaultDateRange]);
+
+  // A partner's (or another device's) saves show up when this tab comes
+  // back into view. There's no realtime channel; this is the v1 refresh.
+  useEffect(() => {
+    if (!user || keySession.status === 'locked') return;
+    let lastCheck = 0;
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      const portfolioId = activePortfolioIdRef.current;
+      const sync = syncsRef.current.get(portfolioId);
+      if (!sync || !sync.settled) return;
+      const now = Date.now();
+      if (now - lastCheck < FOCUS_REFRESH_INTERVAL_MS) return;
+      lastCheck = now;
+      const handlers = syncHandlersRef.current;
+      handlers.fetch(portfolioId).then((latest) => {
+        if (!latest) {
+          handlers.onForbidden(portfolioId);
+          return;
+        }
+        const current = sync.doc.meta;
+        if (latest.meta.revision === current.revision && latest.meta.keyEpoch === current.keyEpoch) return;
+        if (sync.adopt(latest)) handlers.onView(portfolioId, sync.doc);
+      }).catch(() => {
+        // Offline or locked: the next focus tries again.
+      });
+    };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [user, keySession.status]);
 
   // Load from localStorage for guests
   useEffect(() => {
@@ -983,7 +1151,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
             facts: validFacts,
             goals: coerceGoals(parsed.goals),
           };
-          setData(validData);
+          commitData(validData);
           setIsMockData(false);
           setDefaultDateRange(validData);
         } else {
@@ -995,7 +1163,41 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('Failed to load cached data:', e);
     }
-  }, [setDefaultDateRange, user, authLoading]);
+  }, [setDefaultDateRange, user, authLoading, commitData]);
+
+  // ── Edits ───────────────────────────────────────────────────────────────
+  //
+  // Every edit is a PortfolioOp (src/lib/portfolioOps.ts). In an extra
+  // portfolio the op goes to its sync, which saves it and replays it if
+  // someone else saved first. Otherwise it applies to what's on screen and
+  // the personal path saves the result: guests to localStorage, signed-in
+  // users to the cloud.
+  const mutate = useCallback((op: PortfolioOp, opts: { replacingDemo?: boolean } = {}): OpResult => {
+    const portfolioId = activePortfolioIdRef.current;
+    if (user && portfolioId !== PERSONAL_PORTFOLIO_ID) {
+      const sync = syncsRef.current.get(portfolioId);
+      if (!sync) {
+        toast.error("Couldn't save this change. Open the portfolio again and retry.");
+        return { data: dataRef.current, changed: false };
+      }
+      const result = sync.apply(op);
+      if (result.rejection) toast.error(result.rejection);
+      if (result.changed) commitData(sync.doc.data);
+      return result;
+    }
+
+    // Demo data is replaced, not added to.
+    const result = applyOp(opts.replacingDemo ? null : dataRef.current, op);
+    if (result.rejection) toast.error(result.rejection);
+    if (!result.changed || !result.data) return result;
+    commitData(result.data);
+    if (!user) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(result.data));
+      localStorage.setItem(MOCK_FLAG_KEY, 'false');
+    }
+    saveToCloud(result.data);
+    return result;
+  }, [user, commitData, saveToCloud]);
 
   const loadFile = useCallback(async (file: File) => {
     setIsLoading(true);
@@ -1004,16 +1206,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       // exceljs (~700 KB) is heavy — load it only when a user actually drops a spreadsheet.
       const { parsePortfolioExcel } = await import('@/lib/dataProcessor');
       const parsed = await parsePortfolioExcel(buffer);
-      setData(parsed);
+      // Guests keep a local cache for offline-first reload; authed users go
+      // cloud-only (encryption.md §8.6). mutate handles both.
+      mutate({ type: 'replaceAll', data: parsed });
       setIsMockData(false);
-      // Guests rely on the local cache for offline-first reload. Authed
-      // users go cloud-only — see encryption.md §8.3.
-      if (!user) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-        localStorage.setItem(MOCK_FLAG_KEY, 'false');
-      }
       setDefaultDateRange(parsed);
-      saveToCloud(parsed);
       analytics.fileUploaded({ rowCount: parsed.facts.length, sourceCount: parsed.refSources.length });
       toast.success(`Imported ${parsed.facts.length} values from ${file.name}`);
     } catch (e: unknown) {
@@ -1033,223 +1230,59 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [saveToCloud, setDefaultDateRange, user]);
+  }, [mutate, setDefaultDateRange]);
 
   const loadMockData = useCallback(() => {
     // Demo data replaces what's on screen; an extra portfolio's entries are real.
     if (activePortfolioIdRef.current !== PERSONAL_PORTFOLIO_ID) return;
     const mock = generateMockData();
-    setData(mock);
+    commitData(mock);
     setIsMockData(true);
     setDefaultDateRange(mock);
     // flag as mock so localStorage cache is cleared on next visit
     localStorage.setItem(MOCK_FLAG_KEY, 'true');
     // Do NOT save mock data to STORAGE_KEY — it's ephemeral
     // (No toast: the persistent DemoBanner already signals that demo data is loaded.)
-  }, [setDefaultDateRange]);
+  }, [setDefaultDateRange, commitData]);
 
   const clearData = useCallback(() => {
     analytics.dataCleared();
-    setData(null);
+    commitData(null);
     setIsMockData(false);
     setFilters(defaultFilters);
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(MOCK_FLAG_KEY); // Clean up mock flag
-  }, []);
-
-  // Helper function for formatting dates
-  const format = (d: Date, fmt: string): string => {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const day = d.getDate();
-    const month = months[d.getMonth()];
-    const year = d.getFullYear();
-    if (fmt === 'dd MMM yyyy') return `${day} ${month} ${year}`;
-    return `${day} ${month} ${year}`;
-  };
+  }, [commitData]);
 
   const addMeasurement = useCallback((
-    entries: { name: string; value: number; currency: CurrencyCode; isLiquid?: boolean; volatType?: string; category?: string }[],
+    entries: NewEntry[],
     opts?: { date?: Date },
   ) => {
     if (entries.length === 0) return;
-    entries = entries.map(e => ({ ...e, name: sanitizeSourceName(e.name).value })).filter(e => e.name.length > 0);
+    const clean = entries.map(e => ({ ...e, name: sanitizeSourceName(e.name).value })).filter(e => e.name.length > 0);
 
     // Default to today; callers may pass a back-dated value for spreadsheet
     // migrators. Clamp to the past — future dates would distort forecasts.
-    const measurementDate = opts?.date ? new Date(opts.date) : new Date();
+    const date = opts?.date ? new Date(opts.date) : new Date();
     // Normalize to start of day for consistency with Excel ingestion
-    measurementDate.setHours(0, 0, 0, 0);
+    date.setHours(0, 0, 0, 0);
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
-    if (measurementDate.getTime() > todayMidnight.getTime()) {
-      measurementDate.setTime(todayMidnight.getTime());
-    }
-    const now = measurementDate;
-    const nowKey = now.getTime();
+    if (date.getTime() > todayMidnight.getTime()) date.setTime(todayMidnight.getTime());
 
-    setData(prev => {
-      // If no existing data, create a new dataset
-      if (!prev) {
-        const newFacts: FactRow[] = entries.map(e => ({
-          date: now,
-          idSource: e.name,
-          sourceVl: e.value,
-          currency: e.currency,
-        }));
-        const newRefSources: RefSource[] = entries.map(e => ({
-          idSource: e.name,
-          volatType: e.volatType?.trim() || 'Unknown',
-          transferableInDays: e.isLiquid ?? false,
-          category: e.category?.trim() || undefined,
-        }));
-        const newData: PortfolioData = { facts: newFacts, refSources: newRefSources, goals: [] };
-
-        // Persist (guests only — authed users go cloud-only)
-        if (!user) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-          localStorage.setItem(MOCK_FLAG_KEY, 'false');
-        }
-        setDefaultDateRange(newData);
-        saveToCloud(newData);
-        return newData;
-      }
-
-      // If previous data is mock, replace instead of append
-      // Clear mock flag and use only the new real entries
-      if (isMockData) {
-        const newFacts: FactRow[] = entries.map(e => ({
-          date: now,
-          idSource: e.name,
-          sourceVl: e.value,
-          currency: e.currency,
-        }));
-        const newRefSources: RefSource[] = entries.map(e => ({
-          idSource: e.name,
-          volatType: e.volatType?.trim() || 'Unknown',
-          transferableInDays: e.isLiquid ?? false,
-          category: e.category?.trim() || undefined,
-        }));
-        const newData: PortfolioData = { ...prev, facts: newFacts, refSources: newRefSources };
-
-        // Persist as real data (guests only)
-        if (!user) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(newData));
-          localStorage.setItem(MOCK_FLAG_KEY, 'false');
-        }
-        setDefaultDateRange(newData);
-        saveToCloud(newData);
-        setIsMockData(false); // Clear the mock flag
-        return newData;
-      }
-
-      // Check if this measurement's date already exists
-      // If so, replace the entire day's snapshot instead of adding/merging
-      const existingDateFacts = prev.facts.filter(f => f.date.getTime() === nowKey);
-      
-      if (existingDateFacts.length > 0) {
-        // Replace: filter out facts for this date and add new ones
-        const remainingFacts = prev.facts.filter(f => f.date.getTime() !== nowKey);
-        const newFacts = entries.map(e => ({
-          date: now,
-          idSource: e.name,
-          sourceVl: e.value,
-          currency: e.currency,
-        }));
-
-        // Add any new data sources to refSources
-        const existingSourceNames = new Set(prev.refSources.map(s => s.idSource));
-        const newRefSources = [...prev.refSources];
-        for (const e of entries) {
-          if (!existingSourceNames.has(e.name)) {
-            newRefSources.push({
-              idSource: e.name,
-              volatType: e.volatType?.trim() || 'Unknown',
-              transferableInDays: e.isLiquid ?? false,
-              category: e.category?.trim() || undefined,
-            });
-          }
-        }
-
-        const updatedData: PortfolioData = {
-          ...prev,
-          facts: [...remainingFacts, ...newFacts],
-          refSources: newRefSources,
-        };
-
-        // Persist (guests only)
-        if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
-        setDefaultDateRange(updatedData);
-        saveToCloud(updatedData);
-        return updatedData;
-      }
-
-      // Normal append for new dates
-      const newFacts = entries.map(e => ({
-        date: now,
-        idSource: e.name,
-        sourceVl: e.value,
-        currency: e.currency,
-      }));
-
-      // Add any new data sources to refSources
-      const existingSourceNames = new Set(prev.refSources.map(s => s.idSource));
-      const newRefSources = [...prev.refSources];
-      for (const e of entries) {
-        if (!existingSourceNames.has(e.name)) {
-          newRefSources.push({
-            idSource: e.name,
-            volatType: e.volatType?.trim() || 'Unknown',
-            transferableInDays: e.isLiquid ?? false,
-            category: e.category?.trim() || undefined,
-          });
-        }
-      }
-
-      const updatedData: PortfolioData = {
-        ...prev,
-        facts: [...prev.facts, ...newFacts],
-        refSources: newRefSources,
-      };
-
-      // Persist (guests only)
-      if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedData));
-      setDefaultDateRange(updatedData);
-      saveToCloud(updatedData);
-      return updatedData;
-    });
-    analytics.measurementAdded({ count: entries.length });
-  }, [user, isMockData, saveToCloud, setDefaultDateRange]);
+    const result = mutate({ type: 'addEntries', date, entries: clean }, { replacingDemo: isMockData });
+    if (!result.changed) return;
+    if (isMockData) setIsMockData(false);
+    if (result.data) setDefaultDateRange(result.data);
+    analytics.measurementAdded({ count: clean.length });
+  }, [isMockData, mutate, setDefaultDateRange]);
 
   const updateRefSource = useCallback((
     idSource: string,
-    patch: { volatType?: string; isLiquid?: boolean; category?: string; isPaused?: boolean },
+    patch: SourcePatch,
   ) => {
-    setData(prev => {
-      if (!prev) return prev;
-      const target = idSource.trim();
-      let changed = false;
-      const newRefSources = prev.refSources.map(rs => {
-        if (rs.idSource.trim() !== target) return rs;
-        changed = true;
-        const nextCategory =
-          patch.category !== undefined
-            ? (patch.category.trim() || undefined)
-            : rs.category;
-        return {
-          ...rs,
-          volatType: patch.volatType !== undefined ? (patch.volatType.trim() || 'Unknown') : rs.volatType,
-          transferableInDays: patch.isLiquid !== undefined ? patch.isLiquid : rs.transferableInDays,
-          category: nextCategory,
-          isPaused: patch.isPaused !== undefined ? patch.isPaused : rs.isPaused,
-        };
-      });
-      if (!changed) return prev;
-      const updated: PortfolioData = { ...prev, refSources: newRefSources };
-      if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      saveToCloud(updated);
-      return updated;
-    });
-  }, [user, saveToCloud]);
+    mutate({ type: 'updateSource', idSource, patch });
+  }, [mutate]);
 
   const renameSource = useCallback((oldId: string, newName: string) => {
     const oldTrimmed = oldId.trim();
@@ -1260,42 +1293,17 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
     const next = sanitized.value;
     if (next === oldTrimmed) return;
-
-    setData(prev => {
-      if (!prev) return prev;
-      // Case-insensitive conflict check against any *other* source — picking
-      // a name already in use would silently merge two sources' history,
-      // which is almost never what the user wants. Surface a toast and bail.
-      const conflict = prev.refSources.some(rs => {
-        const id = rs.idSource.trim();
-        return id !== oldTrimmed && id.toLowerCase() === next.toLowerCase();
-      });
-      if (conflict) {
-        toast.error(`A source called "${next}" already exists. Pick another name.`);
-        return prev;
-      }
-      let touched = false;
-      const newRefSources = prev.refSources.map(rs => {
-        if (rs.idSource.trim() !== oldTrimmed) return rs;
-        touched = true;
-        return { ...rs, idSource: next };
-      });
-      if (!touched) return prev;
-      const newFacts = prev.facts.map(f =>
-        f.idSource.trim() === oldTrimmed ? { ...f, idSource: next } : f,
-      );
-      const updated: PortfolioData = { ...prev, refSources: newRefSources, facts: newFacts };
-      if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      saveToCloud(updated);
-      return updated;
-    });
+    // Picking a name another source already uses would silently merge two
+    // sources' history; the op rejects it and mutate shows why.
+    const { changed } = mutate({ type: 'renameSource', from: oldTrimmed, to: next });
+    if (!changed) return;
     // Source-filter state holds names by string id — keep it in sync so a
     // currently-applied filter doesn't silently drop the renamed source.
     setFilters(prev => {
       if (!prev.sources.includes(oldTrimmed)) return prev;
       return { ...prev, sources: prev.sources.map(s => (s === oldTrimmed ? next : s)) };
     });
-  }, [user, saveToCloud]);
+  }, [mutate]);
 
   // ── Individual measurement edit / delete ────────────────────────────────
   //
@@ -1305,107 +1313,54 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // edit fans out to all of them and delete removes all of them. Acceptable:
   // the duplicates were already indistinguishable to every other consumer.
 
-  // Analytics is called inside the setData updater (not after it) so phantom
-  // events don't fire on no-op paths (null data, no fact match, identical
-  // value+currency). The codebase does not use <StrictMode> (see main.tsx),
-  // so the updater runs exactly once per call. If StrictMode is ever enabled
-  // these events would double-fire in dev — guard with a closure flag then.
   const updateMeasurement = useCallback(
     (date: Date, idSource: string, patch: { sourceVl?: number; currency?: CurrencyCode }) => {
-      const dateKey = date.getTime();
-      const target = idSource.trim();
-      setData(prev => {
-        if (!prev) return prev;
-        let changed = false;
-        const nextFacts = prev.facts.map(f => {
-          if (f.date.getTime() !== dateKey || f.idSource.trim() !== target) return f;
-          const nextValue = patch.sourceVl !== undefined ? patch.sourceVl : f.sourceVl;
-          const nextCurrency = patch.currency !== undefined ? patch.currency : f.currency;
-          if (nextValue === f.sourceVl && nextCurrency === f.currency) return f;
-          changed = true;
-          return { ...f, sourceVl: nextValue, currency: nextCurrency };
-        });
-        if (!changed) return prev;
-        const updated: PortfolioData = { ...prev, facts: nextFacts };
-        if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        saveToCloud(updated);
-        analytics.measurementEdited();
-        return updated;
-      });
+      if (mutate({ type: 'updateEntry', date, idSource, patch }).changed) analytics.measurementEdited();
     },
-    [user, saveToCloud],
+    [mutate],
   );
 
   // Re-insert a set of previously-removed facts. Powers the delete-undo toast.
   // Idempotent and non-clobbering: a fact is only restored if its (date,
   // idSource) key is currently absent, so a double-tap on Undo is a no-op and
   // an undo that lands after the user has already re-entered a value for the
-  // same slot won't overwrite the newer value. The delete it reverses already
-  // committed (and may already have synced), so this is a plain forward
-  // mutation through the same cloud path — no defer/cancel machinery.
+  // same slot won't overwrite the newer value.
   const restoreFacts = useCallback((facts: FactRow[]) => {
     if (facts.length === 0) return;
-    setData(prev => {
-      const base: PortfolioData = prev ?? { facts: [], refSources: [], goals: [] };
-      const present = new Set(base.facts.map(f => `${f.date.getTime()}::${f.idSource.trim()}`));
-      const toAdd = facts.filter(f => !present.has(`${f.date.getTime()}::${f.idSource.trim()}`));
-      if (toAdd.length === 0) return prev;
-      const updated: PortfolioData = { ...base, facts: [...base.facts, ...toAdd] };
-      if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      setDefaultDateRange(updated);
-      saveToCloud(updated);
-      analytics.measurementRestored();
-      return updated;
-    });
-  }, [user, saveToCloud, setDefaultDateRange]);
+    const result = mutate({ type: 'restoreEntries', facts });
+    if (!result.changed) return;
+    if (result.data) setDefaultDateRange(result.data);
+    analytics.measurementRestored();
+  }, [mutate, setDefaultDateRange]);
 
   const deleteMeasurement = useCallback(
     (date: Date, idSource: string) => {
       const dateKey = date.getTime();
       const target = idSource.trim();
-      setData(prev => {
-        if (!prev) return prev;
-        // Snapshot the facts we're about to remove so the undo toast can put
-        // them back verbatim (value + currency + any legacy duplicates).
-        const removed = prev.facts.filter(
-          f => f.date.getTime() === dateKey && f.idSource.trim() === target,
-        );
-        if (removed.length === 0) return prev;
-        const nextFacts = prev.facts.filter(
-          f => !(f.date.getTime() === dateKey && f.idSource.trim() === target),
-        );
-        const updated: PortfolioData = { ...prev, facts: nextFacts };
-        if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        // Date range may have shrunk if we removed the only fact for the
-        // earliest or latest date — recompute so charts don't keep showing
-        // an empty edge.
-        setDefaultDateRange(updated);
-        saveToCloud(updated);
-        analytics.measurementDeleted();
-        toast.success(`Entry from ${formatDate(date)} deleted`, {
-          action: { label: 'Undo', onClick: () => restoreFacts(removed) },
-          duration: 6000,
-        });
-        return updated;
+      // Snapshot the facts we're about to remove so the undo toast can put
+      // them back verbatim (value + currency + any legacy duplicates).
+      const removed = (dataRef.current?.facts ?? []).filter(
+        f => f.date.getTime() === dateKey && f.idSource.trim() === target,
+      );
+      const result = mutate({ type: 'deleteEntry', date, idSource });
+      if (!result.changed) return;
+      // Date range may have shrunk if we removed the only fact for the
+      // earliest or latest date — recompute so charts don't keep showing
+      // an empty edge.
+      if (result.data) setDefaultDateRange(result.data);
+      analytics.measurementDeleted();
+      toast.success(`Entry from ${formatDate(date)} deleted`, {
+        action: { label: 'Undo', onClick: () => restoreFacts(removed) },
+        duration: 6000,
       });
     },
-    [user, saveToCloud, setDefaultDateRange, restoreFacts],
+    [mutate, setDefaultDateRange, restoreFacts],
   );
 
   // ── Goals ───────────────────────────────────────────────────────────────
   //
-  // Goals live inside the same encrypted portfolio blob (see types.ts).
-  // Every CRUD call mutates `data`, persists the new blob (guests:
-  // localStorage; authed: cloud), and lets the existing sync plumbing carry
-  // the bytes. There is no separate goals table — every goal edit rewrites
-  // the whole blob, so concurrent tabs can clobber (acceptable for solo
-  // users; revisit if multi-device editing becomes a real workflow).
-
-  /** Internal helper: persist a portfolio mutation that doesn't touch the date range. */
-  const persistGoalsChange = useCallback((updated: PortfolioData) => {
-    if (!user) localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    saveToCloud(updated);
-  }, [user, saveToCloud]);
+  // Goals live inside the same encrypted portfolio blob (see types.ts), so
+  // every goal edit is an op like any other.
 
   const addGoal = useCallback(
     (input: { name: string; targetAmount: number; targetCurrency: CurrencyCode; targetDate: string }): Goal => {
@@ -1417,64 +1372,25 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         targetDate: input.targetDate,
         createdAt: new Date().toISOString(),
       };
-      setData(prev => {
-        // No portfolio yet — create an empty one so the goal still has a home.
-        // The user will get FileUpload prompts on the dashboard, but goals
-        // don't require uploaded snapshots to exist.
-        const base: PortfolioData = prev ?? { facts: [], refSources: [], goals: [] };
-        const goals = [...(base.goals ?? []), goal];
-        const updated: PortfolioData = { ...base, goals };
-        persistGoalsChange(updated);
-        return updated;
-      });
+      // With no portfolio yet the op starts an empty one, so the goal still
+      // has a home; goals don't need entries to exist.
+      mutate({ type: 'addGoal', goal });
       analytics.goalCreated();
       return goal;
     },
-    [persistGoalsChange],
+    [mutate],
   );
 
   const updateGoal = useCallback(
-    (id: string, patch: Partial<Pick<Goal, 'name' | 'targetAmount' | 'targetCurrency' | 'targetDate'>>) => {
-      setData(prev => {
-        if (!prev) return prev;
-        const goals = prev.goals ?? [];
-        let changed = false;
-        const next = goals.map(g => {
-          if (g.id !== id) return g;
-          changed = true;
-          return {
-            ...g,
-            name: patch.name !== undefined ? patch.name.trim() : g.name,
-            targetAmount: patch.targetAmount !== undefined ? patch.targetAmount : g.targetAmount,
-            targetCurrency: patch.targetCurrency !== undefined ? patch.targetCurrency : g.targetCurrency,
-            targetDate: patch.targetDate !== undefined ? patch.targetDate : g.targetDate,
-          };
-        });
-        if (!changed) return prev;
-        const updated: PortfolioData = { ...prev, goals: next };
-        persistGoalsChange(updated);
-        return updated;
-      });
+    (id: string, patch: GoalPatch) => {
+      mutate({ type: 'updateGoal', id, patch });
     },
-    [persistGoalsChange],
+    [mutate],
   );
 
   const archiveGoal = useCallback((id: string) => {
-    setData(prev => {
-      if (!prev) return prev;
-      const goals = prev.goals ?? [];
-      let changed = false;
-      const next = goals.map(g => {
-        if (g.id !== id || g.archivedAt) return g;
-        changed = true;
-        return { ...g, archivedAt: new Date().toISOString() };
-      });
-      if (!changed) return prev;
-      const updated: PortfolioData = { ...prev, goals: next };
-      persistGoalsChange(updated);
-      return updated;
-    });
-  }, [persistGoalsChange]);
+    mutate({ type: 'archiveGoal', id, archivedAt: new Date().toISOString() });
+  }, [mutate]);
 
   const updateFilters = useCallback((partial: Partial<FilterState>) => {
     setFilters(prev => ({ ...prev, ...partial }));
@@ -1714,6 +1630,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     createPortfolio,
     renamePortfolio,
     deletePortfolio,
+    openJoinedPortfolio,
+    leavePortfolio,
+    removePartner,
+    restorePortfolioVersion,
   };
 
   return (

@@ -34,6 +34,7 @@ const defaultSubscription: SubscriptionStatus = {
   paymentPastDue: false,
   hasStripeHistory: false,
   familyBeta: false,
+  familyMember: false,
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         paymentPastDue: data?.payment_past_due ?? false,
         hasStripeHistory: data?.has_stripe_history ?? false,
         familyBeta: data?.family_beta ?? false,
+        familyMember: data?.family_member ?? false,
       });
     } catch (err) {
       console.error('Error checking subscription:', err);

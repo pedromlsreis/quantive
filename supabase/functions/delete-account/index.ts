@@ -5,7 +5,7 @@ import { brandedEmailHtml, escapeHtml, sendEmail } from "../_shared/email.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 import { cancelActiveSubscriptions, isFullyCancelled } from "../_shared/cancelStripeSubscriptions.ts";
-import { deleteUserData } from "../_shared/userDataDelete.ts";
+import { deleteAccountData } from "../_shared/userDataDelete.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
@@ -92,15 +92,16 @@ serve(async (req) => {
       return errorResponse("server_misconfigured", 500);
     }
 
-    // Clear user-scoped rows before dropping auth.users. The list of tables
-    // and their order live in userDataDelete.ts so the same sequence can be
-    // unit-tested and reused by the admin-side delete path.
+    // Clear user-scoped rows before dropping auth.users: shared portfolios
+    // pass to the partner first, then the tables. The steps live in
+    // userDataDelete.ts so they can be unit-tested and reused by the
+    // admin-side delete path.
     //
     // Abort if any table-level delete failed. The auth.users row stays so
     // the user (or admin) can retry — silently removing the account would
     // orphan rows in tables that are ON DELETE SET NULL (e.g. feedback),
     // defeating the GDPR-intent delete.
-    const cleanup = await deleteUserData(serviceClient, user.id);
+    const cleanup = await deleteAccountData(serviceClient, user.id);
     if (cleanup.errors.length > 0) {
       console.error(
         `[delete-account] data cleanup partial-failure for ${user.id}:`,
