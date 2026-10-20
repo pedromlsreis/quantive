@@ -633,11 +633,11 @@ A valid session isn't enough for the actions that would let someone holding a st
 |---|---|
 | Change the email (§8.11) | `request-email-change`: a password sign-in in the last 5 minutes |
 | Delete the account (§8.10) | `delete-account`: a password sign-in in the last 5 minutes |
-| Change the password | Supabase's Secure password change: a session under 24 hours old, or a nonce sent by email. Settings asks for the current password and signs in again, so it never meets that limit. |
+| Change the password | Supabase's "Require current password when updating": the current password, except in a session opened from a reset link (amr `otp`, `magiclink` or `recovery`), so a forgotten password can still be reset. "Secure password change" adds a session under 24 hours old, or a nonce sent by email. Settings asks for the current password, signs in again and sends it, so it meets both. |
 | Wipe after a reset without a recovery code (§8.5) | `reset-encrypted-data`: an emailed-link sign-in in the last hour |
 
 - A refreshed access token keeps the amr of the sign-in that opened its session, so an old stolen session never looks recent.
-- The password row is the weakest: through the Auth API, a session under a day old can set a new password without the current one, then sign in afresh with it. That rule is Supabase's, and holds only with Secure password change on.
+- The password row rests on Supabase's settings, not on code here: through the Auth API, a session can set a new password unless "Require current password when updating" is on. With it on, a stolen session can't, short of one opened from a reset link, which needs the inbox.
 
 ---
 

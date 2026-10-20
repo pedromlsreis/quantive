@@ -20,7 +20,7 @@ interface AuthContextType {
   signIn: (email: string, password: string, captchaToken?: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
-  updatePassword: (password: string) => Promise<{ error: string | null }>;
+  updatePassword: (password: string, currentPassword?: string) => Promise<{ error: string | null }>;
   reauthenticate: (password: string, captchaToken?: string) => Promise<{ error: string | null }>;
   resendConfirmation: (emailOverride?: string, captchaToken?: string) => Promise<{ error: string | null }>;
 }
@@ -204,8 +204,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const updatePassword = async (password: string) => {
-    const { error } = await supabase.auth.updateUser({ password });
+  // With "Require current password when updating" on, Supabase refuses a new
+  // password without the current one, except in a session opened from a
+  // reset link (which is why ResetPassword passes none).
+  const updatePassword = async (password: string, currentPassword?: string) => {
+    const { error } = await supabase.auth.updateUser(
+      currentPassword ? { password, current_password: currentPassword } : { password },
+    );
     return { error: error?.message ?? null };
   };
 

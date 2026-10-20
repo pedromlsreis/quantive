@@ -36,7 +36,8 @@ describe('PasswordSettings', () => {
     fill('old-password', 'a-new-long-password');
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Password changed.'));
     expect(check).toHaveBeenCalledWith('old-password');
-    expect(updatePassword).toHaveBeenCalledWith('a-new-long-password');
+    // The current password goes along for "Require current password when updating".
+    expect(updatePassword).toHaveBeenCalledWith('a-new-long-password', 'old-password');
     expect(rewrapForNewPassword).toHaveBeenCalledWith('u1', 'a-new-long-password');
     expect(check.mock.invocationCallOrder[0]).toBeLessThan(updatePassword.mock.invocationCallOrder[0]);
   });

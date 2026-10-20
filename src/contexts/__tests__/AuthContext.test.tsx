@@ -150,6 +150,14 @@ describe('resetPassword', () => {
 });
 
 describe('updatePassword', () => {
+  it('sends the current password when given, and only the new one from a reset', async () => {
+    const { result } = await renderSettled();
+    await act(async () => { await result.current.updatePassword('new-password', 'old-password'); });
+    expect(sb.auth.updateUser).toHaveBeenLastCalledWith({ password: 'new-password', current_password: 'old-password' });
+    await act(async () => { await result.current.updatePassword('new-password'); });
+    expect(sb.auth.updateUser).toHaveBeenLastCalledWith({ password: 'new-password' });
+  });
+
   it('maps a failure to its message', async () => {
     sb.auth.updateUser.mockResolvedValue({ error: { message: 'weak password' } });
     const { result } = await renderSettled();

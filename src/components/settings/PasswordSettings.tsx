@@ -8,10 +8,11 @@ import { PASSWORD_LENGTH_HINT, PASSWORD_MIN_LENGTH, passwordTooShort } from '@/l
 import { SettingsRow as Row } from './SettingsRows';
 
 /**
- * Settings → Security → Password. Asks for the current password first, as a
- * fresh sign-in: Supabase's "Secure password change" refuses a new password
- * from a session older than a day, and the fresh sign-in keeps this form
- * working with that on. The new password then re-wraps the data key.
+ * Settings → Security → Password. Asks for the current password, signs in
+ * again with it and sends it with the change, so the form keeps working with
+ * Supabase's "Secure password change" (no change from a session over a day
+ * old) and "Require current password when updating" on. The new password
+ * then re-wraps the data key.
  */
 export function PasswordSettings() {
   const { user, updatePassword } = useAuth();
@@ -53,7 +54,7 @@ export function PasswordSettings() {
         toast.error(passwordError);
         return;
       }
-      const { error: authErr } = await updatePassword(newPassword);
+      const { error: authErr } = await updatePassword(newPassword, currentPassword);
       if (authErr) {
         toast.error(mapAuthError(authErr));
         return;
