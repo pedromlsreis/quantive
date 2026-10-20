@@ -1,5 +1,7 @@
 // First: takes an invite secret out of the URL before analytics can see it.
 import "./lib/inviteFragment";
+// Before App starts the Supabase client: notes an emailed auth link that failed.
+import "./lib/authRedirect";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 // Self-host the brand fonts so the first paint does not block on a Google

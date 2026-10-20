@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
-import { findOrCreateStripeCustomer } from "../_shared/stripeCustomer.ts";
+import { findOrCreateStripeCustomer, syncCustomerEmail } from "../_shared/stripeCustomer.ts";
 import { isCheckoutPrice, planForPrice } from "../_shared/billingPlans.ts";
 
 import { buildCorsHeaders, corsPreflightResponse, safeRedirectOrigin } from "../_shared/cors.ts";
@@ -116,6 +116,13 @@ serve(async (req) => {
     // can match by user id rather than by mutable email.
     const customer = await findOrCreateStripeCustomer(stripe, user.id, user.email);
     logStep("Stripe customer resolved", { customerId: customer.id });
+    // A returning customer may still have the address from before an email
+    // change. Best effort: checkout goes ahead either way.
+    try {
+      if (await syncCustomerEmail(stripe, customer, user.email)) logStep("Customer email synced");
+    } catch (e) {
+      logStep("Customer email sync failed", { message: e instanceof Error ? e.message : String(e) });
+    }
 
     const origin = safeRedirectOrigin(req);
     const session = await stripe.checkout.sessions.create({

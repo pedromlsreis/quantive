@@ -1392,6 +1392,9 @@ html[data-app-motion='on'] .q-alert { animation: q-fade-in var(--d-overlay) var(
 .q-set-inline { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; }
 .q-set-select { width: 240px; }
 .q-set-form { display: grid; gap: var(--s-4); max-width: 320px; padding-block: var(--s-4); }
+/* A form opened mid-section (Profile → Email) keeps the rule between it and the next row. */
+.q-set-form:not(:last-child) { max-width: none; border-bottom: 1px solid var(--border-soft-raw); }
+.q-set-form:not(:last-child) > * { max-width: 320px; }
 .q-set-links { display: flex; gap: var(--s-4); flex-wrap: wrap; font-size: 14px; }
 /* Settings → Portfolios → Earlier versions. */
 .q-portfolio-versions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
@@ -1402,7 +1405,7 @@ html[data-app-motion='on'] .q-alert { animation: q-fade-in var(--d-overlay) var(
   .q-set-row { grid-template-columns: minmax(0, 1fr); gap: var(--s-3); }
   .q-set-control { justify-content: flex-start; }
   .q-set-control > .q-btn, .q-set-control > .q-input, .q-set-select { width: 100%; }
-  .q-set-form { max-width: none; }
+  .q-set-form, .q-set-form:not(:last-child) > * { max-width: none; }
 }
 
 /* Sources: toolbar, swatch-led name cell, sparkline with its change. */

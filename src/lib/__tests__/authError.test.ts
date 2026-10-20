@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mapAuthError } from '../authError';
+import { mapAuthError, mapPasswordCheckError } from '../authError';
 
 // `mapAuthError` is the user-facing translation layer for raw GoTrue messages.
 // We pin the canonical input -> output mapping per branch so a copy edit in
@@ -86,6 +86,7 @@ describe('mapAuthError', () => {
       'Unable to validate email address: invalid format',
       'Invalid email',
       'invalid format',
+      'Email address "sam@bad" is invalid',
     ])('treats %p as a malformed email', (raw) => {
       expect(mapAuthError(raw)).toMatch(/doesn.?t look like a valid email/i);
     });
@@ -124,5 +125,23 @@ describe('mapAuthError', () => {
     // don't silently change user-facing copy.
     const credFirst = 'Invalid login credentials — email rate limit exceeded';
     expect(mapAuthError(credFirst)).toMatch(/didn.?t match/i);
+  });
+});
+
+describe('mapPasswordCheckError', () => {
+  it("blames the password, since the email is the account's own", () => {
+    expect(mapPasswordCheckError('Invalid login credentials')).toBe("That password isn't right.");
+  });
+
+  it('asks for another go when the Turnstile check fails', () => {
+    expect(mapPasswordCheckError('captcha protection: request disallowed (timeout-or-duplicate)')).toBe(
+      "The security check didn't finish. Try again.",
+    );
+  });
+
+  it('falls back to mapAuthError for everything else', () => {
+    const raw = 'For security purposes, you can only request this after 42 seconds.';
+    expect(mapPasswordCheckError(raw)).toBe(mapAuthError(raw));
+    expect(mapPasswordCheckError(null)).toBe(mapAuthError(null));
   });
 });

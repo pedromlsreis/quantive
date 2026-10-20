@@ -31,7 +31,12 @@ export function mapAuthError(raw: string | null | undefined): string {
   if (m.includes("new password should be different")) {
     return "Your new password must be different from the current one.";
   }
-  if (m.includes("unable to validate email") || m.includes("invalid email") || m.includes("invalid format")) {
+  if (
+    m.includes("unable to validate email") ||
+    m.includes("invalid email") ||
+    m.includes("invalid format") ||
+    /email address .* is invalid/.test(m)
+  ) {
     return "That doesn't look like a valid email address.";
   }
   if (m.includes("user not found")) {
@@ -50,6 +55,16 @@ export function mapAuthError(raw: string | null | undefined): string {
   // Unknown — surface a generic message rather than the raw GoTrue string,
   // which is often lowercase and technical.
   return "Something went wrong. Please try again.";
+}
+
+// For the password asked for again before changing the email or password, or
+// deleting the account. The email is the account's own, so only the password
+// can be wrong.
+export function mapPasswordCheckError(raw: string | null | undefined): string {
+  const m = (raw ?? "").toLowerCase();
+  if (m.includes("invalid login credentials")) return "That password isn't right.";
+  if (m.includes("captcha")) return "The security check didn't finish. Try again.";
+  return mapAuthError(raw);
 }
 
 // Shown when unlock finds saved data whose key row is gone (MissingKeysError).

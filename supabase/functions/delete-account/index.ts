@@ -6,6 +6,7 @@ import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
 import { cancelActiveSubscriptions, isFullyCancelled } from "../_shared/cancelStripeSubscriptions.ts";
 import { deleteAccountData } from "../_shared/userDataDelete.ts";
+import { hasRecentPasswordAuth } from "../_shared/recentAuth.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return corsPreflightResponse(req);
@@ -41,6 +42,13 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) {
       return errorResponse("unauthenticated", 401);
+    }
+
+    // Deleting can't be undone. The app signs in again with the password just
+    // before calling, so a stolen session alone can't delete the account.
+    const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+    if (!hasRecentPasswordAuth(token, Math.floor(Date.now() / 1000))) {
+      return errorResponse("password_required", 403);
     }
 
     // Cancel any live Stripe subscriptions before dropping the user row.

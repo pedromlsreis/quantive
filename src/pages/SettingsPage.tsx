@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,9 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { portfolioFileSuffix } from '@/lib/portfolios';
 import { SettingsRow as Row, SettingsSection as Section } from '@/components/settings/SettingsRows';
 import { PortfolioSettings } from '@/components/settings/PortfolioSettings';
+import { EmailRow } from '@/components/settings/EmailSettings';
+import { PasswordSettings } from '@/components/settings/PasswordSettings';
+import { DeleteAccountSection } from '@/components/settings/DeleteAccount';
 import { exportNote } from '@/components/settings/exportNote';
 import { useCurrency, type CurrencyCode } from '@/contexts/CurrencyContext';
 import { usePreferences, AUTO_LOCK_MINUTES_OPTIONS, type NumberFormat } from '@/contexts/PreferencesContext';
@@ -19,16 +22,6 @@ import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { Notice } from '@/components/ui/Notice';
 import { RecoveryCodeDisplay } from '@/components/auth/RecoveryCodeDisplay';
 import { PdfReportButton } from '@/components/export/PdfReportButton';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { extractCheckoutErrorCode, messageForPortalError } from '@/lib/billing/checkoutError';
 import { resolvePlan, resolvePlanForStatus } from '@/lib/billing/plans';
 import { planDescription } from '@/lib/billing/planStatus';
@@ -36,14 +29,12 @@ import { FAMILY_PRICE_LINE } from '@/lib/billing/planCopy';
 import { analytics } from '@/lib/analytics';
 import { REMINDER_OPTIONS, normaliseReminderFrequency, type ReminderFrequency } from '@/lib/reminders';
 import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/lib/consent';
-import { mapAuthError } from '@/lib/authError';
-import { PASSWORD_MIN_LENGTH, PASSWORD_LENGTH_HINT, passwordTooShort } from '@/lib/passwordPolicy';
 import { NUMBER_FORMAT_LOCALES } from '@/lib/numberLocale';
 import { LEGAL_LINKS } from '@/lib/nav-config';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function SettingsPage() {
-  const { user, signOut, updatePassword, subscription, checkSubscription } = useAuth();
+  const { user, subscription, checkSubscription } = useAuth();
 
   // Re-check on mount so a user who lands here directly after checkout
   // (or who navigates here before the 60s background poll runs) sees the
@@ -99,7 +90,6 @@ export default function SettingsPage() {
   };
   const { currency, setCurrency, allCurrencies } = useCurrency();
   const { numberFormat, setNumberFormat, privacyMode, setPrivacyMode, blurOnUnfocus, setBlurOnUnfocus, autoLockMinutes, setAutoLockMinutes } = usePreferences();
-  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -143,19 +133,12 @@ export default function SettingsPage() {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const [saving, setSaving] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   const [showRecoveryCode, setShowRecoveryCode] = useState<string | null>(null);
   const [provisioningRecovery, setProvisioningRecovery] = useState(false);
 
-  const [changingPassword, setChangingPassword] = useState(false);
-
   const [analyticsConsent, setAnalyticsConsent] = useState<ConsentState>(() => getConsent());
   useEffect(() => subscribeConsent(setAnalyticsConsent), []);
-  const [newPassword, setNewPassword] = useState('');
-  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
-  const [submittingPassword, setSubmittingPassword] = useState(false);
 
   const [exporting, setExporting] = useState<null | 'xlsx' | 'csv'>(null);
 
@@ -243,44 +226,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    if (newPassword !== newPasswordConfirm) {
-      toast.error("The two passwords don't match.");
-      return;
-    }
-    if (passwordTooShort(newPassword)) {
-      toast.error(PASSWORD_LENGTH_HINT);
-      return;
-    }
-    if (keySession.status !== 'unlocked-encrypted') {
-      toast.error('Unlock your data first.');
-      return;
-    }
-    setSubmittingPassword(true);
-    try {
-      const { error: authErr } = await updatePassword(newPassword);
-      if (authErr) {
-        toast.error(mapAuthError(authErr));
-        return;
-      }
-      const { error: rewrapErr } = await keySession.rewrapForNewPassword(user.id, newPassword);
-      if (rewrapErr) {
-        toast.error(
-          "Password changed, but your data key couldn't be re-wrapped. Try again, or use your recovery code at your next sign-in.",
-        );
-        return;
-      }
-      toast.success('Password changed.');
-      setChangingPassword(false);
-      setNewPassword('');
-      setNewPasswordConfirm('');
-    } finally {
-      setSubmittingPassword(false);
-    }
-  };
-
   const handleExport = async (fmt: 'xlsx' | 'csv') => {
     if (!data) {
       toast.error('Nothing to export yet.');
@@ -308,26 +253,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    setDeleting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('delete-account');
-      if (error || !data?.success) {
-        toast.error("Couldn't delete your account. Try again.");
-        setDeleting(false);
-        return;
-      }
-      // PortfolioContext's user-id watcher wipes all client state when
-      // signOut() flips user to null. See docs/security/encryption.md §8.3.
-      await signOut();
-      toast.success('Your account and entries are deleted');
-      navigate('/');
-    } catch {
-      toast.error("Couldn't delete your account. Try again.");
-      setDeleting(false);
-    }
-  };
-
   const unlocked = keySession.status === 'unlocked-encrypted';
   const autoLocale = browserNumberLocale();
 
@@ -339,9 +264,7 @@ export default function SettingsPage() {
 
       {user && (
         <Section id="profile" title="Profile">
-          <Row label="Email">
-            <span className="q-set-value">{user.email}</span>
-          </Row>
+          <EmailRow />
           <Row label="Display name" htmlFor={editing ? 'display-name' : undefined}>
             {editing ? (
               <div className="q-set-inline">
@@ -586,74 +509,11 @@ export default function SettingsPage() {
               </button>
             )}
           </Row>
-          <Row label="Password" description={changingPassword ? PASSWORD_LENGTH_HINT : undefined}>
-            {!changingPassword && (
-              <button type="button" onClick={() => setChangingPassword(true)} disabled={!unlocked} className="q-btn q-btn--secondary q-btn--md">
-                Change password
-              </button>
-            )}
-          </Row>
-          {changingPassword && (
-            <form onSubmit={handleChangePassword} className="q-set-form">
-              <div className="q-field">
-                <label className="q-field-label" htmlFor="new-password">New password</label>
-                <span className="q-input">
-                  <input
-                    id="new-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    minLength={PASSWORD_MIN_LENGTH}
-                    required
-                    autoFocus
-                  />
-                </span>
-              </div>
-              <div className="q-field">
-                <label className="q-field-label" htmlFor="confirm-password">Confirm new password</label>
-                <span className="q-input">
-                  <input
-                    id="confirm-password"
-                    type="password"
-                    autoComplete="new-password"
-                    value={newPasswordConfirm}
-                    onChange={(e) => setNewPasswordConfirm(e.target.value)}
-                    minLength={PASSWORD_MIN_LENGTH}
-                    required
-                  />
-                </span>
-              </div>
-              <div className="q-set-inline">
-                <button type="submit" disabled={submittingPassword} className="q-btn q-btn--secondary q-btn--md">
-                  {submittingPassword ? 'Saving…' : 'Save password'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setChangingPassword(false);
-                    setNewPassword('');
-                    setNewPasswordConfirm('');
-                  }}
-                  className="q-btn q-btn--ghost q-btn--md"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          )}
+          <PasswordSettings />
         </Section>
       )}
 
-      {user && (
-        <Section id="delete" title="Delete account">
-          <Row description="Permanently deletes your account and entries. Download a CSV first if you want a copy.">
-            <button type="button" onClick={() => setDeleteOpen(true)} className="q-btn q-btn--danger q-btn--md">
-              Delete account
-            </button>
-          </Row>
-        </Section>
-      )}
+      {user && <DeleteAccountSection sharesPortfolios={extraPortfolios.length > 0} />}
 
       <Section id="about" title="About">
         <Row description="Your entries are encrypted in this browser before they're sent, so we can't read them. The remaining trust is in the code we serve.">
@@ -669,28 +529,6 @@ export default function SettingsPage() {
         <RecoveryCodeLayer code={showRecoveryCode} onDone={() => setShowRecoveryCode(null)} />
       )}
 
-      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your account, entries, profile and any feedback you sent are deleted permanently. This can't be undone.
-              {extraPortfolios.length > 0 &&
-                " A portfolio you share passes to your partner, who keeps it; your other portfolios are deleted. You also leave any portfolio shared with you."}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteAccount}
-              disabled={deleting}
-              className="q-btn--destructive"
-            >
-              {deleting ? 'Deleting…' : 'Delete everything'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

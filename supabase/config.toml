@@ -15,6 +15,12 @@ verify_jwt = false
 [functions.customer-portal]
 verify_jwt = false
 
+[functions.request-email-change]
+verify_jwt = false
+
+[functions.confirm-email-change]
+verify_jwt = false
+
 [functions.delete-account]
 verify_jwt = false
 
@@ -59,6 +65,15 @@ content_path = "./supabase/templates/auth-magic-link.html"
 [auth.email.template.invite]
 subject = "You've been invited to Quantive"
 content_path = "./supabase/templates/auth-invite.html"
+
+# "Secure email change" in the dashboard (Authentication → Providers →
+# Email). Settings never uses Supabase's own email-change flow: it goes
+# through request-email-change and confirm-email-change (a fresh password
+# sign-in, then a link to the new address). Keep this on anyway. It is what
+# stops a stolen session changing the email by calling the Auth API directly,
+# since that flow then also needs a link opened from the current inbox.
+[auth.email]
+double_confirm_changes = true
 
 # Auth (GoTrue) rate limits. Same hosted-vs-local caveat as the email
 # templates above: the Supabase CLI applies these to the local stack, but on

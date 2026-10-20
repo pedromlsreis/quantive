@@ -13,6 +13,7 @@ import { KeySessionProvider } from "@/contexts/KeySessionContext";
 import { CurrencyProvider } from "@/contexts/CurrencyContext";
 import { PreferencesProvider } from "@/contexts/PreferencesContext";
 import { EmailConfirmationBanner } from "@/components/auth/EmailConfirmationBanner";
+import { AuthRedirectNotice } from "@/components/auth/AuthRedirectNotice";
 import { RequireUnlock } from "@/components/auth/RequireUnlock";
 import { IdleAutoLock } from "@/components/auth/IdleAutoLock";
 import { RecoveryOfferModal } from "@/components/auth/RecoveryOfferModal";
@@ -44,6 +45,7 @@ import {
 
 const DemoRedirect = lazy(() => import("./pages/DemoRedirect"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const ConfirmEmailPage = lazy(() => import("./pages/ConfirmEmailPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -168,6 +170,9 @@ function AppRoutes() {
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/demo" element={<DemoRedirect />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      {/* The link from an email change. It signs in through the auth modal
+          itself and decrypts nothing, so it isn't in PROTECTED_PATHS. */}
+      <Route path="/confirm-email" element={<ConfirmEmailPage />} />
       {/* Outside the shell; it handles signed-out visitors itself, and
           RequireUnlock prompts for the password (see PROTECTED_PATHS). */}
       <Route path="/join/:inviteId" element={<JoinPage />} />
@@ -215,6 +220,7 @@ const App = () => (
     <TooltipProvider>
       <MotionFlag />
       <Sonner />
+      <AuthRedirectNotice />
       <ErrorBoundary>
         <AuthProvider>
           <QueryCacheGuard />
