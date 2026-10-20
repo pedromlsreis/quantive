@@ -21,6 +21,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
   updatePassword: (password: string) => Promise<{ error: string | null }>;
+  reauthenticate: (password: string, captchaToken?: string) => Promise<{ error: string | null }>;
   resendConfirmation: (emailOverride?: string, captchaToken?: string) => Promise<{ error: string | null }>;
 }
 
@@ -208,6 +209,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
+  // A fresh password sign-in as the same user, for actions the server takes
+  // only from one (see usePasswordCheck). The user id doesn't change, so the
+  // unlocked keys in KeySession stay put.
+  const reauthenticate = async (password: string, captchaToken?: string) => {
+    if (!user?.email) return { error: 'No email associated with this account.' };
+    const { error } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password,
+      options: { captchaToken },
+    });
+    return { error: error?.message ?? null };
+  };
+
   const resendConfirmation = async (emailOverride?: string, captchaToken?: string) => {
     // emailOverride covers the post-signup case where no session exists yet
     // and `user` is null — the AuthModal needs to resend to the email the
@@ -223,7 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, subscription, subscriptionChecked: !!user && subscriptionUserId === user.id, checkSubscription, signUp, signIn, signOut, resetPassword, updatePassword, resendConfirmation }}>
+    <AuthContext.Provider value={{ user, session, loading, subscription, subscriptionChecked: !!user && subscriptionUserId === user.id, checkSubscription, signUp, signIn, signOut, resetPassword, updatePassword, reauthenticate, resendConfirmation }}>
       {children}
     </AuthContext.Provider>
   );

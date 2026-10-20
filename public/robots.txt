@@ -4,6 +4,7 @@ Disallow: /dashboard
 Disallow: /settings
 Disallow: /admin
 Disallow: /reset-password
+Disallow: /confirm-email
 Disallow: /demo
 
 Sitemap: https://usequantive.app/sitemap.xml

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
-import { findStripeCustomer } from "../_shared/stripeCustomer.ts";
+import { findStripeCustomer, syncCustomerEmail } from "../_shared/stripeCustomer.ts";
 import { PLAN_PRICES, planForPrice } from "../_shared/billingPlans.ts";
 import { pickEntitledSubscription } from "../_shared/entitled.ts";
 import { buildCorsHeaders, corsPreflightResponse, safeRedirectOrigin } from "../_shared/cors.ts";
@@ -61,6 +61,14 @@ serve(async (req) => {
     if (!customer) {
       logStep("No Stripe customer found for user", { userId: user.id });
       return errorResponse("not_found", 404);
+    }
+
+    // The portal shows the customer's email; make it the sign-in email. A
+    // failed sync must not keep the user out of billing.
+    try {
+      if (await syncCustomerEmail(stripe, customer, user.email)) logStep("Customer email synced");
+    } catch (e) {
+      logStep("Customer email sync failed", { message: e instanceof Error ? e.message : String(e) });
     }
 
     // No body opens the plain portal. `{ flow: "switch_to_family" }` opens

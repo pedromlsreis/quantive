@@ -10,21 +10,7 @@ export type CheckoutErrorCode =
   | 'already_subscribed'
   | 'checkout_unavailable';
 
-/**
- * The Supabase functions client wraps the non-2xx Response on the error
- * object's `context` field. Read it back to recover the sanitised code; any
- * parse failure falls through to `undefined` (handled as the generic case).
- */
-export async function extractCheckoutErrorCode(error: unknown): Promise<string | undefined> {
-  const ctx = (error as { context?: Response } | null)?.context;
-  if (!ctx || typeof ctx.json !== 'function') return undefined;
-  try {
-    const body = await ctx.clone().json();
-    return typeof body?.error === 'string' ? body.error : undefined;
-  } catch {
-    return undefined;
-  }
-}
+export { functionErrorCode as extractCheckoutErrorCode } from '@/lib/functionError';
 
 export function messageForCheckoutError(code: string | undefined): string {
   switch (code) {

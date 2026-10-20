@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hasRecentEmailLinkAuth } from '../emailLinkAuth';
+import { hasRecentEmailLinkAuth, hasRecentPasswordAuth } from '../recentAuth';
 
 const NOW = 1_790_000_000;
 
@@ -40,5 +40,26 @@ describe('hasRecentEmailLinkAuth', () => {
     expect(hasRecentEmailLinkAuth(token({}), NOW)).toBe(false);
     expect(hasRecentEmailLinkAuth(token({ amr: ['otp'] }), NOW)).toBe(false);
     expect(hasRecentEmailLinkAuth(token({ amr: [{ method: 'otp', timestamp: String(NOW) }] }), NOW)).toBe(false);
+  });
+});
+
+describe('hasRecentPasswordAuth', () => {
+  it('accepts a password sign-in within five minutes', () => {
+    expect(hasRecentPasswordAuth(token({ amr: [{ method: 'password', timestamp: NOW - 30 }] }), NOW)).toBe(true);
+    expect(hasRecentPasswordAuth(token({ amr: [{ method: 'password', timestamp: NOW - 300 }] }), NOW)).toBe(true);
+  });
+
+  it('rejects an older password sign-in, which is what a refreshed stolen session carries', () => {
+    expect(hasRecentPasswordAuth(token({ amr: [{ method: 'password', timestamp: NOW - 301 }] }), NOW)).toBe(false);
+    expect(hasRecentPasswordAuth(token({ amr: [{ method: 'password', timestamp: NOW - 86_400 }] }), NOW)).toBe(false);
+  });
+
+  it('rejects an email-link session: only the password proves the account here', () => {
+    expect(hasRecentPasswordAuth(token({ amr: [{ method: 'otp', timestamp: NOW }] }), NOW)).toBe(false);
+  });
+
+  it('rejects malformed tokens', () => {
+    expect(hasRecentPasswordAuth('not-a-jwt', NOW)).toBe(false);
+    expect(hasRecentPasswordAuth(token({ amr: [{ method: 'password' }] }), NOW)).toBe(false);
   });
 });

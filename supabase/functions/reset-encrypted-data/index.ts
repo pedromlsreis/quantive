@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
 import { checkRateLimit, extractIp } from "../_shared/rateLimit.ts";
-import { hasRecentEmailLinkAuth } from "../_shared/emailLinkAuth.ts";
+import { hasRecentEmailLinkAuth } from "../_shared/recentAuth.ts";
 import { deleteUserData, ENCRYPTED_DATA_TABLES, releaseOwnedPortfolios } from "../_shared/userDataDelete.ts";
 
 // Deletes the caller's encrypted portfolio and key rows so they can start

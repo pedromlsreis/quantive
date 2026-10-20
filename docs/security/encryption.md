@@ -1,7 +1,7 @@
 # End-to-End Encryption — Design
 
 **Status:** Implemented (v0.1 wire format = `enc_version = 1`)
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-20
 **Tracking issue:** [#33](https://github.com/pedromlsreis/quantive/issues/33)
 
 > This document is the source of truth for how Quantive encrypts user data. It is **public on purpose**: the encryption module is open-source under [`src/lib/crypto/`](../../src/lib/crypto/), and this design is meant to be reviewed by the community. If you spot something wrong, please open an issue.
@@ -28,6 +28,8 @@
 | Key rotation re-encrypts at the next epoch and the old key can no longer write; an earlier version opens with the retired key | [portfolios.test.ts](../../src/lib/__tests__/portfolios.test.ts) |
 | **Invite secret never reaches the server**; a changed secret or another invite's id is refused before any call; the partner's re-wrap opens with their DK only | [portfolioSharing.test.ts](../../src/lib/__tests__/portfolioSharing.test.ts) |
 | Invite secret taken out of the address bar before the app starts; analytics never carries a URL fragment or an invite id | [inviteFragment.test.ts](../../src/lib/__tests__/inviteFragment.test.ts), [analytics.events.test.ts](../../src/lib/__tests__/analytics.events.test.ts) |
+| Email change and deletion take only a fresh password sign-in; an older (refreshed) session or an emailed-link session is refused (§8.12) | [recentAuth.test.ts](../../supabase/functions/_shared/__tests__/recentAuth.test.ts) |
+| Email-change link: only its hash is stored; another request's, an expired or an out-of-date token is refused; the email to the new address doesn't name the current one (§8.11) | [emailChange.test.ts](../../supabase/functions/_shared/__tests__/emailChange.test.ts) |
 | Concurrent edits: unsaved edits replayed on the stored version, applying an edit twice changes nothing, a clashing rename is dropped with a message | [portfolioOps.test.ts](../../src/lib/__tests__/portfolioOps.test.ts), [portfolioSync.test.ts](../../src/lib/__tests__/portfolioSync.test.ts) |
 | **RLS, triggers and sharing functions** on an in-memory Postgres with the real migrations: isolation, one-time invites, the partner seat, rotation, revisions, ownership transfer | [portfolioSharing.sql.test.ts](../../supabase/tests/portfolioSharing.sql.test.ts) |
 | The same, against the live project as two signed-in users (run locally; needs the E2E test users) | [rls-portfolios.spec.ts](../../e2e/rls-portfolios.spec.ts) |
@@ -593,6 +595,49 @@ The same applies to the wipe after a password reset without a recovery code (§8
 Without the Family plan, the new owner can view and export the portfolio but not edit it. The same holds for both people when a Family subscription ends. Like every plan limit, this is enforced in the client; it protects revenue, not confidentiality, and the server still refuses new invites.
 
 When a partner deletes their account, their member row goes, `rotation_due` is set and the seat frees.
+
+Deleting an account takes a password sign-in from the last 5 minutes (§8.12), so a stolen session alone can't delete one.
+
+### 8.11 Email change
+
+An auth-only operation: no key, wrap or ciphertext changes. It takes the password and the new inbox. The old inbox isn't needed, so someone who has lost it can still move off it.
+
+```
+1. Settings: the new address and the current password. The browser signs
+   in again with the password (and Turnstile), opening a fresh session.
+2. request-email-change accepts only a session opened by a password
+   sign-in in the last 5 minutes (§8.12). It stores
+     { email, from, sent_at, expires_at = sent_at + 24h, token_hash = SHA-256(T) }
+   in the user's app_metadata, which only the service role writes, and
+   emails https://<origin>/confirm-email#t=<T> to the new address, where
+   T = 32 random bytes. A new request replaces the previous one.
+3. The link is opened while signed in to the same account (any session).
+4. confirm-email-change: SHA-256(T) must match, the request must be live,
+   and the sign-in email must still be `from`. An admin update sets the
+   new address, confirmed, and clears the request. The old address gets a
+   notice naming the new one masked, and Stripe's copy of the email follows.
+```
+
+- The password is the stronger proof of ownership here. Whoever knows it can already decrypt everything (§5); the inbox alone only gets a password reset, which wipes the data unless there is a recovery code (§8.5). So the change asks for the password, and for the new inbox to show the address works.
+- A stolen session can't start a change: its amr is as old as the sign-in it came from, and a fresh one needs the password. Supabase's own email-change flow is still reachable through the Auth API; with Secure email change on (config.toml `double_confirm_changes`), it also needs a link opened from the current inbox.
+- The link alone can't finish a change. Confirming needs a session for the same account, so someone who receives a mistyped address can't move the account to it, and the email to the new address doesn't name the current one.
+- T travels in the URL fragment, which browsers don't send to servers or in `Referer` headers, and the page drops it from the address bar. It reaches only confirm-email-change, in a request body. app_metadata, which every access token carries, holds only its hash.
+- The email is not an input to any key or AAD. The KDF salts are random per user (§7.1), and the AADs bind user, portfolio and invite IDs (§6), so the same password unlocks the same wraps after the change.
+- Invites stay bound to an address (§8.8). `get_portfolio_invite` and `accept_portfolio_invite` both check the account's current email and confirmation (`portfolio_invite_status`), and an account takes a new address only after confirming it, so "a signed-in, confirmed account for the invited email address" still holds. An invite sent to the old address can't be accepted after the change; the owner sends a new one.
+
+### 8.12 Actions that need the password again
+
+A valid session isn't enough for the actions that would let someone holding a stolen session take over the account or destroy it. The browser signs in again first, with the password and Turnstile, and the server checks how the session was opened (its amr claim, [`recentAuth.ts`](../../supabase/functions/_shared/recentAuth.ts)):
+
+| Action | What the server requires |
+|---|---|
+| Change the email (§8.11) | `request-email-change`: a password sign-in in the last 5 minutes |
+| Delete the account (§8.10) | `delete-account`: a password sign-in in the last 5 minutes |
+| Change the password | Supabase's Secure password change: a session under 24 hours old, or a nonce sent by email. Settings asks for the current password and signs in again, so it never meets that limit. |
+| Wipe after a reset without a recovery code (§8.5) | `reset-encrypted-data`: an emailed-link sign-in in the last hour |
+
+- A refreshed access token keeps the amr of the sign-in that opened its session, so an old stolen session never looks recent.
+- The password row is the weakest: through the Auth API, a session under a day old can set a new password without the current one, then sign in afresh with it. That rule is Supabase's, and holds only with Secure password change on.
 
 ---
 

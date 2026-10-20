@@ -159,6 +159,44 @@ describe('updatePassword', () => {
   });
 });
 
+describe('reauthenticate', () => {
+  it('signs in again as the current user, passing the Turnstile token', async () => {
+    sb.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: 'tok', user: { id: 'u1', email: 'a@b.com' } } },
+    });
+    const { result } = await renderSettled();
+    let res: { error: string | null } | undefined;
+    await act(async () => { res = await result.current.reauthenticate('pw', 'captcha-token'); });
+    expect(res).toEqual({ error: null });
+    expect(sb.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: 'a@b.com',
+      password: 'pw',
+      options: { captchaToken: 'captcha-token' },
+    });
+    // Not a new sign-in for analytics: the same user proves the password again.
+    expect(analyticsMock.signedIn).not.toHaveBeenCalled();
+  });
+
+  it('maps a wrong password to its message', async () => {
+    sb.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: 'tok', user: { id: 'u1', email: 'a@b.com' } } },
+    });
+    sb.auth.signInWithPassword.mockResolvedValue({ error: { message: 'Invalid login credentials' } });
+    const { result } = await renderSettled();
+    let res: { error: string | null } | undefined;
+    await act(async () => { res = await result.current.reauthenticate('wrong'); });
+    expect(res).toEqual({ error: 'Invalid login credentials' });
+  });
+
+  it('refuses without a signed-in user', async () => {
+    const { result } = await renderSettled();
+    let res: { error: string | null } | undefined;
+    await act(async () => { res = await result.current.reauthenticate('pw'); });
+    expect(res?.error).toMatch(/no email/i);
+    expect(sb.auth.signInWithPassword).not.toHaveBeenCalled();
+  });
+});
+
 describe('resendConfirmation', () => {
   it('refuses when no email is known (no user, no override)', async () => {
     const { result } = await renderSettled();

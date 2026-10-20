@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 // stripeCustomer.ts uses `import type Stripe` (erased at compile time) and
 // console.warn only — no Deno stubs needed.
-import { findStripeCustomer, findOrCreateStripeCustomer } from '../stripeCustomer';
+import { findStripeCustomer, findOrCreateStripeCustomer, syncCustomerEmail } from '../stripeCustomer';
 
 const BASE_CUSTOMER = {
   id: 'cus_test123',
@@ -44,7 +44,29 @@ describe('findStripeCustomer', () => {
     const stripe = makeStripe({ searchResult: [], listResult: [BASE_CUSTOMER] });
     const result = await findStripeCustomer(stripe as never, 'uid-abc', 'user@example.com');
     expect(result).toEqual(BASE_CUSTOMER);
-    expect(stripe.customers.list).toHaveBeenCalledWith({ email: 'user@example.com', limit: 1 });
+    expect(stripe.customers.list).toHaveBeenCalledWith({ email: 'user@example.com', limit: 10 });
+  });
+
+  it("never takes a customer tagged with another user's id", async () => {
+    // The address moved to this account after the other user changed theirs.
+    const othersCustomer = { ...BASE_CUSTOMER, id: 'cus_other', metadata: { supabase_user_id: 'uid-other' } };
+    const stripe = makeStripe({ searchResult: [], listResult: [othersCustomer] });
+    const result = await findStripeCustomer(stripe as never, 'uid-abc', 'user@example.com');
+    expect(result).toBeNull();
+    expect(stripe.customers.update).not.toHaveBeenCalled();
+  });
+
+  it("skips another user's customer and takes an untagged one with the same email", async () => {
+    const othersCustomer = { ...BASE_CUSTOMER, id: 'cus_other', metadata: { supabase_user_id: 'uid-other' } };
+    const legacy = { ...BASE_CUSTOMER, id: 'cus_legacy', metadata: {} };
+    const stripe = makeStripe({ searchResult: [], listResult: [othersCustomer, legacy] });
+    const result = await findStripeCustomer(stripe as never, 'uid-abc', 'user@example.com');
+    expect(result).toEqual(legacy);
+    expect(stripe.customers.update).toHaveBeenCalledOnce();
+    expect(stripe.customers.update).toHaveBeenCalledWith(
+      'cus_legacy',
+      expect.objectContaining({ metadata: expect.objectContaining({ supabase_user_id: 'uid-abc' }) }),
+    );
   });
 
   it('falls back to email list when metadata search throws', async () => {
@@ -98,6 +120,15 @@ describe('findOrCreateStripeCustomer', () => {
     expect(stripe.customers.create).not.toHaveBeenCalled();
   });
 
+  it("creates a new customer rather than take another user's", async () => {
+    const othersCustomer = { ...BASE_CUSTOMER, id: 'cus_other', metadata: { supabase_user_id: 'uid-other' } };
+    const newCustomer = { ...BASE_CUSTOMER, id: 'cus_new' };
+    const stripe = makeStripe({ searchResult: [], listResult: [othersCustomer], createResult: newCustomer });
+    const result = await findOrCreateStripeCustomer(stripe as never, 'uid-abc', 'user@example.com');
+    expect(result).toEqual(newCustomer);
+    expect(stripe.customers.create).toHaveBeenCalledOnce();
+  });
+
   it('creates a new customer with correct fields when none is found', async () => {
     const newCustomer = { ...BASE_CUSTOMER, id: 'cus_new' };
     const stripe = makeStripe({ searchResult: [], listResult: [], createResult: newCustomer });
@@ -107,5 +138,32 @@ describe('findOrCreateStripeCustomer', () => {
       email: 'user@example.com',
       metadata: { supabase_user_id: 'uid-abc' },
     });
+  });
+});
+
+describe('syncCustomerEmail', () => {
+  it("moves the customer's email to the sign-in email", async () => {
+    const stripe = makeStripe();
+    const changed = await syncCustomerEmail(stripe as never, BASE_CUSTOMER as never, 'new@example.com');
+    expect(changed).toBe(true);
+    expect(stripe.customers.update).toHaveBeenCalledWith('cus_test123', { email: 'new@example.com' });
+  });
+
+  it('fills in a customer that has no email', async () => {
+    const stripe = makeStripe();
+    await syncCustomerEmail(stripe as never, { ...BASE_CUSTOMER, email: null } as never, 'user@example.com');
+    expect(stripe.customers.update).toHaveBeenCalledWith('cus_test123', { email: 'user@example.com' });
+  });
+
+  it('leaves a matching email alone, ignoring case', async () => {
+    const stripe = makeStripe();
+    const changed = await syncCustomerEmail(stripe as never, { ...BASE_CUSTOMER, email: 'User@Example.com' } as never, 'user@example.com');
+    expect(changed).toBe(false);
+    expect(stripe.customers.update).not.toHaveBeenCalled();
+  });
+
+  it('lets a Stripe failure reach the caller, which decides', async () => {
+    const stripe = makeStripe({ updateThrows: true });
+    await expect(syncCustomerEmail(stripe as never, BASE_CUSTOMER as never, 'new@example.com')).rejects.toThrow('update failed');
   });
 });
