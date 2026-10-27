@@ -46,6 +46,7 @@ import {
 const DemoRedirect = lazy(() => import("./pages/DemoRedirect"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const ConfirmEmailPage = lazy(() => import("./pages/ConfirmEmailPage"));
+const EmailUpdatesPage = lazy(() => import("./pages/EmailUpdatesPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -173,6 +174,8 @@ function AppRoutes() {
       {/* The link from an email change. It signs in through the auth modal
           itself and decrypts nothing, so it isn't in PROTECTED_PATHS. */}
       <Route path="/confirm-email" element={<ConfirmEmailPage />} />
+      {/* Confirm or unsubscribe from the "Keep me posted" list; no account involved. */}
+      <Route path="/email-updates" element={<EmailUpdatesPage />} />
       {/* Outside the shell; it handles signed-out visitors itself, and
           RequireUnlock prompts for the password (see PROTECTED_PATHS). */}
       <Route path="/join/:inviteId" element={<JoinPage />} />

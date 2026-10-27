@@ -6,8 +6,11 @@ export const VALID_SOURCES = ["landing"] as const;
 export type SignupSource = (typeof VALID_SOURCES)[number];
 
 // Pragmatic shape check; the function also lowercases before insert and the
-// table CHECK constraint is the final backstop.
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// table CHECK constraint is the final backstop. It rejects quotes, angle
+// brackets, commas and the other specials, and empty or trailing domain labels:
+// each would let one mailbox take several rows (and several runs at the
+// per-address cap), or put a display name in the confirmation's To header.
+const EMAIL_RE = /^[^\s@"(),:;<>[\]\\]+@(?:[^\s@"(),:;<>[\]\\.]+\.)+[^\s@"(),:;<>[\]\\.]+$/;
 
 export type EmailSignupBodyResult =
   | { ok: true; email: string; token: string | null; source: SignupSource }

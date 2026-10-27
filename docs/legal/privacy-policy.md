@@ -1,6 +1,6 @@
 # Privacy Policy
 
-_Last updated: 1 October 2026_
+_Last updated: 27 October 2026_
 
 ## 1. Introduction
 
@@ -26,6 +26,8 @@ We do not have a Data Protection Officer (DPO). As a solo controller below the h
 
 **Feedback.** If you submit feedback through the in-app feedback button, we store the message text, the type you selected (bug, improvement, or feature request), and your account ID so we can follow up. Feedback is not encrypted at rest. Do not include sensitive financial details in feedback messages.
 
+**Product updates (optional).** If you leave your email under "Keep me posted" on the homepage, we store the address, where you signed up, and when you signed up and confirmed. No account is needed. We first send one email asking you to confirm the address (double opt-in), and send nothing else until you do. An address that isn't confirmed is deleted 7 days after the last confirmation email, or 7 days after signup if none was sent. Every update has an unsubscribe link, which deletes your address from the list straight away; you can also ask us to remove it (see §14). When you confirm or unsubscribe, we keep a consent record: a keyed hash of your address (not the address itself), what happened and when, and which version of the confirmation email you received. It lets us show that you asked for updates if that is ever disputed.
+
 **Usage data.** Only if you grant analytics consent (see §9): anonymous product analytics (page views, feature usage) and anonymous web-performance metrics (Largest Contentful Paint, Interaction to Next Paint, Cumulative Layout Shift) via PostHog. No personally identifiable information, financial figures, or account details are included in these events.
 
 **Campaign attribution.** If you arrive at the site via a link we publish that includes `utm_source`, `utm_medium`, `utm_campaign`, `utm_term`, or `utm_content` query parameters, those values are stored in your browser's localStorage. They are attached to analytics events only if you have granted analytics consent. They are cleared when you sign out or withdraw consent.
@@ -44,6 +46,9 @@ We process your personal data for the following purposes, on the following legal
 | Process subscription payments | Stripe customer/subscription identifiers, billing data held by Stripe | Art. 6(1)(b): performance of contract; Art. 6(1)(c): compliance with German tax law (§ 147 AO) for invoice records |
 | Send transactional emails (password reset, account-deletion confirmation, billing receipts) | Email address | Art. 6(1)(b): performance of contract |
 | Respond to feedback you submit and improve the product | Feedback message text + account ID | Art. 6(1)(f): our legitimate interest in improving the service |
+| Confirm that the owner of an address asked for updates (one confirmation email) | Email address, signup source, signup time | Art. 6(1)(f): our legitimate interest in sending updates only to people who asked, and in being able to show it (Art. 7(1)) |
+| Send occasional product updates you asked for | Email address, signup source, signup and confirmation times | Art. 6(1)(a): your consent, given by confirming your address; withdraw it at any time through the unsubscribe link |
+| Keep a record of that consent | Keyed hash of the address, confirmation and unsubscribe times, confirmation-email version | Art. 6(1)(f): our legitimate interest in defending against a claim about an email already sent (Art. 17(3)(e)) |
 | Anonymous product analytics | PostHog identifier (localStorage), event metadata | Art. 6(1)(a): your explicit consent (see §9) |
 | Operate and secure the platform (rate limiting, abuse detection, error tracking) | IP address, request timestamps, error traces | Art. 6(1)(f): our legitimate interest in service availability and security |
 
@@ -61,7 +66,7 @@ We share personal data only with the processors strictly required to run the ser
 - **Cloudflare (Cloudflare, Inc., United States)**: hosting and content delivery for the web application. Cloudflare serves the site from its global edge network and processes visitors' IP addresses and request metadata to deliver and secure it. Transfers are protected under EU Standard Contractual Clauses, and Cloudflare is self-certified under the EU-US Data Privacy Framework. See the [Cloudflare privacy policy](https://www.cloudflare.com/privacypolicy/).
 - **Supabase (Supabase Inc., United States; EU data residency)**: authentication, database and edge functions. Your project data is hosted in the EU; SCCs apply to any incidental US processing.
 - **PostHog (PostHog Inc., United States; EU Cloud)**: anonymous product analytics, loaded only with your consent. Events are stored on PostHog's EU-hosted infrastructure. SCCs apply to any incidental US processing. See the [PostHog privacy policy](https://posthog.com/privacy).
-- **Resend (Resend, Inc., United States)**: transactional email delivery only (password resets, billing receipts, account-deletion confirmation, feedback notifications). SCCs apply to US processing. See the [Resend privacy policy](https://resend.com/legal/privacy-policy).
+- **Resend (Resend, Inc., United States)**: email delivery: transactional emails (password resets, billing receipts, account-deletion confirmation, feedback notifications), the one email that confirms a product-update signup, and product updates, only to addresses that confirmed them. SCCs apply to US processing. See the [Resend privacy policy](https://resend.com/legal/privacy-policy).
 
 We do not sell or share your data with advertisers, data brokers, or any other third party.
 
@@ -77,6 +82,8 @@ We do not sell or share your data with advertisers, data brokers, or any other t
 | In-app preferences (currency, number format, privacy mode) | Until you delete your account or clear local storage | Deleted |
 | Feedback messages (database) | Kept while useful for product work, reviewed at least once a year. Deleted in full when you delete your account, together with the rest of your data. | Deleted on account deletion |
 | Feedback messages (support inbox copy) | A notification copy of each feedback message is delivered to our support inbox and kept under normal email retention, pruned at least once a year. Deleting your account removes the message from our database but does not reach copies already delivered by email. | Pruned periodically |
+| Product-update list (email, signup source, signup and confirmation times) | Until you unsubscribe. An address that isn't confirmed: 7 days after the last confirmation email, or after signup if none was sent | Deleted (unconfirmed addresses by a daily job) |
+| Product-update consent record (keyed hash of the address, times, email version) | While you stay subscribed, then until the end of the third calendar year after the year you unsubscribe (the limitation period for a claim about an email already sent) | Deleted by a daily job |
 | Server logs (IP, request timestamps, error traces) | Approximately 14 days, set by our hosting provider | Rotated out by provider |
 | Analytics events (PostHog) | Approximately 12 months, per our PostHog project configuration | Pruned by PostHog |
 | Payment & invoice records held by Stripe | 10 years from the end of the fiscal year, per § 147 AO (German tax-law retention) | Deleted by Stripe after the statutory period |
@@ -115,6 +122,7 @@ We do not carry out automated decision-making within the meaning of Art. 22 DSGV
 - **Account email**: required to use the service. Without it, we cannot authenticate you or send you transactional emails.
 - **Portfolio data**: voluntary. The demo at usequantive.app/demo works without any data entry. You can use Quantive purely with sample data.
 - **Feedback**: voluntary. You decide whether and when to submit it.
+- **Product-update email**: voluntary. Quantive works the same without it, and you can unsubscribe at any time.
 - **Analytics consent**: voluntary. The service works identically whether you grant or withhold it.
 
 Where data is required, withholding it prevents account creation or use of the service. Where data is voluntary, withholding it has no consequence for your access.
