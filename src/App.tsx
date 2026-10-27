@@ -21,9 +21,10 @@ import { QueryCacheGuard } from "@/components/auth/QueryCacheGuard";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
 import { useMotionAllowed } from "@/hooks/useMotionAllowed";
-// The six prerendered public pages are preloadable (see main.tsx); every
+// The seven prerendered public pages are preloadable (see main.tsx); every
 // other route below stays on plain lazy().
 import {
+  ChangelogPage,
   Impressum,
   LandingPage,
   PricingPage,
@@ -182,6 +183,7 @@ function AppRoutes() {
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/security" element={<SecurityPage />} />
+      <Route path="/changelog" element={<ChangelogPage />} />
       {/* Auth-gated: /settings and /admin expose account-bound surfaces.
           /dashboard, /forecast, /allocations, /sources stay guest-accessible
           because they have no client-side cache to leak after the

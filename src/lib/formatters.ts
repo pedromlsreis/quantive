@@ -219,9 +219,14 @@ export function formatDate(d: Date): string {
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** `28 Sep`, whatever the year. */
+export function formatDayMonth(d: Date): string {
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
 /** `28 Sep` — same year as `now`, otherwise the full date. */
 export function formatDateShort(d: Date, now: Date = new Date()): string {
-  return d.getFullYear() === now.getFullYear() ? `${d.getDate()} ${MONTHS[d.getMonth()]}` : formatDate(d);
+  return d.getFullYear() === now.getFullYear() ? formatDayMonth(d) : formatDate(d);
 }
 
 /** `Sep 2026` */

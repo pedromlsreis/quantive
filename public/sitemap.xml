@@ -8,15 +8,21 @@
   </url>
   <url>
     <loc>https://usequantive.app/pricing</loc>
-    <lastmod>2026-05-21</lastmod>
+    <lastmod>2026-10-27</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://usequantive.app/security</loc>
-    <lastmod>2026-05-21</lastmod>
+    <lastmod>2026-10-01</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://usequantive.app/changelog</loc>
+    <lastmod>2026-10-27</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
   </url>
   <url>
     <loc>https://usequantive.app/privacy</loc>
@@ -26,13 +32,13 @@
   </url>
   <url>
     <loc>https://usequantive.app/terms</loc>
-    <lastmod>2026-05-06</lastmod>
+    <lastmod>2026-10-01</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
     <loc>https://usequantive.app/impressum</loc>
-    <lastmod>2026-05-06</lastmod>
+    <lastmod>2026-09-30</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>

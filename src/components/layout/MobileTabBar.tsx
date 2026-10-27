@@ -7,7 +7,7 @@ import { useKeySession } from '@/contexts/KeySessionContext';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { useModalLayer } from '@/hooks/useModalLayer';
-import { MOBILE_PRIMARY_ITEMS, MOBILE_MORE_SECTIONS, LEGAL_LINKS } from '@/lib/nav-config';
+import { MOBILE_PRIMARY_ITEMS, MOBILE_MORE_SECTIONS, ABOUT_LINKS } from '@/lib/nav-config';
 import { intentPrefetch } from '@/routes/appRoutes';
 
 const ICON = 18;
@@ -132,7 +132,7 @@ function MoreSheet({ onClose, onFeedback }: { onClose: () => void; onFeedback: (
           </div>
 
           <div className="q-mobile-more-legal">
-            {LEGAL_LINKS.map((l) => (
+            {ABOUT_LINKS.map((l) => (
               <Link key={l.to} to={l.to} onClick={onClose}>{l.label}</Link>
             ))}
           </div>

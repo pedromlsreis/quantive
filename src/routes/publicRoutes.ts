@@ -9,6 +9,7 @@ export const SecurityPage = lazyRoute(() => import('@/pages/SecurityPage'));
 export const PrivacyPolicy = lazyRoute(() => import('@/pages/PrivacyPolicy'));
 export const TermsOfService = lazyRoute(() => import('@/pages/TermsOfService'));
 export const Impressum = lazyRoute(() => import('@/pages/Impressum'));
+export const ChangelogPage = lazyRoute(() => import('@/pages/ChangelogPage'));
 
 export const PUBLIC_ROUTES_BY_PATH: Readonly<Record<string, PreloadableRoute>> = {
   '/': LandingPage,
@@ -17,6 +18,7 @@ export const PUBLIC_ROUTES_BY_PATH: Readonly<Record<string, PreloadableRoute>> =
   '/privacy': PrivacyPolicy,
   '/terms': TermsOfService,
   '/impressum': Impressum,
+  '/changelog': ChangelogPage,
 };
 
 /** The public route for a pathname, tolerating a trailing slash. */

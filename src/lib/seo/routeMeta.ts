@@ -64,6 +64,12 @@ export const PUBLIC_ROUTES: RouteMeta[] = [
     description:
       'Legal notice (Impressum) for Quantive, operated by Pedro Reis in Düsseldorf, Germany.',
   },
+  {
+    path: '/changelog',
+    title: 'Changelog - Quantive',
+    description:
+      'What changed in Quantive since the Pro launch in May 2026, newest first: new features, removals and security fixes, each dated.',
+  },
 ];
 
 const ROUTE_BY_PATH: Record<string, RouteMeta> = Object.fromEntries(

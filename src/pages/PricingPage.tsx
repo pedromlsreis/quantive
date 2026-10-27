@@ -340,6 +340,14 @@ export default function PricingPage() {
               </dd>
             </div>
             <div>
+              <dt>What if Quantive stops?</dt>
+              <dd>
+                Every plan, Free included, can export your full history to CSV from Settings at any time, so your
+                records don't depend on Quantive staying around. The{' '}
+                <Link to="/changelog" className="pub-link">changelog</Link> shows what has shipped and when.
+              </dd>
+            </div>
+            <div>
               <dt>Why is no VAT charged?</dt>
               <dd>Quantive is a small business under § 19 UStG (the German Kleinunternehmer rule), so prices are final and include no VAT.</dd>
             </div>

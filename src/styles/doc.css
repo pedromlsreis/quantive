@@ -153,3 +153,30 @@
   .nf-index a { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
   .sec-next .lp-actions, .nf .lp-actions { flex-direction: column; align-items: stretch; }
 }
+
+/* ─── Changelog ────────────────────────────────────────────── */
+.cl-lede { margin-top: 12px; max-width: 60ch; }
+.cl-month + .cl-month { margin-top: clamp(40px, 5vw, 64px); }
+.cl-month .doc-h2 { margin-top: 0; }
+.cl-list { list-style: none; margin: 12px 0 0; padding: 0; border-top: 1px solid var(--border-soft-raw); }
+.cl-entry {
+  display: grid; grid-template-columns: 104px minmax(0, 1fr); column-gap: 24px;
+  padding: 18px 0; border-bottom: 1px solid var(--border-soft-raw);
+}
+.cl-meta { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.cl-date {
+  display: inline-flex; align-items: center; min-height: 24px;
+  font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums;
+  color: var(--fg-subtle);
+}
+.cl-date:hover { color: var(--fg); }
+.cl-title { font-size: 16px; font-weight: 600; line-height: 1.45; color: var(--fg); }
+.cl-main p { margin-top: 4px; font-size: 16px; line-height: 1.6; color: var(--fg-muted); }
+.cl-main .cl-feedback { margin-top: 8px; font-size: 13px; color: var(--fg-subtle); }
+.cl-earlier { margin-top: 28px; }
+.cl-next { margin-top: 12px; font-size: 16px; color: var(--fg-muted); }
+.cl-link-btn { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+@media (max-width: 767px) {
+  .cl-entry { grid-template-columns: minmax(0, 1fr); row-gap: 6px; }
+  .cl-meta { flex-direction: row; align-items: center; flex-wrap: wrap; gap: 8px; }
+}
