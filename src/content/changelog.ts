@@ -25,7 +25,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     id: 'confirm-update-emails',
-    date: '2026-10-27',
+    date: '2026-10-28',
     title: 'Confirm your address before product updates start',
     body: 'Leaving your email under "Keep me posted" now sends one confirmation email first, and nothing else arrives until you confirm. Every update carries an unsubscribe link that deletes your address from the list.',
   },
