@@ -5,7 +5,7 @@ const REJECTED = { ok: false, status: 400, error: 'A valid email is required' };
 
 describe('parseEmailSignupBody', () => {
   it('accepts ordinary addresses, lowercased and trimmed', () => {
-    for (const email of ['v@example.com', 'first.last+news@mail.example.co.uk', "o'brien@xn--bcher-kva.de"]) {
+    for (const email of ['v@example.com', 'first.last+news@mail.example.org', "o'brien@xn--bcher-kva.example"]) {
       expect(parseEmailSignupBody({ email: ` ${email.toUpperCase()} ` }), email).toMatchObject({ ok: true, email });
     }
   });
