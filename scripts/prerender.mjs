@@ -38,7 +38,7 @@ const distDir = path.resolve(__dirname, '..', 'dist');
 // Keep this list in sync with the public (non-app, crawlable) routes in
 // src/App.tsx and the <loc> entries in public/sitemap.xml. /demo is excluded:
 // it is a redirect and is Disallow-ed in robots.txt.
-const ROUTES = ['/', '/pricing', '/security', '/privacy', '/terms', '/impressum'];
+const ROUTES = ['/', '/pricing', '/security', '/privacy', '/terms', '/impressum', '/changelog'];
 
 // Flat `<route>.html`, not `<route>/index.html`: on Cloudflare Pages a flat file
 // is served at the no-trailing-slash URL (/terms → 200) and 308-redirects the

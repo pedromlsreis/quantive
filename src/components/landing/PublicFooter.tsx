@@ -31,6 +31,7 @@ export function PublicFooter() {
                     Demo
                   </Link>
                 </li>
+                <li><Link to="/changelog">Changelog</Link></li>
               </ul>
             </div>
             <div className="pub-footer-col">

@@ -2,7 +2,7 @@
 
 The net worth spreadsheet you've outgrown. If you track your wealth in a spreadsheet that has sprawled across brokers, banks, and currencies, Quantive replaces it: net worth over time, asset allocation, and a forecast of where it's heading, on any device, with no bank logins to set up. And because it's your money, every byte of portfolio data is encrypted in your browser before it reaches the server.
 
-**Live:** https://usequantive.app · **Try the demo without signing up:** https://usequantive.app/demo
+**Live:** https://usequantive.app · **Try the demo without signing up:** https://usequantive.app/demo · **Changelog:** https://usequantive.app/changelog
 
 ![Quantive dashboard: the net worth figure with its 12-month change, and the net worth over time chart](public/images/dashboard.jpg)
 
@@ -59,7 +59,7 @@ The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no sid
 - Full historical view: every snapshot since you started, charted and as a table
 - Forecast 1, 3 or 5 years out, at your own pace so far or at a fixed 5%, 7.2% or 10% a year, with a range from your own history. The PDF report's forecast instead uses your trailing 3-year CAGR.
 - Milestone and goal tracking: targets with progress and ETA
-- Benchmark comparison: your net worth against inflation (Eurostat HICP) and the S&P 500 (FRED), with MSCI World coming soon
+- Benchmark comparison: your net worth against inflation (Eurostat HICP) and the S&P 500 (FRED)
 - Month-by-month summary table
 - Excel export: your full data as a workbook
 - PDF report: a one-page summary for an adviser or an annual review

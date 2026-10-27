@@ -9,7 +9,7 @@ Instead, disclose privately:
 - **Email:** support@usequantive.app. Include a description, steps to reproduce, and impact.
 - **GitHub private advisory:** open one at <https://github.com/pedromlsreis/quantive/security/advisories/new>.
 
-We aim to acknowledge reports within 48 hours and will keep you informed as we address the issue.
+We aim to acknowledge reports within 48 hours and will keep you informed as we address the issue. Once a fix that affected user data or accounts is fully deployed, it is listed in the [changelog](https://usequantive.app/changelog) with its impact, but not how the flaw worked.
 
 ## Scope
 

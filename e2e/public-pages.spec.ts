@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { seedClean } from './helpers/seedClean';
 
 // Covers the public, unauthenticated marketing/legal/reset surface:
-//   /pricing, /security, /privacy, /terms, /impressum, /reset-password
+//   /pricing, /security, /changelog, /privacy, /terms, /impressum, /reset-password
 // These do not require Supabase auth so they run fast and are isolated from
 // the auth-heavy specs. All timeouts are tuned generous to survive heavy
 // machine load — first navigation has to compile + bundle on cold cache.
@@ -141,6 +141,47 @@ test.describe('Legal markdown pages', () => {
       await page.waitForURL('**/', { timeout: 10_000 });
     });
   }
+});
+
+test.describe('Changelog page', () => {
+  test('lists dated entries grouped by month', async ({ page }) => {
+    await seedClean(page);
+    await page.goto('/changelog');
+    await expect(page.getByRole('heading', { level: 1, name: 'Changelog' })).toBeVisible({ timeout: 12_000 });
+    await expect(page.getByRole('heading', { level: 2, name: 'October 2026' })).toBeVisible();
+    const entry = page.locator('article#change-sign-in-email');
+    await expect(entry.getByRole('heading', { level: 3 })).toHaveText('Change the email you sign in with');
+    await expect(entry.locator('time')).toHaveAttribute('datetime', '2026-10-20');
+    await expect(entry.getByText('Prompted by feedback')).toBeVisible();
+  });
+
+  test('a shared entry link scrolls to that entry', async ({ page }) => {
+    await seedClean(page);
+    await page.goto('/changelog#pro-plan');
+    await expect(page.locator('article#pro-plan')).toBeInViewport({ timeout: 12_000 });
+  });
+
+  test('the public footer links to it', async ({ page }) => {
+    await seedClean(page);
+    await page.goto('/pricing');
+    await page.getByRole('contentinfo').getByRole('link', { name: /^changelog$/i }).click();
+    await page.waitForURL('**/changelog', { timeout: 10_000 });
+    await expect(page.getByRole('heading', { level: 1, name: 'Changelog' })).toBeVisible();
+  });
+});
+
+// Value: protects=/email-updates is routed in App.tsx and open to signed-out visitors: an emailed link shows the confirm step and leaves no token in the URL;
+// fails_when=the route is dropped, renamed, or moved behind RequireAuth, so every confirm and unsubscribe link 404s or asks for a sign-in;
+// why_new=EmailUpdatesPage.test mounts the page in its own MemoryRouter, so App.tsx's route table is never exercised;
+// seam=none; no_claim=never presses Confirm (that would call the live email-list function); server behaviour is untested
+test.describe('Email updates page', () => {
+  test('opens a confirm link signed out, without the token left in the address bar', async ({ page }) => {
+    await seedClean(page);
+    await page.goto(`/email-updates#confirm=${'A'.repeat(43)}`);
+    await expect(page.getByRole('heading', { level: 1, name: 'Confirm your email' })).toBeVisible({ timeout: 12_000 });
+    await expect(page.getByRole('button', { name: 'Confirm my email' })).toBeEnabled();
+    await expect(page).toHaveURL(/\/email-updates$/);
+  });
 });
 
 test.describe('Reset password page', () => {

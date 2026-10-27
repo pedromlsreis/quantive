@@ -271,11 +271,11 @@ export const analytics = {
     capture('demo_loaded', { source: props.source });
   },
   /**
-   * Fired when a visitor submits the landing-page email capture. The share of
-   * `page_viewed` that reaches this is the email-capture rate — the HN2 metric
-   * for visitors not ready to create an account yet. Consent-gated like every
-   * event here, so the provider's own subscriber count is the source of truth
-   * for the rate; this event is for funnel analysis among consented visitors.
+   * Fired when a visitor submits the landing-page email capture, which since
+   * double opt-in means a confirmation was requested, not that the address is
+   * on the list. Consent-gated like every event here: the list itself is the
+   * email_signups rows with confirmed_at set, and this event is for funnel
+   * analysis among consented visitors.
    */
   emailCaptured(props: { location: EmailCaptureLocation }): void {
     capture('landing_email_captured', { location: props.location });

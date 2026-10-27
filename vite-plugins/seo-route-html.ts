@@ -22,7 +22,7 @@ import { PUBLIC_ROUTES, canonicalFor } from '../src/lib/seo/routeMeta';
 // It deliberately does NOT server-render the React body. The body stays the SPA
 // shell that boots and hydrates on load. Server-rendering this app would mean
 // making AuthProvider, KeySessionProvider, supabase, and analytics all SSR-safe,
-// which is a permanent maintenance cost out of proportion to the gain for six
+// which is a permanent maintenance cost out of proportion to the gain for seven
 // mostly-static pages. The metadata comes from src/lib/seo/routeMeta.ts, the same
 // source usePageMeta uses at runtime, so the static head and the client-rendered
 // head always agree. For a richer pass that also captures body content, the

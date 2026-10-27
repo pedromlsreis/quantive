@@ -21,9 +21,10 @@ import { QueryCacheGuard } from "@/components/auth/QueryCacheGuard";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AppShell } from "@/components/layout/AppShell";
 import { useMotionAllowed } from "@/hooks/useMotionAllowed";
-// The six prerendered public pages are preloadable (see main.tsx); every
+// The seven prerendered public pages are preloadable (see main.tsx); every
 // other route below stays on plain lazy().
 import {
+  ChangelogPage,
   Impressum,
   LandingPage,
   PricingPage,
@@ -46,6 +47,7 @@ import {
 const DemoRedirect = lazy(() => import("./pages/DemoRedirect"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const ConfirmEmailPage = lazy(() => import("./pages/ConfirmEmailPage"));
+const EmailUpdatesPage = lazy(() => import("./pages/EmailUpdatesPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -173,12 +175,15 @@ function AppRoutes() {
       {/* The link from an email change. It signs in through the auth modal
           itself and decrypts nothing, so it isn't in PROTECTED_PATHS. */}
       <Route path="/confirm-email" element={<ConfirmEmailPage />} />
+      {/* Confirm or unsubscribe from the "Keep me posted" list; no account involved. */}
+      <Route path="/email-updates" element={<EmailUpdatesPage />} />
       {/* Outside the shell; it handles signed-out visitors itself, and
           RequireUnlock prompts for the password (see PROTECTED_PATHS). */}
       <Route path="/join/:inviteId" element={<JoinPage />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/security" element={<SecurityPage />} />
+      <Route path="/changelog" element={<ChangelogPage />} />
       {/* Auth-gated: /settings and /admin expose account-bound surfaces.
           /dashboard, /forecast, /allocations, /sources stay guest-accessible
           because they have no client-side cache to leak after the

@@ -1,4 +1,5 @@
 import { useId, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { analytics, type EmailCaptureLocation } from '@/lib/analytics';
 import { submitEmailSignup } from '@/lib/emailSignup';
 import { Turnstile } from '@/components/auth/Turnstile';
@@ -70,7 +71,8 @@ export function EmailCapture({ location = 'landing' }: { location?: EmailCapture
       <div className="lp-email">
         <p className="lp-email-success" role="status">
           <span className="lp-email-success-check" aria-hidden="true">✓</span>
-          You're on the list. I'll be in touch when there's something worth sharing.
+          {/* True whatever the server did: an address already on the list gets no new email. */}
+          {`Check your inbox at ${email.trim()}. Unless that address is already on the list, you'll find a link there to confirm it.`}
         </p>
       </div>
     );
@@ -113,7 +115,7 @@ export function EmailCapture({ location = 'landing' }: { location?: EmailCapture
             disabled={submitting}
             aria-busy={submitting}
           >
-            {submitting ? 'Adding you…' : 'Keep me posted'}
+            {submitting ? 'Sending…' : 'Keep me posted'}
           </button>
         </div>
 
@@ -132,7 +134,10 @@ export function EmailCapture({ location = 'landing' }: { location?: EmailCapture
       {status === 'error' && error ? (
         <p className="lp-email-error" id={errorId} role="alert">{error}</p>
       ) : (
-        <p className="lp-email-help" id={helpId}>Unsubscribe anytime.</p>
+        <p className="lp-email-help" id={helpId}>
+          One email to confirm, and an unsubscribe link in every update.{' '}
+          <Link to="/privacy#information-we-collect" className="pub-link">Privacy policy</Link>
+        </p>
       )}
     </div>
   );

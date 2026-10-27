@@ -53,6 +53,25 @@ test.describe('In-app sidebar navigation', () => {
     await page.waitForURL(/\/(?:$|\?)/, { timeout: 10_000 });
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible({ timeout: 10_000 });
   });
+
+  // Value: protects=a guest reaches /changelog from the in-app link row: the desktop sidebar foot and the mobile More sheet;
+  // fails_when=AppShell or MobileTabBar maps LEGAL_LINKS again, the row is hidden for guests, or /changelog stops resolving from the app;
+  // why_new=navConfig.test checks only the ABOUT_LINKS array; no test renders either consumer or follows the link;
+  // seam=none; no_claim=does not cover the Settings link row (auth-gated) or signed-in users
+  test('the sidebar foot and the mobile More sheet link the changelog', async ({ page }) => {
+    const sidebar = page.getByRole('complementary');
+    await sidebar.getByRole('link', { name: 'Changelog', exact: true }).click();
+    await page.waitForURL('**/changelog', { timeout: 10_000 });
+    await expect(page.getByRole('heading', { level: 1, name: 'Changelog' })).toBeVisible({ timeout: 10_000 });
+
+    await page.goBack();
+    await page.waitForURL('**/dashboard', { timeout: 10_000 });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole('button', { name: /more navigation/i }).click();
+    await page.getByRole('dialog').getByRole('link', { name: 'Changelog', exact: true }).click();
+    await page.waitForURL('**/changelog', { timeout: 10_000 });
+    await expect(page.getByRole('heading', { level: 1, name: 'Changelog' })).toBeVisible({ timeout: 10_000 });
+  });
 });
 
 test.describe('Footer navigation from public pages', () => {

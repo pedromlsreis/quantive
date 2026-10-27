@@ -30,7 +30,7 @@ import { analytics } from '@/lib/analytics';
 import { REMINDER_OPTIONS, normaliseReminderFrequency, type ReminderFrequency } from '@/lib/reminders';
 import { getConsent, setConsent, subscribeConsent, type ConsentState } from '@/lib/consent';
 import { NUMBER_FORMAT_LOCALES } from '@/lib/numberLocale';
-import { LEGAL_LINKS } from '@/lib/nav-config';
+import { ABOUT_LINKS } from '@/lib/nav-config';
 import { supabase } from '@/integrations/supabase/client';
 
 export default function SettingsPage() {
@@ -517,8 +517,8 @@ export default function SettingsPage() {
 
       <Section id="about" title="About">
         <Row description="Your entries are encrypted in this browser before they're sent, so we can't read them. The remaining trust is in the code we serve.">
-          <nav aria-label="Legal" className="q-set-links">
-            {LEGAL_LINKS.map((l) => (
+          <nav aria-label="About Quantive" className="q-set-links">
+            {ABOUT_LINKS.map((l) => (
               <Link key={l.to} to={l.to} className="q-inline-link">{l.label}</Link>
             ))}
           </nav>

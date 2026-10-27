@@ -71,6 +71,11 @@
       "limit": "8 KB"
     },
     {
+      "name": "Changelog page chunk (brotli, lazy-loaded)",
+      "path": "dist/assets/ChangelogPage-*.js",
+      "limit": "6 KB"
+    },
+    {
       "name": "Legal markdown chunk (brotli, lazy-loaded)",
       "path": "dist/assets/MarkdownLegal-*.js",
       "limit": "90 KB"

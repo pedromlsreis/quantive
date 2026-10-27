@@ -5,6 +5,7 @@ import {
   MOBILE_PRIMARY_ITEMS,
   MOBILE_MORE_SECTIONS,
   LEGAL_LINKS,
+  ABOUT_LINKS,
 } from '../nav-config';
 
 // Single source of truth for sidebar / mobile-tabbar / global-search.
@@ -38,6 +39,10 @@ describe('nav-config — top-level shape', () => {
 
   it('links every legal page the in-app shell must keep reachable', () => {
     expect(LEGAL_LINKS.map((l) => l.to)).toEqual(['/security', '/privacy', '/terms', '/impressum']);
+  });
+
+  it('leads the in-app link row with the changelog, then the legal pages', () => {
+    expect(ABOUT_LINKS.map((l) => l.to)).toEqual(['/changelog', ...LEGAL_LINKS.map((l) => l.to)]);
   });
 });
 

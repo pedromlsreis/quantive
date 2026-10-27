@@ -17,7 +17,7 @@ import { Topbar } from '@/components/layout/Topbar';
 import { PortfolioSwitcher } from '@/components/layout/PortfolioSwitcher';
 import { ReadOnlyBanner } from '@/components/layout/ReadOnlyBanner';
 import { READ_ONLY_MESSAGES, usePortfolio } from '@/contexts/PortfolioContext';
-import { NAV_SECTIONS, MOBILE_PRIMARY_ITEMS, LEGAL_LINKS } from '@/lib/nav-config';
+import { NAV_SECTIONS, MOBILE_PRIMARY_ITEMS, ABOUT_LINKS } from '@/lib/nav-config';
 import { intentPrefetch, prefetchAppRoute } from '@/routes/appRoutes';
 import { ADD_MEASUREMENT_EVENT } from '@/lib/appEvents';
 import {
@@ -171,9 +171,9 @@ function Sidebar({ onFeedback }: { onFeedback: () => void }) {
             </button>
           </>
         )}
-        {/* Legal pages stay one click away for guests, who can't open Settings. */}
+        {/* The changelog and legal pages stay one click away for guests, who can't open Settings. */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 12px', padding: '4px 12px 0' }}>
-          {LEGAL_LINKS.map((l) => (
+          {ABOUT_LINKS.map((l) => (
             <Link key={l.to} to={l.to} style={{ fontSize: 12, lineHeight: '20px', color: 'var(--fg-subtle)', textDecoration: 'none' }}>
               {l.label}
             </Link>

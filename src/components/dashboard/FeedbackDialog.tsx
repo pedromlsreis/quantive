@@ -139,6 +139,12 @@ export function FeedbackDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               </span>
             )}
           </div>
+
+          {/* A new tab, because closing this dialog drops the draft. */}
+          <p className="q-field-help">
+            Requests that ship are marked in the{' '}
+            <a href="/changelog" target="_blank" rel="noopener noreferrer" className="q-inline-link">changelog</a>.
+          </p>
         </div>
 
         <div className="q-modal-foot q-modal-foot--split">

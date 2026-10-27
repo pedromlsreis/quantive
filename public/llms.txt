@@ -9,6 +9,7 @@ Quantive lets you record balances by hand or import a spreadsheet, then see your
 - [Home](https://usequantive.app/): what Quantive is, core features, and how it works.
 - [Pricing](https://usequantive.app/pricing): Free forever (no credit card), Pro (€9/month or €90/year) and Family (€14/month or €120/year, Pro for two people with shared portfolios). EUR only. Prices are final; no VAT under German § 19 UStG.
 - [Security](https://usequantive.app/security): the encryption model, recovery phrase, and data-handling details.
+- [Changelog](https://usequantive.app/changelog): what changed in Quantive and when, newest first.
 - [Privacy policy](https://usequantive.app/privacy): what is and is not collected.
 - [Terms of service](https://usequantive.app/terms): the terms of use.
 - [Impressum](https://usequantive.app/impressum): legal operator and contact details (Germany).

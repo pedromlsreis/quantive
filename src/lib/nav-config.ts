@@ -115,10 +115,17 @@ export const MOBILE_MORE_SECTIONS: NavSection[] = NAV_SECTIONS.map((s) => ({
   items: s.items.filter((i) => !i.mobilePrimary),
 })).filter((s) => s.items.length > 0);
 
-/** Legal pages, reachable from every in-app screen (sidebar foot, More sheet, Settings). */
+/** Legal pages, reachable from every in-app screen through ABOUT_LINKS. */
 export const LEGAL_LINKS = [
   { to: '/security', label: 'Security' },
   { to: '/privacy', label: 'Privacy' },
   { to: '/terms', label: 'Terms' },
   { to: '/impressum', label: 'Impressum' },
 ] as const;
+
+/**
+ * The link row on every in-app screen (sidebar foot, More sheet, Settings):
+ * the changelog, then the legal pages. Visible to guests and signed-in users
+ * without opening a menu.
+ */
+export const ABOUT_LINKS = [{ to: '/changelog', label: 'Changelog' }, ...LEGAL_LINKS] as const;
