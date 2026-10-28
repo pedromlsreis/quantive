@@ -70,7 +70,9 @@ afterAll(() => {
   rmSync(repo, { recursive: true, force: true, maxRetries: 3 });
 });
 
-describe('scripts/stamp-freshness.mjs', () => {
+// Each case spawns node and git many times; under the pre-push hook's full
+// parallel run that has taken longer than the 5 s default on Windows.
+describe('scripts/stamp-freshness.mjs', { timeout: 30_000 }, () => {
   // Value: protects=the pre-commit stamp dates only pages whose source is staged: /pricing or / get today (UTC), /changelog its newest entry, backend nothing;
   // fails_when=a PAGE_SOURCES or regex edit stamps every page, gives /changelog today's date, skips re-staging, or rewrites files on a backend-only commit;
   // why_new=sitemap.test only reads the committed /changelog lastmod; nothing runs this script, which rewrites committed files on every commit;
