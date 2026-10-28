@@ -160,15 +160,13 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
-    "web-vitals": "^4.2.4",
-    "zod": "^3.25.76"
+    "web-vitals": "^4.2.4"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.3.16",
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.59.1",
     "@size-limit/file": "^12.1.0",
-    "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
     "@types/libsodium-wrappers-sumo": "^0.7.8",
@@ -192,6 +190,6 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^7.3.5",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.12"
   }
 }
