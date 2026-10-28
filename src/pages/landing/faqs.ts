@@ -47,7 +47,7 @@ export const FAQS: Array<{ q: string; a: string }> = [
   },
   {
     q: "What's included in Quantive Pro?",
-    a: "Pro adds your full history, forecasts at your own growth rate with a range drawn from how your history has varied, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation; MSCI World is on the roadmap), a month-by-month summary table, a PDF report, and Excel export. Priority support is included.",
+    a: "Pro adds your full history, forecasts at your own growth rate with a range drawn from how your history has varied, milestone and goal tracking, benchmark comparisons (S&P 500 and inflation), a month-by-month summary table, a PDF report, and Excel export. Priority support is included.",
   },
   {
     q: "Can I share Quantive with my partner?",
