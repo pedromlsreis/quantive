@@ -79,6 +79,12 @@ interface AdminUser {
   email: string | null;
   created_at: string;
   last_sign_in_at: string | null;
+  /**
+   * Later of the last sign-in and the last session refresh. A persisted
+   * session skips sign-in, so last_sign_in_at alone lags. Absent until
+   * admin-users is redeployed.
+   */
+  lastSeenAt?: string | null;
   confirmed: boolean;
   roles: { role: AppRole; granted_at: string }[];
   subscriptionStatus: string | null;
@@ -399,6 +405,7 @@ export default function AdminPage() {
               {users.map((u) => {
                 const userIsAdmin = u.roles.some((r) => r.role === 'admin');
                 const isSelf = u.id === user?.id;
+                const lastSeen = u.lastSeenAt === undefined ? u.last_sign_in_at : u.lastSeenAt;
                 return (
                   <tr key={u.id}>
                     <td>
@@ -417,7 +424,11 @@ export default function AdminPage() {
                     </td>
                     <td data-col="secondary"><RecoveryCell user={u} /></td>
                     <td data-col="secondary" style={{ color: 'var(--fg-muted)' }}>{fmtDate(u.created_at)}</td>
-                    <td data-col="secondary" style={{ color: 'var(--fg-muted)' }}>{fmtRelative(u.last_sign_in_at)}</td>
+                    <td data-col="secondary" style={{ color: 'var(--fg-muted)' }}>
+                      {lastSeen
+                        ? <time dateTime={lastSeen} title={`Last sign-in ${fmtDate(u.last_sign_in_at)}`}>{fmtRelative(lastSeen)}</time>
+                        : '—'}
+                    </td>
                     <td data-col="secondary">
                       {u.roles.length === 0
                         ? <span style={{ color: 'var(--fg-subtle)' }}>User</span>
