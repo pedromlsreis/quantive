@@ -8,6 +8,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { fetchLastSeen } from "../_shared/lastSeen.ts";
 import { requireAdmin } from "../_shared/requireAdmin.ts";
 import { planForProduct, type PaidPlanId } from "../_shared/billingPlans.ts";
 
@@ -61,8 +62,9 @@ serve(async (req) => {
     let newThisWeek = 0;
     let newThisMonth = 0;
     let confirmedUsers = 0;
-    let lastSignInWeek = 0;
-    let lastSignInMonth = 0;
+    let activeWeek = 0;
+    let activeMonth = 0;
+    const lastSeen = await fetchLastSeen(service);
 
     let page = 1;
     const perPage = 1000;
@@ -75,8 +77,9 @@ serve(async (req) => {
         if (u.created_at && u.created_at >= weekAgo) newThisWeek++;
         if (u.created_at && u.created_at >= monthAgo) newThisMonth++;
         if (u.email_confirmed_at) confirmedUsers++;
-        if (u.last_sign_in_at && u.last_sign_in_at >= weekAgo) lastSignInWeek++;
-        if (u.last_sign_in_at && u.last_sign_in_at >= monthAgo) lastSignInMonth++;
+        const seen = lastSeen.get(u.id) ?? u.last_sign_in_at;
+        if (seen && seen >= weekAgo) activeWeek++;
+        if (seen && seen >= monthAgo) activeMonth++;
       }
       if (list.length < perPage) break;
       page++;
@@ -274,8 +277,8 @@ serve(async (req) => {
         confirmed: confirmedUsers,
         newThisWeek,
         newThisMonth,
-        activeThisWeek: lastSignInWeek,
-        activeThisMonth: lastSignInMonth,
+        activeThisWeek: activeWeek,
+        activeThisMonth: activeMonth,
       },
       snapshots: {
         total: totalSnapshots ?? 0,

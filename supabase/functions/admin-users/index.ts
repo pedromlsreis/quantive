@@ -11,6 +11,7 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { cancelActiveSubscriptions, isFullyCancelled } from "../_shared/cancelStripeSubscriptions.ts";
 import { buildCorsHeaders, corsPreflightResponse } from "../_shared/cors.ts";
+import { fetchLastSeen } from "../_shared/lastSeen.ts";
 import { requireAdmin } from "../_shared/requireAdmin.ts";
 import { deleteAccountData } from "../_shared/userDataDelete.ts";
 
@@ -110,11 +111,14 @@ serve(async (req) => {
         keyByUser.set(k.user_id, { hasRecovery: k.wrapped_dk_recovery != null });
       }
 
+      const lastSeen = await fetchLastSeen(service);
+
       const users: Array<{
         id: string;
         email: string | null;
         created_at: string;
         last_sign_in_at: string | null;
+        lastSeenAt: string | null;
         confirmed: boolean;
         roles: { role: string; granted_at: string }[];
         subscriptionStatus: string | null;
@@ -142,6 +146,8 @@ serve(async (req) => {
             email: u.email ?? null,
             created_at: u.created_at ?? "",
             last_sign_in_at: u.last_sign_in_at ?? null,
+            // Falls back for a user who signed up after fetchLastSeen ran.
+            lastSeenAt: lastSeen.get(u.id) ?? u.last_sign_in_at ?? null,
             confirmed: !!u.email_confirmed_at,
             roles: rolesByUser.get(u.id) ?? [],
             subscriptionStatus: prof?.subscription_status ?? null,
