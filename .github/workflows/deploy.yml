@@ -48,7 +48,10 @@ concurrency:
 jobs:
   deploy:
     name: Build, prerender, deploy to Cloudflare Pages
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: `playwright install --with-deps` refuses any
+    # Ubuntu release the locked Playwright version doesn't know (26.04 needs
+    # >= 1.61). Move this image only together with a @playwright/test bump.
+    runs-on: ubuntu-24.04
     # Only when explicitly enabled, and either a manual run or a successful ci
     # run on a push to main. PR-triggered ci runs are ignored.
     if: >-
