@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { analytics } from '@/lib/analytics';
 import { openComposer } from '@/lib/appEvents';
 import { PERSONAL_PORTFOLIO_ID } from '@/lib/portfolios';
+import { ALL_PORTFOLIOS_ID } from '@/lib/allPortfolios';
 
 
 /**
@@ -164,6 +165,16 @@ export function DashboardEmpty() {
 
 /** Any other page before the first entry: its name, what it will show, the same first step. */
 export function RouteEmpty({ title, sentence }: { title: string; sentence: string }) {
+  const { activePortfolioId } = usePortfolio();
+  // "All portfolios" takes no entries; they go into one portfolio.
+  if (activePortfolioId === ALL_PORTFOLIOS_ID) {
+    return (
+      <Shell title={title}>
+        <p className="q-page-lede">{sentence}</p>
+        <p className="q-body">Nothing is counted in All portfolios yet. The Overview shows each portfolio and your share of it.</p>
+      </Shell>
+    );
+  }
   return (
     <Shell title={title}>
       <p className="q-page-lede">{sentence}</p>

@@ -39,12 +39,12 @@ vi.mock('@/components/layout/PortfolioSwitcher', () => ({
 }));
 
 import { useAuth } from '@/contexts/AuthContext';
-import { usePortfolio } from '@/contexts/PortfolioContext';
+import { usePortfolio, type ReadOnlyReason } from '@/contexts/PortfolioContext';
 import { usePreferences } from '@/contexts/PreferencesContext';
 import { Topbar } from '../Topbar';
 
 type AuthShape = { user: { id: string } | null };
-type PortfolioShape = { data: object | null; isMockData: boolean; clearData: ReturnType<typeof vi.fn> };
+type PortfolioShape = { data: object | null; isMockData: boolean; clearData: ReturnType<typeof vi.fn>; readOnlyReason: ReadOnlyReason | null };
 type PrefsShape = { privacyMode: boolean; setPrivacyMode: ReturnType<typeof vi.fn> };
 
 function setup({
@@ -52,11 +52,12 @@ function setup({
   isMockData = false,
   privacyMode = false,
   data = {},
-}: { user?: AuthShape['user']; isMockData?: boolean; privacyMode?: boolean; data?: object | null } = {}) {
+  readOnlyReason = null,
+}: { user?: AuthShape['user']; isMockData?: boolean; privacyMode?: boolean; data?: object | null; readOnlyReason?: ReadOnlyReason | null } = {}) {
   const setPrivacyMode = vi.fn();
   const clearData = vi.fn();
   vi.mocked(useAuth).mockReturnValue({ user } as unknown as ReturnType<typeof useAuth>);
-  vi.mocked(usePortfolio).mockReturnValue({ data, isMockData, clearData } as PortfolioShape as unknown as ReturnType<typeof usePortfolio>);
+  vi.mocked(usePortfolio).mockReturnValue({ data, isMockData, clearData, readOnlyReason } as PortfolioShape as unknown as ReturnType<typeof usePortfolio>);
   vi.mocked(usePreferences).mockReturnValue({ privacyMode, setPrivacyMode } as PrefsShape as unknown as ReturnType<typeof usePreferences>);
 
   const onAdd = vi.fn();
@@ -143,6 +144,14 @@ describe('Topbar — right-aligned action cluster', () => {
 
   it('leaves the first entry to the empty state: no topbar primary without data', () => {
     setup({ data: null });
+    expect(document.querySelector('.q-topbar-add')).toBeNull();
+  });
+
+  // Value: protects=the Topbar shows no Add entry button in All portfolios, which has no portfolio to add an entry to;
+  // fails_when=the readOnlyReason check is dropped and Add entry comes back, opening only a refusal toast;
+  // why_new=Topbar.test.tsx had no readOnlyReason case; seam=none; no_claim=AppShell's openAdd refusal (PortfolioContext mocked; component only)
+  it('has no Add entry in All portfolios, which has no portfolio to add one to', () => {
+    setup({ user: { id: 'u1' }, readOnlyReason: 'all_portfolios' });
     expect(document.querySelector('.q-topbar-add')).toBeNull();
   });
 });

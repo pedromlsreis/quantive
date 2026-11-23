@@ -68,6 +68,23 @@ describe('PortfolioSwitcher', () => {
     await waitFor(() => expect(switchPortfolio).toHaveBeenCalledWith('p1'));
   });
 
+  it('offers All portfolios once there is an extra portfolio', async () => {
+    state.hasFamily = true;
+    state.extraPortfolios = [joint];
+    renderIn(<PortfolioSwitcher placement="sidebar" />);
+    fireEvent.keyDown(screen.getByRole('button', { name: /portfolio: personal/i }), { key: 'Enter' });
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'All portfolios' }));
+    await waitFor(() => expect(switchPortfolio).toHaveBeenCalledWith('all'));
+  });
+
+  it('has no All portfolios with Personal alone', async () => {
+    state.hasFamily = true;
+    renderIn(<PortfolioSwitcher placement="sidebar" />);
+    fireEvent.keyDown(screen.getByRole('button', { name: /portfolio: personal/i }), { key: 'Enter' });
+    await screen.findByRole('menuitemradio', { name: 'Personal' });
+    expect(screen.queryByRole('menuitemradio', { name: 'All portfolios' })).toBeNull();
+  });
+
   it('still shows existing portfolios after Family ends', () => {
     state.extraPortfolios = [joint];
     renderIn(<PortfolioSwitcher placement="sidebar" />);

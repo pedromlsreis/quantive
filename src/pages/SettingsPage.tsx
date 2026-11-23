@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useKeySession } from '@/contexts/KeySessionContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { portfolioFileSuffix } from '@/lib/portfolios';
+import { ALL_PORTFOLIOS_ID } from '@/lib/allPortfolios';
 import { SettingsRow as Row, SettingsSection as Section } from '@/components/settings/SettingsRows';
 import { PortfolioSettings } from '@/components/settings/PortfolioSettings';
 import { EmailRow } from '@/components/settings/EmailSettings';
@@ -47,12 +48,16 @@ export default function SettingsPage() {
   const { has } = useEntitlements();
   const canExportExcel = has('export.excel');
   const canExportCsv = has('export.csv');
+  const allPortfolios = activePortfolioId === ALL_PORTFOLIOS_ID;
   const exportNoteText = exportNote({
     name: activePortfolioName,
     multiple: extraPortfolios.length > 0,
     hasEntries: (data?.facts.length ?? 0) > 0,
     loading: portfolioLoading,
+    allPortfolios,
   });
+  // A data export restores entries; "All portfolios" has none of its own. Its PDF report is fine.
+  const canExportData = !!data && !allPortfolios;
   const currentPlan = resolvePlanForStatus(subscription);
   // The plan this account pays for, which can differ from currentPlan (the
   // Family beta, or Pro through a partner's Family plan).
@@ -227,7 +232,7 @@ export default function SettingsPage() {
   };
 
   const handleExport = async (fmt: 'xlsx' | 'csv') => {
-    if (!data) {
+    if (!data || !canExportData) {
       toast.error('Nothing to export yet.');
       return;
     }
@@ -454,7 +459,7 @@ export default function SettingsPage() {
         {exportNoteText && <Row description={exportNoteText} />}
         {canExportCsv && (
           <Row label="CSV export" description="All your entries, on both plans.">
-            <button type="button" onClick={() => handleExport('csv')} disabled={!data || exporting !== null} className="q-btn q-btn--secondary q-btn--md">
+            <button type="button" onClick={() => handleExport('csv')} disabled={!canExportData || exporting !== null} className="q-btn q-btn--secondary q-btn--md">
               {exporting === 'csv' ? 'Exporting…' : 'Download CSV'}
             </button>
           </Row>
@@ -465,7 +470,7 @@ export default function SettingsPage() {
           description="Your sources and entries in one .xlsx file."
         >
           {canExportExcel && (
-            <button type="button" onClick={() => handleExport('xlsx')} disabled={!data || exporting !== null} className="q-btn q-btn--secondary q-btn--md">
+            <button type="button" onClick={() => handleExport('xlsx')} disabled={!canExportData || exporting !== null} className="q-btn q-btn--secondary q-btn--md">
               {exporting === 'xlsx' ? 'Exporting…' : 'Download Excel'}
             </button>
           )}

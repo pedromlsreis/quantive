@@ -1396,6 +1396,12 @@ html[data-app-motion='on'] .q-alert { animation: q-fade-in var(--d-overlay) var(
 .q-set-form:not(:last-child) { max-width: none; border-bottom: 1px solid var(--border-soft-raw); }
 .q-set-form:not(:last-child) > * { max-width: 320px; }
 .q-set-links { display: flex; gap: var(--s-4); flex-wrap: wrap; max-width: 240px; font-size: 14px; }
+/* Overview → By portfolio (All portfolios): a compact share field, and the total under a rule. */
+.q-parts tfoot td { border-top: 1px solid var(--border-raw); font-weight: 500; }
+.q-share-field { width: 92px; gap: 1px; }
+.q-share-field input { text-align: right; font-variant-numeric: tabular-nums; }
+/* Personal's fixed 100% lines its % sign up with the fields' (padding plus border). */
+.q-parts-fixed { display: inline-block; padding-right: calc(var(--s-3) + 1px); color: var(--fg-muted); }
 /* Settings → Portfolios → Earlier versions. */
 .q-portfolio-versions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-2); }
 .q-portfolio-versions li { display: flex; align-items: center; gap: var(--s-3); flex-wrap: wrap; min-height: 32px; }

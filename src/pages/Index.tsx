@@ -10,6 +10,8 @@ import { WhatMoved, AllocationSummary, YearByYear } from '@/components/dashboard
 import { DemoBanner } from '@/components/dashboard/DemoBanner';
 import { DashboardSkeleton } from '@/components/dashboard/DashboardSkeleton';
 import { DashboardEmpty } from '@/components/dashboard/EmptyState';
+import { PortfolioBreakdown } from '@/components/dashboard/PortfolioBreakdown';
+import { ALL_PORTFOLIOS_ID } from '@/lib/allPortfolios';
 import { openComposer } from '@/lib/appEvents';
 import { SubscribeIntentNotice } from '@/components/dashboard/SubscribeIntentNotice';
 import { parsePlanParam, parseSuccessPlan, planParam } from '@/lib/billing/checkoutIntent';
@@ -23,7 +25,7 @@ const recoveryDismissedKey = (userId: string) => `onboarding-dismissed:${userId}
 const MONTHLY_PROMPT_DAYS = 28;
 
 function MetaLine() {
-  const { allSnapshots, isMockData } = usePortfolio();
+  const { allSnapshots, isMockData, activePortfolioId } = usePortfolio();
   const { user } = useAuth();
   const keySession = useKeySession();
   const navigate = useNavigate();
@@ -41,15 +43,17 @@ function MetaLine() {
     : `Last entry ${formatDate(latest.date)}, ${ago(latest.date)}`;
   const oneSource = latest.sources.length === 1;
   const needsRecovery = !!user && keySession.hasRecovery === false && !recoveryDismissed;
+  // Entries go into one portfolio, which "All portfolios" isn't.
+  const canAdd = !isMockData && activePortfolioId !== ALL_PORTFOLIOS_ID;
 
   return (
     <>
       <div className="q-page-meta">
         <span>{when}.</span>
-        {!isMockData && days >= MONTHLY_PROMPT_DAYS && (
+        {canAdd && days >= MONTHLY_PROMPT_DAYS && (
           <button type="button" className="q-link-btn" onClick={openComposer}>{"Add this month's balances"}</button>
         )}
-        {!isMockData && oneSource && days < MONTHLY_PROMPT_DAYS && (
+        {canAdd && oneSource && days < MONTHLY_PROMPT_DAYS && (
           <button
             type="button"
             className="q-link-btn"
@@ -95,8 +99,28 @@ function MetaLine() {
   );
 }
 
+/** "All portfolios" with nothing counted: why, with the shares still editable. */
+function AllPortfoliosEmpty() {
+  const { portfolioParts } = usePortfolio();
+  const anyEntries = portfolioParts.some((p) => (p.data?.facts.length ?? 0) > 0);
+  return (
+    <div>
+      <header className="q-page-head">
+        <h1 className="q-h1" tabIndex={-1}>Overview</h1>
+        <p className="q-page-lede">
+          {anyEntries
+            ? 'Every portfolio with entries is set to 0%, so nothing is counted. Raise a share below to count that portfolio.'
+            : 'None of your portfolios has entries yet. Open one from the portfolio menu to add its first entry.'}
+        </p>
+      </header>
+      <PortfolioBreakdown />
+    </div>
+  );
+}
+
 const Index = () => {
-  const { data, isLoading, isMockData } = usePortfolio();
+  const { data, isLoading, isMockData, activePortfolioId } = usePortfolio();
+  const isAll = activePortfolioId === ALL_PORTFOLIOS_ID;
   const { user, checkSubscription } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -172,7 +196,7 @@ const Index = () => {
     return (
       <>
         {subscribeIntentNotice}
-        <DashboardEmpty />
+        {isAll ? <AllPortfoliosEmpty /> : <DashboardEmpty />}
       </>
     );
   }
@@ -191,6 +215,8 @@ const Index = () => {
         <NetWorthHero />
         <NetWorthChart />
       </section>
+
+      {isAll && <PortfolioBreakdown />}
 
       <div className="q-sec-pair">
         <WhatMoved />

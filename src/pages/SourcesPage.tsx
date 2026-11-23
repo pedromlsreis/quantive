@@ -17,9 +17,12 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import { SOURCE_CATEGORIES } from '@/lib/categories';
+import { ALL_PORTFOLIOS_ID } from '@/lib/allPortfolios';
 
 const SourcesPage = () => {
-  const { data, isLoading, allSnapshots, updateRefSource, renameSource, lastCurrencyBySource } = usePortfolio();
+  const { data, isLoading, allSnapshots, updateRefSource, renameSource, lastCurrencyBySource, activePortfolioId } = usePortfolio();
+  // "All portfolios" lists every portfolio's sources at the user's share; each is edited in its own portfolio.
+  const editable = activePortfolioId !== ALL_PORTFOLIOS_ID;
   const f = useFormat();
   const colorOf = useSourceColors();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -192,7 +195,7 @@ const SourcesPage = () => {
         <h1 className="q-h1" tabIndex={-1}>Sources</h1>
         <p className="q-page-meta">{meta}</p>
         {/* Only while something is unset: a standing instruction would be boilerplate. */}
-        {data.refSources.some((rs) => !rs.volatType || rs.volatType.toLowerCase() === 'unknown') && (
+        {editable && data.refSources.some((rs) => !rs.volatType || rs.volatType.toLowerCase() === 'unknown') && (
           <p className="q-page-lede">
             {"Some sources have no volatility set. Set it from each row's menu to split your assets by risk on Allocations."}
           </p>
@@ -234,7 +237,7 @@ const SourcesPage = () => {
               <th scope="col" data-col="secondary">Currency</th>
               <th scope="col" data-col="secondary">12 months</th>
               <th scope="col" className="num">Value</th>
-              <th scope="col"><span className="sr-only">Actions</span></th>
+              {editable && <th scope="col"><span className="sr-only">Actions</span></th>}
             </tr>
           </thead>
           <tbody>
@@ -349,7 +352,7 @@ const SourcesPage = () => {
                       </span>
                     )}
                   </td>
-                  <td style={{ width: 44 }}>
+                  {editable && <td style={{ width: 44 }}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button type="button" className="q-icon-btn" aria-label={`Actions for ${idSource}`}>
@@ -388,13 +391,13 @@ const SourcesPage = () => {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </td>
+                  </td>}
                 </tr>
               );
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} style={{ padding: 'var(--s-8) 0', color: 'var(--fg-subtle)' }}>
+                <td colSpan={editable ? 6 : 5} style={{ padding: 'var(--s-8) 0', color: 'var(--fg-subtle)' }}>
                   {filter
                     ? `No sources match "${filter}"`
                     : hideStopped && stoppedCount > 0
@@ -407,11 +410,13 @@ const SourcesPage = () => {
         </table>
       </div>
 
-      <MeasurementHistoryModal
-        open={!!historySource}
-        onOpenChange={(o) => { if (!o) setHistorySource(null); }}
-        idSource={historySource}
-      />
+      {editable && (
+        <MeasurementHistoryModal
+          open={!!historySource}
+          onOpenChange={(o) => { if (!o) setHistorySource(null); }}
+          idSource={historySource}
+        />
+      )}
     </div>
   );
 };
