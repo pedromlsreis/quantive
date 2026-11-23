@@ -91,6 +91,38 @@ describe('attemptCloudSync', () => {
   });
 
   describe('concurrency guard (isLatest)', () => {
+    // Value: protects=an attempt that is stale before it starts (queued behind another) still writes, without touching status;
+    // fails_when=it sets 'syncing' in a view that moved on and never clears it, or skips the write;
+    // why_new=every other test starts while the attempt is still the latest; seam=none; no_claim=none beyond protects (unit only)
+    it('still writes, without any status, when superseded before it starts', async () => {
+      const { deps, statuses, upsert } = makeDeps({ isLatest: () => false });
+      const outcome = await attemptCloudSync(payload, deps);
+      expect(outcome).toBeNull();
+      expect(upsert).toHaveBeenCalledTimes(1);
+      expect(statuses).toEqual([]);
+    });
+
+    // Value: protects=a save the user switched away from still retries and reports its failure, so the caller can warn;
+    // fails_when=staleness for status also cancels the retry and the outcome, and the failure goes unreported;
+    // why_new=the tests above treat stale and replaced as one; seam=none; no_claim=none beyond protects (unit only)
+    it('retries and reports a stale attempt that no newer save replaced, without touching status', async () => {
+      const upsert = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+      const onError = vi.fn();
+      const { deps, statuses, delay } = makeDeps({ upsert, onError, isLatest: () => false, isCurrent: () => true });
+      const outcome = await attemptCloudSync(payload, deps);
+      expect(outcome).toBe('error');
+      expect(upsert).toHaveBeenCalledTimes(2);
+      expect(delay).toHaveBeenCalledWith(2000);
+      expect(onError).toHaveBeenCalledWith('transient');
+      expect(statuses).toEqual([]);
+    });
+
+    it('returns synced for a stale attempt that lands, without touching status', async () => {
+      const { deps, statuses } = makeDeps({ isLatest: () => false, isCurrent: () => true });
+      expect(await attemptCloudSync(payload, deps)).toBe('synced');
+      expect(statuses).toEqual([]);
+    });
+
     it('returns null and skips status update if superseded after first upsert', async () => {
       // After upsert resolves, simulate a newer call arriving.
       let calls = 0;
