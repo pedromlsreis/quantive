@@ -68,6 +68,7 @@ The crypto module (`src/lib/crypto/`) is pure TypeScript, with no I/O and no sid
 **Family (€14/month or €120/year)**
 - Everything in Pro, for the subscriber and one partner, each with their own account
 - Up to five portfolios besides the personal one, for a joint account, a company or anything else tracked separately
+- All portfolios: one read-only net worth, history and forecast across every portfolio, each counted at the user's share of it (such as 50% of a joint portfolio). Shares are saved encrypted in the personal portfolio, so a partner never sees them ([encryption spec](docs/security/encryption.md) §9.1)
 - Share any of them with the partner: both can add entries and goals, and the portfolio stays end-to-end encrypted. The key travels in an invite link the subscriber sends, so the server never has it ([encryption spec](docs/security/encryption.md) §5.2, §8.7–§8.10)
 - Restore any of the last 20 saved versions of a shared portfolio
 
