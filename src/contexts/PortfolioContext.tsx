@@ -13,9 +13,23 @@ import { sanitizeSourceName } from '@/lib/utils';
 import {
   attemptCloudSync,
   decodeSnapshot,
+  isTransientError,
   upsertEncryptedSnapshot,
+  type PersonalSnapshot,
   type SnapshotRow,
 } from '@/lib/cloudSync';
+import {
+  ALL_PORTFOLIOS_ID,
+  ALL_PORTFOLIOS_NAME,
+  DEFAULT_SHARE,
+  coerceShares,
+  combinePortfolios,
+  factTimeBounds,
+  shareOf,
+  withDistinctNames,
+  type PortfolioPart,
+  type PortfolioShares,
+} from '@/lib/allPortfolios';
 import { useCurrency, type CurrencyCode } from './CurrencyContext';
 import { useFxRates } from '@/hooks/useFxRates';
 import { coerceCurrency } from '@/lib/fxConvert';
@@ -74,13 +88,15 @@ function writeActivePortfolioId(userId: string, portfolioId: string): void {
 const FOCUS_REFRESH_INTERVAL_MS = 15_000;
 
 /**
- * Why an extra portfolio takes no edits. Without Family it stays readable
- * and exportable as CSV: an owned one needs the owner's own plan
- * ('needs_family'), a joined one needs the owner's plan to still cover this
- * partner ('owner_needs_family'). Client-side, like every plan gate; the
- * server blocks new invites (has_family).
+ * Why the portfolio on screen takes no edits. Without Family an extra
+ * portfolio stays readable and exportable as CSV: an owned one needs the
+ * owner's own plan ('needs_family'), a joined one needs the owner's plan to
+ * still cover this partner ('owner_needs_family'). Client-side, like every
+ * plan gate; the server blocks new invites (has_family). The "All portfolios"
+ * view adds portfolios up, so no edit has a single place to go
+ * ('all_portfolios').
  */
-export type ReadOnlyReason = 'needs_family' | 'owner_needs_family';
+export type ReadOnlyReason = 'needs_family' | 'owner_needs_family' | 'all_portfolios';
 
 /** What the signed-in user's plan allows, or null until check-subscription answers. */
 type FamilyAccess = { userId: string; ownsFamily: boolean; coveredAsPartner: boolean } | null;
@@ -94,7 +110,11 @@ function readOnlyReason(meta: ExtraPortfolioMeta | undefined, access: FamilyAcce
 export const READ_ONLY_MESSAGES: Record<ReadOnlyReason, string> = {
   needs_family: 'Editing this portfolio needs the Family plan. You can still view it and export it as CSV.',
   owner_needs_family: "The Family plan that shares this portfolio has ended, so it's read-only. You can still view it and export it as CSV.",
+  all_portfolios: 'This view adds up your share of each portfolio. To add an entry or change anything, open the portfolio it belongs to.',
 };
+
+const PERSONAL_LOAD_FAILED_MESSAGE =
+  "Couldn't load your personal portfolio, so changes are paused to keep your saved history safe. Reload the page to try again.";
 
 /** An extra-portfolio write needs keys that a lock has zeroed. */
 class PortfolioLockedError extends Error {
@@ -135,6 +155,8 @@ type RawCloudPortfolio = {
   refSources: RefSource[];
   /** Optional in legacy blobs — see `coerceGoals` for normalisation. */
   goals?: unknown;
+  /** Personal blob only: shares of extra portfolios, see `coerceShares`. */
+  portfolioShares?: unknown;
 };
 
 /**
@@ -267,14 +289,27 @@ interface PortfolioContextType {
   /** Soft-delete: stamps `archivedAt`. Archived goals don't surface on the goals page but stay in the blob. */
   archiveGoal: (id: string) => void;
   /**
-   * The portfolio on screen: PERSONAL_PORTFOLIO_ID, or the id of an extra
-   * portfolio (Family). Every read and mutation above applies to it.
+   * The portfolio on screen: PERSONAL_PORTFOLIO_ID, the id of an extra
+   * portfolio (Family), or ALL_PORTFOLIOS_ID, a read-only view adding up the
+   * user's share of each one. Every read and mutation above applies to it.
    */
   activePortfolioId: string;
   activePortfolioName: string;
   /** Extra portfolios the user can open, oldest first. Empty without Family. */
   extraPortfolios: ExtraPortfolioMeta[];
+  /** Accepts ALL_PORTFOLIOS_ID once there is at least one extra portfolio. */
   switchPortfolio: (portfolioId: string) => Promise<void>;
+  /**
+   * In the "All portfolios" view: Personal, then each extra portfolio, with
+   * its content and the user's share of it. Empty in any other view.
+   */
+  portfolioParts: PortfolioPart[];
+  /**
+   * Sets the user's share of an extra portfolio, in percent (0–100), and
+   * saves it in the personal portfolio's encrypted blob. Resolves false
+   * (after a toast) when it couldn't be saved; the view keeps the new share.
+   */
+  setPortfolioShare: (portfolioId: string, share: number) => Promise<boolean>;
   /** Creates an extra portfolio and opens it. Resolves false (after a toast) on failure. */
   createPortfolio: (name: string) => Promise<boolean>;
   renamePortfolio: (portfolioId: string, name: string) => Promise<boolean>;
@@ -309,6 +344,8 @@ const defaultKpis: KPIData = {
   volatilePercent: 0,
   liquidPercent: 0,
 };
+
+const NO_PARTS: PortfolioPart[] = [];
 
 const PortfolioContext = createContext<PortfolioContextType | null>(null);
 
@@ -366,9 +403,54 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const extraMetaRef = useRef(new Map<string, ExtraPortfolioMeta>());
   const syncsRef = useRef(new Map<string, PortfolioSync>());
   const switchPortfolioRef = useRef<(portfolioId: string) => Promise<void>>(async () => {});
+  const queueShareWriteRef = useRef<(userId: string) => Promise<boolean>>(async () => false);
   // Bumped by every load and switch; a load that finishes after a newer one started is dropped.
   const loadSeqRef = useRef(0);
   const goalCrossedRef = useRef<Set<string>>(new Set());
+
+  // "All portfolios": the personal portfolio as last read for that view, and
+  // the user's shares of the extra ones, read from the personal blob. Shares
+  // stay null until that blob has been read, so no save writes shares unseen.
+  const allPersonalRef = useRef<PortfolioData | null>(null);
+  const sharesRef = useRef<PortfolioShares | null>(null);
+  // Shares set in this tab and not saved yet. They win over a freshly read
+  // blob, and a save writes only these over the stored ones, so a share set
+  // on another device survives.
+  const dirtySharesRef = useRef(new Set<string>());
+  const [portfolioParts, setPortfolioParts] = useState<PortfolioPart[]>(NO_PARTS);
+  // Writes of the personal blob (entry saves and share saves) run one at a
+  // time, in order, so an older payload never lands over a newer one. Reads
+  // for display wait for them too. Reset on user change.
+  const personalWriteQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  // Bumped on user change so a late share save leaves state alone.
+  const shareSeqRef = useRef(0);
+  // Bumped by each personal save and on user change. A queued save that a
+  // newer one overtook is skipped: the newer one sends the whole portfolio.
+  const personalSaveSeqRef = useRef(0);
+  // The newest personal save, while it has failed and nothing newer has
+  // landed. Personal reopens on it, so a save that failed after the user
+  // switched away isn't lost. Reset on user change.
+  const unsavedPersonalRef = useRef<PortfolioData | null>(null);
+  // The current load of Personal failed or couldn't decrypt the snapshot, and
+  // nothing loaded is on screen. Personal then refuses edits: one would
+  // overwrite the history it couldn't read. Only the load that opens Personal
+  // sets or clears it, never one a newer load overtook; reset on user change.
+  const personalLoadFailedRef = useRef(false);
+  // Personal on screen came from a successful load, empty or not. A failed
+  // rerun of the cloud load then keeps it editable. Cleared by every switch.
+  const personalShownRef = useRef(false);
+
+  const enqueuePersonalWrite = useCallback(<T,>(task: () => Promise<T>): Promise<T> => {
+    const run = personalWriteQueueRef.current.then(task);
+    personalWriteQueueRef.current = run.catch(() => undefined);
+    return run;
+  }, []);
+
+  // The shares from a freshly read personal blob, with this tab's unsaved ones on top.
+  const adoptStoredShares = useCallback((stored: Record<string, number>) => {
+    const unsaved = [...dirtySharesRef.current].map((id) => [id, shareOf(sharesRef.current, id)] as const);
+    sharesRef.current = { ...stored, ...Object.fromEntries(unsaved) };
+  }, []);
 
   // The retired milestones panel stored user-set thresholds in plaintext for
   // signed-in users and nothing wiped them on tab close. Drop any leftover.
@@ -394,6 +476,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setFilters(defaultFilters);
     setActivePortfolioId(PERSONAL_PORTFOLIO_ID);
     setExtraPortfolios([]);
+    setPortfolioParts(NO_PARTS);
     // Arm the skeleton if we're entering an authed identity (a real cloud
     // fetch is about to happen). On sign-out (user → null) we leave it false
     // so the dashboard can fall through to the file-upload empty state.
@@ -424,6 +507,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // Stops overlapping saves from clobbering each other's status.
   const requestIdRef = useRef(0);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
+  // Personal opened on its unsaved copy (unsavedPersonalRef): Retry resends it.
+  const resumeUnsavedSave = useCallback((next: PortfolioData | null) => {
+    if (!next || next !== unsavedPersonalRef.current) return;
+    lastAttemptRef.current = next;
+    setSyncStatus('error');
+  }, []);
 
   const hasFullHistory = useMemo(() => {
     const override = devPlanOverride();
@@ -448,19 +537,21 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { familyAccessRef.current = familyAccess; }, [familyAccess]);
   // Refuses an edit to a read-only portfolio, with a toast. True when refused.
   const refuseReadOnly = useCallback((portfolioId: string): boolean => {
-    const reason = readOnlyReason(extraMetaRef.current.get(portfolioId), familyAccessRef.current);
+    const reason = portfolioId === ALL_PORTFOLIOS_ID
+      ? 'all_portfolios'
+      : readOnlyReason(extraMetaRef.current.get(portfolioId), familyAccessRef.current);
     if (reason) toast.error(READ_ONLY_MESSAGES[reason]);
     return reason !== null;
   }, []);
   const setDefaultDateRange = useCallback((parsed: PortfolioData) => {
-    const dates = parsed.facts.map(f => f.date.getTime());
-    if (dates.length === 0) return;
-    const maxDate = new Date(Math.max(...dates));
+    const bounds = factTimeBounds(parsed.facts);
+    if (!bounds) return;
+    const maxDate = new Date(bounds[1]);
     // Free tier: default window is the rolling 12 months. Pro: 2 years.
     const lookbackMonths = hasFullHistory ? 24 : 12;
     const defaultStart = new Date(maxDate);
     defaultStart.setMonth(defaultStart.getMonth() - lookbackMonths);
-    const minDate = new Date(Math.min(...dates));
+    const minDate = new Date(bounds[0]);
     setFilters(prev => ({
       ...prev,
       dateRange: [defaultStart < minDate ? minDate : defaultStart, maxDate],
@@ -511,6 +602,16 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       goalCrossedRef.current = new Set();
       setActivePortfolioId(PERSONAL_PORTFOLIO_ID);
       setExtraPortfolios([]);
+      allPersonalRef.current = null;
+      sharesRef.current = null;
+      dirtySharesRef.current.clear();
+      shareSeqRef.current += 1;
+      personalSaveSeqRef.current += 1;
+      personalWriteQueueRef.current = Promise.resolve();
+      unsavedPersonalRef.current = null;
+      personalLoadFailedRef.current = false;
+      personalShownRef.current = false;
+      setPortfolioParts(NO_PARTS);
       try {
         localStorage.removeItem(STORAGE_KEY);
         localStorage.removeItem(MOCK_FLAG_KEY);
@@ -594,6 +695,44 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setExtraPortfolios(Array.from(extraMetaRef.current.values()));
   }, [forgetPortfolioKey]);
 
+  // ── All portfolios ──────────────────────────────────────────────────────
+  //
+  // A read-only view: Personal plus every extra portfolio, each at the
+  // user's share (allPortfolios.ts), shown through `data` like any portfolio
+  // so every page works on the total. Built from what's in memory: the
+  // personal portfolio read when the view opened, and each extra portfolio's
+  // sync, which focus refreshes keep current.
+
+  const buildAllParts = useCallback((): PortfolioPart[] => withDistinctNames([
+    { id: PERSONAL_PORTFOLIO_ID, name: PERSONAL_PORTFOLIO_NAME, data: allPersonalRef.current, share: DEFAULT_SHARE },
+    ...Array.from(extraMetaRef.current.values()).map((meta) => ({
+      id: meta.id,
+      name: meta.name,
+      data: syncsRef.current.get(meta.id)?.doc.data ?? null,
+      share: shareOf(sharesRef.current, meta.id),
+    })),
+  ]), []);
+
+  // Shows the view again after something in it changed (a share, a
+  // partner's save, a rename, a portfolio gone). No-op in any other view;
+  // with no extra portfolio left there is nothing to add up, so Personal opens.
+  const refreshAll = useCallback(() => {
+    if (activePortfolioIdRef.current !== ALL_PORTFOLIOS_ID) return;
+    if (extraMetaRef.current.size === 0) {
+      void switchPortfolioRef.current(PERSONAL_PORTFOLIO_ID);
+      return;
+    }
+    // Still opening, with the shares unread: every portfolio would count in
+    // full. The switch builds the view once it has them.
+    if (sharesRef.current === null) return;
+    const parts = buildAllParts();
+    setPortfolioParts(parts);
+    const combined = combinePortfolios(parts);
+    commitData(combined);
+    // A partner's newer entry must fall inside the range the pages filter on.
+    if (combined) setDefaultDateRange(combined);
+  }, [buildAllParts, commitData, setDefaultDateRange]);
+
   // Keep the key already in memory unless the epoch moved: a save in flight
   // may still be encrypting with it, and replacing it would zero it.
   const adoptPortfolioKey = useCallback((loaded: LoadedPortfolio) => {
@@ -617,18 +756,29 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     setDefaultDateRange(next);
   }, [commitData, setDefaultDateRange]);
 
-  // Fetch and decode the personal snapshot. null when there is none, when it
-  // can't be decrypted (a toast says so), or when it holds no valid facts.
+  // Fetch and decode the personal snapshot, once this tab's queued writes to it
+  // have landed, so an entry saved just before a switch shows; when the newest
+  // save failed, its unsaved copy instead. null when there is none or when it
+  // holds no valid facts. Throws when the read fails or the snapshot can't be
+  // decrypted (a toast says so): neither is an empty portfolio, and an edit
+  // over either would overwrite the stored history. Also reads the user's
+  // shares of their extra portfolios from it, so the next personal save keeps them.
   // Authed users: cloud is the source of truth post-decode; nothing is
   // mirrored into localStorage (see encryption.md §8.6).
   const loadPersonalData = useCallback(async (userId: string): Promise<PortfolioData | null> => {
-    const { data: rows } = await supabase
+    await personalWriteQueueRef.current;
+    if (unsavedPersonalRef.current) return unsavedPersonalRef.current;
+    const { data: rows, error } = await supabase
       .from('portfolio_snapshots')
       .select('data, encrypted_data, nonce, enc_version')
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .limit(1);
-    if (!rows || rows.length === 0) return null;
+    if (error) throw error;
+    if (!rows || rows.length === 0) {
+      adoptStoredShares({});
+      return null;
+    }
 
     const row = rows[0] as unknown as SnapshotRow;
     let cloudData: RawCloudPortfolio;
@@ -638,8 +788,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('[cloud-load] failed to decode snapshot:', e);
       toast.error("Couldn't decrypt your saved data. Sign out and back in to retry.");
-      return null;
+      throw e;
     }
+    adoptStoredShares(coerceShares(cloudData.portfolioShares));
 
     const { data: validData, skipped } = normalisePortfolio(cloudData, 'cloud-load');
     if (skipped > 0) {
@@ -653,7 +804,33 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
     return validData;
-  }, [getDataKey]);
+  }, [getDataKey, adoptStoredShares]);
+
+  // The personal part of "All portfolios". A failed read keeps what this tab
+  // last read, like a failed extra-portfolio fetch, and says the total may be
+  // off. False when the shares were never read: every portfolio would count
+  // in full, so the view can't open.
+  const readPersonalForAll = useCallback(async (userId: string): Promise<boolean> => {
+    let failed = false;
+    try {
+      allPersonalRef.current = await loadPersonalData(userId);
+    } catch (e) {
+      console.error('[portfolios] personal read failed:', e);
+      failed = true;
+    }
+    if (sharesRef.current === null) {
+      toast.error("Couldn't load your share of each portfolio, so All portfolios can't add them up. Try again in a moment.", {
+        id: 'all-personal-read',
+      });
+      return false;
+    }
+    if (failed) {
+      toast.error("Couldn't load your personal portfolio, so All portfolios may leave it out or show older figures. Open the view again to retry.", {
+        id: 'all-personal-read',
+      });
+    }
+    return true;
+  }, [loadPersonalData]);
 
   // Callbacks a sync makes after renders; each reaches the current state
   // through syncHandlersRef, like the savers did before.
@@ -684,6 +861,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       },
       onView: (portfolioId: string, doc: SyncDoc) => {
         putExtraMeta(doc.meta);
+        refreshAll();
         if (activePortfolioIdRef.current !== portfolioId) return;
         commitData(doc.data);
         if (doc.data) setDefaultDateRange(doc.data);
@@ -701,6 +879,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         toast.error('You no longer have access to this portfolio.', { id: 'portfolio-forbidden' });
         if (activePortfolioIdRef.current === portfolioId) void switchPortfolioRef.current(PERSONAL_PORTFOLIO_ID);
         removeExtra(portfolioId);
+        refreshAll();
       },
       onError: (portfolioId: string, error: unknown, transient: boolean) => {
         if (error instanceof PortfolioLockedError) {
@@ -715,10 +894,33 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         });
       },
     };
-  }, [user, getDataKey, getPortfolioKey, setPortfolioKey, adoptPortfolioKey, putExtraMeta, commitData, setDefaultDateRange, removeExtra]);
+  }, [user, getDataKey, getPortfolioKey, setPortfolioKey, adoptPortfolioKey, putExtraMeta, commitData, setDefaultDateRange, removeExtra, refreshAll]);
 
   const syncHandlersRef = useRef(syncHandlers);
   useEffect(() => { syncHandlersRef.current = syncHandlers; }, [syncHandlers]);
+
+  // Fresh content for every extra portfolio, for the "All portfolios" view.
+  // One that can't be fetched (offline, locked) keeps what's in memory; one
+  // the user lost access to goes. A sync mid-write is skipped: that write
+  // rebases on its own.
+  const refreshExtras = useCallback(async () => {
+    const handlers = syncHandlersRef.current;
+    await Promise.all(Array.from(syncsRef.current.entries()).map(async ([portfolioId, sync]) => {
+      if (!sync.settled) return;
+      try {
+        const latest = await handlers.fetch(portfolioId);
+        if (!latest) {
+          handlers.onForbidden(portfolioId);
+          return;
+        }
+        const current = sync.doc.meta;
+        if (latest.meta.revision === current.revision && latest.meta.keyEpoch === current.keyEpoch) return;
+        if (sync.adopt(latest)) putExtraMeta(sync.doc.meta);
+      } catch {
+        // Offline or locked: the view keeps what it has.
+      }
+    }));
+  }, [putExtraMeta]);
 
   // The sync for a loaded portfolio: created on first sight, otherwise given
   // the fresher stored version (ignored while it's mid-write).
@@ -789,7 +991,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   const switchPortfolio = useCallback(async (portfolioId: string) => {
     if (!user || portfolioId === activePortfolioIdRef.current) return;
-    if (portfolioId !== PERSONAL_PORTFOLIO_ID && !extraMetaRef.current.has(portfolioId)) return;
+    const isAll = portfolioId === ALL_PORTFOLIOS_ID;
+    // "All portfolios" needs something besides Personal to add up.
+    if (isAll ? extraMetaRef.current.size === 0 : portfolioId !== PERSONAL_PORTFOLIO_ID && !extraMetaRef.current.has(portfolioId)) return;
     const dk = getDataKey();
     if (!dk) {
       toast.info('Unlock your data to switch portfolios.', { id: 'sync-locked' });
@@ -797,6 +1001,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
 
     const seq = ++loadSeqRef.current;
+    const previous = activePortfolioIdRef.current;
     // Reset in the same batch as the id change, so no render pairs the new
     // portfolio's name with the previous one's numbers.
     activate(portfolioId);
@@ -807,11 +1012,32 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     lastAttemptRef.current = null;
     requestIdRef.current += 1;
     goalCrossedRef.current = new Set();
+    personalShownRef.current = false;
     setIsCloudLoading(true);
 
+    // Only this switch's own Personal load may set or lift the failed-load pause.
+    let openedPersonal = false;
     try {
       let next: PortfolioData | null;
-      if (portfolioId === PERSONAL_PORTFOLIO_ID) {
+      if (isAll) {
+        await refreshExtras();
+        const usable = await readPersonalForAll(user.id);
+        // Superseded, or the last extra portfolio went while refreshing.
+        if (seq !== loadSeqRef.current) return;
+        if (!usable) {
+          // Back where the user was, or to Personal when that portfolio just went.
+          const back = previous === PERSONAL_PORTFOLIO_ID || extraMetaRef.current.has(previous) ? previous : PERSONAL_PORTFOLIO_ID;
+          void switchPortfolioRef.current(back);
+          return;
+        }
+        const parts = buildAllParts();
+        setPortfolioParts(parts);
+        next = combinePortfolios(parts);
+        analytics.allPortfoliosOpened();
+        // A share whose save failed gets another go now the view is open again.
+        if (dirtySharesRef.current.size > 0) void queueShareWriteRef.current(user.id);
+      } else if (portfolioId === PERSONAL_PORTFOLIO_ID) {
+        openedPersonal = true;
         next = await loadPersonalData(user.id);
       } else {
         const loaded = await fetchPortfolio(supabase, user.id, dk, portfolioId);
@@ -823,18 +1049,35 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         } else {
           toast.error('You no longer have access to this portfolio.', { id: 'portfolio-forbidden' });
           removeExtra(portfolioId);
+          // Overtaken: the newer switch owns the view, so never open Personal under it.
+          if (seq !== loadSeqRef.current) return;
           activate(PERSONAL_PORTFOLIO_ID);
+          openedPersonal = true;
           next = await loadPersonalData(user.id);
         }
       }
-      if (seq === loadSeqRef.current && next) applyLoadedData(next);
+      if (seq !== loadSeqRef.current) return;
+      if (openedPersonal) {
+        personalLoadFailedRef.current = false;
+        personalShownRef.current = true;
+      }
+      if (next) {
+        applyLoadedData(next);
+        resumeUnsavedSave(next);
+      }
     } catch (e) {
       console.error('[portfolios] switch failed:', e);
-      toast.error("Couldn't open this portfolio. Try again.");
+      // Personal opened on nothing: refuse edits until a load succeeds.
+      if (seq === loadSeqRef.current && openedPersonal) {
+        personalLoadFailedRef.current = true;
+        toast.error(PERSONAL_LOAD_FAILED_MESSAGE, { id: 'personal-load-failed' });
+      } else {
+        toast.error("Couldn't open this portfolio. Try again.");
+      }
     } finally {
       if (seq === loadSeqRef.current) setIsCloudLoading(false);
     }
-  }, [user, getDataKey, activate, commitData, loadPersonalData, adoptPortfolioKey, ensureSync, putExtraMeta, removeExtra, applyLoadedData]);
+  }, [user, getDataKey, activate, commitData, loadPersonalData, adoptPortfolioKey, ensureSync, putExtraMeta, removeExtra, applyLoadedData, refreshExtras, buildAllParts, readPersonalForAll, resumeUnsavedSave]);
 
   // Sync callbacks can outlive the render they were made in.
   useEffect(() => { switchPortfolioRef.current = switchPortfolio; }, [switchPortfolio]);
@@ -889,10 +1132,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
     if (!sync.rename(name)) return true;
     putExtraMeta(sync.doc.meta);
+    // Source names in "All portfolios" carry the portfolio's name.
+    refreshAll();
     if ((await sync.flush()) === 'synced') return true;
     toast.error("Couldn't rename the portfolio. Try again.");
     return false;
-  }, [user, putExtraMeta, refuseReadOnly]);
+  }, [user, putExtraMeta, refuseReadOnly, refreshAll]);
 
   const deletePortfolio = useCallback(async (portfolioId: string): Promise<boolean> => {
     if (!user || !extraMetaRef.current.has(portfolioId)) return false;
@@ -905,8 +1150,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
     if (activePortfolioIdRef.current === portfolioId) await switchPortfolio(PERSONAL_PORTFOLIO_ID);
     removeExtra(portfolioId);
+    refreshAll();
     return true;
-  }, [user, switchPortfolio, removeExtra]);
+  }, [user, switchPortfolio, removeExtra, refreshAll]);
 
   // After accepting an invite: list again so the joined portfolio has its
   // key and sync, then open it.
@@ -932,8 +1178,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     analytics.portfolioLeft();
     if (activePortfolioIdRef.current === portfolioId) await switchPortfolio(PERSONAL_PORTFOLIO_ID);
     removeExtra(portfolioId);
+    refreshAll();
     return true;
-  }, [user, switchPortfolio, removeExtra]);
+  }, [user, switchPortfolio, removeExtra, refreshAll]);
 
   // The owner removes the partner, then re-keys straight away so the key the
   // partner held opens nothing written from now on (encryption.md §8.9).
@@ -972,6 +1219,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         commitData(restored ? sync.doc.data : null);
         if (restored) setDefaultDateRange(restored);
       }
+      refreshAll();
       if ((await sync.flush()) !== 'synced') return false;
       analytics.portfolioVersionRestored();
       return true;
@@ -980,7 +1228,132 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       toast.error("Couldn't restore that version. Try again.");
       return false;
     }
-  }, [user, getDataKey, getPortfolioKey, commitData, setDefaultDateRange, refuseReadOnly]);
+  }, [user, getDataKey, getPortfolioKey, commitData, setDefaultDateRange, refuseReadOnly, refreshAll]);
+
+  // A lock wipes the data key in place (KeySessionContext.lock), so a key read
+  // before an await may be all zeros by the time it's used. Encryption and
+  // decryption below therefore read it at the moment of use.
+  const liveDataKey = useCallback((): Uint8Array => {
+    const dk = getDataKey();
+    if (!dk) throw new PortfolioLockedError();
+    return dk;
+  }, [getDataKey]);
+
+  // The stored personal blob, decrypted: as stored, cleaned up for display,
+  // and the shares in it. Empty when there's no row yet. Throws when the read
+  // or the decryption fails.
+  const readPersonalBlob = useCallback(async (userId: string): Promise<{ raw: Record<string, unknown>; base: PortfolioData; stored: Record<string, number> }> => {
+    const { data: rows, error } = await supabase
+      .from('portfolio_snapshots')
+      .select('data, encrypted_data, nonce, enc_version')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1);
+    if (error) throw error;
+    if (!rows || rows.length === 0) {
+      const empty: PortfolioData = { facts: [], refSources: [], goals: [] };
+      return { raw: { ...empty }, base: empty, stored: {} };
+    }
+    const decoded = await decodeSnapshot(rows[0] as unknown as SnapshotRow, { userId, dataKey: liveDataKey() });
+    const raw = decoded.data as Partial<RawCloudPortfolio>;
+    const base = normalisePortfolio(raw, 'share-save').data;
+    const isObject = typeof raw === 'object' && raw !== null && !Array.isArray(raw);
+    return { raw: isObject ? (raw as Record<string, unknown>) : { ...base }, base, stored: coerceShares(raw?.portfolioShares) };
+  }, [liveDataKey]);
+
+  // Shares exist only for extra portfolios. An account that lists none and has
+  // no Family access, as owner or partner, can't hold any, so its personal
+  // saves skip the shares read. While access is unknown, the save reads.
+  const mayHoldShares = useCallback((): boolean => {
+    const access = familyAccessRef.current;
+    return extraMetaRef.current.size > 0 || access === null || access.ownsFamily || access.coveredAsPartner;
+  }, []);
+
+  // Before a personal save: shares set on another device since this tab read
+  // them must survive it. Best effort; unread, the save keeps this tab's shares.
+  const refreshStoredShares = useCallback(async (userId: string) => {
+    try {
+      adoptStoredShares((await readPersonalBlob(userId)).stored);
+    } catch {
+      // Offline, locked or undecryptable: keep the shares in memory.
+    }
+  }, [adoptStoredShares, readPersonalBlob]);
+
+  // Saves the shares into the personal blob: reads the latest blob, merges,
+  // writes it back. Reading first means entries saved from another device
+  // since the view opened aren't overwritten, and a blob that can't be
+  // decrypted is left as it is. Never rejects.
+  const writeShares = useCallback(async (userId: string, seq: number): Promise<boolean> => {
+    const current = () => seq === shareSeqRef.current;
+    const onScreen = () => current() && activePortfolioIdRef.current === ALL_PORTFOLIOS_ID;
+    if (!current() || dirtySharesRef.current.size === 0) return true;
+    if (!getDataKey()) {
+      // The share stays unsaved in this tab; Retry after unlocking saves it.
+      if (onScreen()) setSyncStatus('error');
+      toast.info('Unlock your data to sync this change.', { id: 'sync-locked' });
+      return false;
+    }
+    if (onScreen()) setSyncStatus('syncing');
+    try {
+      const { raw, base, stored } = await readPersonalBlob(userId);
+      if (!current()) return false;
+      const edited = [...dirtySharesRef.current].map((id) => [id, shareOf(sharesRef.current, id)] as const);
+      const shares = { ...stored, ...Object.fromEntries(edited) };
+      // Only the shares change: the blob goes back as stored, so rows the
+      // cleanup would drop and fields a newer build wrote survive.
+      const updated = { ...raw, portfolioShares: shares } as unknown as PersonalSnapshot;
+      await upsertEncryptedSnapshot(supabase, userId, updated, liveDataKey());
+      if (!current()) return false;
+      // A share changed again while this write ran stays for the next one.
+      for (const [id, share] of edited) {
+        if (shareOf(sharesRef.current, id) === share) dirtySharesRef.current.delete(id);
+      }
+      adoptStoredShares(shares);
+      // An unsaved personal copy is what Personal shows, so the view keeps counting it.
+      allPersonalRef.current = unsavedPersonalRef.current ?? (base.facts.length > 0 ? base : null);
+      refreshAll();
+      if (onScreen()) {
+        setSyncStatus('synced');
+        setTimeout(() => setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev)), 2000);
+      }
+      return true;
+    } catch (e) {
+      if (!current()) return false;
+      if (e instanceof PortfolioLockedError) {
+        // The share stays unsaved in this tab; Retry after unlocking saves it.
+        if (onScreen()) setSyncStatus('error');
+        toast.info('Unlock your data to sync this change.', { id: 'sync-locked' });
+        return false;
+      }
+      console.error('[portfolios] share save failed:', e);
+      analytics.cloudSyncFailed({ reason: isTransientError(e) ? 'transient' : 'terminal' });
+      if (onScreen()) setSyncStatus('error');
+      toast.error("Couldn't save your share. It stays in this tab; use Retry at the top of the page.", {
+        id: 'cloud-sync-error',
+      });
+      return false;
+    }
+  }, [getDataKey, liveDataKey, readPersonalBlob, refreshAll, adoptStoredShares]);
+
+  // Each share save sends the shares as they are when its turn comes.
+  const queueShareWrite = useCallback((userId: string): Promise<boolean> => {
+    const seq = shareSeqRef.current;
+    return enqueuePersonalWrite(() => writeShares(userId, seq));
+  }, [writeShares, enqueuePersonalWrite]);
+  // switchPortfolio and the cloud load, defined above, retry unsaved shares through it.
+  useEffect(() => { queueShareWriteRef.current = queueShareWrite; }, [queueShareWrite]);
+
+  const setPortfolioShare = useCallback(async (portfolioId: string, share: number): Promise<boolean> => {
+    if (!user || !extraMetaRef.current.has(portfolioId)) return false;
+    const value = coerceShares({ [portfolioId]: share })[portfolioId];
+    if (value === undefined) return false;
+    if (value === shareOf(sharesRef.current, portfolioId)) return true;
+    sharesRef.current = { ...(sharesRef.current ?? {}), [portfolioId]: value };
+    dirtySharesRef.current.add(portfolioId);
+    refreshAll();
+    analytics.portfolioShareSet();
+    return queueShareWrite(user.id);
+  }, [user, refreshAll, queueShareWrite]);
 
   // Save the personal portfolio when the user is authenticated AND their
   // email is confirmed. Extra portfolios save through their sync.
@@ -1011,20 +1384,43 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const dk = keySession.getDataKey();
-    if (!dk) {
+    if (!keySession.getDataKey()) {
       // Defensive: status said unlocked-encrypted but DK is gone. Surface
       // and bail — the user will be re-prompted on next save attempt.
       toast.error("Couldn't sync this change. Unlock your data again to retry.");
       return;
     }
 
-    const outcome = await attemptCloudSync(portfolioData, {
-      upsert: (p) => upsertEncryptedSnapshot(supabase, user.id, p, dk),
-      isLatest,
-      delay: (ms) => new Promise(r => setTimeout(r, ms)),
-      onStatus: setSyncStatus,
-      onError: (reason) => analytics.cloudSyncFailed({ reason }),
+    // The personal blob also carries the shares of extra portfolios; keep them.
+    const withShares = (p: PortfolioData): PersonalSnapshot => {
+      const shares = sharesRef.current;
+      return shares && Object.keys(shares).length > 0 ? { ...p, portfolioShares: { ...shares } } : p;
+    };
+    const userId = user.id;
+    const saveSeq = ++personalSaveSeqRef.current;
+    const isCurrent = () => saveSeq === personalSaveSeqRef.current;
+    // A switch makes this save stale for status only: it still writes, retries
+    // and reports a failure. Only a newer personal save replaces it.
+    const outcome = await enqueuePersonalWrite(async () => {
+      if (!isCurrent()) return null;
+      const result = await attemptCloudSync(portfolioData, {
+        // Re-reads the stored shares unless the account can't have any, then
+        // encrypts with the live key: the save waits on that read, its turn
+        // and the retry's delay, and a lock meanwhile wipes a key read earlier.
+        upsert: async (p) => {
+          if (mayHoldShares()) await refreshStoredShares(userId);
+          return upsertEncryptedSnapshot(supabase, userId, withShares(p), liveDataKey());
+        },
+        isLatest,
+        isCurrent,
+        delay: (ms) => new Promise(r => setTimeout(r, ms)),
+        onStatus: setSyncStatus,
+        onError: (reason) => analytics.cloudSyncFailed({ reason }),
+      });
+      // Settled before the queue moves on, so a read waiting on it sees it.
+      if (result === 'synced') unsavedPersonalRef.current = null;
+      if (result === 'error') unsavedPersonalRef.current = portfolioData;
+      return result;
     });
 
     if (outcome === 'synced') {
@@ -1034,22 +1430,33 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         setSyncStatus(prev => (prev === 'synced' ? 'idle' : prev));
       }, 2000);
     } else if (outcome === 'error') {
-      toast.error("Couldn't sync. Your changes stay in this tab; use Retry at the top of the page.", {
-        id: 'cloud-sync-error',
-      });
+      if (activePortfolioIdRef.current === PERSONAL_PORTFOLIO_ID) {
+        toast.error("Couldn't sync. Your changes stay in this tab; use Retry at the top of the page.", {
+          id: 'cloud-sync-error',
+        });
+      } else {
+        // Its own id: another view's sync error mustn't replace it.
+        toast.error("Couldn't save your last change to Personal. It stays in this tab: open Personal and use Retry.", {
+          id: 'personal-sync-error',
+        });
+      }
     }
-    // outcome === null: superseded by a newer call; do nothing.
-  }, [user, keySession]);
+    // outcome === null: replaced by a newer personal save; do nothing.
+  }, [user, keySession, refreshStoredShares, liveDataKey, enqueuePersonalWrite, mayHoldShares]);
 
   const retrySync = useCallback(() => {
     const portfolioId = activePortfolioIdRef.current;
+    if (user && portfolioId === ALL_PORTFOLIOS_ID) {
+      void queueShareWrite(user.id);
+      return;
+    }
     if (user && portfolioId !== PERSONAL_PORTFOLIO_ID) {
       void syncsRef.current.get(portfolioId)?.flush();
       return;
     }
     if (!lastAttemptRef.current) return;
     saveToCloud(lastAttemptRef.current);
-  }, [user, saveToCloud]);
+  }, [user, saveToCloud, queueShareWrite]);
 
   // Retry pending cloud save once the user confirms their email
   useEffect(() => {
@@ -1083,17 +1490,57 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         // Reopen the portfolio the user last had open, if it's still theirs.
         // Its sync's view keeps any edits not saved before a lock.
         const remembered = readActivePortfolioId(user.id);
+        if (remembered === ALL_PORTFOLIOS_ID && extras.length > 0) {
+          const usable = await readPersonalForAll(user.id);
+          if (seq !== loadSeqRef.current) return;
+          // Without the shares the view can't open; Personal opens below instead.
+          if (usable) {
+            activate(ALL_PORTFOLIOS_ID);
+            const parts = buildAllParts();
+            setPortfolioParts(parts);
+            const combined = combinePortfolios(parts);
+            if (combined) applyLoadedData(combined);
+            else commitData(null);
+            // Shares left unsaved before a lock get another go.
+            if (dirtySharesRef.current.size > 0) void queueShareWriteRef.current(user.id);
+            return;
+          }
+        }
+        // This load also reruns over an open view (each auth event brings a new
+        // user object), so the view it opens never keeps the previous data:
+        // All portfolios' combined copy must never become editable as Personal.
         const target = extras.find((p) => p.meta.id === remembered);
         if (target) {
           activate(target.meta.id);
           const next = syncsRef.current.get(target.meta.id)?.doc.data ?? null;
           if (next) applyLoadedData(next);
+          else commitData(null);
           return;
         }
-        const personal = await loadPersonalData(user.id);
-        if (seq !== loadSeqRef.current) return;
+        // A rerun over Personal keeps what's on screen when its read fails, or
+        // finds no row, or loses the race to an entry made while it ran.
+        const wasPersonal = activePortfolioIdRef.current === PERSONAL_PORTFOLIO_ID;
+        const savesBefore = personalSaveSeqRef.current;
+        let personal: PortfolioData | null;
+        try {
+          personal = await loadPersonalData(user.id);
+        } catch (e) {
+          if (seq === loadSeqRef.current && !(wasPersonal && personalShownRef.current)) {
+            personalLoadFailedRef.current = true;
+            toast.error(PERSONAL_LOAD_FAILED_MESSAGE, { id: 'personal-load-failed' });
+          }
+          throw e;
+        }
+        if (seq !== loadSeqRef.current || personalSaveSeqRef.current !== savesBefore) return;
+        personalLoadFailedRef.current = false;
+        personalShownRef.current = true;
         activate(PERSONAL_PORTFOLIO_ID);
-        if (personal) applyLoadedData(personal);
+        if (personal) {
+          applyLoadedData(personal);
+          resumeUnsavedSave(personal);
+        } else if (!wasPersonal) {
+          commitData(null);
+        }
       } catch (e) {
         console.error('Failed to load from cloud:', e);
       } finally {
@@ -1117,14 +1564,23 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user || keySession.status === 'locked') return;
     let lastCheck = 0;
+    const due = () => {
+      const now = Date.now();
+      if (now - lastCheck < FOCUS_REFRESH_INTERVAL_MS) return false;
+      lastCheck = now;
+      return true;
+    };
     const refresh = () => {
       if (document.visibilityState !== 'visible') return;
       const portfolioId = activePortfolioIdRef.current;
+      // The personal part of "All portfolios" refreshes when the view reopens.
+      if (portfolioId === ALL_PORTFOLIOS_ID) {
+        if (due()) void refreshExtras().then(refreshAll);
+        return;
+      }
       const sync = syncsRef.current.get(portfolioId);
       if (!sync || !sync.settled) return;
-      const now = Date.now();
-      if (now - lastCheck < FOCUS_REFRESH_INTERVAL_MS) return;
-      lastCheck = now;
+      if (!due()) return;
       const handlers = syncHandlersRef.current;
       handlers.fetch(portfolioId).then((latest) => {
         if (!latest) {
@@ -1144,7 +1600,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('focus', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [user, keySession.status]);
+  }, [user, keySession.status, refreshExtras, refreshAll]);
 
   // Load from localStorage for guests
   useEffect(() => {
@@ -1227,6 +1683,15 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       if (result.changed) commitData(sync.doc.data);
       return result;
     }
+    if (user && personalLoadFailedRef.current) {
+      toast.error(PERSONAL_LOAD_FAILED_MESSAGE, { id: 'personal-load-failed' });
+      return { data: dataRef.current, changed: false };
+    }
+    // Still loading: the save would replace the history the load is reading.
+    if (user && !personalShownRef.current) {
+      toast.info('Your personal portfolio is still loading. Try again in a moment.', { id: 'personal-loading' });
+      return { data: dataRef.current, changed: false };
+    }
 
     // Demo data is replaced, not added to.
     const result = applyOp(opts.replacingDemo ? null : dataRef.current, op);
@@ -1250,7 +1715,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       const parsed = await parsePortfolioExcel(buffer);
       // Guests keep a local cache for offline-first reload; authed users go
       // cloud-only (encryption.md §8.6). mutate handles both.
-      mutate({ type: 'replaceAll', data: parsed });
+      // Refused in a read-only portfolio (the toast says why).
+      if (!mutate({ type: 'replaceAll', data: parsed }).changed) return;
       setIsMockData(false);
       setDefaultDateRange(parsed);
       analytics.fileUploaded({ rowCount: parsed.facts.length, sourceCount: parsed.refSources.length });
@@ -1463,9 +1929,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   }, [data]);
 
   const dateRange = useMemo<[Date, Date] | null>(() => {
-    if (!enrichedFacts.length) return null;
-    const dates = enrichedFacts.map(f => f.date.getTime());
-    return [new Date(Math.min(...dates)), new Date(Math.max(...dates))];
+    const bounds = factTimeBounds(enrichedFacts);
+    return bounds ? [new Date(bounds[0]), new Date(bounds[1])] : null;
   }, [enrichedFacts]);
 
   const filteredFacts = useMemo(() => {
@@ -1633,9 +2098,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
   }, [allSnapshots, goals, fxConvertAt, displayCurrency.code]);
 
+  const isAll = activePortfolioId === ALL_PORTFOLIOS_ID;
   const activePortfolioName = activePortfolioId === PERSONAL_PORTFOLIO_ID
     ? PERSONAL_PORTFOLIO_NAME
-    : extraPortfolios.find((p) => p.id === activePortfolioId)?.name ?? '';
+    : isAll
+      ? ALL_PORTFOLIOS_NAME
+      : extraPortfolios.find((p) => p.id === activePortfolioId)?.name ?? '';
 
   const value = {
     data,
@@ -1676,7 +2144,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     leavePortfolio,
     removePartner,
     restorePortfolioVersion,
-    readOnlyReason: readOnlyReason(extraPortfolios.find((p) => p.id === activePortfolioId), familyAccess),
+    portfolioParts: isAll ? portfolioParts : NO_PARTS,
+    setPortfolioShare,
+    readOnlyReason: isAll
+      ? 'all_portfolios' as const
+      : readOnlyReason(extraPortfolios.find((p) => p.id === activePortfolioId), familyAccess),
   };
 
   return (

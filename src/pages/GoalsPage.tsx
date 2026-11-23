@@ -11,9 +11,10 @@ import { formatDate } from '@/lib/formatters';
 import type { Goal } from '@/lib/types';
 import type { CurrencyCode } from '@/contexts/CurrencyContext';
 import { analytics } from '@/lib/analytics';
+import { ALL_PORTFOLIOS_ID } from '@/lib/allPortfolios';
 
 const GoalsPage = () => {
-  const { goals, addGoal, updateGoal, archiveGoal, allSnapshots } = usePortfolio();
+  const { goals, addGoal, updateGoal, archiveGoal, allSnapshots, activePortfolioId } = usePortfolio();
   const { has } = useEntitlements();
   const { user } = useAuth();
   const f = useFormat();
@@ -28,6 +29,18 @@ const GoalsPage = () => {
     () => new Map(goals.map((g) => [g.id, classifyGoalTrial({ hasMilestones, goals, goalId: g.id })])),
     [goals, hasMilestones],
   );
+  // A goal is saved inside one portfolio and tracks that portfolio's total.
+  if (activePortfolioId === ALL_PORTFOLIOS_ID) {
+    return (
+      <div>
+        <header className="q-page-head">
+          <h1 className="q-h1" tabIndex={-1}>Goals</h1>
+          <p className="q-page-lede">Each goal belongs to one portfolio and tracks its net worth. Open a portfolio from the portfolio menu to see or set its goals.</p>
+        </header>
+      </div>
+    );
+  }
+
   const trialGoal = [...trials.values()].find((t) => t.kind === 'trial');
   const anyGated = [...trials.values()].some((t) => t.kind === 'gated');
 

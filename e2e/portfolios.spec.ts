@@ -6,9 +6,10 @@ import { seedClean } from './helpers/seedClean';
 import { openNewSourceForm } from './helpers/composer';
 
 /**
- * Extra portfolios for one user (Family plan, phase 1). The Family plan is
- * granted with the dev override; the server side needs the portfolios
- * migration (20260930120000), so the spec skips until it's applied.
+ * Extra portfolios for one user (Family plan, phase 1), and the "All
+ * portfolios" view over them. The Family plan is granted with the dev
+ * override; the server side needs the portfolios migration
+ * (20260930120000), so the spec skips until it's applied.
  *
  * Runs as test user 2: specs run in parallel and most sign in as user 1, whose
  * sidebar would otherwise show this spec's portfolio mid-run. User 2's
@@ -42,6 +43,14 @@ async function userIdFromPage(page: Page): Promise<string> {
 
 async function deletePortfolios(userId: string) {
   await serviceClient().from('portfolios').delete().eq('owner_id', userId);
+}
+
+// Setting a share writes the personal snapshot, creating it if user 2 had none.
+async function hasPersonalSnapshot(userId: string): Promise<boolean> {
+  const { data, error } = await serviceClient().from('portfolio_snapshots').select('user_id').eq('user_id', userId);
+  // A failed check must not read as "none", or the cleanup would delete user 2's snapshot.
+  if (error) throw error;
+  return (data ?? []).length > 0;
 }
 
 async function unlockAfterReload(page: Page) {
@@ -80,6 +89,7 @@ async function openManagePortfolios(page: Page) {
 
 test.describe('Extra portfolios', () => {
   let userId: string | null = null;
+  let hadPersonal = true;
 
   test.beforeEach(async ({ page }) => {
     test.skip(!hasE2EAuth(SLOT), 'E2E auth secrets for test user 2 not set.');
@@ -90,10 +100,13 @@ test.describe('Extra portfolios', () => {
     await signIn(page, SLOT);
     userId = await userIdFromPage(page);
     await deletePortfolios(userId);
+    hadPersonal = await hasPersonalSnapshot(userId);
   });
 
   test.afterEach(async () => {
-    if (userId) await deletePortfolios(userId);
+    if (!userId) return;
+    await deletePortfolios(userId);
+    if (!hadPersonal) await serviceClient().from('portfolio_snapshots').delete().eq('user_id', userId);
   });
 
   test('create, fill, reopen after reload, switch back and delete', async ({ page }) => {
@@ -115,6 +128,30 @@ test.describe('Extra portfolios', () => {
     await unlockAfterReload(page);
     await expect(switcher(page)).toHaveAccessibleName(`Portfolio: ${PORTFOLIO}. Switch portfolio`, { timeout: 10_000 });
     await expect(page.locator('#performance')).toBeVisible({ timeout: 10_000 });
+
+    // All portfolios counts the portfolio at the share set here. The share is
+    // saved encrypted in the personal snapshot, so it survives a reload.
+    await switcher(page).click();
+    await page.getByRole('menuitemradio', { name: 'All portfolios' }).click();
+    await expect(switcher(page)).toHaveAccessibleName('Portfolio: All portfolios. Switch portfolio', { timeout: 10_000 });
+    const share = page.getByRole('textbox', { name: `Your share of ${PORTFOLIO}, in percent` });
+    await expect(share).toHaveValue('100', { timeout: 10_000 });
+    const shareSaved = page.waitForResponse(
+      (r) => r.url().includes('/portfolio_snapshots') && r.request().method() === 'POST' && r.ok(),
+      { timeout: 10_000 },
+    );
+    await share.fill('50');
+    await share.press('Enter');
+    await shareSaved;
+    // Half of 4,200. Personal's own entries vary with what user 2 holds, so only this row is checked.
+    const counted = page.getByRole('region', { name: 'By portfolio' }).getByRole('row').filter({ hasText: PORTFOLIO });
+    await expect(counted).toContainText('2,100');
+
+    await page.reload();
+    await unlockAfterReload(page);
+    await expect(switcher(page)).toHaveAccessibleName('Portfolio: All portfolios. Switch portfolio', { timeout: 10_000 });
+    await expect(share).toHaveValue('50', { timeout: 10_000 });
+    await expect(counted).toContainText('2,100');
 
     // Back to Personal through the switcher.
     await switcher(page).click();

@@ -22,7 +22,7 @@ export function Topbar({
 }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data, isMockData, clearData } = usePortfolio();
+  const { data, isMockData, clearData, readOnlyReason } = usePortfolio();
   const { privacyMode, setPrivacyMode } = usePreferences();
 
   // One primary action per state. Guests on the demo keep the sign-up path;
@@ -87,8 +87,9 @@ export function Topbar({
           </button>
         )}
 
-        {/* Empty states carry their own first-entry action; one primary per screen. */}
-        {(data || isMockData) && <button
+        {/* Empty states carry their own first-entry action; one primary per screen.
+            "All portfolios" has nowhere to add an entry to. */}
+        {(data || isMockData) && readOnlyReason !== 'all_portfolios' && <button
           type="button"
           className="q-btn q-btn--primary q-btn--md q-topbar-add"
           onClick={primary.onClick}

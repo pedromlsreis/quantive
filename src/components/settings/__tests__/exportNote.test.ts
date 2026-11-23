@@ -25,4 +25,9 @@ describe('exportNote', () => {
   it('stays quiet while the portfolio loads', () => {
     expect(exportNote({ ...base, multiple: true, hasEntries: false, loading: true })).toBeNull();
   });
+
+  it('sends All portfolios to a single portfolio for its data', () => {
+    expect(exportNote({ ...base, name: 'All portfolios', multiple: true, allPortfolios: true }))
+      .toBe('Exports cover one portfolio at a time. Open one from the portfolio menu to export it.');
+  });
 });

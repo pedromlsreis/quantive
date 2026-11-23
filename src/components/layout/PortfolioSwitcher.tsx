@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useEntitlements } from '@/hooks/useEntitlements';
 import { PERSONAL_PORTFOLIO_ID, PERSONAL_PORTFOLIO_NAME } from '@/lib/portfolios';
+import { ALL_PORTFOLIOS_ID, ALL_PORTFOLIOS_NAME } from '@/lib/allPortfolios';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,8 @@ import {
 /**
  * Picks the portfolio on screen. Renders only for someone with the Family
  * plan or with extra portfolios already, so Free and Pro see no change.
+ * With an extra portfolio it also offers "All portfolios", which adds up the
+ * user's share of each one.
  * `placement` picks the sidebar or the phone topbar; CSS shows one at a time.
  */
 export function PortfolioSwitcher({ placement }: { placement: 'sidebar' | 'topbar' }) {
@@ -43,6 +46,14 @@ export function PortfolioSwitcher({ placement }: { placement: 'sidebar' | 'topba
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-[208px]">
         <DropdownMenuRadioGroup value={activePortfolioId} onValueChange={(id) => void switchPortfolio(id)}>
+          {extraPortfolios.length > 0 && (
+            <>
+              <DropdownMenuRadioItem value={ALL_PORTFOLIOS_ID} className="min-h-9">
+                <span className="truncate">{ALL_PORTFOLIOS_NAME}</span>
+              </DropdownMenuRadioItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           {options.map((p) => (
             <DropdownMenuRadioItem key={p.id} value={p.id} className="min-h-9">
               <span className="truncate">{p.name}</span>

@@ -10,6 +10,13 @@ import { byteaToBytes, bytesToBytea } from '@/lib/keySession/bytea';
 export type SyncOutcome = 'synced' | 'error';
 
 /**
+ * The personal snapshot as stored: the portfolio, plus the user's shares of
+ * their extra portfolios (allPortfolios.ts). Shares live here because this
+ * blob is never shared, so a partner can't see or change them.
+ */
+export type PersonalSnapshot = PortfolioData & { portfolioShares?: Record<string, number> };
+
+/**
  * Treat fetch network failures and HTTP 5xx as transient (worth retrying).
  * Everything else (4xx, validation errors, undefined) is terminal.
  */
@@ -31,7 +38,7 @@ export function isTransientError(err: unknown): boolean {
 export async function upsertEncryptedSnapshot(
   client: SupabaseClient,
   userId: string,
-  portfolioData: PortfolioData,
+  portfolioData: PersonalSnapshot,
   dataKey: Uint8Array,
 ): Promise<void> {
   const plaintext = new TextEncoder().encode(JSON.stringify(portfolioData));
@@ -104,8 +111,14 @@ export async function decodeSnapshot(
 export interface AttemptCloudSyncDeps {
   /** The actual upsert. Tests substitute a mock; production passes upsertEncryptedSnapshot bound to the supabase client. */
   upsert: (payload: PortfolioData) => Promise<void>;
-  /** Returns true while this attempt is still the latest. Stale attempts must no-op. */
+  /** Returns true while this attempt is still the latest. Only the latest touches status. */
   isLatest: () => boolean;
+  /**
+   * Returns false once a newer save has replaced this one. Until then an
+   * attempt that is merely stale (the user switched view) still retries and
+   * returns its outcome, so a failure is reported. Defaults to isLatest.
+   */
+  isCurrent?: () => boolean;
   /** Sleep for retry backoff. Tests inject a fake to advance vitest fake timers. */
   delay: (ms: number) => Promise<void>;
   /** Status sink. Only invoked while isLatest() is true. */
@@ -120,39 +133,42 @@ export interface AttemptCloudSyncDeps {
  *  - Calls upsert; on success -> 'synced'.
  *  - On transient error -> wait, retry once. If retry succeeds -> 'synced'.
  *  - On terminal error or exhausted retry -> 'error'.
- *  - Stale attempts (isLatest() === false) bail without touching status.
+ *  - Only the latest attempt (isLatest()) touches status.
+ *  - A replaced attempt (isCurrent() === false) bails: no retry, no outcome.
  *
- * Returns the final outcome for the caller, or null if superseded.
+ * Returns the final outcome for the caller, or null if replaced.
  */
 export async function attemptCloudSync(
   payload: PortfolioData,
   deps: AttemptCloudSyncDeps,
 ): Promise<SyncOutcome | null> {
   const { upsert, isLatest, delay, onStatus, onError } = deps;
-  onStatus('syncing');
+  const isCurrent = deps.isCurrent ?? isLatest;
+  // A caller may queue an attempt that is stale before it starts; it still writes.
+  if (isLatest()) onStatus('syncing');
 
   try {
     await upsert(payload);
-    if (!isLatest()) return null;
-    onStatus('synced');
+    if (!isCurrent()) return null;
+    if (isLatest()) onStatus('synced');
     return 'synced';
   } catch (err) {
-    if (!isLatest()) return null;
+    if (!isCurrent()) return null;
     const transient = isTransientError(err);
     if (transient) {
       try {
         await delay(2000);
-        if (!isLatest()) return null;
+        if (!isCurrent()) return null;
         await upsert(payload);
-        if (!isLatest()) return null;
-        onStatus('synced');
+        if (!isCurrent()) return null;
+        if (isLatest()) onStatus('synced');
         return 'synced';
       } catch {
-        if (!isLatest()) return null;
+        if (!isCurrent()) return null;
       }
     }
     onError?.(transient ? 'transient' : 'terminal');
-    onStatus('error');
+    if (isLatest()) onStatus('error');
     return 'error';
   }
 }

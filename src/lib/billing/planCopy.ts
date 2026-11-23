@@ -88,6 +88,7 @@ export const FAMILY_SECTIONS: PlanCopySection[] = [
     head: 'Shared portfolios',
     items: [
       'Up to five portfolios besides your personal one',
+      'One net worth across all your portfolios, at your share of each',
       'Share any of them with your partner; you both add entries and goals',
       'End-to-end encrypted: only the two of you can read a shared portfolio',
       'Restore any of the last 20 saved versions',

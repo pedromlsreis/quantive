@@ -64,6 +64,15 @@ vi.mock('@/lib/portfolios', async (importOriginal) => {
 
 vi.mock('@/lib/portfolioSharing', () => ({ removeMember: vi.fn() }));
 
+// An import here only needs parsed content; parsing has its own tests.
+vi.mock('@/lib/dataProcessor', () => ({
+  parsePortfolioExcel: vi.fn(async () => ({
+    facts: [{ date: new Date(2026, 1, 1), idSource: 'Imported', sourceVl: 1, currency: 'EUR' }],
+    refSources: [],
+    goals: [],
+  })),
+}));
+
 vi.mock('@/lib/analytics', () => ({
   analytics: new Proxy({}, { get: () => vi.fn() }),
   clearAttribution: vi.fn(),
@@ -348,6 +357,20 @@ describe('without Family', () => {
     let restored = true;
     await act(async () => { restored = await result.current.restorePortfolioVersion('p1', 1); });
     expect(restored).toBe(false);
+    expect(savePortfolio).not.toHaveBeenCalled();
+  });
+
+  // Value: protects=a spreadsheet import into a read-only portfolio is refused with the reason and never reported as imported;
+  // fails_when=loadFile ignores the refused op and toasts "Imported N values" anyway;
+  // why_new=no test calls loadFile, and the read-only test above covers typed edits only; seam=none; no_claim=spreadsheet parsing (parsePortfolioExcel mocked; unit only)
+  it('refuses a spreadsheet import without reporting it imported', async () => {
+    authState.subscription = NO_FAMILY;
+    const { result } = await openP1();
+    const file = { name: 'balances.xlsx', arrayBuffer: async () => new ArrayBuffer(0) } as unknown as File;
+    await act(async () => { await result.current.loadFile(file); });
+    expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/needs the Family plan/));
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([100]);
     expect(savePortfolio).not.toHaveBeenCalled();
   });
 
