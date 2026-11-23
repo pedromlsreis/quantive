@@ -450,6 +450,14 @@ export const analytics = {
   portfolioVersionRestored(): void {
     capture('portfolio_version_restored');
   },
+  /** Fired when someone with extra portfolios opens the "All portfolios" view. */
+  allPortfoliosOpened(): void {
+    capture('all_portfolios_opened');
+  },
+  /** Fired when a user changes their share of an extra portfolio. No share or portfolio attached. */
+  portfolioShareSet(): void {
+    capture('portfolio_share_set');
+  },
   /** Fired when current net worth crosses a goal's target. No amounts attached. */
   goalCompleted(): void {
     capture('goal_completed');

@@ -1,7 +1,7 @@
 # End-to-End Encryption — Design
 
 **Status:** Implemented (v0.1 wire format = `enc_version = 1`)
-**Last updated:** 2026-10-20
+**Last updated:** 2026-11-22
 **Tracking issue:** [#33](https://github.com/pedromlsreis/quantive/issues/33)
 
 > This document is the source of truth for how Quantive encrypts user data. It is **public on purpose**: the encryption module is open-source under [`src/lib/crypto/`](../../src/lib/crypto/), and this design is meant to be reviewed by the community. If you spot something wrong, please open an issue.
@@ -31,6 +31,7 @@
 | Email change and deletion take only a fresh password sign-in; an older (refreshed) session or an emailed-link session is refused (§8.12) | [recentAuth.test.ts](../../supabase/functions/_shared/__tests__/recentAuth.test.ts) |
 | Email-change link: only its hash is stored; another request's, an expired or an out-of-date token is refused; the email to the new address doesn't name the current one (§8.11) | [emailChange.test.ts](../../supabase/functions/_shared/__tests__/emailChange.test.ts) |
 | Concurrent edits: unsaved edits replayed on the stored version, applying an edit twice changes nothing, a clashing rename is dropped with a message | [portfolioOps.test.ts](../../src/lib/__tests__/portfolioOps.test.ts), [portfolioSync.test.ts](../../src/lib/__tests__/portfolioSync.test.ts) |
+| Shares of extra portfolios are saved only in the personal snapshot (§9.1); setting one decrypts the latest snapshot first, keeps entries and shares saved elsewhere, changes nothing else in it, and leaves a snapshot it can't decrypt untouched; a personal save re-reads and keeps them; one tab's writes of the personal snapshot land in order; a Personal that failed to load refuses edits (§9.2); neither a share save nor a personal save's retry encrypts with a DK a lock zeroed | [PortfolioContext.allPortfolios.test.tsx](../../src/contexts/__tests__/PortfolioContext.allPortfolios.test.tsx), [portfolios.spec.ts](../../e2e/portfolios.spec.ts) |
 | **RLS, triggers and sharing functions** on an in-memory Postgres with the real migrations: isolation, one-time invites, the partner seat, rotation, revisions, ownership transfer | [portfolioSharing.sql.test.ts](../../supabase/tests/portfolioSharing.sql.test.ts) |
 | The same, against the live project as two signed-in users (run locally; needs the E2E test users) | [rls-portfolios.spec.ts](../../e2e/rls-portfolios.spec.ts) |
 | Invite, join, concurrent edits and removal in two browsers | [family-sharing.spec.ts](../../e2e/family-sharing.spec.ts) |
@@ -491,7 +492,11 @@ A single watcher in `PortfolioContext` enforces the boundary on every user-id tr
 Trigger: user.id changes from a non-null previous value to anything else
 Action:
   - setData(null), setFilters(default), setIsMockData(false), syncStatus='idle'
-  - invalidate any in-flight cloud save (bump requestId, drop refs)
+  - invalidate any in-flight cloud save (bump requestId and the personal save
+    counter, reset the personal write queue)
+  - drop in-memory refs: the last and pending save, an unsaved personal copy,
+    the failed-load flag (§9.2), and "All portfolios" state (its personal
+    part, the shares, unsaved shares)
   - localStorage.removeItem:
       portfolio-data
       portfolio-data-is-mock
@@ -668,6 +673,16 @@ INPUT: portfolio: PortfolioData       // facts + refSources
 
 The `ON CONFLICT (user_id)` upsert depends on the unique constraint added in [#33's prereq migration](../../supabase/migrations/20260430202925_portfolio_snapshots_unique_user.sql).
 
+The personal snapshot's plaintext also holds the user's shares of their extra portfolios (`portfolioShares`: portfolio id → percent), which the "All portfolios" view counts each portfolio at ([`allPortfolios.ts`](../../src/lib/allPortfolios.ts)). They live here because this blob is bound to the user (§6.2) and never shared (§5.2): a partner can neither read nor change them, and the server stores them only as ciphertext.
+
+- **A personal save keeps them.** The save first decrypts the stored snapshot's shares and writes them back, so a share set on another device survives a save from a tab opened earlier. Shares changed in this tab and not yet saved win. An account that lists no extra portfolio and has no Family access, as owner or partner, can't hold shares and skips that read; if such a tab's access is out of date (the user joined a portfolio elsewhere and set a share there), its next save resets that share to 100%.
+- **Setting a share reads before it writes.** It decrypts the latest snapshot, merges the shares changed in this tab into it, and writes the snapshot back as stored with only the shares changed. Entries saved from another device in the meantime are kept, rows the app's cleanup would drop and fields a newer build wrote survive, and a snapshot that can't be decrypted is left as it is.
+- **One tab writes the snapshot one save at a time.** Entry saves and share saves queue in order, so neither lands an older snapshot over a newer one, and opening Personal or All portfolios reads the snapshot only after the writes queued before it. Saves from two devices remain last-write-wins.
+- **Both encrypt with the DK as it is at that moment.** They never use a DK read before waiting on the network or a retry: a lock zeroes the DK in place (§12), and a zero key would leave ciphertext the server can open.
+- **Old builds don't know the shares exist.** A tab still running a build from before them rewrites the snapshot without shares, so they reset to 100% until such tabs reload. Accepted for the rollout.
+
+No key, AAD or `enc_version` changes.
+
 ### 9.2 Load snapshot
 
 ```
@@ -685,6 +700,8 @@ The `ON CONFLICT (user_id)` upsert depends on the unique constraint added in [#3
 
 3. portfolio = JSON.parse(plaintext)
 ```
+
+While a load that opens Personal is still running, and when step 1 fails or step 2 throws, Personal refuses edits until a load succeeds: the next save writes the whole snapshot, so one entry made over a view that couldn't load would replace the stored history. A load that finds no row is an empty portfolio, not a failure. Only the current load that opens Personal decides. A load a newer one overtook changes nothing, and so does one whose read raced a new entry. A failed reload over a Personal already on screen keeps that copy, and it stays editable.
 
 ### 9.3 Save and load an extra portfolio
 
