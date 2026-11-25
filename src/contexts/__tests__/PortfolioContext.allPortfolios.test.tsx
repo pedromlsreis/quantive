@@ -20,7 +20,7 @@ const authState: {
 const keyState = { dk: new Uint8Array(32) as Uint8Array | null };
 const portfolioKeys = new Map<string, Uint8Array>();
 const keySessionMock = {
-  status: 'unlocked-encrypted' as const,
+  status: 'unlocked-encrypted' as 'unlocked-encrypted' | 'locked',
   getDataKey: () => keyState.dk,
   getPortfolioKey: (id: string) => portfolioKeys.get(id) ?? null,
   setPortfolioKey: (id: string, key: Uint8Array) => { portfolioKeys.set(id, key); },
@@ -144,6 +144,7 @@ beforeEach(() => {
   db.hold = null;
   db.reads = 0;
   keyState.dk = new Uint8Array(32);
+  keySessionMock.status = 'unlocked-encrypted';
   vi.mocked(listPortfolios).mockImplementation(async () => ({ loaded: [joint()], failed: 0 }));
   vi.mocked(fetchPortfolio).mockImplementation(async (_c, _u, _dk, id) => (id === 'p1' ? joint() : null));
   vi.mocked(savePortfolio).mockImplementation(async (_client, { meta }) => ({ status: 'ok', revision: meta.revision + 1 }));
@@ -182,6 +183,65 @@ async function openPersonal() {
   const handle = renderHook(() => usePortfolio(), { wrapper });
   await waitFor(() => expect(handle.result.current.isLoading).toBe(false));
   return handle;
+}
+
+type Portfolio = ReturnType<typeof usePortfolio>;
+
+/** Signs the tab out, then in as u2, whose last view was All portfolios: Personal at 100 plus 30% of Joint. */
+async function signInSecondAccount(rerender: () => void, current: () => Portfolio) {
+  authState.user = null;
+  rerender();
+  await waitFor(() => expect(current().activePortfolioId).toBe('personal'));
+  db.personal = personalBlob({ p1: 30 });
+  localStorage.setItem('active-portfolio:u2', 'all');
+  authState.user = { id: 'u2', email_confirmed_at: '2026-01-01T00:00:00Z' };
+  rerender();
+  await waitFor(() => expect(totals(current().allSnapshots)).toEqual([400]));
+}
+
+/** A focus refresh with nothing new: All portfolios rebuilds from memory. Resolves once it has. */
+async function rebuildAllView(current: () => Portfolio) {
+  const shown = current().data;
+  await act(async () => { window.dispatchEvent(new Event('focus')); });
+  await waitFor(() => expect(current().data).not.toBe(shown));
+}
+
+/** As KeySession's lock(): the data key and every portfolio key go, so a snapshot read meanwhile can't be decrypted. */
+function lock(rerender: () => void) {
+  keySessionMock.status = 'locked';
+  keyState.dk = null;
+  portfolioKeys.clear();
+  db.undecryptable = true;
+  rerender();
+}
+
+/** The unlock: a data key again, and the cloud load reruns. */
+function unlock(rerender: () => void) {
+  keySessionMock.status = 'unlocked-encrypted';
+  keyState.dk = new Uint8Array(32);
+  db.undecryptable = false;
+  rerender();
+}
+
+/** Joint open after a lock and an unlock whose list failed: the lock dropped its key and nothing brought it back. */
+async function openJointWithoutKey() {
+  const handle = await openPersonal();
+  await act(async () => { await handle.result.current.switchPortfolio('p1'); });
+  lock(handle.rerender);
+  vi.mocked(listPortfolios).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+  const lists = vi.mocked(listPortfolios).mock.calls.length;
+  unlock(handle.rerender);
+  await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(lists + 1));
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+  return handle;
+}
+
+/** An auth event (the tab regains focus) reruns the cloud load; resolves once its list was requested. */
+async function rerunCloudLoad(rerender: () => void) {
+  const lists = vi.mocked(listPortfolios).mock.calls.length;
+  authState.user = { ...authState.user! };
+  rerender();
+  await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(lists + 1));
 }
 
 describe('All portfolios', () => {
@@ -242,6 +302,20 @@ describe('All portfolios', () => {
     vi.mocked(fetchPortfolio).mockResolvedValueOnce(joint(7, 2000));
     await act(async () => { window.dispatchEvent(new Event('focus')); });
     await waitFor(() => expect(totals(result.current.allSnapshots)).toEqual([1100]));
+  });
+
+  // Value: protects=a partner's newer entry becomes the latest figure the pages show (Allocations and search read the last date-filtered snapshot);
+  // fails_when=a refresh keeps the previous date range, so the newer entry is filtered out and the pages show the older total;
+  // why_new=the focus test above checks allSnapshots, which the date filter doesn't touch; seam=none; no_claim=none beyond protects (portfolio fetch mocked; unit only)
+  it("shows a partner's newer entry as the latest figure", async () => {
+    const { result } = await openAll();
+    const later = joint(7);
+    (later.content as { facts: unknown[] }).facts.push({ date: '2026-03-31', idSource: 'House', sourceVl: 1200, currency: 'EUR' });
+    vi.mocked(fetchPortfolio).mockResolvedValueOnce(later);
+    await act(async () => { window.dispatchEvent(new Event('focus')); });
+    await waitFor(() => expect(totals(result.current.allSnapshots)).toEqual([600, 700]));
+    const shown = totals(result.current.snapshots);
+    expect(shown[shown.length - 1]).toBe(700);
   });
 
   it('returns to Personal when the last extra portfolio goes', async () => {
@@ -601,20 +675,20 @@ describe('shares', () => {
 
 describe('personal writes', () => {
   // Value: protects=an older personal save never lands over a newer one, and a save a newer one overtook is not sent;
-  // fails_when=personal saves run side by side, so a slow first read lets the first payload land last;
+  // fails_when=personal saves run side by side, so a slow first write lets the first payload land last;
   // why_new=no other test overlaps two personal saves; seam=none; no_claim=real request ordering (Supabase client and upsert mocked; unit only)
   it('writes personal saves in order, skipping one a newer save overtook', async () => {
     const { result } = await openPersonal();
-    const slowRead = deferred();
-    db.hold = slowRead.promise;
-    const before = db.reads;
+    // Only the first save's write is slow. Held at its read instead, it would
+    // see the newer saves and write nothing.
+    const [firstWrite] = gateUpserts(1);
     act(() => { result.current.addMeasurement([{ name: 'Savings', value: 150, currency: 'EUR' }]); });
-    // Only the first save's read is slow.
-    await waitFor(() => expect(db.reads).toBe(before + 1));
-    db.hold = null;
+    await waitFor(() => expect(upsertEncryptedSnapshot).toHaveBeenCalledTimes(1));
     act(() => { result.current.addMeasurement([{ name: 'Savings', value: 160, currency: 'EUR' }]); });
     act(() => { result.current.addMeasurement([{ name: 'Savings', value: 175, currency: 'EUR' }]); });
-    await act(async () => { slowRead.resolve(); });
+    // The newer saves get as far as they can while the first write is held.
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    await act(async () => { firstWrite.resolve(); });
     await waitFor(() => expect(result.current.syncStatus).toBe('synced'));
     expect(upsertEncryptedSnapshot).toHaveBeenCalledTimes(2);
     expect(storedValues()).toEqual([100, 175]);
@@ -934,5 +1008,270 @@ describe('personal writes', () => {
     await act(async () => { await result.current.setPortfolioShare('p1', 25); });
     expect(totals(result.current.allSnapshots)).toEqual([350, 400]);
     expect(storedValues()).toEqual([100]);
+  });
+});
+
+describe('a request that outlives its account', () => {
+  // Value: protects=a personal save still reading when the tab's account changes neither writes nor changes the next account's shares;
+  // fails_when=the save checks it's current only before it starts, so it adopts what it read (here, no shares) into the next account and sends the first account's entries;
+  // why_new=the account test under shares switches between share saves, never during a personal save; seam=none; no_claim=the row policy that would refuse that write (Supabase client and upsert mocked; unit only)
+  it('writes nothing from a personal save still reading when the account changes', async () => {
+    db.personal = null; // The first account has no snapshot, so its read has nothing to decrypt.
+    const { result, rerender } = await openPersonal();
+    const slowRead = deferred();
+    db.hold = slowRead.promise;
+    const before = db.reads;
+    act(() => { result.current.addMeasurement([{ name: 'Savings', value: 150, currency: 'EUR' }]); });
+    await waitFor(() => expect(db.reads).toBe(before + 1));
+    db.hold = null;
+    await signInSecondAccount(rerender, () => result.current);
+    db.personal = null; // What the first account's read finds.
+    await act(async () => { slowRead.resolve(); await new Promise((r) => setTimeout(r, 0)); });
+    expect(upsertEncryptedSnapshot).not.toHaveBeenCalled();
+    db.personal = personalBlob({ p1: 30 });
+    await rebuildAllView(() => result.current);
+    expect(result.current.portfolioParts.map((p) => [p.id, p.share])).toEqual([['personal', 100], ['p1', 30]]);
+    expect(totals(result.current.allSnapshots)).toEqual([400]);
+  });
+
+  // Value: protects=an All portfolios read still in flight when the tab's account changes leaves the next account's view and messages alone;
+  // fails_when=the read adopts its shares, sets the view's Personal part, or shows its decryption error to the next account;
+  // why_new=the test above is a save; this is the read that opens the view; seam=none; no_claim=decryption with the next account's key (decode mocked; unit only)
+  it.each([
+    ['has no snapshot', () => { db.personal = null; }],
+    ["has a snapshot the next account's key can't open", () => { db.undecryptable = true; }],
+  ])('keeps nothing from an All portfolios read in flight when the account changes (the first account %s)', async (_case, firstAccountRow) => {
+    const { result, rerender } = await openPersonal();
+    const slowRead = deferred();
+    db.hold = slowRead.promise;
+    const before = db.reads;
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.switchPortfolio('all'); });
+    await waitFor(() => expect(db.reads).toBe(before + 1));
+    db.hold = null;
+    await signInSecondAccount(rerender, () => result.current);
+    toast.error.mockClear();
+    firstAccountRow();
+    await act(async () => { slowRead.resolve(); await opening; });
+    expect(toast.error).not.toHaveBeenCalled();
+    db.personal = personalBlob({ p1: 30 });
+    db.undecryptable = false;
+    await rebuildAllView(() => result.current);
+    expect(totals(result.current.allSnapshots)).toEqual([400]);
+  });
+
+  // Value: protects=a portfolio list request still in flight when the tab's account changes leaves the next account's portfolios and messages alone;
+  // fails_when=the late list shows its decrypt error and runs its cleanup on the next account, forgetting its portfolios and disposing their syncs;
+  // why_new=the tests above cover the personal snapshot; this is the extra-portfolio list; seam=none; no_claim=decryption with a zeroed key (list mocked; unit only)
+  it('keeps nothing from a portfolio list still loading when the account changes', async () => {
+    const { result, rerender } = await openPersonal();
+    // The next list request hangs, then answers as a list read with a zeroed key would.
+    const slowList = deferred();
+    vi.mocked(listPortfolios).mockImplementationOnce(async () => { await slowList.promise; return { loaded: [], failed: 1 }; });
+    authState.user = { ...authState.user! }; // An auth event reruns the cloud load.
+    rerender();
+    await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(2));
+    await signInSecondAccount(rerender, () => result.current);
+    toast.error.mockClear();
+    await act(async () => { slowList.resolve(); await new Promise((r) => setTimeout(r, 0)); });
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(result.current.extraPortfolios.map((p) => p.id)).toEqual(['p1']);
+    await rebuildAllView(() => result.current);
+    expect(totals(result.current.allSnapshots)).toEqual([400]);
+  });
+
+  // Value: protects=a portfolio switch still reading when the tab's account changes shows the next session no error;
+  // fails_when=the overtaken switch's catch shows "Couldn't open this portfolio" on the signed-out screen or to the next account;
+  // why_new=the tests above cover the read that opens All portfolios; this is a switch to Personal; seam=none; no_claim=decryption with the next account's key (decode mocked; unit only)
+  it('shows no error for a switch still reading when the account changes', async () => {
+    const { result, rerender } = await openPersonal();
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    const slowRead = deferred();
+    db.hold = slowRead.promise;
+    const before = db.reads;
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.switchPortfolio('personal'); });
+    await waitFor(() => expect(db.reads).toBe(before + 1));
+    db.hold = null;
+    await signInSecondAccount(rerender, () => result.current);
+    toast.error.mockClear();
+    db.undecryptable = true; // The first account's snapshot doesn't open with the next account's key.
+    await act(async () => { slowRead.resolve(); await opening; });
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('a portfolio list that fails to load', () => {
+  // Value: protects=an unsaved edit in a shared portfolio survives a cloud-load rerun whose portfolio list fails (offline, the tab regains focus);
+  // fails_when=the failed list runs the cleanup, disposing the portfolio's sync with its unsaved edit, and the view moves to Personal;
+  // why_new=no test fails the portfolio list on a rerun; seam=none; no_claim=a real offline browser (list and save mocked; unit only)
+  it("keeps a shared portfolio's unsaved edit when the list fails on a reload", async () => {
+    const { result, rerender } = await openPersonal();
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    // The edit can't save: it stays in the tab.
+    vi.mocked(savePortfolio).mockRejectedValueOnce(new Error('offline'));
+    await act(async () => { result.current.addMeasurement([{ name: 'House', value: 2000, currency: 'EUR' }]); });
+    await waitFor(() => expect(result.current.syncStatus).toBe('error'));
+    // The tab regains focus offline: an auth event reruns the cloud load, and the list fails.
+    vi.mocked(listPortfolios).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const lists = vi.mocked(listPortfolios).mock.calls.length;
+    authState.user = { ...authState.user! };
+    rerender();
+    await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(lists + 1));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(result.current.activePortfolioId).toBe('p1');
+    expect(result.current.extraPortfolios.map((p) => p.id)).toEqual(['p1']);
+    // Back online, Retry saves the edit.
+    await act(async () => { result.current.retrySync(); });
+    const saves = vi.mocked(savePortfolio).mock.calls;
+    await waitFor(() => expect(saves[saves.length - 1][1].data?.facts.map((f) => f.sourceVl)).toContain(2000));
+  });
+
+  // Value: protects=a shared portfolio the user just picked shows its figures when a reload whose list fails overtakes the switch;
+  // fails_when=the reload leaves the portfolio open with no data and no error, an empty state whose import would replace its content;
+  // why_new=the test above has the portfolio already open; here the switch to it is still reading; seam=none; no_claim=a real offline browser (list and fetch mocked; unit only)
+  it('shows a shared portfolio from memory when a reload whose list fails overtakes the switch to it', async () => {
+    vi.mocked(listPortfolios).mockImplementation(async () => ({ loaded: [joint(), joint(1, 500, 'p2', 'Company')], failed: 0 }));
+    const slowFetch = deferred();
+    vi.mocked(fetchPortfolio).mockImplementation(async (_c, _u, _dk, id) => {
+      if (id !== 'p2') return id === 'p1' ? joint() : null;
+      await slowFetch.promise;
+      throw new TypeError('Failed to fetch');
+    });
+    const { result, rerender } = await openPersonal();
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.switchPortfolio('p2'); });
+    await waitFor(() => expect(fetchPortfolio).toHaveBeenCalled());
+    // Offline, the tab regains focus before the portfolio arrives.
+    vi.mocked(listPortfolios).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await rerunCloudLoad(rerender);
+    await act(async () => { slowFetch.resolve(); await opening; });
+    expect(result.current.activePortfolioId).toBe('p2');
+    expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([500]);
+  });
+
+  // Value: protects=All portfolios shows its totals when a reload whose list fails overtakes the switch to it;
+  // fails_when=the reload leaves the view open with no data;
+  // why_new=the test above covers an extra portfolio; All portfolios is built from every portfolio in memory; seam=none; no_claim=a real offline browser (list mocked; unit only)
+  it('shows All portfolios when a reload whose list fails overtakes the switch to it', async () => {
+    const { result, rerender } = await openPersonal();
+    const slowRead = deferred();
+    db.hold = slowRead.promise;
+    const before = db.reads;
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.switchPortfolio('all'); });
+    await waitFor(() => expect(db.reads).toBe(before + 1));
+    db.hold = null;
+    vi.mocked(listPortfolios).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await rerunCloudLoad(rerender);
+    await act(async () => { slowRead.resolve(); await opening; });
+    expect(result.current.activePortfolioId).toBe('all');
+    await waitFor(() => expect(totals(result.current.allSnapshots)).toEqual([600]));
+  });
+
+  // Value: protects=an edit in a shared portfolio saves after an unlock whose portfolio list fails;
+  // fails_when=the save finds no portfolio key (the lock dropped it, the failed list didn't bring it back) and asks an unlocked user to unlock, never saving;
+  // why_new=no test unlocks with the list failing; seam=none; no_claim=key unwrapping (fetch mocked; unit only)
+  it("saves a shared portfolio's edit after an unlock whose list fails", async () => {
+    const { result, rerender } = await openPersonal();
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    lock(rerender);
+    vi.mocked(listPortfolios).mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const lists = vi.mocked(listPortfolios).mock.calls.length;
+    unlock(rerender);
+    await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(lists + 1));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(result.current.activePortfolioId).toBe('p1');
+    toast.info.mockClear();
+    await act(async () => { result.current.addMeasurement([{ name: 'House', value: 2000, currency: 'EUR' }]); });
+    const saves = vi.mocked(savePortfolio).mock.calls;
+    await waitFor(() => expect(saves[saves.length - 1][1].data?.facts.map((f) => f.sourceVl)).toContain(2000));
+    expect(toast.info).not.toHaveBeenCalledWith('Unlock your data to sync this change.', expect.anything());
+  });
+
+  // Value: protects=a shared portfolio's unsaved edit survives a lock while the portfolio list loads, and saves after the unlock;
+  // fails_when=the list read with the zeroed key counts every portfolio as undecryptable, and the cleanup disposes the sync with its edit; or the load goes on to decrypt Personal with no key;
+  // why_new=the account-change test above covers a list that outlives its account; a lock keeps the account; seam=none; no_claim=decryption with a zeroed key (list and decode mocked; unit only)
+  it("keeps a shared portfolio's unsaved edit when the tab locks while the list loads", async () => {
+    const { result, rerender } = await openPersonal();
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    // The edit can't save: it stays in the tab.
+    vi.mocked(savePortfolio).mockRejectedValueOnce(new Error('offline'));
+    await act(async () => { result.current.addMeasurement([{ name: 'House', value: 2000, currency: 'EUR' }]); });
+    await waitFor(() => expect(result.current.syncStatus).toBe('error'));
+    await act(async () => { await result.current.switchPortfolio('personal'); });
+    // The next list request hangs, then answers as a list read with a zeroed key would.
+    const slowList = deferred();
+    vi.mocked(listPortfolios).mockImplementationOnce(async () => { await slowList.promise; return { loaded: [], failed: 1 }; });
+    await rerunCloudLoad(rerender);
+    lock(rerender);
+    toast.error.mockClear();
+    await act(async () => { slowList.resolve(); await new Promise((r) => setTimeout(r, 0)); });
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(result.current.extraPortfolios.map((p) => p.id)).toEqual(['p1']);
+    // The unlock lists the portfolio again, and its edit saves.
+    unlock(rerender);
+    const saves = vi.mocked(savePortfolio).mock.calls;
+    await waitFor(() => expect(saves[saves.length - 1][1].data?.facts.map((f) => f.sourceVl)).toContain(2000));
+  });
+});
+
+describe('a lock during a key fetch', () => {
+  // Value: protects=a save never encrypts under a portfolio key unwrapped after a lock zeroed the data key mid-fetch (a server could wrap one for the zero key);
+  // fails_when=the save adopts the fetched key and writes the portfolio under it, or keeps the key in memory;
+  // why_new=the unlock test above has no lock during the save's own key fetch; seam=none; no_claim=key unwrapping (fetch mocked; unit only)
+  it('drops the key a save fetched when the tab locked during the fetch', async () => {
+    const { result, rerender } = await openJointWithoutKey();
+    // The save's key fetch answers only after the tab locked.
+    const slowFetch = deferred();
+    const fetched = joint();
+    vi.mocked(fetchPortfolio).mockImplementationOnce(async () => { await slowFetch.promise; return fetched; });
+    const fetches = vi.mocked(fetchPortfolio).mock.calls.length;
+    await act(async () => { result.current.addMeasurement([{ name: 'House', value: 2000, currency: 'EUR' }]); });
+    await waitFor(() => expect(fetchPortfolio).toHaveBeenCalledTimes(fetches + 1));
+    lock(rerender);
+    toast.info.mockClear();
+    await act(async () => { slowFetch.resolve(); await new Promise((r) => setTimeout(r, 0)); });
+    expect(savePortfolio).not.toHaveBeenCalled();
+    expect(portfolioKeys.has('p1')).toBe(false);
+    expect(fetched.portfolioKey.every((b) => b === 0)).toBe(true);
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith('Unlock your data to sync this change.', expect.anything()));
+  });
+
+  // Value: protects=a save whose key fetch failed because a lock zeroed the data key mid-fetch asks the user to unlock;
+  // fails_when=the failed unwrap reads as a sync failure ("Couldn't sync…") instead of a lock;
+  // why_new=the test above has the fetch answer; here the unwrap fails, as with an honest server; seam=none; no_claim=key unwrapping (fetch mocked; unit only)
+  it('asks to unlock when a lock makes the key fetch for a save fail', async () => {
+    const { result, rerender } = await openJointWithoutKey();
+    const slowFetch = deferred();
+    vi.mocked(fetchPortfolio).mockImplementationOnce(async () => { await slowFetch.promise; throw new Error('authentication tag mismatch'); });
+    const fetches = vi.mocked(fetchPortfolio).mock.calls.length;
+    await act(async () => { result.current.addMeasurement([{ name: 'House', value: 2000, currency: 'EUR' }]); });
+    await waitFor(() => expect(fetchPortfolio).toHaveBeenCalledTimes(fetches + 1));
+    lock(rerender);
+    toast.info.mockClear();
+    toast.error.mockClear();
+    await act(async () => { slowFetch.resolve(); await new Promise((r) => setTimeout(r, 0)); });
+    expect(toast.error).not.toHaveBeenCalled();
+    await waitFor(() => expect(toast.info).toHaveBeenCalledWith('Unlock your data to sync this change.', expect.anything()));
+  });
+
+  // Value: protects=a switch never keeps a portfolio key unwrapped after a lock zeroed the data key mid-fetch, and shows no error over the lock;
+  // fails_when=the switch adopts the fetched key, or says "Couldn't open this portfolio";
+  // why_new=the tests above cover the save's key fetch; this is the switch's; seam=none; no_claim=key unwrapping (fetch mocked; unit only)
+  it('drops the key a switch fetched when the tab locked during the fetch', async () => {
+    const { result, rerender } = await openPersonal();
+    const slowFetch = deferred();
+    const fetched = joint();
+    vi.mocked(fetchPortfolio).mockImplementationOnce(async () => { await slowFetch.promise; return fetched; });
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.switchPortfolio('p1'); });
+    await waitFor(() => expect(fetchPortfolio).toHaveBeenCalledTimes(1));
+    lock(rerender);
+    toast.error.mockClear();
+    await act(async () => { slowFetch.resolve(); await opening; });
+    expect(portfolioKeys.has('p1')).toBe(false);
+    expect(fetched.portfolioKey.every((b) => b === 0)).toBe(true);
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

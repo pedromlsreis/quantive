@@ -147,6 +147,21 @@ describe('PortfolioSync', () => {
     expect(sync.settled).toBe(true);
   });
 
+  // Value: protects=a save that failed before a sign-out never retries afterwards, as whoever holds the tab by then;
+  // fails_when=the retry after the delay writes although the sync was disposed during it;
+  // why_new=the retry test above never disposes; seam=none; no_claim=a real sign-out (delay and save mocked; unit only)
+  it('drops the retry of a failed save when the sync is disposed during the delay', async () => {
+    const save = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    // The sign-out lands while the retry waits.
+    const d = deps({ save, delay: async () => { sync.dispose(); } });
+    const sync = new PortfolioSync({ meta, data: null }, d);
+    sync.apply({ type: 'addEntries', date: day(1), entries: [{ name: 'Savings', value: 1, currency: 'EUR' }] });
+
+    expect(await sync.flush()).toBe('error');
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(d.onError).not.toHaveBeenCalled();
+  });
+
   it('gives up after repeated conflicts', async () => {
     const save = vi.fn(async (): Promise<SaveOutcome> => ({ status: 'conflict', revision: 9 }));
     const d = deps({ save, fetch: async () => ({ meta: { ...meta, revision: 9 }, data: null }) });

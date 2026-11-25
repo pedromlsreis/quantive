@@ -22,9 +22,11 @@ const authState: {
 };
 
 const portfolioKeys = new Map<string, Uint8Array>();
+// One data key for the session, as KeySession holds it: a new one reads as a lock and unlock.
+const dataKey = new Uint8Array(32);
 const keySessionMock = {
   status: 'unlocked-encrypted' as const,
-  getDataKey: () => new Uint8Array(32),
+  getDataKey: () => dataKey,
   getPortfolioKey: (id: string) => portfolioKeys.get(id) ?? null,
   setPortfolioKey: (id: string, key: Uint8Array) => { portfolioKeys.set(id, key); },
   forgetPortfolioKey: (id: string) => { portfolioKeys.delete(id); },
