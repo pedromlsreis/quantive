@@ -25,7 +25,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
     id: 'all-portfolios',
-    date: '2026-11-21',
+    date: '2026-11-23',
     title: 'See all your portfolios added up',
     body: 'Choose All portfolios in the portfolio menu for one net worth across Personal and every other portfolio you can open, with its history, allocation and forecast. Each portfolio counts at your share of it, such as 50% of a joint one, set in the By portfolio table on the Overview. Shares are encrypted with your personal portfolio, so only you see them.',
     plan: 'family',
