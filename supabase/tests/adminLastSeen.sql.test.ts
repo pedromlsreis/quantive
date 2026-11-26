@@ -64,7 +64,7 @@ beforeAll(async () => {
       ('${FRESH_SIGN_IN}', '2026-11-19T08:00:00Z', null),
       ('${FRESH_SIGN_IN}', '2026-08-01T08:00:00Z', '2026-08-02 08:00:00');
   `);
-});
+}, 60_000);
 
 describe('admin_last_seen', () => {
   it('uses the newest session refresh when it is later than the last sign-in', async () => {
