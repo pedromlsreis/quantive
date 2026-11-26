@@ -1099,6 +1099,26 @@ describe('a request that outlives its account', () => {
     await act(async () => { slowRead.resolve(); await opening; });
     expect(toast.error).not.toHaveBeenCalled();
   });
+
+  // Value: protects=a switch to All portfolios that an account change overtook while it refreshed the shared portfolios reads nothing for the next account;
+  // fails_when=the old switch goes on to read Personal under the next account's session, finds no row, and keeps no shares and no Personal figures as theirs;
+  // why_new=the read test above starts its read before the change; here the change lands before the read starts; seam=none; no_claim=the row policy that hides the first account's snapshot (Supabase client mocked; unit only)
+  it('reads nothing for the next account from an All portfolios switch overtaken while refreshing', async () => {
+    const { result, rerender } = await openPersonal();
+    const slowFetch = deferred();
+    vi.mocked(fetchPortfolio).mockImplementationOnce(async () => { await slowFetch.promise; return joint(); });
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.switchPortfolio('all'); });
+    await waitFor(() => expect(fetchPortfolio).toHaveBeenCalledTimes(1));
+    await signInSecondAccount(rerender, () => result.current);
+    db.personal = null; // What a read of the first account's snapshot finds under the next account's session.
+    const reads = db.reads;
+    await act(async () => { slowFetch.resolve(); await opening; });
+    expect(db.reads).toBe(reads);
+    db.personal = personalBlob({ p1: 30 });
+    await rebuildAllView(() => result.current);
+    expect(totals(result.current.allSnapshots)).toEqual([400]);
+  });
 });
 
 describe('a portfolio list that fails to load', () => {
@@ -1273,5 +1293,95 @@ describe('a lock during a key fetch', () => {
     expect(portfolioKeys.has('p1')).toBe(false);
     expect(fetched.portfolioKey.every((b) => b === 0)).toBe(true);
     expect(toast.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('a lock while Personal loads', () => {
+  // Value: protects=a lock while a switch reads Personal shows no decryption error and pauses nothing, and Personal opens and takes entries after the unlock;
+  // fails_when=the read finds no key and says "Couldn't decrypt your saved data", and the switch adds that Personal failed to load;
+  // why_new=the lock tests above lock during a key fetch or the list, never during the personal snapshot read; seam=none; no_claim=decryption with no key (decode mocked; unit only)
+  it('shows no error when the tab locks while a switch reads Personal', async () => {
+    const { result, rerender } = await openPersonal();
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    const slowRead = deferred();
+    db.hold = slowRead.promise;
+    const before = db.reads;
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.switchPortfolio('personal'); });
+    await waitFor(() => expect(db.reads).toBe(before + 1));
+    db.hold = null;
+    lock(rerender);
+    toast.error.mockClear();
+    await act(async () => { slowRead.resolve(); await opening; });
+    expect(toast.error).not.toHaveBeenCalled();
+    unlock(rerender);
+    await waitFor(() => expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([100]));
+    await act(async () => { result.current.addMeasurement([{ name: 'Savings', value: 150, currency: 'EUR' }]); });
+    await waitFor(() => expect(storedValues()).toEqual([100, 150]));
+  });
+
+  // Value: protects=a lock while a reload reads Personal shows no decryption error over the lock;
+  // fails_when=the reload's read finds no key and says "Couldn't decrypt your saved data. Sign out and back in to retry.";
+  // why_new=the test above is a switch; this is the cloud load each auth event reruns; seam=none; no_claim=decryption with no key (decode mocked; unit only)
+  it('shows no error when the tab locks while a reload reads Personal', async () => {
+    const { result, rerender } = await openPersonal();
+    const slowRead = deferred();
+    db.hold = slowRead.promise;
+    const before = db.reads;
+    await rerunCloudLoad(rerender);
+    await waitFor(() => expect(db.reads).toBe(before + 1));
+    db.hold = null;
+    lock(rerender);
+    toast.error.mockClear();
+    await act(async () => { slowRead.resolve(); await new Promise((r) => setTimeout(r, 0)); });
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([100]);
+  });
+
+  // Value: protects=a lock while All portfolios reads Personal shows no error, and the view opens after the unlock;
+  // fails_when=the read finds no key and says "Couldn't decrypt your saved data", then the view says Personal couldn't load;
+  // why_new=the tests above read Personal to show it; All portfolios reads it for the total; seam=none; no_claim=decryption with no key (decode mocked; unit only)
+  it('shows no error when the tab locks while All portfolios reads Personal', async () => {
+    const { result, rerender } = await openPersonal();
+    const slowRead = deferred();
+    db.hold = slowRead.promise;
+    const before = db.reads;
+    let opening!: Promise<void>;
+    act(() => { opening = result.current.switchPortfolio('all'); });
+    await waitFor(() => expect(db.reads).toBe(before + 1));
+    db.hold = null;
+    lock(rerender);
+    toast.error.mockClear();
+    await act(async () => { slowRead.resolve(); await opening; });
+    expect(toast.error).not.toHaveBeenCalled();
+    unlock(rerender);
+    await waitFor(() => expect(totals(result.current.allSnapshots)).toEqual([600]));
+  });
+});
+
+describe('a portfolio list that lands after a newer one', () => {
+  // Value: protects=an older portfolio list that lands after the newer one an invite ran leaves the portfolios alone, so the joined portfolio keeps its unsaved edit;
+  // fails_when=the older list, read before the user joined, runs its cleanup and disposes the joined portfolio's sync with its edit;
+  // why_new=the tests above fail or interrupt one list; here two lists overlap and land out of order; seam=none; no_claim=real request timing (list and save mocked; unit only)
+  it("keeps a joined portfolio's unsaved edit when an older list lands last", async () => {
+    const { result, rerender } = await openPersonal();
+    // A reload's list hangs: it was read before the user joined Company.
+    const slowList = deferred();
+    vi.mocked(listPortfolios).mockImplementationOnce(async () => { await slowList.promise; return { loaded: [joint()], failed: 0 }; });
+    await rerunCloudLoad(rerender);
+    const company = () => joint(1, 500, 'p2', 'Company');
+    vi.mocked(listPortfolios).mockImplementation(async () => ({ loaded: [joint(), company()], failed: 0 }));
+    vi.mocked(fetchPortfolio).mockImplementation(async (_c, _u, _dk, id) => (id === 'p1' ? joint() : id === 'p2' ? company() : null));
+    await act(async () => { await result.current.openJoinedPortfolio('p2'); });
+    expect(result.current.activePortfolioId).toBe('p2');
+    // The edit can't save yet: it stays in the tab.
+    vi.mocked(savePortfolio).mockRejectedValueOnce(new Error('offline'));
+    await act(async () => { result.current.addMeasurement([{ name: 'House', value: 700, currency: 'EUR' }]); });
+    await waitFor(() => expect(result.current.syncStatus).toBe('error'));
+    await act(async () => { slowList.resolve(); await new Promise((r) => setTimeout(r, 0)); });
+    expect(result.current.extraPortfolios.map((p) => p.id)).toEqual(['p1', 'p2']);
+    await act(async () => { result.current.retrySync(); });
+    const saves = vi.mocked(savePortfolio).mock.calls;
+    await waitFor(() => expect(saves[saves.length - 1][1].data?.facts.map((f) => f.sourceVl)).toContain(700));
   });
 });

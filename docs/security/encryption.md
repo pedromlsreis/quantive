@@ -1,7 +1,7 @@
 # End-to-End Encryption — Design
 
 **Status:** Implemented (v0.1 wire format = `enc_version = 1`)
-**Last updated:** 2026-11-25
+**Last updated:** 2026-11-26
 **Tracking issue:** [#33](https://github.com/pedromlsreis/quantive/issues/33)
 
 > This document is the source of truth for how Quantive encrypts user data. It is **public on purpose**: the encryption module is open-source under [`src/lib/crypto/`](../../src/lib/crypto/), and this design is meant to be reviewed by the community. If you spot something wrong, please open an issue.
@@ -31,7 +31,7 @@
 | Email change and deletion take only a fresh password sign-in; an older (refreshed) session or an emailed-link session is refused (§8.12) | [recentAuth.test.ts](../../supabase/functions/_shared/__tests__/recentAuth.test.ts) |
 | Email-change link: only its hash is stored; another request's, an expired or an out-of-date token is refused; the email to the new address doesn't name the current one (§8.11) | [emailChange.test.ts](../../supabase/functions/_shared/__tests__/emailChange.test.ts) |
 | Concurrent edits: unsaved edits replayed on the stored version, applying an edit twice changes nothing, a clashing rename is dropped with a message | [portfolioOps.test.ts](../../src/lib/__tests__/portfolioOps.test.ts), [portfolioSync.test.ts](../../src/lib/__tests__/portfolioSync.test.ts) |
-| Shares of extra portfolios are saved only in the personal snapshot (§9.1); setting one decrypts the latest snapshot first, keeps entries and shares saved elsewhere before that read, changes nothing else in it, and leaves a snapshot it can't decrypt untouched; a personal save re-reads and keeps them; one tab's writes of the personal snapshot land in order; a save, or a read of the personal snapshot or the portfolio list, that outlives the tab's account writes nothing and adopts nothing (§8.6); a Personal that failed to load refuses edits (§9.2); neither a share save nor a personal save's retry encrypts with a DK a lock zeroed | [PortfolioContext.allPortfolios.test.tsx](../../src/contexts/__tests__/PortfolioContext.allPortfolios.test.tsx), [portfolios.spec.ts](../../e2e/portfolios.spec.ts) |
+| Shares of extra portfolios are saved only in the personal snapshot (§9.1); setting one decrypts the latest snapshot first, keeps entries and shares saved elsewhere before that read, changes nothing else in it, and leaves a snapshot it can't decrypt untouched; a personal save re-reads and keeps them; one tab's writes of the personal snapshot land in order; a personal save still reading the snapshot when the tab's account changes writes nothing, and a read of the personal snapshot or the portfolio list that the previous account started adopts nothing (§8.6); a portfolio list that lands after a newer one, or after the tab created a portfolio, changes nothing (§9.3); a Personal that failed to load refuses edits, and a lock during its load shows no error (§9.2); neither a share save nor a personal save's retry encrypts with a DK a lock zeroed | [PortfolioContext.allPortfolios.test.tsx](../../src/contexts/__tests__/PortfolioContext.allPortfolios.test.tsx), [PortfolioContext.portfolios.test.tsx](../../src/contexts/__tests__/PortfolioContext.portfolios.test.tsx), [portfolios.spec.ts](../../e2e/portfolios.spec.ts) |
 | **RLS, triggers and sharing functions** on an in-memory Postgres with the real migrations: isolation, one-time invites, the partner seat, rotation, revisions, ownership transfer | [portfolioSharing.sql.test.ts](../../supabase/tests/portfolioSharing.sql.test.ts) |
 | The same, against the live project as two signed-in users (run locally; needs the E2E test users) | [rls-portfolios.spec.ts](../../e2e/rls-portfolios.spec.ts) |
 | Invite, join, concurrent edits and removal in two browsers | [family-sharing.spec.ts](../../e2e/family-sharing.spec.ts) |
@@ -703,11 +703,11 @@ No key, AAD or `enc_version` changes.
 3. portfolio = JSON.parse(plaintext)
 ```
 
-While a load that opens Personal is still running, and when step 1 fails or step 2 throws, Personal refuses edits until a load succeeds: the next save writes the whole snapshot, so one entry made over a view that couldn't load would replace the stored history. A load that finds no row is an empty portfolio, not a failure. Only the current load that opens Personal decides. A load a newer one overtook changes nothing, and so does one whose read raced a new entry. A failed reload over a Personal already on screen keeps that copy, and it stays editable.
+While a load that opens Personal is still running, and when step 1 fails or step 2 throws, Personal refuses edits until a load succeeds: the next save writes the whole snapshot, so one entry made over a view that couldn't load would replace the stored history. A load that finds no row is an empty portfolio, not a failure. Only the current load that opens Personal decides. A load a newer one overtook changes nothing, and so does one whose read raced a new entry. A failed reload over a Personal already on screen keeps that copy, and it stays editable. A lock while a load runs isn't a failure: the key step 2 needs is gone, so the load stops without a message and the unlock runs it again.
 
 ### 9.3 Save and load an extra portfolio
 
-Loading lists every portfolio the user is a member of, unwraps each PK with the DK (§6.4) and decrypts each blob (§6.5). A portfolio that fails to open is skipped and counted, so it cannot hide the others.
+Loading lists every portfolio the user is a member of, unwraps each PK with the DK (§6.4) and decrypts each blob (§6.5). A portfolio that fails to open is skipped and counted, so it cannot hide the others. A list that lands after a newer one, or after the tab created a portfolio, changes nothing: it would drop a portfolio added since, with any edit not yet saved.
 
 Two people can write the same blob, so a save is a compare-and-swap, and edits are kept as operations until they are saved ([`portfolioOps.ts`](../../src/lib/portfolioOps.ts), [`portfolioSync.ts`](../../src/lib/portfolioSync.ts)):
 
