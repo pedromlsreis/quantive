@@ -1385,3 +1385,71 @@ describe('a portfolio list that lands after a newer one', () => {
     await waitFor(() => expect(saves[saves.length - 1][1].data?.facts.map((f) => f.sourceVl)).toContain(700));
   });
 });
+
+describe('a shared portfolio whose content is malformed', () => {
+  // Value: protects=a shared portfolio whose decrypted content holds malformed entries or fields can't keep Personal from opening, or itself from being listed, and its sources keep their names;
+  // fails_when=normalising a null fact, or coercing an object-valued field, throws inside the list, the cloud load stops there, and Personal refuses every entry as still loading, on every load;
+  // why_new=no test feeds the list content that decrypts but isn't the expected shape; seam=none; no_claim=the client that wrote it (list and fetch mocked; unit only)
+  it('opens Personal and the portfolio when its content has malformed entries', async () => {
+    // A JSON object whose toString isn't a function makes String(), Number() and new Date() throw.
+    const unprintable = { toString: null };
+    const malformed = (): LoadedPortfolio => {
+      const p = joint();
+      return {
+        ...p,
+        content: {
+          ...p.content,
+          facts: [
+            null,
+            { date: '2026-01-31', idSource: unprintable, sourceVl: 5, currency: 'EUR' },
+            { date: unprintable, idSource: 'House', sourceVl: 7 },
+            ...(p.content.facts as unknown[]),
+          ],
+          refSources: [
+            {},
+            { idSource: 'Odd', volatType: 5, transferableInDays: { formula: 'A1' }, category: 3 },
+            { idSource: 'Flags', volatType: 'Volatile', transferableInDays: 'false', isPaused: 'no' },
+            ...(p.content.refSources as unknown[]),
+          ],
+          goals: [{ id: 'g1', name: 'House deposit', targetAmount: unprintable, targetCurrency: 'EUR', targetDate: '2027-01-01', createdAt: '2026-01-01' }],
+        },
+      };
+    };
+    vi.mocked(listPortfolios).mockImplementation(async () => ({ loaded: [malformed()], failed: 0 }));
+    vi.mocked(fetchPortfolio).mockImplementation(async (_c, _u, _dk, id) => (id === 'p1' ? malformed() : null));
+    const { result } = await openPersonal();
+    expect(result.current.extraPortfolios.map((p) => p.id)).toEqual(['p1']);
+    await act(async () => { result.current.addMeasurement([{ name: 'Savings', value: 150, currency: 'EUR' }]); });
+    await waitFor(() => expect(storedValues()).toEqual([100, 150]));
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([1000]);
+    expect(result.current.data?.refSources.map((s) => [s.idSource, s.volatType, s.transferableInDays, s.category, s.isPaused])).toEqual([
+      ['Odd', 'Unknown', false, undefined, undefined],
+      ['Flags', 'Volatile', false, undefined, undefined],
+      ['House', 'Non-volatile', false, undefined, undefined],
+    ]);
+    expect(result.current.goals).toEqual([]);
+  });
+});
+
+describe('a key from an older epoch', () => {
+  // Value: protects=a key from an older epoch than the tab knows is refused even when the tab holds no key for that portfolio;
+  // fails_when=the retired check runs only while a key is held, so a save after a lock adopts the retired key and writes under it at the newer epoch;
+  // why_new=the rotation test in PortfolioContext.portfolios.test.tsx holds the new key when the late read lands; seam=none; no_claim=how a retired key reaches a tab holding none (fetch mocked; unit only)
+  it('refuses a retired key for a save when the tab holds no key', async () => {
+    const atEpoch = (keyEpoch: number, fill: number): LoadedPortfolio => {
+      const p = joint(keyEpoch);
+      return { ...p, meta: { ...p.meta, keyEpoch }, portfolioKey: new Uint8Array(32).fill(fill) };
+    };
+    vi.mocked(listPortfolios).mockImplementation(async () => ({ loaded: [atEpoch(2, 7)], failed: 0 }));
+    vi.mocked(fetchPortfolio).mockImplementation(async (_c, _u, _dk, id) => (id === 'p1' ? atEpoch(2, 7) : null));
+    const { result } = await openJointWithoutKey();
+    const retired = atEpoch(1, 3);
+    vi.mocked(fetchPortfolio).mockImplementation(async () => retired);
+    await act(async () => { result.current.addMeasurement([{ name: 'House', value: 2000, currency: 'EUR' }]); });
+    await waitFor(() => expect(retired.portfolioKey.every((b) => b === 0)).toBe(true));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(savePortfolio).not.toHaveBeenCalled();
+    expect(portfolioKeys.has('p1')).toBe(false);
+  });
+});

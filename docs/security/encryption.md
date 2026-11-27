@@ -1,7 +1,7 @@
 # End-to-End Encryption — Design
 
 **Status:** Implemented (v0.1 wire format = `enc_version = 1`)
-**Last updated:** 2026-11-26
+**Last updated:** 2026-11-27
 **Tracking issue:** [#33](https://github.com/pedromlsreis/quantive/issues/33)
 
 > This document is the source of truth for how Quantive encrypts user data. It is **public on purpose**: the encryption module is open-source under [`src/lib/crypto/`](../../src/lib/crypto/), and this design is meant to be reviewed by the community. If you spot something wrong, please open an issue.
@@ -25,12 +25,12 @@
 | AAD framing for portfolio-key, portfolio-blob and invite wraps (§6.4–§6.6) | [aad.test.ts](../../src/lib/crypto/__tests__/aad.test.ts) |
 | **Portfolio isolation**: a PK wrap or blob fails under another user, portfolio, epoch or key | [portfolioKey.test.ts](../../src/lib/crypto/__tests__/portfolioKey.test.ts) |
 | Portfolio create / list / compare-and-swap save; a swapped blob is skipped, not shown; fact dates stored as calendar days | [portfolios.test.ts](../../src/lib/__tests__/portfolios.test.ts) |
-| Key rotation re-encrypts at the next epoch and the old key can no longer write; an earlier version opens with the retired key | [portfolios.test.ts](../../src/lib/__tests__/portfolios.test.ts) |
+| Key rotation re-encrypts at the next epoch and the old key can no longer write; an earlier version opens with the retired key; a read from before a rotation that lands after it never brings the retired key back | [portfolios.test.ts](../../src/lib/__tests__/portfolios.test.ts), [PortfolioContext.portfolios.test.tsx](../../src/contexts/__tests__/PortfolioContext.portfolios.test.tsx) |
 | **Invite secret never reaches the server**; a changed secret or another invite's id is refused before any call; the partner's re-wrap opens with their DK only | [portfolioSharing.test.ts](../../src/lib/__tests__/portfolioSharing.test.ts) |
 | Invite secret taken out of the address bar before the app starts; analytics never carries a URL fragment or an invite id | [inviteFragment.test.ts](../../src/lib/__tests__/inviteFragment.test.ts), [analytics.events.test.ts](../../src/lib/__tests__/analytics.events.test.ts) |
 | Email change and deletion take only a fresh password sign-in; an older (refreshed) session or an emailed-link session is refused (§8.12) | [recentAuth.test.ts](../../supabase/functions/_shared/__tests__/recentAuth.test.ts) |
 | Email-change link: only its hash is stored; another request's, an expired or an out-of-date token is refused; the email to the new address doesn't name the current one (§8.11) | [emailChange.test.ts](../../supabase/functions/_shared/__tests__/emailChange.test.ts) |
-| Concurrent edits: unsaved edits replayed on the stored version, applying an edit twice changes nothing, a clashing rename is dropped with a message | [portfolioOps.test.ts](../../src/lib/__tests__/portfolioOps.test.ts), [portfolioSync.test.ts](../../src/lib/__tests__/portfolioSync.test.ts) |
+| Concurrent edits: unsaved edits replayed on the stored version, applying an edit twice changes nothing, a clashing rename is dropped with a message, a conflict never steps back to an older version | [portfolioOps.test.ts](../../src/lib/__tests__/portfolioOps.test.ts), [portfolioSync.test.ts](../../src/lib/__tests__/portfolioSync.test.ts) |
 | Shares of extra portfolios are saved only in the personal snapshot (§9.1); setting one decrypts the latest snapshot first, keeps entries and shares saved elsewhere before that read, changes nothing else in it, and leaves a snapshot it can't decrypt untouched; a personal save re-reads and keeps them; one tab's writes of the personal snapshot land in order; a personal save still reading the snapshot when the tab's account changes writes nothing, and a read of the personal snapshot or the portfolio list that the previous account started adopts nothing (§8.6); a portfolio list that lands after a newer one, or after the tab created a portfolio, changes nothing (§9.3); a Personal that failed to load refuses edits, and a lock during its load shows no error (§9.2); neither a share save nor a personal save's retry encrypts with a DK a lock zeroed | [PortfolioContext.allPortfolios.test.tsx](../../src/contexts/__tests__/PortfolioContext.allPortfolios.test.tsx), [PortfolioContext.portfolios.test.tsx](../../src/contexts/__tests__/PortfolioContext.portfolios.test.tsx), [portfolios.spec.ts](../../e2e/portfolios.spec.ts) |
 | **RLS, triggers and sharing functions** on an in-memory Postgres with the real migrations: isolation, one-time invites, the partner seat, rotation, revisions, ownership transfer | [portfolioSharing.sql.test.ts](../../supabase/tests/portfolioSharing.sql.test.ts) |
 | The same, against the live project as two signed-in users (run locally; needs the E2E test users) | [rls-portfolios.spec.ts](../../e2e/rls-portfolios.spec.ts) |
@@ -707,7 +707,7 @@ While a load that opens Personal is still running, and when step 1 fails or step
 
 ### 9.3 Save and load an extra portfolio
 
-Loading lists every portfolio the user is a member of, unwraps each PK with the DK (§6.4) and decrypts each blob (§6.5). A portfolio that fails to open is skipped and counted, so it cannot hide the others. A list that lands after a newer one, or after the tab created a portfolio, changes nothing: it would drop a portfolio added since, with any edit not yet saved.
+Loading lists every portfolio the user is a member of, unwraps each PK with the DK (§6.4) and decrypts each blob (§6.5). A portfolio that fails to open is skipped and counted, so it cannot hide the others. In one that opens, another member's client wrote the blob, so an entry of the wrong shape is dropped, and a field of the wrong type is replaced by its default or drops its entry, before anything reads it. A list that lands after a newer one, or after the tab created a portfolio, changes nothing: it would drop a portfolio added since, with any edit not yet saved.
 
 Two people can write the same blob, so a save is a compare-and-swap, and edits are kept as operations until they are saved ([`portfolioOps.ts`](../../src/lib/portfolioOps.ts), [`portfolioSync.ts`](../../src/lib/portfolioSync.ts)):
 
@@ -723,6 +723,7 @@ Two people can write the same blob, so a save is a compare-and-swap, and edits a
 ```
 
 - Applying an op twice changes nothing, because a save can land while its response is lost.
+- A conflict never moves the stored version back to an older revision than the one the tab already has (a server restored from a backup, say): that version's key may not be the one the tab holds, so the tab keeps retrying until it gives up rather than write over it.
 - An op that no longer applies after a replay is dropped with a message, for example renaming a source to a name the partner just used. Replacing everything (a spreadsheet import, or restoring a version) is dropped rather than replayed, so it cannot silently wipe the other person's edits.
 - Fact dates in an extra portfolio are stored as calendar days (`YYYY-MM-DD`) and read as local midnight, so partners in different time zones see the same day.
 - A partner's saves appear when the window regains focus; there is no realtime channel.
@@ -785,7 +786,7 @@ JavaScript provides no hard memory-zeroing guarantee due to garbage collection. 
 - On `logout()`: zero KEK and DK, drop references.
 - On `beforeunload`, and after an idle timeout (default 15 minutes; configurable in Settings as off, 5, 15, 30 or 60 minutes): zero KEK and DK and force a re-prompt on the next action. Background tabs throttle timers, so the timeout is also checked on `visibilitychange` when the tab becomes visible again.
 - KEK and DK are **never** placed in `localStorage`, `sessionStorage`, IndexedDB, or any persistent store.
-- Portfolio keys follow the DK: held in the same in-memory store and zeroed with it on lock, logout and user change. A key replaced by a rotation is zeroed.
+- Portfolio keys follow the DK: held in the same in-memory store and zeroed with it on lock, logout and user change. A key replaced by a rotation is zeroed, and a key from an older epoch than the tab already knows for that portfolio, brought by a read that started before a rotation, is zeroed and never used.
 - A portfolio key unwrapped after a network wait is kept only while the DK it was unwrapped with is still the live one. A lock zeroes the DK in place, and a key unwrapped with zeros could be one the server wrapped for the zero key; such a key is zeroed and the save or switch stops as locked.
 - The invite secret S is held in memory from the moment the page reads it until the invite is accepted, then zeroed. It is never stored.
 

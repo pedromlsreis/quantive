@@ -179,6 +179,35 @@ describe('loading', () => {
     expect(portfolioKeys.get('p1')).toBe(newKey);
   });
 
+  // Value: protects=a list or fetch read before a key rotation that lands after it never puts the retired key back, so the next save stays readable for every member;
+  // fails_when=the late read replaces the new key with the retired one, and the next save encrypts under it at the new epoch;
+  // why_new=the re-key test above has no read landing after the rotation; seam=none; no_claim=real rotation timing (list, fetch and rotation mocked; unit only)
+  it('keeps the new key when a read from before a rotation lands after it', async () => {
+    vi.mocked(listPortfolios).mockResolvedValue({ loaded: [loaded('p1', 'Joint', 3, 100, { rotationDue: true })], failed: 0 });
+    const newKey = new Uint8Array(32).fill(9);
+    vi.mocked(rotatePortfolioKey).mockResolvedValue({ outcome: { status: 'ok', revision: 4, keyEpoch: 2 }, portfolioKey: newKey });
+    const { result, rerender } = await renderLoaded();
+    await waitFor(() => expect(result.current.extraPortfolios[0]).toMatchObject({ revision: 4, keyEpoch: 2 }));
+    // A reload's list and the switch's fetch both read the portfolio before the rotation committed.
+    const beforeRotation = () => loaded('p1', 'Joint', 3, 100);
+    vi.mocked(listPortfolios).mockImplementation(async () => ({ loaded: [beforeRotation()], failed: 0 }));
+    vi.mocked(fetchPortfolio).mockImplementation(async () => beforeRotation());
+    const lists = vi.mocked(listPortfolios).mock.calls.length;
+    authState.user = { ...authState.user! };
+    rerender();
+    await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(lists + 1));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(portfolioKeys.get('p1')).toBe(newKey);
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    expect(portfolioKeys.get('p1')).toBe(newKey);
+    await act(async () => { result.current.addMeasurement([{ name: 'Joint account', value: 150, currency: 'EUR' }]); });
+    await waitFor(() => expect(savePortfolio).toHaveBeenCalled());
+    const saves = vi.mocked(savePortfolio).mock.calls;
+    const sent = saves[saves.length - 1][1];
+    expect(sent.meta).toMatchObject({ revision: 4, keyEpoch: 2 });
+    expect(sent.portfolioKey).toBe(newKey);
+  });
+
   it("leaves a portfolio shared with the user alone when it's due a rotation", async () => {
     vi.mocked(listPortfolios).mockResolvedValue({
       loaded: [loaded('p1', 'Joint', 3, 100, { rotationDue: true, ownerId: PARTNER })],

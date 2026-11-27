@@ -194,6 +194,10 @@ export class PortfolioSync {
         }
         if (this.disposed) return 'error';
         if (!latest) return this.forbid();
+        // Never step back to a version older than this sync's own (a server
+        // restored from a backup, say): its key may not be the one held, so a
+        // save on top of it could land unreadable. Retry until conflicts run out.
+        if (latest.meta.revision < this.base.meta.revision) continue;
         this.rebase(latest);
         this.deps.onView(this.view);
         continue;

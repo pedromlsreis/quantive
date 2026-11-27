@@ -159,6 +159,13 @@ type RawCloudPortfolio = {
   portfolioShares?: unknown;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+// Any object, even plain JSON, can make String(), Number() and new Date() throw
+// (a "toString" key that isn't a function), so only primitives reach them.
+const isPrimitive = (value: unknown): boolean => value === null || typeof value !== 'object';
+
 /**
  * Defensive normaliser for the goals array on a freshly-decoded snapshot.
  * Treats anything malformed as an empty list rather than throwing, so a
@@ -170,6 +177,7 @@ function coerceGoals(value: unknown): Goal[] {
   for (const raw of value) {
     if (!raw || typeof raw !== 'object') continue;
     const r = raw as Record<string, unknown>;
+    if (!isPrimitive(r.targetAmount) || !isPrimitive(r.targetCurrency)) continue;
     const id = typeof r.id === 'string' ? r.id : null;
     const name = typeof r.name === 'string' ? r.name : null;
     const targetAmount = typeof r.targetAmount === 'number' ? r.targetAmount : Number(r.targetAmount);
@@ -185,13 +193,35 @@ function coerceGoals(value: unknown): Goal[] {
 }
 
 /**
+ * A source as pages read it: name, volatility and category as text, flags as
+ * booleans (pages test them for truth, so a string "false" would count as
+ * set). One without a name is dropped; another field of the wrong type falls
+ * back to what a missing one means, so the source keeps its settings.
+ */
+function coerceRefSource(value: unknown): RefSource | null {
+  if (!isRecord(value) || typeof value.idSource !== 'string') return null;
+  return {
+    ...value,
+    idSource: value.idSource,
+    volatType: typeof value.volatType === 'string' ? value.volatType : 'Unknown',
+    transferableInDays: typeof value.transferableInDays === 'boolean' ? value.transferableInDays : false,
+    category: typeof value.category === 'string' ? value.category : undefined,
+    isPaused: typeof value.isPaused === 'boolean' ? value.isPaused : undefined,
+  } as RefSource;
+}
+
+/**
  * Validated facts, sources and goals from a decoded blob. Facts with an
- * invalid date are dropped and counted.
+ * invalid date are dropped and counted. A shared portfolio's blob comes from
+ * another member's client, so an entry or field of the wrong type is dropped
+ * or replaced before anything reads it: a single one would otherwise stop the
+ * whole load.
  */
 function normalisePortfolio(raw: Partial<RawCloudPortfolio>, context: string): { data: PortfolioData; skipped: number } {
   const rawFacts = Array.isArray(raw.facts) ? raw.facts : [];
   const facts = rawFacts
-    .map((f, i): FactRow | null => {
+    .map((f: unknown, i): FactRow | null => {
+      if (!isRecord(f) || ![f.date, f.idSource, f.sourceVl, f.currency].every(isPrimitive)) return null;
       const date = safeDateWithWarning(f.date, context, i);
       if (!date) return null;
       return {
@@ -205,7 +235,9 @@ function normalisePortfolio(raw: Partial<RawCloudPortfolio>, context: string): {
   return {
     data: {
       facts,
-      refSources: Array.isArray(raw.refSources) ? raw.refSources : [],
+      refSources: Array.isArray(raw.refSources)
+        ? (raw.refSources as unknown[]).map(coerceRefSource).filter((s): s is RefSource => s !== null)
+        : [],
       goals: coerceGoals(raw.goals),
     },
     skipped: rawFacts.length - facts.length,
@@ -743,11 +775,15 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (combined) setDefaultDateRange(combined);
   }, [buildAllParts, commitData, setDefaultDateRange]);
 
-  // Keep the key already in memory unless the epoch moved: a save in flight
-  // may still be encrypting with it, and replacing it would zero it.
+  // Keep the key already in memory unless the epoch moved forward: a save in
+  // flight may still be encrypting with it, and replacing it would zero it.
+  // A key from an older epoch than this tab knows is a retired one, held key
+  // or not: a read from before a rotation can land after it, and a save under
+  // that key would leave the portfolio unreadable at its current epoch.
   const adoptPortfolioKey = useCallback((loaded: LoadedPortfolio) => {
     const known = extraMetaRef.current.get(loaded.meta.id);
-    if (getPortfolioKey(loaded.meta.id) && known?.keyEpoch === loaded.meta.keyEpoch) {
+    const retired = known !== undefined && loaded.meta.keyEpoch < known.keyEpoch;
+    if (retired || (getPortfolioKey(loaded.meta.id) && known?.keyEpoch === loaded.meta.keyEpoch)) {
       loaded.portfolioKey.fill(0);
     } else {
       setPortfolioKey(loaded.meta.id, loaded.portfolioKey);
