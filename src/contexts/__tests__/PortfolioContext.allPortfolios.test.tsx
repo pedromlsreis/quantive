@@ -1491,6 +1491,25 @@ describe('a lock or an account change while a key is made or used', () => {
     expect(vi.mocked(savePortfolio).mock.calls.some(([, { data }]) => data?.facts.some((f) => f.sourceVl === 666))).toBe(false);
   });
 
+  // Value: protects=a version restore whose read fails because a lock zeroed its keys shows no error over the unlock screen;
+  // fails_when=the failed decrypt reads as a failed restore and says "Couldn't restore that version" while the tab is locked;
+  // why_new=the test above has the read succeed, which only a server that made a version for zeroed keys could; seam=none; no_claim=decryption with zeroed keys (openRevision mocked; unit only)
+  it('says nothing when a lock makes a version restore fail', async () => {
+    const { result, rerender } = await openPersonal();
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    const slowRevision = deferred();
+    vi.mocked(openRevision).mockImplementationOnce(async () => { await slowRevision.promise; throw new Error('authentication tag mismatch'); });
+    let restoring!: Promise<boolean>;
+    act(() => { restoring = result.current.restorePortfolioVersion('p1', 1); });
+    await waitFor(() => expect(openRevision).toHaveBeenCalledTimes(1));
+    lock(rerender);
+    toast.error.mockClear();
+    let ok = true;
+    await act(async () => { slowRevision.resolve(); ok = await restoring; });
+    expect(ok).toBe(false);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
   // Value: protects=the key of a portfolio created while the tab locked never outlives the lock, and the create still counts as done;
   // fails_when=the create installs the new key and portfolio in the tab after the lock cleared every key;
   // why_new=no test locks during a create; seam=none; no_claim=the server-side create (create mocked; unit only)
@@ -1532,10 +1551,10 @@ describe('a lock or an account change while a key is made or used', () => {
     expect(toast.error).not.toHaveBeenCalled();
   });
 
-  // Value: protects=the new key of a rotation that a lock interrupted never outlives the lock;
-  // fails_when=the rotate handler installs the new key after the lock cleared every key;
-  // why_new=the lock tests above cover keys a fetch unwrapped, not a key a rotation made; seam=none; no_claim=the server-side rotation (rotation mocked; unit only)
-  it('drops the new key of a rotation the tab locked during', async () => {
+  // Value: protects=the new key of a rotation that a lock interrupted never outlives the lock, and the rotation still counts, so the unlock neither re-encrypts again nor warns;
+  // fails_when=the rotate handler installs the new key after the lock cleared every key, or throws the committed rotation away so the unlock rotates a second time;
+  // why_new=the lock tests above cover keys a fetch unwrapped, not a key a rotation made; seam=none; no_claim=the server-side rotation (rotation and list mocked; unit only)
+  it('drops the new key of a rotation the tab locked during, and keeps the rotation', async () => {
     const { result, rerender } = await openPersonal();
     const slowRotation = deferred();
     const newKey = new Uint8Array(32).fill(9);
@@ -1550,5 +1569,17 @@ describe('a lock or an account change while a key is made or used', () => {
     await act(async () => { slowRotation.resolve(); await removing; });
     expect(portfolioKeys.has('p1')).toBe(false);
     expect(newKey.every((b) => b === 0)).toBe(true);
+    expect(toast.warning).not.toHaveBeenCalledWith(expect.stringMatching(/didn't finish/));
+    // The unlock's list serves the rotated portfolio, with its new key wrapped for the owner.
+    vi.mocked(listPortfolios).mockImplementation(async () => {
+      const p = joint(2);
+      return { loaded: [{ ...p, meta: { ...p.meta, keyEpoch: 2 }, portfolioKey: new Uint8Array(32).fill(9) }], failed: 0 };
+    });
+    const lists = vi.mocked(listPortfolios).mock.calls.length;
+    unlock(rerender);
+    await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(lists + 1));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(rotatePortfolioKey).toHaveBeenCalledTimes(1);
+    expect(portfolioKeys.get('p1')?.every((b) => b === 9)).toBe(true);
   });
 });

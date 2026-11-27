@@ -27,7 +27,7 @@ export const CHANGELOG: readonly ChangelogEntry[] = [
     id: 'lock-safe-portfolio-changes',
     date: '2026-11-27',
     title: 'Lock or sign out safely while a portfolio is created, restored or re-encrypted',
-    body: "Locking the tab or signing out while a portfolio is being created, restored to an earlier version or re-encrypted after you remove a partner now leaves nothing of it in the locked tab or in the next account's session. A restore stopped this way can run again once you unlock.",
+    body: "Creating a portfolio, restoring an earlier version, or re-encrypting one after a partner leaves or is removed now copes with the tab locking or you signing out midway. Nothing from it reaches the next account's session, and a restore the lock stops can run again once you unlock.",
     plan: 'family',
     security: true,
   },
