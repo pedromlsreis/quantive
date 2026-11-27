@@ -194,8 +194,9 @@ function coerceGoals(value: unknown): Goal[] {
 
 /**
  * A source as pages read it: name, volatility and category as text, flags as
- * plain values. One without a name is dropped; another field of the wrong type
- * falls back to what a missing one means, so the source keeps its settings.
+ * booleans (pages test them for truth, so a string "false" would count as
+ * set). One without a name is dropped; another field of the wrong type falls
+ * back to what a missing one means, so the source keeps its settings.
  */
 function coerceRefSource(value: unknown): RefSource | null {
   if (!isRecord(value) || typeof value.idSource !== 'string') return null;
@@ -203,9 +204,9 @@ function coerceRefSource(value: unknown): RefSource | null {
     ...value,
     idSource: value.idSource,
     volatType: typeof value.volatType === 'string' ? value.volatType : 'Unknown',
-    transferableInDays: isPrimitive(value.transferableInDays) ? value.transferableInDays : false,
+    transferableInDays: typeof value.transferableInDays === 'boolean' ? value.transferableInDays : false,
     category: typeof value.category === 'string' ? value.category : undefined,
-    isPaused: isPrimitive(value.isPaused) ? value.isPaused : undefined,
+    isPaused: typeof value.isPaused === 'boolean' ? value.isPaused : undefined,
   } as RefSource;
 }
 

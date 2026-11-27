@@ -1405,7 +1405,12 @@ describe('a shared portfolio whose content is malformed', () => {
             { date: unprintable, idSource: 'House', sourceVl: 7 },
             ...(p.content.facts as unknown[]),
           ],
-          refSources: [{}, { idSource: 'Odd', volatType: 5, transferableInDays: { formula: 'A1' }, category: 3 }, ...(p.content.refSources as unknown[])],
+          refSources: [
+            {},
+            { idSource: 'Odd', volatType: 5, transferableInDays: { formula: 'A1' }, category: 3 },
+            { idSource: 'Flags', volatType: 'Volatile', transferableInDays: 'false', isPaused: 'no' },
+            ...(p.content.refSources as unknown[]),
+          ],
           goals: [{ id: 'g1', name: 'House deposit', targetAmount: unprintable, targetCurrency: 'EUR', targetDate: '2027-01-01', createdAt: '2026-01-01' }],
         },
       };
@@ -1418,9 +1423,10 @@ describe('a shared portfolio whose content is malformed', () => {
     await waitFor(() => expect(storedValues()).toEqual([100, 150]));
     await act(async () => { await result.current.switchPortfolio('p1'); });
     expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([1000]);
-    expect(result.current.data?.refSources.map((s) => [s.idSource, s.volatType, s.transferableInDays, s.category])).toEqual([
-      ['Odd', 'Unknown', false, undefined],
-      ['House', 'Non-volatile', false, undefined],
+    expect(result.current.data?.refSources.map((s) => [s.idSource, s.volatType, s.transferableInDays, s.category, s.isPaused])).toEqual([
+      ['Odd', 'Unknown', false, undefined, undefined],
+      ['Flags', 'Volatile', false, undefined, undefined],
+      ['House', 'Non-volatile', false, undefined, undefined],
     ]);
     expect(result.current.goals).toEqual([]);
   });
