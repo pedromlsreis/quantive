@@ -227,6 +227,8 @@ export class PortfolioSync {
     } catch (e) {
       if (!isTransientError(e)) throw e;
       await this.deps.delay(RETRY_DELAY_MS);
+      // Disposed meanwhile (a sign-out, say): the retry would write as whoever holds the tab now.
+      if (this.disposed) throw e;
       return write();
     }
   }

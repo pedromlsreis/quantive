@@ -22,9 +22,11 @@ const authState: {
 };
 
 const portfolioKeys = new Map<string, Uint8Array>();
+// One data key for the session, as KeySession holds it: a new one reads as a lock and unlock.
+const dataKey = new Uint8Array(32);
 const keySessionMock = {
   status: 'unlocked-encrypted' as const,
-  getDataKey: () => new Uint8Array(32),
+  getDataKey: () => dataKey,
   getPortfolioKey: (id: string) => portfolioKeys.get(id) ?? null,
   setPortfolioKey: (id: string, key: Uint8Array) => { portfolioKeys.set(id, key); },
   forgetPortfolioKey: (id: string) => { portfolioKeys.delete(id); },
@@ -282,6 +284,28 @@ describe('managing', () => {
     expect(vi.mocked(createPortfolioRemote).mock.calls[0][3]).toBe('Company');
     expect(result.current.activePortfolioId).toBe('p2');
     expect(result.current.data).toBeNull();
+  });
+
+  // Value: protects=a portfolio created while an older list was loading survives that list landing;
+  // fails_when=the older list, read before the portfolio existed, runs its cleanup and disposes the new portfolio's sync;
+  // why_new=the create test above has no list in flight; seam=none; no_claim=real request timing (list and create mocked; unit only)
+  it('keeps a portfolio created while an older list was loading', async () => {
+    const company = () => ({ ...loaded('p2', 'Company'), content: { facts: [], refSources: [], goals: [] } });
+    vi.mocked(createPortfolioRemote).mockResolvedValue(company());
+    vi.mocked(fetchPortfolio).mockImplementation(async (_c, _u, _dk, id) => (id === 'p2' ? company() : loaded('p1', 'Joint')));
+    const { result, rerender } = await renderLoaded();
+    // A reload's list hangs: it was read before Company existed.
+    let land!: () => void;
+    vi.mocked(listPortfolios).mockImplementationOnce(() => new Promise((resolve) => {
+      land = () => resolve({ loaded: [loaded('p1', 'Joint')], failed: 0 });
+    }));
+    authState.user = { ...authState.user! };
+    rerender();
+    await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(2));
+    await act(async () => { await result.current.createPortfolio('Company'); });
+    expect(result.current.activePortfolioId).toBe('p2');
+    await act(async () => { land(); await new Promise((r) => setTimeout(r, 0)); });
+    expect(result.current.extraPortfolios.map((p) => p.id)).toEqual(['p1', 'p2']);
   });
 
   it('refuses a name that is already used, without calling the server', async () => {

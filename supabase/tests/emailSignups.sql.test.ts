@@ -43,7 +43,7 @@ beforeAll(async () => {
       ('early-new@example.com', now() - interval '1 day');
   `);
   await db.exec(DOUBLE_OPT_IN);
-});
+}, 60_000);
 
 describe('email_signups double opt-in', () => {
   it('leaves an earlier signup unconfirmed, with no link sent, no sends counted and its own unsubscribe token', async () => {

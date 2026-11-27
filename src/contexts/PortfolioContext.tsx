@@ -406,6 +406,12 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   const queueShareWriteRef = useRef<(userId: string) => Promise<boolean>>(async () => false);
   // Bumped by every load and switch; a load that finishes after a newer one started is dropped.
   const loadSeqRef = useRef(0);
+  // Each portfolio list takes a number when it starts; the newest one applied,
+  // or a portfolio created here, sets listedSeqRef. A list that lands below it
+  // is older than what's in memory, and its cleanup would drop portfolios
+  // added since, with any edit not saved yet.
+  const listSeqRef = useRef(0);
+  const listedSeqRef = useRef(0);
   const goalCrossedRef = useRef<Set<string>>(new Set());
 
   // "All portfolios": the personal portfolio as last read for that view, and
@@ -422,8 +428,9 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // time, in order, so an older payload never lands over a newer one. Reads
   // for display wait for them too. Reset on user change.
   const personalWriteQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  // Bumped on user change so a late share save leaves state alone.
-  const shareSeqRef = useRef(0);
+  // Bumped on user change, so a read or share save the previous account
+  // started leaves this account's state alone.
+  const accountSeqRef = useRef(0);
   // Bumped by each personal save and on user change. A queued save that a
   // newer one overtook is skipped: the newer one sends the whole portfolio.
   const personalSaveSeqRef = useRef(0);
@@ -446,8 +453,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return run;
   }, []);
 
-  // The shares from a freshly read personal blob, with this tab's unsaved ones on top.
-  const adoptStoredShares = useCallback((stored: Record<string, number>) => {
+  // The shares from a freshly read personal blob, with this tab's unsaved ones
+  // on top. `account` is accountSeqRef when the read started: a read the
+  // previous account started is dropped.
+  const adoptStoredShares = useCallback((stored: Record<string, number>, account: number) => {
+    if (account !== accountSeqRef.current) return;
     const unsaved = [...dirtySharesRef.current].map((id) => [id, shareOf(sharesRef.current, id)] as const);
     sharesRef.current = { ...stored, ...Object.fromEntries(unsaved) };
   }, []);
@@ -605,7 +615,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       allPersonalRef.current = null;
       sharesRef.current = null;
       dirtySharesRef.current.clear();
-      shareSeqRef.current += 1;
+      accountSeqRef.current += 1;
       personalSaveSeqRef.current += 1;
       personalWriteQueueRef.current = Promise.resolve();
       unsavedPersonalRef.current = null;
@@ -761,11 +771,16 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // save failed, its unsaved copy instead. null when there is none or when it
   // holds no valid facts. Throws when the read fails or the snapshot can't be
   // decrypted (a toast says so): neither is an empty portfolio, and an edit
-  // over either would overwrite the stored history. Also reads the user's
-  // shares of their extra portfolios from it, so the next personal save keeps them.
+  // over either would overwrite the stored history. A lock during the read
+  // throws PortfolioLockedError instead, with no toast: the key is gone, which
+  // says nothing about the stored snapshot. Also reads the user's shares of
+  // their extra portfolios from it, so the next personal save keeps them,
+  // unless another account signed in during the read.
   // Authed users: cloud is the source of truth post-decode; nothing is
   // mirrored into localStorage (see encryption.md §8.6).
   const loadPersonalData = useCallback(async (userId: string): Promise<PortfolioData | null> => {
+    const account = accountSeqRef.current;
+    const dk = getDataKey();
     await personalWriteQueueRef.current;
     if (unsavedPersonalRef.current) return unsavedPersonalRef.current;
     const { data: rows, error } = await supabase
@@ -774,9 +789,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .limit(1);
+    if (getDataKey() !== dk) throw new PortfolioLockedError();
     if (error) throw error;
     if (!rows || rows.length === 0) {
-      adoptStoredShares({});
+      adoptStoredShares({}, account);
       return null;
     }
 
@@ -787,10 +803,11 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       cloudData = decoded.data as RawCloudPortfolio;
     } catch (e) {
       console.error('[cloud-load] failed to decode snapshot:', e);
-      toast.error("Couldn't decrypt your saved data. Sign out and back in to retry.");
+      // A read that outlived its account fails on the next account's key, which says nothing about that account's data.
+      if (account === accountSeqRef.current) toast.error("Couldn't decrypt your saved data. Sign out and back in to retry.");
       throw e;
     }
-    adoptStoredShares(coerceShares(cloudData.portfolioShares));
+    adoptStoredShares(coerceShares(cloudData.portfolioShares), account);
 
     const { data: validData, skipped } = normalisePortfolio(cloudData, 'cloud-load');
     if (skipped > 0) {
@@ -809,15 +826,22 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // The personal part of "All portfolios". A failed read keeps what this tab
   // last read, like a failed extra-portfolio fetch, and says the total may be
   // off. False when the shares were never read: every portfolio would count
-  // in full, so the view can't open.
+  // in full, so the view can't open. Also false, with no toast, when another
+  // account signed in during the read: none of it is theirs. A lock during the
+  // read rethrows, so the caller stops quietly: the unlock opens the view again.
   const readPersonalForAll = useCallback(async (userId: string): Promise<boolean> => {
+    const account = accountSeqRef.current;
+    let personal: PortfolioData | null = null;
     let failed = false;
     try {
-      allPersonalRef.current = await loadPersonalData(userId);
+      personal = await loadPersonalData(userId);
     } catch (e) {
+      if (e instanceof PortfolioLockedError) throw e;
       console.error('[portfolios] personal read failed:', e);
       failed = true;
     }
+    if (account !== accountSeqRef.current) return false;
+    if (!failed) allPersonalRef.current = personal;
     if (sharesRef.current === null) {
       toast.error("Couldn't load your share of each portfolio, so All portfolios can't add them up. Try again in a moment.", {
         id: 'all-personal-read',
@@ -832,6 +856,25 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     return true;
   }, [loadPersonalData]);
 
+  // A lock zeroes the data key in place, so a portfolio key unwrapped after a
+  // fetch's network wait may have been unwrapped with zeros, which a server
+  // could have wrapped for. What a fetch brings is kept only while the key it
+  // used is still the live one; otherwise its key is zeroed and the lock reported.
+  const fetchUnderLiveKey = useCallback(async (userId: string, dk: Uint8Array, portfolioId: string): Promise<LoadedPortfolio | null> => {
+    let loaded: LoadedPortfolio | null;
+    try {
+      loaded = await fetchPortfolio(supabase, userId, dk, portfolioId);
+    } catch (e) {
+      if (getDataKey() !== dk) throw new PortfolioLockedError();
+      throw e;
+    }
+    if (getDataKey() !== dk) {
+      loaded?.portfolioKey.fill(0);
+      throw new PortfolioLockedError();
+    }
+    return loaded;
+  }, [getDataKey]);
+
   // Callbacks a sync makes after renders; each reaches the current state
   // through syncHandlersRef, like the savers did before.
   const syncHandlers = useMemo(() => {
@@ -842,6 +885,15 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     };
     return {
       save: async (portfolioId: string, meta: ExtraPortfolioMeta, next: PortfolioData | null): Promise<SaveOutcome> => {
+        // A lock drops every portfolio key, and the unlock's portfolio list
+        // brings them back. When that list failed, fetch this one's key: the
+        // tab is unlocked, so the save mustn't ask the user to unlock.
+        if (!getPortfolioKey(portfolioId)) {
+          const { userId, dk } = requireKeys();
+          const loaded = await fetchUnderLiveKey(userId, dk, portfolioId);
+          if (!loaded) return { status: 'forbidden' };
+          adoptPortfolioKey(loaded);
+        }
         const portfolioKey = getPortfolioKey(portfolioId);
         if (!portfolioKey) throw new PortfolioLockedError();
         return savePortfolio(supabase, { meta, portfolioKey, data: next });
@@ -854,7 +906,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       },
       fetch: async (portfolioId: string): Promise<SyncDoc | null> => {
         const { userId, dk } = requireKeys();
-        const loaded = await fetchPortfolio(supabase, userId, dk, portfolioId);
+        const loaded = await fetchUnderLiveKey(userId, dk, portfolioId);
         if (!loaded) return null;
         adoptPortfolioKey(loaded);
         return { meta: loaded.meta, data: extraPortfolioData(loaded.content) };
@@ -894,7 +946,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         });
       },
     };
-  }, [user, getDataKey, getPortfolioKey, setPortfolioKey, adoptPortfolioKey, putExtraMeta, commitData, setDefaultDateRange, removeExtra, refreshAll]);
+  }, [user, getDataKey, getPortfolioKey, setPortfolioKey, adoptPortfolioKey, fetchUnderLiveKey, putExtraMeta, commitData, setDefaultDateRange, removeExtra, refreshAll]);
 
   const syncHandlersRef = useRef(syncHandlers);
   useEffect(() => { syncHandlersRef.current = syncHandlers; }, [syncHandlers]);
@@ -950,24 +1002,38 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Every extra portfolio the user can open, with keys adopted, syncs
-  // attached and the list replaced. Empty without Family, and before the
-  // portfolios migration exists. Owned portfolios a partner has left are
-  // re-keyed here (encryption.md §8.9).
-  const loadExtraPortfolios = useCallback(async (userId: string): Promise<LoadedPortfolio[]> => {
+  // attached and the list replaced. Empty without Family. Owned portfolios a
+  // partner has left are re-keyed here (encryption.md §8.9). Null when the
+  // list couldn't be fetched (offline, say, or before the portfolios
+  // migration exists), the tab locked meanwhile, or a newer list landed
+  // first: the portfolios in memory then stay as they are, their syncs still
+  // holding any edit not saved yet.
+  const loadExtraPortfolios = useCallback(async (userId: string): Promise<LoadedPortfolio[] | null> => {
     const dk = getDataKey();
     if (!dk) return [];
-    let loaded: LoadedPortfolio[] = [];
+    const account = accountSeqRef.current;
+    const listSeq = ++listSeqRef.current;
+    let result: { loaded: LoadedPortfolio[]; failed: number } | null = null;
     try {
-      const result = await listPortfolios(supabase, userId, dk);
-      loaded = result.loaded;
-      if (result.failed > 0) {
-        toast.error(
-          `${result.failed} ${result.failed > 1 ? "portfolios couldn't be decrypted and are" : "portfolio couldn't be decrypted and is"} hidden.`,
-          { id: 'portfolio-decrypt-error' },
-        );
-      }
+      result = await listPortfolios(supabase, userId, dk);
     } catch (e) {
       console.debug('[cloud-load] extra portfolios unavailable:', e);
+    }
+    // A list that outlived its account fails to decrypt on the zeroed key, and
+    // the cleanup below would empty the next account's portfolios: drop it.
+    if (account !== accountSeqRef.current) return [];
+    // A lock meanwhile zeroed the key too: every portfolio would count as
+    // undecryptable, and the cleanup would drop their unsaved edits.
+    if (getDataKey() !== dk) return null;
+    if (listSeq < listedSeqRef.current) return null;
+    if (!result) return null;
+    listedSeqRef.current = listSeq;
+    const { loaded, failed } = result;
+    if (failed > 0) {
+      toast.error(
+        `${failed} ${failed > 1 ? "portfolios couldn't be decrypted and are" : "portfolio couldn't be decrypted and is"} hidden.`,
+        { id: 'portfolio-decrypt-error' },
+      );
     }
     const listed = new Set(loaded.map((p) => p.meta.id));
     for (const id of extraMetaRef.current.keys()) {
@@ -1021,6 +1087,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       let next: PortfolioData | null;
       if (isAll) {
         await refreshExtras();
+        // Overtaken or locked while refreshing: stop before reading Personal.
+        // A read started after another account signed in would keep what it
+        // finds as that account's.
+        if (seq !== loadSeqRef.current || getDataKey() !== dk) return;
         const usable = await readPersonalForAll(user.id);
         // Superseded, or the last extra portfolio went while refreshing.
         if (seq !== loadSeqRef.current) return;
@@ -1040,7 +1110,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         openedPersonal = true;
         next = await loadPersonalData(user.id);
       } else {
-        const loaded = await fetchPortfolio(supabase, user.id, dk, portfolioId);
+        const loaded = await fetchUnderLiveKey(user.id, dk, portfolioId);
         if (loaded) {
           adoptPortfolioKey(loaded);
           const sync = ensureSync(loaded);
@@ -1067,17 +1137,21 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (e) {
       console.error('[portfolios] switch failed:', e);
-      // Personal opened on nothing: refuse edits until a load succeeds.
-      if (seq === loadSeqRef.current && openedPersonal) {
-        personalLoadFailedRef.current = true;
-        toast.error(PERSONAL_LOAD_FAILED_MESSAGE, { id: 'personal-load-failed' });
-      } else {
-        toast.error("Couldn't open this portfolio. Try again.");
+      // An overtaken switch says nothing: the newer one, or the next account, owns the screen.
+      // Nor does one a lock interrupted, Personal included: the unlock reopens the portfolio.
+      if (seq === loadSeqRef.current && !(e instanceof PortfolioLockedError)) {
+        if (openedPersonal) {
+          // Personal opened on nothing: refuse edits until a load succeeds.
+          personalLoadFailedRef.current = true;
+          toast.error(PERSONAL_LOAD_FAILED_MESSAGE, { id: 'personal-load-failed' });
+        } else {
+          toast.error("Couldn't open this portfolio. Try again.");
+        }
       }
     } finally {
       if (seq === loadSeqRef.current) setIsCloudLoading(false);
     }
-  }, [user, getDataKey, activate, commitData, loadPersonalData, adoptPortfolioKey, ensureSync, putExtraMeta, removeExtra, applyLoadedData, refreshExtras, buildAllParts, readPersonalForAll, resumeUnsavedSave]);
+  }, [user, getDataKey, activate, commitData, loadPersonalData, adoptPortfolioKey, fetchUnderLiveKey, ensureSync, putExtraMeta, removeExtra, applyLoadedData, refreshExtras, buildAllParts, readPersonalForAll, resumeUnsavedSave]);
 
   // Sync callbacks can outlive the render they were made in.
   useEffect(() => { switchPortfolioRef.current = switchPortfolio; }, [switchPortfolio]);
@@ -1099,6 +1173,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     }
     try {
       const created = await createPortfolioRemote(supabase, user.id, dk, name);
+      // A list still loading predates this portfolio, so it mustn't apply.
+      listedSeqRef.current = ++listSeqRef.current;
       adoptPortfolioKey(created);
       ensureSync(created);
       putExtraMeta(created.meta);
@@ -1272,19 +1348,22 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
   // Before a personal save: shares set on another device since this tab read
   // them must survive it. Best effort; unread, the save keeps this tab's shares.
   const refreshStoredShares = useCallback(async (userId: string) => {
+    const account = accountSeqRef.current;
     try {
-      adoptStoredShares((await readPersonalBlob(userId)).stored);
+      const { stored } = await readPersonalBlob(userId);
+      adoptStoredShares(stored, account);
     } catch {
       // Offline, locked or undecryptable: keep the shares in memory.
     }
   }, [adoptStoredShares, readPersonalBlob]);
 
   // Saves the shares into the personal blob: reads the latest blob, merges,
-  // writes it back. Reading first means entries saved from another device
-  // since the view opened aren't overwritten, and a blob that can't be
-  // decrypted is left as it is. Never rejects.
+  // writes it back. Reading first keeps entries another device saved before
+  // the read, and leaves a blob that can't be decrypted as it is. The write
+  // isn't conditional, so an entry saved between the read and the write is
+  // lost (encryption.md §9.1). Never rejects.
   const writeShares = useCallback(async (userId: string, seq: number): Promise<boolean> => {
-    const current = () => seq === shareSeqRef.current;
+    const current = () => seq === accountSeqRef.current;
     const onScreen = () => current() && activePortfolioIdRef.current === ALL_PORTFOLIOS_ID;
     if (!current() || dirtySharesRef.current.size === 0) return true;
     if (!getDataKey()) {
@@ -1308,7 +1387,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       for (const [id, share] of edited) {
         if (shareOf(sharesRef.current, id) === share) dirtySharesRef.current.delete(id);
       }
-      adoptStoredShares(shares);
+      adoptStoredShares(shares, seq);
       // An unsaved personal copy is what Personal shows, so the view keeps counting it.
       allPersonalRef.current = unsavedPersonalRef.current ?? (base.facts.length > 0 ? base : null);
       refreshAll();
@@ -1337,7 +1416,7 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
   // Each share save sends the shares as they are when its turn comes.
   const queueShareWrite = useCallback((userId: string): Promise<boolean> => {
-    const seq = shareSeqRef.current;
+    const seq = accountSeqRef.current;
     return enqueuePersonalWrite(() => writeShares(userId, seq));
   }, [writeShares, enqueuePersonalWrite]);
   // switchPortfolio and the cloud load, defined above, retry unsaved shares through it.
@@ -1399,16 +1478,20 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     const userId = user.id;
     const saveSeq = ++personalSaveSeqRef.current;
     const isCurrent = () => saveSeq === personalSaveSeqRef.current;
-    // A switch makes this save stale for status only: it still writes, retries
-    // and reports a failure. Only a newer personal save replaces it.
+    // A portfolio switch makes this save stale for status only: it still
+    // writes, retries and reports a failure. A newer personal save or an
+    // account change replaces it, even mid-read.
     const outcome = await enqueuePersonalWrite(async () => {
       if (!isCurrent()) return null;
       const result = await attemptCloudSync(portfolioData, {
         // Re-reads the stored shares unless the account can't have any, then
         // encrypts with the live key: the save waits on that read, its turn
         // and the retry's delay, and a lock meanwhile wipes a key read earlier.
+        // Replaced during the read, it writes nothing; attemptCloudSync then
+        // returns null.
         upsert: async (p) => {
           if (mayHoldShares()) await refreshStoredShares(userId);
+          if (!isCurrent()) return;
           return upsertEncryptedSnapshot(supabase, userId, withShares(p), liveDataKey());
         },
         isLatest,
@@ -1484,13 +1567,19 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
 
     const loadFromCloud = async () => {
       const seq = ++loadSeqRef.current;
+      const dk = getDataKey();
       try {
-        const extras = await loadExtraPortfolios(user.id);
-        if (seq !== loadSeqRef.current) return;
+        const listed = await loadExtraPortfolios(user.id);
+        // Locked while listing: the unlock runs this load again.
+        if (seq !== loadSeqRef.current || getDataKey() !== dk) return;
+        // A list that couldn't be fetched (offline, say) leaves the portfolios
+        // in memory, which stand in for it: the one open shows again from its
+        // sync, even when this load overtook the switch that opened it.
+        const extraIds = listed ? listed.map((p) => p.meta.id) : [...extraMetaRef.current.keys()];
         // Reopen the portfolio the user last had open, if it's still theirs.
         // Its sync's view keeps any edits not saved before a lock.
         const remembered = readActivePortfolioId(user.id);
-        if (remembered === ALL_PORTFOLIOS_ID && extras.length > 0) {
+        if (remembered === ALL_PORTFOLIOS_ID && extraIds.length > 0) {
           const usable = await readPersonalForAll(user.id);
           if (seq !== loadSeqRef.current) return;
           // Without the shares the view can't open; Personal opens below instead.
@@ -1509,10 +1598,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         // This load also reruns over an open view (each auth event brings a new
         // user object), so the view it opens never keeps the previous data:
         // All portfolios' combined copy must never become editable as Personal.
-        const target = extras.find((p) => p.meta.id === remembered);
+        const target = extraIds.find((id) => id === remembered);
         if (target) {
-          activate(target.meta.id);
-          const next = syncsRef.current.get(target.meta.id)?.doc.data ?? null;
+          activate(target);
+          const next = syncsRef.current.get(target)?.doc.data ?? null;
           if (next) applyLoadedData(next);
           else commitData(null);
           return;
@@ -1525,7 +1614,8 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
         try {
           personal = await loadPersonalData(user.id);
         } catch (e) {
-          if (seq === loadSeqRef.current && !(wasPersonal && personalShownRef.current)) {
+          // A lock meanwhile isn't a failed load: the unlock runs this load again.
+          if (seq === loadSeqRef.current && !(e instanceof PortfolioLockedError) && !(wasPersonal && personalShownRef.current)) {
             personalLoadFailedRef.current = true;
             toast.error(PERSONAL_LOAD_FAILED_MESSAGE, { id: 'personal-load-failed' });
           }
