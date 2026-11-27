@@ -24,6 +24,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: 'lock-safe-portfolio-changes',
+    date: '2026-11-27',
+    title: 'Lock or sign out safely while a portfolio is created, restored or re-encrypted',
+    body: "Locking the tab or signing out while a portfolio is being created, restored to an earlier version or re-encrypted after you remove a partner now leaves nothing of it in the locked tab or in the next account's session. A restore stopped this way can run again once you unlock.",
+    plan: 'family',
+    security: true,
+  },
+  {
     id: 'shared-portfolios-open-safely',
     date: '2026-11-27',
     title: 'Open your portfolios even when a shared one holds damaged data',
