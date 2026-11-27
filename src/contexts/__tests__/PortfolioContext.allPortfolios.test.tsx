@@ -1529,6 +1529,33 @@ describe('a lock or an account change while a key is made or used', () => {
     expect(created.portfolioKey.every((b) => b === 0)).toBe(true);
   });
 
+  // Value: protects=a portfolio whose create answers after the tab locked and unlocked again opens as created;
+  // fails_when=the create treats any change of data key as a lock still in place and drops the portfolio, counting on an unlock's list that was read before the create committed;
+  // why_new=the test above answers while the tab is still locked; seam=none; no_claim=which of the list and the create the server ran first (create, list and fetch mocked; unit only)
+  it('opens a portfolio whose create answers after the unlock', async () => {
+    vi.mocked(fetchPortfolio).mockImplementation(async (_c, _u, _dk, id) => (id === 'p1' ? joint() : id === 'p2' ? joint(1, 0, 'p2', 'Company') : null));
+    const { result, rerender } = await openPersonal();
+    const slowCreate = deferred();
+    const created = joint(1, 0, 'p2', 'Company');
+    vi.mocked(createPortfolioRemote).mockImplementationOnce(async () => { await slowCreate.promise; return created; });
+    let creating!: Promise<boolean>;
+    act(() => { creating = result.current.createPortfolio('Company'); });
+    await waitFor(() => expect(createPortfolioRemote).toHaveBeenCalledTimes(1));
+    lock(rerender);
+    // The unlock's list was read before the create committed, so it holds only Joint.
+    const lists = vi.mocked(listPortfolios).mock.calls.length;
+    unlock(rerender);
+    await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(lists + 1));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    let ok = false;
+    await act(async () => { slowCreate.resolve(); ok = await creating; });
+    expect(ok).toBe(true);
+    expect(result.current.extraPortfolios.map((p) => p.id)).toContain('p2');
+    expect(result.current.activePortfolioId).toBe('p2');
+    expect(portfolioKeys.get('p2')).toBe(created.portfolioKey);
+    expect(created.portfolioKey.every((b) => b === 1)).toBe(true);
+  });
+
   // Value: protects=a portfolio the first account created while another account signed in never shows up in the next account's session;
   // fails_when=the create's continuation installs the first account's portfolio in the next session, switches to it and says access is gone;
   // why_new=the test above keeps the account; seam=none; no_claim=the server-side create or its row policy (create and fetch mocked; unit only)
@@ -1581,5 +1608,35 @@ describe('a lock or an account change while a key is made or used', () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(rotatePortfolioKey).toHaveBeenCalledTimes(1);
     expect(portfolioKeys.get('p1')?.every((b) => b === 9)).toBe(true);
+  });
+
+  // Value: protects=a save after a rotation that answers once the tab was unlocked again encrypts with the rotation's key, the one its epoch needs;
+  // fails_when=the rotate handler drops its key whenever the data key changed, so the epoch-1 key an unlock's list brought encrypts the next save at epoch 2 and the portfolio can't be read at its epoch;
+  // why_new=the test above answers while the tab is still locked; seam=none; no_claim=which of the list and the rotation the server ran first (rotation, list and save mocked; unit only)
+  it('saves under the new key of a rotation that answers after the unlock', async () => {
+    const { result, rerender } = await openPersonal();
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    const slowRotation = deferred();
+    const newKey = new Uint8Array(32).fill(9);
+    vi.mocked(rotatePortfolioKey).mockImplementationOnce(async () => {
+      await slowRotation.promise;
+      return { outcome: { status: 'ok', revision: 2, keyEpoch: 2 }, portfolioKey: newKey };
+    });
+    let removing!: Promise<boolean>;
+    act(() => { removing = result.current.removePartner('p1', 'u2'); });
+    await waitFor(() => expect(rotatePortfolioKey).toHaveBeenCalledTimes(1));
+    lock(rerender);
+    // The unlock's list was read before the rotation committed, so it brings the epoch-1 key.
+    const lists = vi.mocked(listPortfolios).mock.calls.length;
+    unlock(rerender);
+    await waitFor(() => expect(listPortfolios).toHaveBeenCalledTimes(lists + 1));
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    await act(async () => { slowRotation.resolve(); await removing; });
+    expect(portfolioKeys.get('p1')).toBe(newKey);
+    await act(async () => { result.current.addMeasurement([{ name: 'House', value: 2000, currency: 'EUR' }]); });
+    await waitFor(() => expect(savePortfolio).toHaveBeenCalled());
+    const [, { meta, portfolioKey }] = vi.mocked(savePortfolio).mock.calls.at(-1)!;
+    expect(meta.keyEpoch).toBe(2);
+    expect(portfolioKey).toBe(newKey);
   });
 });

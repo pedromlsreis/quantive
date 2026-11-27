@@ -943,13 +943,16 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
           portfolioKey?.fill(0);
           throw new PortfolioLockedError();
         }
-        // Locked meanwhile: the new key mustn't outlive the data key it was
-        // wrapped under, but a rotation that went through still counts, or the
-        // unlock would re-encrypt again. The unlock's list brings the key back.
-        if (getDataKey() !== dk) {
+        // Still locked: the new key mustn't outlive the lock, but a rotation that
+        // went through still counts, or the unlock would re-encrypt again. The
+        // unlock's list, read after the rotation, brings the key back.
+        if (!getDataKey()) {
           portfolioKey?.fill(0);
           return outcome;
         }
+        // Unlocked again or never locked: keep it. It was made here, not
+        // unwrapped from server data, and it replaces the retired key that an
+        // unlock's list read before the rotation committed may have brought.
         if (outcome.status === 'ok' && portfolioKey) setPortfolioKey(portfolioId, portfolioKey);
         return outcome;
       },
@@ -1223,12 +1226,17 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     try {
       const account = accountSeqRef.current;
       const created = await createPortfolioRemote(supabase, user.id, dk, name);
-      // Locked or signed out meanwhile: the new key mustn't outlive the data
-      // key it was wrapped under. The unlock's list brings the portfolio back;
-      // another account's session never sees it.
-      if (account !== accountSeqRef.current || getDataKey() !== dk) {
+      // Signed out meanwhile: another account's session never sees it.
+      if (account !== accountSeqRef.current) {
         created.portfolioKey.fill(0);
-        return account === accountSeqRef.current;
+        return false;
+      }
+      // Still locked: the new key mustn't outlive the lock, and the unlock's
+      // list, read after the create, brings the portfolio back. Unlocked again,
+      // it opens as usual: the key was made here, and that list may predate it.
+      if (!getDataKey()) {
+        created.portfolioKey.fill(0);
+        return true;
       }
       // A list still loading predates this portfolio, so it mustn't apply.
       listedSeqRef.current = ++listSeqRef.current;
