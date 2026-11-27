@@ -1385,3 +1385,24 @@ describe('a portfolio list that lands after a newer one', () => {
     await waitFor(() => expect(saves[saves.length - 1][1].data?.facts.map((f) => f.sourceVl)).toContain(700));
   });
 });
+
+describe('a shared portfolio whose content is malformed', () => {
+  // Value: protects=a shared portfolio whose decrypted content holds malformed entries can't keep Personal from opening, or itself from being listed;
+  // fails_when=normalising a null fact throws inside the list, the cloud load stops there, and Personal refuses every entry as still loading, on every load;
+  // why_new=no test feeds the list content that decrypts but isn't the expected shape; seam=none; no_claim=the client that wrote it (list and fetch mocked; unit only)
+  it('opens Personal and the portfolio when its content has malformed entries', async () => {
+    const malformed = (): LoadedPortfolio => {
+      const p = joint();
+      return { ...p, content: { ...p.content, facts: [null, ...(p.content.facts as unknown[])], refSources: [{}, ...(p.content.refSources as unknown[])] } };
+    };
+    vi.mocked(listPortfolios).mockImplementation(async () => ({ loaded: [malformed()], failed: 0 }));
+    vi.mocked(fetchPortfolio).mockImplementation(async (_c, _u, _dk, id) => (id === 'p1' ? malformed() : null));
+    const { result } = await openPersonal();
+    expect(result.current.extraPortfolios.map((p) => p.id)).toEqual(['p1']);
+    await act(async () => { result.current.addMeasurement([{ name: 'Savings', value: 150, currency: 'EUR' }]); });
+    await waitFor(() => expect(storedValues()).toEqual([100, 150]));
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([1000]);
+    expect(result.current.data?.refSources.map((s) => s.idSource)).toEqual(['House']);
+  });
+});
