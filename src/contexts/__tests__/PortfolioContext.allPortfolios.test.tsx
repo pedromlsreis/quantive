@@ -84,6 +84,8 @@ vi.mock('@/lib/portfolios', async (importOriginal) => {
     fetchPortfolio: vi.fn(),
     savePortfolio: vi.fn(),
     rotatePortfolioKey: vi.fn(),
+    createPortfolio: vi.fn(),
+    openRevision: vi.fn(),
   };
 });
 
@@ -103,7 +105,15 @@ const { toast } = vi.hoisted(() => ({
 vi.mock('sonner', () => ({ toast }));
 
 import { upsertEncryptedSnapshot } from '@/lib/cloudSync';
-import { fetchPortfolio, listPortfolios, savePortfolio, type LoadedPortfolio } from '@/lib/portfolios';
+import {
+  createPortfolio as createPortfolioRemote,
+  fetchPortfolio,
+  listPortfolios,
+  openRevision,
+  rotatePortfolioKey,
+  savePortfolio,
+  type LoadedPortfolio,
+} from '@/lib/portfolios';
 import { removeMember } from '@/lib/portfolioSharing';
 import { PortfolioProvider, usePortfolio } from '@/contexts/PortfolioContext';
 
@@ -1451,5 +1461,94 @@ describe('a key from an older epoch', () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(savePortfolio).not.toHaveBeenCalled();
     expect(portfolioKeys.has('p1')).toBe(false);
+  });
+});
+
+describe('a lock or an account change while a key is made or used', () => {
+  // Value: protects=a version restore that a lock interrupted applies nothing it read, since it read with keys the lock zeroed;
+  // fails_when=the restore applies the version it read, and the unlock then saves it as the portfolio's content;
+  // why_new=the lock tests above cover key fetches for saves, switches and syncs, not the restore's own read; seam=none; no_claim=decryption with zeroed keys (openRevision mocked; unit only)
+  it('applies nothing from a version restore a lock interrupted', async () => {
+    const { result, rerender } = await openPersonal();
+    await act(async () => { await result.current.switchPortfolio('p1'); });
+    const slowRevision = deferred();
+    vi.mocked(openRevision).mockImplementationOnce(async () => {
+      await slowRevision.promise;
+      return { facts: [{ date: '2026-01-31', idSource: 'House', sourceVl: 666, currency: 'EUR' }], refSources: [], goals: [] };
+    });
+    let restoring!: Promise<boolean>;
+    act(() => { restoring = result.current.restorePortfolioVersion('p1', 1); });
+    await waitFor(() => expect(openRevision).toHaveBeenCalledTimes(1));
+    lock(rerender);
+    toast.error.mockClear();
+    let ok = true;
+    await act(async () => { slowRevision.resolve(); ok = await restoring; });
+    expect(ok).toBe(false);
+    expect(toast.error).not.toHaveBeenCalled();
+    expect(result.current.data?.facts.map((f) => f.sourceVl)).toEqual([1000]);
+    unlock(rerender);
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(vi.mocked(savePortfolio).mock.calls.some(([, { data }]) => data?.facts.some((f) => f.sourceVl === 666))).toBe(false);
+  });
+
+  // Value: protects=the key of a portfolio created while the tab locked never outlives the lock, and the create still counts as done;
+  // fails_when=the create installs the new key and portfolio in the tab after the lock cleared every key;
+  // why_new=no test locks during a create; seam=none; no_claim=the server-side create (create mocked; unit only)
+  it('drops the key of a portfolio created while the tab locked', async () => {
+    const { result, rerender } = await openPersonal();
+    const slowCreate = deferred();
+    const created = joint(1, 0, 'p2', 'Company');
+    vi.mocked(createPortfolioRemote).mockImplementationOnce(async () => { await slowCreate.promise; return created; });
+    let creating!: Promise<boolean>;
+    act(() => { creating = result.current.createPortfolio('Company'); });
+    await waitFor(() => expect(createPortfolioRemote).toHaveBeenCalledTimes(1));
+    lock(rerender);
+    let ok = false;
+    await act(async () => { slowCreate.resolve(); ok = await creating; });
+    expect(ok).toBe(true);
+    expect(portfolioKeys.has('p2')).toBe(false);
+    expect(created.portfolioKey.every((b) => b === 0)).toBe(true);
+  });
+
+  // Value: protects=a portfolio the first account created while another account signed in never shows up in the next account's session;
+  // fails_when=the create's continuation installs the first account's portfolio in the next session, switches to it and says access is gone;
+  // why_new=the test above keeps the account; seam=none; no_claim=the server-side create or its row policy (create and fetch mocked; unit only)
+  it('leaves the next account alone when a create finishes after an account change', async () => {
+    const { result, rerender } = await openPersonal();
+    const slowCreate = deferred();
+    const created = joint(1, 0, 'p2', 'Company');
+    vi.mocked(createPortfolioRemote).mockImplementationOnce(async () => { await slowCreate.promise; return created; });
+    let creating!: Promise<boolean>;
+    act(() => { creating = result.current.createPortfolio('Company'); });
+    await waitFor(() => expect(createPortfolioRemote).toHaveBeenCalledTimes(1));
+    await signInSecondAccount(rerender, () => result.current);
+    toast.error.mockClear();
+    let ok = true;
+    await act(async () => { slowCreate.resolve(); ok = await creating; });
+    expect(ok).toBe(false);
+    expect(result.current.activePortfolioId).toBe('all');
+    expect(result.current.extraPortfolios.map((p) => p.id)).toEqual(['p1']);
+    expect(portfolioKeys.has('p2')).toBe(false);
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+
+  // Value: protects=the new key of a rotation that a lock interrupted never outlives the lock;
+  // fails_when=the rotate handler installs the new key after the lock cleared every key;
+  // why_new=the lock tests above cover keys a fetch unwrapped, not a key a rotation made; seam=none; no_claim=the server-side rotation (rotation mocked; unit only)
+  it('drops the new key of a rotation the tab locked during', async () => {
+    const { result, rerender } = await openPersonal();
+    const slowRotation = deferred();
+    const newKey = new Uint8Array(32).fill(9);
+    vi.mocked(rotatePortfolioKey).mockImplementationOnce(async () => {
+      await slowRotation.promise;
+      return { outcome: { status: 'ok', revision: 2, keyEpoch: 2 }, portfolioKey: newKey };
+    });
+    let removing!: Promise<boolean>;
+    act(() => { removing = result.current.removePartner('p1', 'u2'); });
+    await waitFor(() => expect(rotatePortfolioKey).toHaveBeenCalledTimes(1));
+    lock(rerender);
+    await act(async () => { slowRotation.resolve(); await removing; });
+    expect(portfolioKeys.has('p1')).toBe(false);
+    expect(newKey.every((b) => b === 0)).toBe(true);
   });
 });
