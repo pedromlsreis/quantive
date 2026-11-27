@@ -24,6 +24,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: 'shared-edits-survive-reloads',
+    date: '2026-11-27',
+    title: 'Keep unsaved edits in shared portfolios when a load fails or the tab locks',
+    body: "An edit you haven't saved yet in a shared portfolio now stays when the tab comes back offline, locks while it reloads, or a slow reload lands late, and the portfolio you had open shows again. Signing out or switching accounts no longer carries anything from one account into the next one's session.",
+    security: true,
+  },
+  {
     id: 'all-portfolios',
     date: '2026-11-23',
     title: 'See all your portfolios added up',
