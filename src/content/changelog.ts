@@ -24,6 +24,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: readonly ChangelogEntry[] = [
   {
+    id: 'shared-portfolios-open-safely',
+    date: '2026-11-27',
+    title: 'Open your portfolios even when a shared one holds damaged data',
+    body: "A shared portfolio whose saved data is damaged or unexpected no longer stops Personal and your other portfolios from opening. An edit saved in a shared portfolio right after it's re-encrypted, as happens when you remove a partner, now stays readable to everyone in it.",
+    plan: 'family',
+    security: true,
+  },
+  {
     id: 'shared-edits-survive-reloads',
     date: '2026-11-27',
     title: 'Keep unsaved edits in shared portfolios when a load fails or the tab locks',
