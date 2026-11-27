@@ -171,6 +171,18 @@ describe('PortfolioSync', () => {
     expect(save).toHaveBeenCalledTimes(MAX_CONFLICTS + 1);
   });
 
+  // Value: protects=after a conflict a sync never steps back onto an older version than its own (a server restored from a backup), whose key may not be the one it holds;
+  // fails_when=the conflict path rebases onto the older version, and the next save goes out at its older revision and epoch;
+  // why_new=the conflict tests above only ever fetch a newer version; seam=none; no_claim=a real restore (save and fetch mocked; unit only)
+  it('never rebases onto an older version after a conflict', async () => {
+    const save = vi.fn(async (_m: ExtraPortfolioMeta): Promise<SaveOutcome> => ({ status: 'conflict', revision: 3 }));
+    const d = deps({ save, fetch: async () => ({ meta: { ...meta, revision: 3, keyEpoch: 1 }, data: null }) });
+    const sync = new PortfolioSync({ meta: { ...meta, revision: 5, keyEpoch: 2 }, data: null }, d);
+    sync.apply({ type: 'addEntries', date: day(1), entries: [{ name: 'Savings', value: 1, currency: 'EUR' }] });
+    expect(await sync.flush()).toBe('error');
+    expect(save.mock.calls.map(([m]) => [m.revision, m.keyEpoch])).toEqual(Array(MAX_CONFLICTS + 1).fill([5, 2]));
+  });
+
   it('discards edits and reports when access is gone', async () => {
     const d = deps({ save: async () => ({ status: 'forbidden' }) });
     const sync = new PortfolioSync({ meta, data: null }, d);
