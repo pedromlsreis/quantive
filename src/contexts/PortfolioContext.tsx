@@ -936,7 +936,23 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       },
       rotate: async (portfolioId: string, meta: ExtraPortfolioMeta, next: PortfolioData | null): Promise<RotateOutcome> => {
         const { userId, dk } = requireKeys();
+        const account = accountSeqRef.current;
         const { outcome, portfolioKey } = await rotatePortfolioKey(supabase, { meta, userId, dataKey: dk, data: next });
+        // Signed out meanwhile: none of it belongs to the next session.
+        if (account !== accountSeqRef.current) {
+          portfolioKey?.fill(0);
+          throw new PortfolioLockedError();
+        }
+        // Still locked: the new key mustn't outlive the lock, but a rotation that
+        // went through still counts, or the unlock would re-encrypt again. The
+        // unlock's list, read after the rotation, brings the key back.
+        if (!getDataKey()) {
+          portfolioKey?.fill(0);
+          return outcome;
+        }
+        // Unlocked again or never locked: keep it. It was made here, not
+        // unwrapped from server data, and it replaces the retired key that an
+        // unlock's list read before the rotation committed may have brought.
         if (outcome.status === 'ok' && portfolioKey) setPortfolioKey(portfolioId, portfolioKey);
         return outcome;
       },
@@ -1208,7 +1224,20 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
     try {
+      const account = accountSeqRef.current;
       const created = await createPortfolioRemote(supabase, user.id, dk, name);
+      // Signed out meanwhile: another account's session never sees it.
+      if (account !== accountSeqRef.current) {
+        created.portfolioKey.fill(0);
+        return false;
+      }
+      // Still locked: the new key mustn't outlive the lock, and the unlock's
+      // list, read after the create, brings the portfolio back. Unlocked again,
+      // it opens as usual: the key was made here, and that list may predate it.
+      if (!getDataKey()) {
+        created.portfolioKey.fill(0);
+        return true;
+      }
       // A list still loading predates this portfolio, so it mustn't apply.
       listedSeqRef.current = ++listSeqRef.current;
       adoptPortfolioKey(created);
@@ -1324,6 +1353,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
     if (!user || !sync || !dk || !currentKey || refuseReadOnly(portfolioId)) return false;
     try {
       const content = await openRevision(supabase, { userId: user.id, dataKey: dk, meta: sync.doc.meta, currentKey, revision });
+      // A lock meanwhile zeroed both keys in place, and a server could have
+      // made a version for zeroed keys: apply it only while both are live.
+      if (getDataKey() !== dk) throw new PortfolioLockedError();
+      if (getPortfolioKey(portfolioId) !== currentKey) throw new Error('the portfolio key changed during the restore');
       // An empty version (as created) shows the first-entry state, as on load.
       const restored = extraPortfolioData(content);
       sync.apply({ type: 'replaceAll', data: restored ?? { facts: [], refSources: [], goals: [] } });
@@ -1336,6 +1369,10 @@ export function PortfolioProvider({ children }: { children: React.ReactNode }) {
       analytics.portfolioVersionRestored();
       return true;
     } catch (e) {
+      // Locked meanwhile, whether the read failed on the zeroed keys or the
+      // check above refused it: the unlock screen is up, and the restore can
+      // run again after it.
+      if (getDataKey() !== dk) return false;
       console.error('[portfolios] restore failed:', e);
       toast.error("Couldn't restore that version. Try again.");
       return false;
